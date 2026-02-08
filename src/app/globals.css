@@ -1,26 +1,27 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Brand Colors */
+  --color-pitch-black: #0a0a0a;
+  /* Deep charcoal background */
+  --color-pitch-card: #171717;
+  /* Lighter gray for cards/sections */
+  --color-pitch-accent: #ccff00;
+  /* "Electric Volt" Green */
+  --color-pitch-secondary: #a3a3a3;
+  /* Muted gray text */
+
+  /* Typography */
+  --font-sans: var(--font-inter);
+  /* Clean body text */
+  --font-heading: var(--font-oswald);
+  /* Bold/Condensed headings */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Set default background and text color for the entire app */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-pitch-black);
+  color: #ffffff;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
