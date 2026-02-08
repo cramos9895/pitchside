@@ -40,20 +40,42 @@ export function ScheduleGenerator({ gameId, teams, onScheduleSaved }: ScheduleGe
                 let endDate = new Date(startDate.getTime() + 60 * 60000); // Default 60m
 
                 if (data.end_time) {
-                    // Try parsing as ISO first (Expected new behavior)
-                    const parsedEnd = new Date(data.end_time);
-                    if (!isNaN(parsedEnd.getTime())) {
-                        endDate = parsedEnd;
+                    if (data.end_time.includes('T') || data.end_time.includes('-')) {
+                        const parsedEnd = new Date(data.end_time);
+                        if (!isNaN(parsedEnd.getTime())) {
+                            endDate = parsedEnd;
+                        }
                     } else {
-                        // Fallback for potential legacy "HH:mm:ss" if any exist (though unlikely for timestamptz column)
-                        // This logic is kept just in case but likely parsedEnd handles it if it's a full string.
-                        // If it's just "20:00:00", new Date("20:00:00") might be invalid or epoch.
-                        // We will trust the ISO update for new games.
+                        // Parse "HH:mm:ss"
+                        const parts = data.end_time.split(':');
+                        const h = parseInt(parts[0], 10);
+                        const m = parseInt(parts[1], 10);
+
+                        if (!isNaN(h) && !isNaN(m)) {
+                            endDate = new Date(startDate);
+                            endDate.setHours(h);
+                            endDate.setMinutes(m);
+                            // Handle overflow handled by Duration calc below, 
+                            // but we should set the date correctly first if possible for diffMins?
+                            // Actually, the calc below manages the wrap around. 
+                            // But let's ensure endDate is correct relative to startDate for safety.
+                            if (endDate < startDate) {
+                                endDate.setDate(endDate.getDate() + 1);
+                            }
+                        }
                     }
                 }
 
-                const diffMs = endDate.getTime() - startDate.getTime();
-                const diffMins = Math.floor(diffMs / 60000);
+                // Duration (Fix: Explicit HH:MM math for Auto-Scheduler)
+                const startHour = startDate.getHours();
+                const startMin = startDate.getMinutes();
+                const endHour = endDate.getHours();
+                const endMin = endDate.getMinutes();
+
+                let diffMins = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+                if (diffMins < 0) diffMins += 24 * 60; // Handle next day
+
+
 
                 if (diffMins > 0) setDuration(diffMins);
             }

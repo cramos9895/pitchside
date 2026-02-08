@@ -54,8 +54,15 @@ export function GameCard({ game, user }: GameCardProps) {
     }
 
     // Duration
-    const diffMs = endDate.getTime() - gameDate.getTime();
-    const diffMins = Math.floor(diffMs / 60000); // Floor to avoid rounding up 89.9
+    // Duration (Fix: Explicit HH:MM math)
+    const startHour = gameDate.getHours();
+    const startMin = gameDate.getMinutes();
+    const endHour = endDate.getHours();
+    const endMin = endDate.getMinutes();
+
+    let diffMins = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+    if (diffMins < 0) diffMins += 24 * 60; // Handle next day
+
     const hours = Math.floor(diffMins / 60);
     const mins = diffMins % 60;
     const durationStr = hours > 0 ? `${hours}h ${mins > 0 ? `${mins}m` : ''}` : `${mins}m`;

@@ -212,10 +212,14 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
                             endTime = new Date(gameDate.getTime() + 90 * 60000);
                         }
 
-                        // Calculate Duration (Fix: 60m bug)
-                        // Make sure we are diffing timestamps
-                        const diffMs = endTime.getTime() - gameDate.getTime();
-                        const diffMins = Math.floor(diffMs / 60000); // 90.5 -> 90
+                        // Calculate Duration (Fix: Explicit HH:MM math)
+                        const startHour = gameDate.getHours();
+                        const startMin = gameDate.getMinutes();
+                        const endHour = endTime.getHours();
+                        const endMin = endTime.getMinutes();
+
+                        let diffMins = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+                        if (diffMins < 0) diffMins += 24 * 60; // Handle next day
 
                         const hours = Math.floor(diffMins / 60);
                         const mins = diffMins % 60;
