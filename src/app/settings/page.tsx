@@ -70,7 +70,7 @@ export default function SettingsPage() {
                 setJerseyNumber(profile.jersey_number || '');
 
                 // Admin Check
-                setIsAdmin(profile.role === 'admin');
+                setIsAdmin(profile.role === 'admin' || profile.role === 'master_admin');
 
                 // Notification Settings (Mock implementation if column missing, or real if present)
                 if (profile.notification_settings) {
@@ -191,10 +191,19 @@ export default function SettingsPage() {
                             Settings
                         </h1>
                     </div>
-                    {isAdmin && (
+                    {profile?.role === 'admin' && (
                         <div className="flex items-center gap-2 px-4 py-2 bg-red-900/30 border border-red-500/50 rounded-sm">
                             <Shield className="w-5 h-5 text-red-500" />
                             <span className="text-red-500 font-bold uppercase tracking-wider text-sm">Administrator</span>
+                        </div>
+                    )}
+                    {profile?.role === 'master_admin' && (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-yellow-900/30 border border-yellow-500/50 rounded-sm">
+                            <div className="relative">
+                                <Shield className="w-5 h-5 text-yellow-500" />
+                                <Shield className="w-5 h-5 text-yellow-500 absolute -top-1 -right-1 opacity-50 scale-75" />
+                            </div>
+                            <span className="text-yellow-500 font-bold uppercase tracking-wider text-sm">Master Admin</span>
                         </div>
                     )}
                 </div>

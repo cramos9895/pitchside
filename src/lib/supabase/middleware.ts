@@ -42,8 +42,16 @@ export async function updateSession(request: NextRequest) {
             .eq('id', user.id)
             .single()
 
-        if (profile?.role !== 'admin') {
+        // 1. General Admin Access: Must be 'admin' OR 'master_admin'
+        if (profile?.role !== 'admin' && profile?.role !== 'master_admin') {
             return NextResponse.redirect(new URL('/', request.url))
+        }
+
+        // 2. Master Admin Only Access: /admin/users
+        if (request.nextUrl.pathname.startsWith('/admin/users')) {
+            if (profile?.role !== 'master_admin') {
+                return NextResponse.redirect(new URL('/admin', request.url)) // Redirect to Dashboard
+            }
         }
     }
 

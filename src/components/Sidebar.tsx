@@ -17,6 +17,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     const router = useRouter();
     const supabase = createClient();
     const [isAdmin, setIsAdmin] = useState(false);
+    const [isMasterAdmin, setIsMasterAdmin] = useState(false);
     const [user, setUser] = useState<any>(null);
     const [refundCount, setRefundCount] = useState(0);
 
@@ -36,8 +37,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     .eq('id', currentUser.id)
                     .single();
 
-                const isAdminUser = profile?.role === 'admin';
+                const role = profile?.role;
+                const isAdminUser = role === 'admin' || role === 'master_admin';
                 setIsAdmin(isAdminUser);
+                setIsMasterAdmin(role === 'master_admin');
 
                 if (isAdminUser) {
                     // Fetch pending refunds
@@ -45,10 +48,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                         .from('games')
                         .select('id', { count: 'exact', head: true })
                         .eq('status', 'cancelled')
-                        .is('refund_processed', false); // Assume defaults to false or NULL
-
-                    // Note: 'is' checks for NULL but false is a value. 
-                    // Better: .eq('refund_processed', false) if column exists and has default.
+                        .is('refund_processed', false);
 
                     if (!error && count !== null) {
                         setRefundCount(count);
@@ -56,6 +56,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 }
             } else {
                 setIsAdmin(false);
+                setIsMasterAdmin(false);
             }
         };
         getUser();
@@ -131,19 +132,32 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     </Link>
 
                     {isAdmin && (
-                        <Link
-                            href="/admin"
-                            onClick={onClose}
-                            className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-red-500 hover:text-white transition-colors group border-l-4 border-red-500 pl-4 -ml-5"
-                        >
-                            <LayoutDashboard className="w-6 h-6 text-red-500 group-hover:text-white transition-colors" />
-                            Admin Portal
-                            {refundCount > 0 && (
-                                <span className="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]">
-                                    {refundCount}
-                                </span>
+                        <>
+                            <Link
+                                href="/admin"
+                                onClick={onClose}
+                                className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-red-500 hover:text-white transition-colors group border-l-4 border-red-500 pl-4 -ml-5"
+                            >
+                                <LayoutDashboard className="w-6 h-6 text-red-500 group-hover:text-white transition-colors" />
+                                Admin Portal
+                                {refundCount > 0 && (
+                                    <span className="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]">
+                                        {refundCount}
+                                    </span>
+                                )}
+                            </Link>
+
+                            {isMasterAdmin && (
+                                <Link
+                                    href="/admin/users"
+                                    onClick={onClose}
+                                    className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-purple-500 hover:text-white transition-colors group border-l-4 border-purple-500 pl-4 -ml-5"
+                                >
+                                    <User className="w-6 h-6 text-purple-500 group-hover:text-white transition-colors" />
+                                    Users
+                                </Link>
                             )}
-                        </Link>
+                        </>
                     )}
 
                     <Link
