@@ -258,14 +258,17 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         { name: 'Team B', color: 'White' }
     ];
 
-    // Calculate Counts
+    // Split Bookings
+    const roster = bookings.filter(b => (b as any).status === 'paid' || (b as any).status === 'active');
+    const waitlist = bookings.filter(b => (b as any).status === 'waitlist');
+
+    // Calculate Counts (using only roster)
     const teamCounts = teams.reduce((acc, team) => {
-        acc[team.name] = bookings.filter(b => b.team_assignment === team.name).length;
+        acc[team.name] = roster.filter(b => b.team_assignment === team.name).length;
         return acc;
     }, {} as Record<string, number>);
 
-
-    const playerOptions = bookings.map(b => {
+    const playerOptions = roster.map(b => {
         const profilesData = b.profiles;
         const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
         return {
@@ -273,6 +276,26 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             name: profile?.full_name || profile?.email || 'Unknown'
         }
     });
+
+    const promotePlayer = async (bookingId: string) => {
+        try {
+            const { error } = await supabase
+                .from('bookings')
+                .update({ status: 'active' }) // 'active' = promoted/confirmed manually
+                .eq('id', bookingId);
+
+            if (error) throw error;
+
+            toast.success("Player promoted to active roster.");
+            router.refresh();
+            // Optimistic update
+            const updatedBookings = bookings.map(b => b.id === bookingId ? { ...b, status: 'active' } : b);
+            setBookings(updatedBookings as any);
+
+        } catch (error: any) {
+            toast.error("Error promoting player: " + error.message);
+        }
+    };
 
     // CANCELLATION SUMMARY VIEW
     if (matchStatus === 'cancelled') {
@@ -367,12 +390,13 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {bookings.map((booking: any) => {
+                                    {roster.map((booking: any) => {
                                         const profilesData = booking.profiles;
                                         const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
                                         const name = profile?.full_name || 'Unknown';
                                         const email = profile?.email || 'No Email';
                                         const isPaid = booking.status === 'paid';
+                                        const isActive = booking.status === 'active';
 
                                         return (
                                             <tr key={booking.id} className="hover:bg-white/5 transition-colors">
@@ -381,9 +405,10 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                 <td className="p-4">
                                                     <span className={cn(
                                                         "text-[10px] font-bold uppercase px-2 py-0.5 rounded",
-                                                        isPaid ? "bg-green-500/10 text-green-500" : "bg-yellow-500/10 text-yellow-500"
+                                                        isPaid ? "bg-green-500/10 text-green-500" :
+                                                            isActive ? "bg-blue-500/10 text-blue-500" : "bg-yellow-500/10 text-yellow-500"
                                                     )}>
-                                                        {isPaid ? "Confirmed" : "Pending"}
+                                                        {isPaid ? "Confirmed" : isActive ? "Promoted" : "Pending"}
                                                     </span>
                                                 </td>
                                                 <td className="p-4 text-right font-mono text-gray-400">
@@ -392,10 +417,10 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                             </tr>
                                         );
                                     })}
-                                    {bookings.length === 0 && (
+                                    {roster.length === 0 && (
                                         <tr>
                                             <td colSpan={4} className="p-8 text-center text-pitch-secondary italic">
-                                                No players were registered for this event.
+                                                No active players yet.
                                             </td>
                                         </tr>
                                     )}
@@ -403,8 +428,52 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                             </table>
                         </div>
                     </div>
+
+                    {/* Waitlist Section */}
+                    {waitlist.length > 0 && (
+                        <div className="bg-pitch-card border border-white/10 rounded-sm p-6 shadow-xl mt-8">
+                            <h2 className="font-heading text-2xl font-bold italic uppercase flex items-center gap-2 mb-6 text-yellow-500">
+                                <Users className="w-6 h-6" /> Waitlist ({waitlist.length})
+                            </h2>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-white/5 text-xs font-bold uppercase text-pitch-secondary tracking-wider">
+                                        <tr>
+                                            <th className="p-4">Player</th>
+                                            <th className="p-4">Contact</th>
+                                            <th className="p-4 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {waitlist.map((booking: any) => {
+                                            const profilesData = booking.profiles;
+                                            const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
+                                            const name = profile?.full_name || 'Unknown';
+                                            const email = profile?.email || 'No Email';
+
+                                            return (
+                                                <tr key={booking.id} className="hover:bg-white/5 transition-colors">
+                                                    <td className="p-4 font-bold">{name}</td>
+                                                    <td className="p-4 text-sm text-gray-400">{email}</td>
+                                                    <td className="p-4 text-right">
+                                                        <button
+                                                            onClick={() => promotePlayer(booking.id)}
+                                                            className="text-xs bg-green-500 hover:bg-green-400 text-black font-bold uppercase px-3 py-1 rounded transition-colors"
+                                                        >
+                                                            Promote
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
+
         );
     }
 
@@ -473,91 +542,134 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         })}
                     </div>
 
-                    <div className="bg-pitch-card border border-white/10 rounded-sm shadow-xl overflow-hidden mb-8">
-                        {/* Table Header */}
-                        <div className="grid grid-cols-12 gap-4 p-4 border-b border-white/10 bg-white/5 text-xs font-bold uppercase text-pitch-secondary tracking-wider">
-                            <div className="col-span-4">Player</div>
-                            <div className="col-span-2 text-center">In</div>
-                            <div className="col-span-6 text-center">Team Assignment</div>
-                        </div>
+                    {/* Roster & Waitlist Container */}
+                    <div className="space-y-8 mb-8">
 
-                        {/* Rows */}
-                        <div className="divide-y divide-white/5">
-                            {bookings.map((booking: any) => {
-                                const profilesData = booking.profiles;
-                                const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
-                                const displayName = profile?.full_name || profile?.email || 'Unknown Player';
+                        {/* ACTIVE ROSTER */}
+                        <div className="bg-pitch-card border border-white/10 rounded-sm shadow-xl overflow-hidden">
+                            {/* Table Header */}
+                            <div className="grid grid-cols-12 gap-4 p-4 border-b border-white/10 bg-white/5 text-xs font-bold uppercase text-pitch-secondary tracking-wider">
+                                <div className="col-span-4">Player</div>
+                                <div className="col-span-2 text-center">In</div>
+                                <div className="col-span-6 text-center">Team Assignment</div>
+                            </div>
 
-                                return (
-                                    <div key={booking.id} className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-white/5 transition-colors">
-                                        {/* Player Info */}
-                                        <div className="col-span-4 flex items-center gap-3">
-                                            <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 shrink-0">
-                                                <UserIcon className="w-4 h-4" />
+                            {/* Rows */}
+                            <div className="divide-y divide-white/5">
+                                {roster.map((booking: any) => {
+                                    const profilesData = booking.profiles;
+                                    const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
+                                    const displayName = profile?.full_name || profile?.email || 'Unknown Player';
+
+                                    return (
+                                        <div key={booking.id} className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-white/5 transition-colors">
+                                            {/* Player Info */}
+                                            <div className="col-span-4 flex items-center gap-3">
+                                                <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 shrink-0">
+                                                    <UserIcon className="w-4 h-4" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold truncate text-sm">{displayName}</div>
+                                                    {booking.note && (
+                                                        <div className="text-[10px] text-pitch-accent italic truncate max-w-[120px]">
+                                                            Request: {booking.note}
+                                                        </div>
+                                                    )}
+                                                    {/* Show Status if Promoted/Active but not paid explicitly if needed? */}
+                                                </div>
                                             </div>
-                                            <div>
-                                                <div className="font-bold truncate text-sm">{displayName}</div>
-                                                {booking.note && (
-                                                    <div className="text-[10px] text-pitch-accent italic truncate max-w-[120px]">
-                                                        Request: {booking.note}
-                                                    </div>
-                                                )}
+
+                                            {/* Check In */}
+                                            <div className="col-span-2 flex justify-center">
+                                                <button
+                                                    onClick={() => toggleCheckIn(booking.id, booking.checked_in)}
+                                                    className={cn(
+                                                        "w-8 h-8 rounded-full flex items-center justify-center border transition-all",
+                                                        booking.checked_in
+                                                            ? "bg-pitch-accent border-pitch-accent text-pitch-black"
+                                                            : "bg-transparent border-gray-600 text-gray-600 hover:border-white hover:text-white"
+                                                    )}
+                                                >
+                                                    <Check className="w-4 h-4" />
+                                                </button>
                                             </div>
-                                        </div>
 
-                                        {/* Check In */}
-                                        <div className="col-span-2 flex justify-center">
-                                            <button
-                                                onClick={() => toggleCheckIn(booking.id, booking.checked_in)}
-                                                className={cn(
-                                                    "w-8 h-8 rounded-full flex items-center justify-center border transition-all",
-                                                    booking.checked_in
-                                                        ? "bg-pitch-accent border-pitch-accent text-pitch-black"
-                                                        : "bg-transparent border-gray-600 text-gray-600 hover:border-white hover:text-white"
-                                                )}
-                                            >
-                                                <Check className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                                            {/* Team Buttons */}
+                                            <div className="col-span-6 flex justify-center gap-2 flex-wrap">
+                                                {teams.map(team => {
+                                                    const isSelected = booking.team_assignment === team.name;
+                                                    // Dynamic Stylings
+                                                    const baseClass = "px-2 py-1 text-xs font-bold uppercase rounded border transition-colors flex items-center gap-1 min-w-[70px] justify-center";
 
-                                        {/* Team Buttons */}
-                                        <div className="col-span-6 flex justify-center gap-2 flex-wrap">
-                                            {teams.map(team => {
-                                                const isSelected = booking.team_assignment === team.name;
-                                                // Dynamic Stylings
-                                                const baseClass = "px-2 py-1 text-xs font-bold uppercase rounded border transition-colors flex items-center gap-1 min-w-[70px] justify-center";
+                                                    let styleClass = "border-gray-700 text-gray-400 hover:border-gray-500";
+                                                    let inlineStyle = {};
 
-                                                let styleClass = "border-gray-700 text-gray-400 hover:border-gray-500";
-                                                let inlineStyle = {};
-
-                                                if (isSelected) {
-                                                    if (COLOR_MAP[team.color]) {
-                                                        styleClass = COLOR_MAP[team.color];
-                                                    } else if (team.color === 'Neon Green') {
-                                                        styleClass = 'text-pitch-black border-[#ccff00]';
-                                                        inlineStyle = { backgroundColor: '#ccff00' };
-                                                    } else {
-                                                        styleClass = 'bg-gray-600 text-white border-gray-600';
+                                                    if (isSelected) {
+                                                        if (COLOR_MAP[team.color]) {
+                                                            styleClass = COLOR_MAP[team.color];
+                                                        } else if (team.color === 'Neon Green') {
+                                                            styleClass = 'text-pitch-black border-[#ccff00]';
+                                                            inlineStyle = { backgroundColor: '#ccff00' };
+                                                        } else {
+                                                            styleClass = 'bg-gray-600 text-white border-gray-600';
+                                                        }
                                                     }
-                                                }
 
-                                                return (
-                                                    <button
-                                                        key={team.name}
-                                                        onClick={() => assignTeam(booking.id, team.name)}
-                                                        className={cn(baseClass, styleClass)}
-                                                        style={inlineStyle}
-                                                    >
-                                                        <Shirt className="w-3 h-3" /> {team.name}
-                                                    </button>
-                                                )
-                                            })}
+                                                    return (
+                                                        <button
+                                                            key={team.name}
+                                                            onClick={() => assignTeam(booking.id, team.name)}
+                                                            className={cn(baseClass, styleClass)}
+                                                            style={inlineStyle}
+                                                        >
+                                                            <Shirt className="w-3 h-3" /> {team.name}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
                                         </div>
-                                    </div>
-                                );
-                            })}
-                            {bookings.length === 0 && <div className="p-8 text-center text-pitch-secondary">No players yet.</div>}
+                                    );
+                                })}
+                                {roster.length === 0 && <div className="p-8 text-center text-pitch-secondary">No players yet.</div>}
+                            </div>
                         </div>
+
+                        {/* WAITLIST */}
+                        {waitlist.length > 0 && (
+                            <div className="bg-gray-900 border border-white/10 rounded-sm shadow-xl overflow-hidden">
+                                <div className="p-4 border-b border-white/10 bg-white/5 flex items-center gap-2">
+                                    <Users className="w-4 h-4 text-yellow-500" />
+                                    <h3 className="font-bold uppercase text-sm text-yellow-500 tracking-wider">Waitlist ({waitlist.length})</h3>
+                                </div>
+                                <div className="divide-y divide-white/5">
+                                    {waitlist.map((booking: any) => {
+                                        const profilesData = booking.profiles;
+                                        const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
+                                        const displayName = profile?.full_name || profile?.email || 'Unknown Player';
+
+                                        return (
+                                            <div key={booking.id} className="flex items-center justify-between p-4 hover:bg-white/5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 shrink-0">
+                                                        <UserIcon className="w-4 h-4" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold truncate text-sm text-gray-300">{displayName}</div>
+                                                        <div className="text-[10px] text-gray-500 italic">Waitlisted</div>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => promotePlayer(booking.id)}
+                                                    className="text-xs bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500 hover:text-black font-bold uppercase px-3 py-1 rounded transition-colors"
+                                                >
+                                                    Promote to Roster
+                                                </button>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* MODE TOGGLE & TABS */}
