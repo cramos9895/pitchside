@@ -24,12 +24,14 @@ interface Game {
 interface GameCardProps {
     game: Game;
     user: User | null;
+    bookingStatus?: string; // 'paid', 'waitlist', 'active'
 }
 
-export function GameCard({ game, user }: GameCardProps) {
+export function GameCard({ game, user, bookingStatus }: GameCardProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
-    const [joined, setJoined] = useState(false);
+    const [joined, setJoined] = useState(!!bookingStatus);
+    const [status, setStatus] = useState<string | undefined>(bookingStatus);
     const [currentPlayers, setCurrentPlayers] = useState(game.current_players);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [teammateNote, setTeammateNote] = useState('');
@@ -76,23 +78,50 @@ export function GameCard({ game, user }: GameCardProps) {
             router.push('/login');
             return;
         }
-        if (joined || currentPlayers >= game.max_players) return;
+        if (joined) return;
 
         // Open Modal instead of immediate join
         setIsModalOpen(true);
     };
 
+    const handleLeave = async () => {
+        setLoading(true);
+        try {
+            const response = await fetch('/api/leave', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gameId: game.id })
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            setJoined(false);
+            setStatus(undefined);
+            if (currentPlayers > 0 && status !== 'waitlist') {
+                // Only decrement if we weren't on waitlist... 
+                // Optimistic update:
+                setCurrentPlayers(prev => Math.max(0, prev - 1));
+            }
+            alert(status === 'waitlist' ? 'You have left the waitlist.' : 'You have left the game.');
+            router.refresh();
+        } catch (error: any) {
+            console.error('Leave Error:', error);
+            alert('Failed to leave: ' + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const proceedToJoin = async () => {
         setLoading(true);
-        // Close modal potentially here or after success? 
-        // Let's keep it open showing loading state or close it?
-        // Better UX: Close it, show loading on button? Or show loading in modal.
-        // I'll show loading in modal button.
 
         try {
-            // Check for Free Game
-            if (game.price === 0) {
-                const response = await fetch('/api/join', {
+            // Check for Free Game OR Waitlist
+            if (game.price === 0 || currentPlayers >= game.max_players) {
+                const endpoint = currentPlayers >= game.max_players ? '/api/waitlist' : '/api/join';
+
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -102,16 +131,32 @@ export function GameCard({ game, user }: GameCardProps) {
                 });
 
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error);
+                if (!response.ok) throw new Error(data.error || data.message);
+                if (data.message) {
+                    alert(data.message); // "Already joined" etc
+                    if (data.success === false) {
+                        setLoading(false);
+                        setIsModalOpen(false);
+                        return;
+                    }
+                }
 
                 setJoined(true);
-                setCurrentPlayers(prev => prev + 1);
+
+                if (currentPlayers < game.max_players) {
+                    setStatus('paid');
+                    setCurrentPlayers(prev => prev + 1);
+                } else {
+                    setStatus('waitlist');
+                    alert("You've been added to the waitlist!");
+                }
+
                 setIsModalOpen(false);
                 setLoading(false);
                 return;
             }
 
-            // Paid Game
+            // Paid Game (Active Roster)
             const response = await fetch('/api/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -184,78 +229,110 @@ export function GameCard({ game, user }: GameCardProps) {
                             Event Cancelled
                         </button>
                     ) : joined ? (
-                        <button disabled className="px-4 py-2 bg-white/10 text-gray-400 font-bold uppercase text-xs rounded-sm cursor-not-allowed flex items-center gap-2">
-                            <Check className="w-4 h-4" /> Joined
+                        <button
+                            onClick={() => {
+                                const msg = status === 'waitlist' ? 'Are you sure you want to leave the waitlist?' : 'Are you sure you want to leave this game?';
+                                if (confirm(msg)) {
+                                    handleLeave();
+                                }
+                            }}
+                            disabled={loading}
+                            className={cn(
+                                "px-4 py-2 font-bold uppercase text-xs rounded-sm flex items-center gap-2 transition-colors relative group/btn",
+                                status === 'waitlist'
+                                    ? "bg-yellow-500/10 text-yellow-500 hover:bg-red-500/20 hover:text-red-500"
+                                    : "bg-white/10 text-white hover:bg-red-500/20 hover:text-red-500"
+                            )}
+                        >
+                            <span className="group-hover/btn:hidden flex items-center gap-2">
+                                {status === 'waitlist' ? (
+                                    <><Check className="w-4 h-4" /> Waitlisted</>
+                                ) : (
+                                    <><Check className="w-4 h-4" /> Joined</>
+                                )}
+                            </span>
+                            <span className="hidden group-hover/btn:flex items-center gap-2">
+                                {status === 'waitlist' ? 'Leave Waitlist' : 'Leave Game'}
+                            </span>
                         </button>
                     ) : (
                         <button
                             onClick={handleJoinClick}
-                            disabled={loading || currentPlayers >= game.max_players}
-                            className={cn(
-                                "px-4 py-2 text-sm font-bold uppercase transition-colors rounded-sm flex items-center gap-2",
-                                currentPlayers >= game.max_players
-                                    ? "bg-red-500/10 text-red-500 cursor-not-allowed"
-                                    : game.price === 0
-                                        ? "bg-green-500 hover:bg-green-400 text-black"
-                                        : "text-pitch-accent hover:text-white hover:bg-pitch-accent/10"
-                            )}
+                            disabled={loading} // Remove full check
+                            className={
+                                cn(
+                                    "px-4 py-2 text-sm font-bold uppercase transition-colors rounded-sm flex items-center gap-2",
+                                    currentPlayers >= game.max_players
+                                        ? "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20" // Waitlist Style
+                                        : game.price === 0
+                                            ? "bg-green-500 hover:bg-green-400 text-black"
+                                            : "text-pitch-accent hover:text-white hover:bg-pitch-accent/10"
+                                )}
                         >
-                            {currentPlayers >= game.max_players ? "Full" :
+                            {currentPlayers >= game.max_players ? "Join Waitlist" :
                                 game.price === 0 ? "Join for Free" :
                                     <>Join for ${game.price} &rarr;</>
                             }
                         </button>
                     )}
                 </div>
-            </div>
+            </div >
 
             {/* JOIN MODAL */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-pitch-card border border-white/10 p-6 rounded-sm max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
-                        <button
-                            onClick={() => setIsModalOpen(false)}
-                            className="absolute top-4 right-4 text-gray-500 hover:text-white"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
+            {
+                isModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <div className="bg-pitch-card border border-white/10 p-6 rounded-sm max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
+                            <button
+                                onClick={() => setIsModalOpen(false)}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-white"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
 
-                        <div className="mb-6">
-                            <h2 className="font-heading text-2xl font-bold italic uppercase flex items-center gap-2">
-                                <UserPlus className="w-6 h-6 text-pitch-accent" />
-                                Bring a <span className="text-pitch-accent">Friend?</span>
-                            </h2>
-                            <p className="text-pitch-secondary text-sm mt-2">
-                                Heading to the pitch with someone? Enter their name so we can try to put you on the same team.
-                            </p>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                                    Teammate Request (Optional)
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. Mike Johnson"
-                                    value={teammateNote}
-                                    onChange={(e) => setTeammateNote(e.target.value)}
-                                    className="w-full bg-black/50 border border-white/20 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
-                                />
+                            <div className="mb-6">
+                                <h2 className="font-heading text-2xl font-bold italic uppercase flex items-center gap-2">
+                                    <UserPlus className="w-6 h-6 text-pitch-accent" />
+                                    Bring a <span className="text-pitch-accent">Friend?</span>
+                                </h2>
+                                <p className="text-pitch-secondary text-sm mt-2">
+                                    Heading to the pitch with someone? Enter their name so we can try to put you on the same team.
+                                </p>
                             </div>
 
-                            <button
-                                onClick={proceedToJoin}
-                                disabled={loading}
-                                className="w-full py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-wider rounded-sm hover:bg-white transition-colors flex items-center justify-center gap-2"
-                            >
-                                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> :
-                                    game.price === 0 ? "Confirm & Join" : `Continue to Checkout ($${game.price})`}
-                            </button>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                        Teammate Request (Optional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Mike Johnson"
+                                        value={teammateNote}
+                                        onChange={(e) => setTeammateNote(e.target.value)}
+                                        className="w-full bg-black/50 border border-white/20 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
+                                    />
+                                </div>
+
+                                <button
+                                    onClick={proceedToJoin}
+                                    disabled={loading}
+                                    className={cn(
+                                        "w-full py-4 font-black uppercase tracking-wider rounded-sm transition-colors flex items-center justify-center gap-2",
+                                        currentPlayers >= game.max_players
+                                            ? "bg-yellow-500 text-black hover:bg-yellow-400"
+                                            : "bg-pitch-accent text-pitch-black hover:bg-white"
+                                    )}
+                                >
+                                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> :
+                                        currentPlayers >= game.max_players ? "Confirm Waitlist Spot" :
+                                            game.price === 0 ? "Confirm & Join" : `Continue to Checkout ($${game.price})`}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </>
     );
 }

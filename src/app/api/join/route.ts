@@ -32,12 +32,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'This game is not free. Payment required.' }, { status: 403 });
         }
 
-        // 2. Check if already joined (optional but good practice)
+        // 2. Check if already joined (excluding cancelled)
         const { data: existing } = await supabase
             .from('bookings')
-            .select('id')
+            .select('id, status')
             .eq('game_id', gameId)
             .eq('user_id', user.id)
+            .neq('status', 'cancelled') // Ignore cancelled bookings
             .single();
 
         if (existing) {

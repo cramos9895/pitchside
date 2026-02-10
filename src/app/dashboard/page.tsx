@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MapPin, Calendar, Clock, ArrowRight, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { useToast } from '@/components/ui/Toast';
 
 // Client components don't need revalidate=0, useEffect handles fetching
 
@@ -14,6 +16,34 @@ export default function DashboardPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [bookings, setBookings] = useState<any[]>([]);
+    const [cancellingGameId, setCancellingGameId] = useState<string | null>(null);
+    const { success, error: toastError } = useToast();
+
+    const handleCancel = async () => {
+        if (!cancellingGameId) return;
+
+        try {
+            const response = await fetch('/api/leave', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gameId: cancellingGameId })
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+
+            success('Booking cancelled successfully');
+
+            // Remove locally or re-fetch
+            setBookings(prev => prev.filter(b => b.game.id !== cancellingGameId));
+            setCancellingGameId(null);
+            router.refresh(); // Sync server components if any
+
+        } catch (err: any) {
+            console.error('Cancel Error:', err);
+            toastError(err.message || "Failed to cancel booking");
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -127,9 +157,35 @@ export default function DashboardPage() {
                                     </div>
 
                                     {booking.status === 'paid' && (
-                                        <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2 text-green-400 text-xs font-bold uppercase tracking-wider">
-                                            <span className="w-2 h-2 bg-green-400 rounded-full" />
-                                            Confirmed Ticket
+                                        <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-green-400 text-xs font-bold uppercase tracking-wider">
+                                                <span className="w-2 h-2 bg-green-400 rounded-full" />
+                                                Confirmed Ticket
+                                            </div>
+                                            {!isPast && (
+                                                <button
+                                                    onClick={() => setCancellingGameId(game.id)}
+                                                    className="text-xs text-red-500 hover:text-white underline decoration-red-500/30 hover:decoration-white transition-all uppercase font-bold"
+                                                >
+                                                    Cancel Ticket
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                    {booking.status === 'waitlist' && (
+                                        <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-yellow-500 text-xs font-bold uppercase tracking-wider">
+                                                <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                                                On Waitlist
+                                            </div>
+                                            {!isPast && (
+                                                <button
+                                                    onClick={() => setCancellingGameId(game.id)}
+                                                    className="text-xs text-red-500 hover:text-white underline decoration-red-500/30 hover:decoration-white transition-all uppercase font-bold"
+                                                >
+                                                    Leave Waitlist
+                                                </button>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -138,6 +194,16 @@ export default function DashboardPage() {
                     </div>
                 )}
             </div>
-        </div>
+
+            <ConfirmationModal
+                isOpen={!!cancellingGameId}
+                onClose={() => setCancellingGameId(null)}
+                onConfirm={handleCancel}
+                title="Cancel Booking"
+                message="Are you sure you want to cancel your spot? This action cannot be undone."
+                confirmText="Yes, Cancel Booking"
+                isDestructive={true}
+            />
+        </div >
     );
 }
