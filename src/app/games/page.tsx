@@ -56,7 +56,7 @@ export default async function GamesPage() {
                                 key={game.id}
                                 game={game}
                                 user={user}
-                                isJoined={joinedGameIds.has(game.id)}
+                                bookingStatus={bookingStatusMap.get(game.id)}
                             />
                         ))}
                     </div>
