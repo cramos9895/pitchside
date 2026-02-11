@@ -69,7 +69,9 @@ export default function DashboardPage() {
                 if (error) {
                     console.error("Error fetching bookings:", error);
                 } else {
-                    setBookings(bookingsData || []);
+                    // Filter out cancelled games and lost references (deleted games)
+                    const validBookings = (bookingsData || []).filter((b: any) => b.game && b.game.status !== 'cancelled');
+                    setBookings(validBookings);
                 }
             } catch (err) {
                 console.error("Dashboard error:", err);

@@ -43,10 +43,10 @@ export function AuthButton() {
     if (!user) {
         return (
             <div className="flex gap-4">
-                <Link href="/login" className="px-5 py-2 text-sm font-bold uppercase tracking-wider hover:text-pitch-accent transition-colors">
+                <Link href="/login?view=login" className="px-5 py-2 text-sm font-bold uppercase tracking-wider hover:text-pitch-accent transition-colors">
                     Login
                 </Link>
-                <Link href="/login" className="px-5 py-2 bg-white text-pitch-black text-sm font-bold uppercase tracking-wider hover:bg-pitch-accent hover:text-pitch-black transition-colors rounded-sm">
+                <Link href="/login?view=signup" className="px-5 py-2 bg-white text-pitch-black text-sm font-bold uppercase tracking-wider hover:bg-pitch-accent hover:text-pitch-black transition-colors rounded-sm">
                     Sign Up
                 </Link>
             </div>

@@ -4,7 +4,7 @@
 import { useEffect, useState, use } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft, Check, Shirt, User as UserIcon, Users, X, Trophy, Save, Loader2, Swords, Calendar } from 'lucide-react';
+import { ArrowLeft, Check, Shirt, User as UserIcon, Users, X, Trophy, Save, Loader2, Swords, Calendar, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { MatchManager } from '@/components/admin/MatchManager';
@@ -17,6 +17,7 @@ interface Booking {
     id: string;
     checked_in: boolean;
     team_assignment: string | null;
+    team: 'A' | 'B' | null; // NEW FIELD
     note: string | null; // Request note
     user_id: string;
     profiles: {
@@ -26,7 +27,10 @@ interface Booking {
         email: string;
         full_name: string;
     }[] | null;
+    status: string; // Add status explicitly to interface
 }
+
+import { TeamManager } from '@/components/admin/TeamManager';
 
 interface TeamConfig {
     name: string;
@@ -223,6 +227,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         }
     };
 
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+
     const onCancelClick = () => {
         setShowCancelModal(true);
     };
@@ -242,6 +248,21 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             setShowCancelModal(false);
         }
     };
+
+    const confirmDelete = async () => {
+        try {
+            setLoading(true);
+            const { error } = await supabase.from('games').delete().eq('id', gameId);
+            if (error) throw error;
+            toast.success("Event deleted successfully.");
+            router.push('/admin');
+        } catch (e: any) {
+            toast.error("Error deleting event: " + e.message);
+            setLoading(false);
+        } finally {
+            setShowDeleteModal(false);
+        }
+    }
 
     if (loading) return <div className="min-h-screen bg-pitch-black flex items-center justify-center text-white">Loading Roster...</div>;
     if (!game) return <div className="text-white pt-32 text-center">Game not found</div>;
@@ -497,14 +518,22 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         </div>
 
                         {/* Cancel Button */}
-                        {matchStatus !== 'completed' && (
+                        <div className="flex gap-2">
+                            {matchStatus !== 'completed' && (matchStatus as string) !== 'cancelled' && (
+                                <button
+                                    onClick={onCancelClick}
+                                    className="px-4 py-2 border border-red-500/30 text-red-500 hover:bg-red-500/10 rounded uppercase font-bold text-xs tracking-wider transition-colors"
+                                >
+                                    Cancel Event
+                                </button>
+                            )}
                             <button
-                                onClick={onCancelClick}
-                                className="px-4 py-2 border border-red-500/30 text-red-500 hover:bg-red-500/10 rounded uppercase font-bold text-xs tracking-wider transition-colors"
+                                onClick={() => setShowDeleteModal(true)}
+                                className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded uppercase font-bold text-xs tracking-wider transition-colors flex items-center gap-2"
                             >
-                                Cancel Event
+                                <Trash2 className="w-4 h-4" /> Delete
                             </button>
-                        )}
+                        </div>
                     </div>
 
                     {/* Live Counters */}
@@ -670,6 +699,22 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 </div>
                             </div>
                         )}
+                    </div>
+
+                    {/* TEAM BALANCING SECTION */}
+                    <div className="mb-8">
+                        <TeamManager
+                            gameId={gameId}
+                            players={bookings.map(b => ({
+                                id: b.id,
+                                userId: b.user_id,
+                                name: Array.isArray(b.profiles) ? b.profiles[0]?.full_name : b.profiles?.full_name || 'Unknown',
+                                email: Array.isArray(b.profiles) ? b.profiles[0]?.email : b.profiles?.email || '',
+                                team: b.team,
+                                status: b.status
+                            }))}
+                            onUpdate={() => router.refresh()}
+                        />
                     </div>
 
                     {/* MODE TOGGLE & TABS */}
@@ -889,24 +934,32 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             {/* Modals */}
             <ConfirmationModal
                 isOpen={showFinalizeModal}
-                onClose={() => setShowFinalizeModal(false)}
-                onConfirm={confirmFinalize}
                 title="Finalize Match?"
-                message="Are you sure you want to finalize this match? This will update player stats and cannot be undone easily."
-                confirmText="Yes, Update Stats"
+                message="This will mark the match as completed, update stats, and lock the scores. You can re-open it later if needed."
+                onConfirm={confirmFinalize}
+                onClose={() => setShowFinalizeModal(false)}
+                confirmText={finalizing ? "Finalizing..." : "Yes, Finalize"}
                 isDestructive={false}
-                isLoading={finalizing}
             />
 
             <ConfirmationModal
                 isOpen={showCancelModal}
-                onClose={() => setShowCancelModal(false)}
-                onConfirm={confirmCancel}
                 title="Cancel Event?"
-                message="Are you sure you want to CANCEL this event? This will notify all players and move it to the Cancelled tab."
+                message="This will mark the event as cancelled. Players will be notified (if implemented) and refunds may be required."
+                onConfirm={confirmCancel}
+                onClose={() => setShowCancelModal(false)}
                 confirmText="Yes, Cancel Event"
                 isDestructive={true}
-                isLoading={loading}
+            />
+
+            <ConfirmationModal
+                isOpen={showDeleteModal}
+                title="DELETE EVENT?"
+                message="Are you sure you want to PERMANENTLY DELETE this event? This action cannot be undone. All bookings and match data will be erased."
+                onConfirm={confirmDelete}
+                onClose={() => setShowDeleteModal(false)}
+                confirmText="PERMANENTLY DELETE"
+                isDestructive={true}
             />
         </div>
     );

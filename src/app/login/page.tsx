@@ -1,22 +1,41 @@
 
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function LoginPage() {
+function LoginForm() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const supabase = createClient();
+
+    // Auth Mode
     const [isSignUp, setIsSignUp] = useState(false);
+
+    // Form Fields
     const [email, setEmail] = useState('');
+    const [confirmEmail, setConfirmEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [fullName, setFullName] = useState('');
+
+    // UI State
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        const view = searchParams.get('view');
+        if (view === 'signup') {
+            setIsSignUp(true);
+        } else if (view === 'login') {
+            setIsSignUp(false);
+        }
+    }, [searchParams]);
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -24,17 +43,47 @@ export default function LoginPage() {
         setError(null);
         setMessage(null);
 
+        // Validation for Sign Up
+        if (isSignUp) {
+            if (!fullName.trim()) {
+                setError("Please enter your full name.");
+                setLoading(false);
+                return;
+            }
+            if (email !== confirmEmail) {
+                setError("Emails do not match.");
+                setLoading(false);
+                return;
+            }
+            if (password !== confirmPassword) {
+                setError("Passwords do not match.");
+                setLoading(false);
+                return;
+            }
+        }
+
         try {
             if (isSignUp) {
-                const { error } = await supabase.auth.signUp({
+                const { data, error } = await supabase.auth.signUp({
                     email,
                     password,
                     options: {
                         emailRedirectTo: `${window.location.origin}/auth/callback`,
+                        data: {
+                            full_name: fullName,
+                        }
                     },
                 });
+
                 if (error) throw error;
-                setMessage('Check your email for the confirmation link.');
+
+                // Check if session was created immediately (Email confirmation disabled)
+                if (data.session) {
+                    router.push('/');
+                    router.refresh();
+                } else {
+                    setMessage('Check your email for the confirmation link.');
+                }
             } else {
                 const { error } = await supabase.auth.signInWithPassword({
                     email,
@@ -88,30 +137,80 @@ export default function LoginPage() {
                     </button>
                 </div>
 
-                <form onSubmit={handleAuth} className="space-y-6">
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary mb-2">Email</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            className="w-full bg-black/50 border border-white/10 focus:border-pitch-accent text-white px-4 py-3 rounded-sm outline-none transition-colors font-medium placeholder:text-gray-700"
-                            placeholder="player@example.com"
-                        />
-                    </div>
+                <form onSubmit={handleAuth} className="space-y-4">
+                    <div className="space-y-4">
+                        {/* Full Name */}
+                        {isSignUp && (
+                            <div className="animate-in fade-in slide-in-from-top-2">
+                                <label className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary mb-2">Full Name</label>
+                                <input
+                                    type="text"
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                    required
+                                    className="w-full bg-black/50 border border-white/10 focus:border-pitch-accent text-white px-4 py-3 rounded-sm outline-none transition-colors font-medium placeholder:text-gray-700"
+                                    placeholder="John Doe"
+                                />
+                            </div>
+                        )}
 
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary mb-2">Password</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            minLength={6}
-                            className="w-full bg-black/50 border border-white/10 focus:border-pitch-accent text-white px-4 py-3 rounded-sm outline-none transition-colors font-medium placeholder:text-gray-700"
-                            placeholder="••••••••"
-                        />
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary mb-2">Email</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                className="w-full bg-black/50 border border-white/10 focus:border-pitch-accent text-white px-4 py-3 rounded-sm outline-none transition-colors font-medium placeholder:text-gray-700"
+                                placeholder="player@example.com"
+                            />
+                        </div>
+
+                        {/* Confirm Email */}
+                        {isSignUp && (
+                            <div className="animate-in fade-in slide-in-from-top-2">
+                                <label className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary mb-2">Confirm Email</label>
+                                <input
+                                    type="email"
+                                    value={confirmEmail}
+                                    onChange={(e) => setConfirmEmail(e.target.value)}
+                                    required
+                                    onPaste={(e) => e.preventDefault()} // Prevent pasting
+                                    className="w-full bg-black/50 border border-white/10 focus:border-pitch-accent text-white px-4 py-3 rounded-sm outline-none transition-colors font-medium placeholder:text-gray-700"
+                                    placeholder="Confirm your email"
+                                />
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary mb-2">Password</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                minLength={6}
+                                className="w-full bg-black/50 border border-white/10 focus:border-pitch-accent text-white px-4 py-3 rounded-sm outline-none transition-colors font-medium placeholder:text-gray-700"
+                                placeholder="••••••••"
+                            />
+                        </div>
+
+                        {/* Confirm Password */}
+                        {isSignUp && (
+                            <div className="animate-in fade-in slide-in-from-top-2">
+                                <label className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary mb-2">Confirm Password</label>
+                                <input
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    required
+                                    minLength={6}
+                                    onPaste={(e) => e.preventDefault()}
+                                    className="w-full bg-black/50 border border-white/10 focus:border-pitch-accent text-white px-4 py-3 rounded-sm outline-none transition-colors font-medium placeholder:text-gray-700"
+                                    placeholder="Confirm password"
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {error && (
@@ -129,7 +228,7 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-pitch-accent text-pitch-black font-black uppercase tracking-wider py-4 rounded-sm hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full bg-pitch-accent text-pitch-black font-black uppercase tracking-wider py-4 rounded-sm hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
                     >
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                         {isSignUp ? 'Create Account' : 'Enter the Pitch'}
@@ -137,5 +236,13 @@ export default function LoginPage() {
                 </form>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-pitch-black flex items-center justify-center text-white"><Loader2 className="w-8 h-8 animate-spin" /></div>}>
+            <LoginForm />
+        </Suspense>
     );
 }
