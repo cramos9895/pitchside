@@ -2,6 +2,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
+import { syncPlayerCount } from '@/lib/games';
+
 export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient();
@@ -57,30 +59,14 @@ export async function POST(request: NextRequest) {
                 note: note // Store request note
             });
 
+
+
         if (insertError) {
             throw insertError;
         }
 
-        // 4. Increment Current Players Count
-        await supabase.rpc('increment_player_count', { game_id: gameId });
-        // Note: You might not have this RPC. If not, simple update:
-        /*
-          We can do a safe increment if we had an RPC, but for now:
-          This step is often handled by a Database Trigger. 
-          If you don't have a trigger, we should manually fetch keys and updates, 
-          but usually current_players should be a stored generated column or trigger-maintained.
-          
-          For this implementation, I will assume we don't need to manually increment 
-             OR I'll do a simple update if the triggers aren't set up.
-             Let's rely on the trigger for count, or careful manual update.
-             I'll skip manual increment to avoid race conditions unless user has asked for it explicitly 
-             (previous code didn't suggest manual increment logic was needed/present in checkout).
-             Wait, checkout logic usually handles post-payment hooks.
-             I'll look at the checkout endpoint later to match behavior.
-        */
-
-        // Optimization: Update current players count manually if no trigger exists.
-        // Let's verify checkout/route.ts or similar later. For now, just insert.
+        // 4. Sync Player Count
+        await syncPlayerCount(gameId);
 
         return NextResponse.json({ success: true });
 

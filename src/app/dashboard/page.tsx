@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MapPin, Calendar, Clock, ArrowRight, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { useToast } from '@/components/ui/Toast';
@@ -145,15 +146,20 @@ export default function DashboardPage() {
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2 mb-6">
-                                        <h4 className="font-bold text-lg truncate">{game.title}</h4>
+                                    <div className="space-y-2 mb-6 flex-grow">
                                         <div className="flex items-center text-pitch-secondary">
                                             <MapPin className="w-4 h-4 mr-2 text-pitch-accent" />
                                             <span className="text-sm truncate">{game.location}</span>
                                         </div>
-                                        <div className="flex items-center text-pitch-secondary">
+                                        <div className="flex items-center gap-2">
                                             <span className="text-xs uppercase bg-white/5 px-2 py-0.5 rounded text-gray-400">
                                                 {game.surface_type}
+                                            </span>
+                                            <span className={cn(
+                                                "text-xs uppercase px-2 py-0.5 rounded font-bold",
+                                                game.current_players >= game.max_players ? "bg-red-500/10 text-red-500" : "bg-white/5 text-gray-400"
+                                            )}>
+                                                {game.current_players} / {game.max_players} Spots
                                             </span>
                                         </div>
                                     </div>

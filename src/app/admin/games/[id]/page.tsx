@@ -49,6 +49,8 @@ interface Game {
     mvp_player_id: string | null;
     refund_processed: boolean;
     max_players: number;
+    score_team_a?: number | null;
+    score_team_b?: number | null;
 }
 
 interface Match {
@@ -77,6 +79,7 @@ const COLOR_MAP: Record<string, string> = {
 export default function RosterPage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = use(params);
     const gameId = resolvedParams.id;
+    const { success, error: toastError } = useToast();
 
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [game, setGame] = useState<Game | null>(null);
@@ -253,8 +256,13 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const confirmDelete = async () => {
         try {
             setLoading(true);
-            const { error } = await supabase.from('games').delete().eq('id', gameId);
-            if (error) throw error;
+            const response = await fetch(`/api/games/${gameId}`, {
+                method: 'DELETE',
+            });
+            const data = await response.json();
+
+            if (!response.ok) throw new Error(data.error || 'Failed to delete game');
+
             toast.success("Event deleted successfully.");
             router.push('/admin');
         } catch (e: any) {

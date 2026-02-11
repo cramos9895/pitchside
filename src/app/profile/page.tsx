@@ -15,6 +15,7 @@ export default function ProfilePage() {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
     const [profile, setProfile] = useState<any>(null);
+    const [bookings, setBookings] = useState<any[]>([]);
     const [stats, setStats] = useState({ caps: 0, wins: 0 });
     const supabase = createClient();
     const router = useRouter();
@@ -40,25 +41,64 @@ export default function ProfilePage() {
 
             setProfile(profileData);
 
-            // Get Stats (Caps & Wins)
-            // 1. Caps
-            const { count: capsCount } = await supabase
+            // Fetch Bookings with Game Details and Matches
+            const { data: bookingsData } = await supabase
                 .from('bookings')
-                .select('id', { count: 'exact', head: true })
+                .select(`
+                    *,
+                    game:games(
+                        *,
+                        matches(*)
+                    )
+                `)
                 .eq('user_id', user.id)
-                .eq('status', 'paid');
+                .order('created_at', { ascending: false });
 
-            // 2. Wins (is_winner = true)
-            const { count: winsCount } = await supabase
-                .from('bookings')
-                .select('id', { count: 'exact', head: true })
-                .eq('user_id', user.id)
-                .eq('status', 'paid')
-                .eq('is_winner', true);
+            setBookings(bookingsData || []);
+
+            // Calculate Stats
+            const caps = bookingsData?.filter((b: any) => b.status === 'paid').length || 0;
+
+            // Calculate Wins dynamically using MATCHES table
+            const wins = bookingsData?.filter((b: any) => {
+                const g = b.game;
+                if (!g || b.status !== 'paid') return false;
+
+                const myTeam = b.team_assignment; // e.g. "Team A"
+                if (!myTeam || !g.matches || g.matches.length === 0) return false;
+
+                // Simple Logic: Iterate all matches for this game. 
+                // If I am Team A, did Team A win?
+                // For simplified "Game Result", let's aggregate points or just check if *any* match was won? 
+                // User requirement: "Career W-L-D". 
+                // Usually taking the "Final" result is best. 
+                // Let's assume the sum of goals determines the winner if multiple matches.
+
+                let myGoals = 0;
+                let oppGoals = 0;
+                let played = false;
+
+                g.matches.forEach((m: any) => {
+                    if (m.status !== 'completed') return;
+
+                    if (m.home_team === myTeam) {
+                        myGoals += m.home_score;
+                        oppGoals += m.away_score;
+                        played = true;
+                    } else if (m.away_team === myTeam) {
+                        myGoals += m.away_score;
+                        oppGoals += m.home_score;
+                        played = true;
+                    }
+                });
+
+                if (!played) return false;
+                return myGoals > oppGoals;
+            }).length || 0;
 
             setStats({
-                caps: capsCount || 0,
-                wins: winsCount || 0
+                caps,
+                wins
             });
             setLoading(false);
         };
@@ -170,7 +210,7 @@ export default function ProfilePage() {
             </div>
 
             {/* CAREER STATS SECTION */}
-            <div className="w-full max-w-sm mt-8 grid grid-cols-3 gap-4">
+            <div className="w-full max-w-sm mt-8 grid grid-cols-3 gap-4 mb-8">
                 <div className="bg-pitch-card p-4 rounded-sm border border-white/10 text-center flex flex-col items-center shadow-lg">
                     <span className="text-3xl font-heading font-black italic text-white mb-1">{stats.caps}</span>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-pitch-secondary">APPS</span>
@@ -182,6 +222,92 @@ export default function ProfilePage() {
                 <div className="bg-pitch-card p-4 rounded-sm border border-white/10 text-center flex flex-col items-center shadow-lg">
                     <span className="text-3xl font-heading font-black italic text-pitch-accent mb-1">{mvpCount}</span>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-pitch-secondary">MVPs</span>
+                </div>
+            </div>
+
+            {/* MATCH HISTORY */}
+            <div className="w-full max-w-2xl px-4 pb-20">
+                <h3 className="font-heading text-xl font-bold italic uppercase mb-4 border-b border-white/10 pb-2 flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-pitch-accent" />
+                    Match History
+                </h3>
+
+                <div className="space-y-4">
+                    {bookings.map((booking: any) => {
+                        const game = booking.game;
+                        if (!game || !game.matches || game.matches.filter((m: any) => m.status === 'completed').length === 0) return null;
+
+                        const myTeam = booking.team_assignment;
+                        if (!myTeam) return null;
+
+                        // Aggregate Score
+                        let myScore = 0;
+                        let oppScore = 0;
+                        let played = false;
+                        let opponentName = "Opponent";
+
+                        game.matches.forEach((m: any) => {
+                            if (m.status !== 'completed') return;
+                            if (m.home_team === myTeam) {
+                                myScore += m.home_score;
+                                oppScore += m.away_score;
+                                opponentName = m.away_team; // grab last opponent name
+                                played = true;
+                            } else if (m.away_team === myTeam) {
+                                myScore += m.away_score;
+                                oppScore += m.home_score;
+                                opponentName = m.home_team;
+                                played = true;
+                            }
+                        });
+
+                        if (!played) return null;
+
+                        let result: 'win' | 'loss' | 'draw' = 'draw';
+                        if (myScore > oppScore) result = 'win';
+                        if (myScore < oppScore) result = 'loss';
+
+                        return (
+                            <div key={booking.id} className="bg-pitch-card border border-white/5 p-4 rounded-sm flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className={cn(
+                                        "w-2 h-12 rounded-full",
+                                        result === 'win' ? "bg-green-500" :
+                                            result === 'loss' ? "bg-red-500" : "bg-gray-500"
+                                    )} />
+                                    <div>
+                                        <div className="font-bold text-lg mb-0.5">{game.title}</div>
+                                        <div className="text-xs text-pitch-secondary uppercase font-bold">
+                                            {new Date(game.start_time).toLocaleDateString()} • {game.location}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-6">
+                                    <div className="text-center">
+                                        <span className="block text-xs font-bold text-pitch-secondary uppercase mb-1">vs {opponentName}</span>
+                                        <span className="font-mono font-black text-xl tracking-widest">
+                                            {myScore} - {oppScore}
+                                        </span>
+                                    </div>
+                                    <div className={cn(
+                                        "px-3 py-1 rounded-sm text-xs font-bold uppercase w-16 text-center",
+                                        result === 'win' ? "bg-green-500/20 text-green-500" :
+                                            result === 'loss' ? "bg-red-500/20 text-red-500" :
+                                                "bg-gray-500/20 text-gray-400"
+                                    )}>
+                                        {result === 'draw' ? 'Draw' : result === 'win' ? 'Win' : 'Loss'}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {bookings.filter((b: any) => {
+                        const g = b.game;
+                        return g && g.matches && g.matches.some((m: any) => m.status === 'completed');
+                    }).length === 0 && (
+                            <p className="text-center text-gray-500 italic py-8">No match history recorded yet.</p>
+                        )}
                 </div>
             </div>
 
