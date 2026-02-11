@@ -48,6 +48,7 @@ interface Game {
     away_score: number;
     mvp_player_id: string | null;
     refund_processed: boolean;
+    max_players: number;
 }
 
 interface Match {
