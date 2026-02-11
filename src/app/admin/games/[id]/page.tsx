@@ -514,6 +514,9 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                             </h1>
                             <div className="flex items-center gap-3">
                                 <p className="text-pitch-secondary">{dateStr} • {startTimeStr} - {endTimeStr} • <span className={cn("uppercase font-bold", matchStatus === 'completed' ? 'text-green-500' : 'text-yellow-500')}>{matchStatus}</span></p>
+                                <span className="text-sm font-bold bg-white/10 px-2 py-1 rounded text-white flex items-center gap-2">
+                                    <Users className="w-4 h-4" /> {roster.length} / {game.max_players} Players
+                                </span>
                             </div>
                         </div>
 
@@ -576,12 +579,19 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                         {/* ACTIVE ROSTER */}
                         <div className="bg-pitch-card border border-white/10 rounded-sm shadow-xl overflow-hidden">
-                            {/* Table Header */}
-                            <div className="grid grid-cols-12 gap-4 p-4 border-b border-white/10 bg-white/5 text-xs font-bold uppercase text-pitch-secondary tracking-wider">
+                            {/* Table Header - Only visible on Desktop */}
+                            <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-white/10 bg-white/5 text-xs font-bold uppercase text-pitch-secondary tracking-wider">
                                 <div className="col-span-4">Player</div>
                                 <div className="col-span-2 text-center">In</div>
                                 <div className="col-span-6 text-center">Team Assignment</div>
                             </div>
+
+                            {/* Mobile Header */}
+                            <div className="md:hidden p-4 border-b border-white/10 bg-white/5 text-xs font-bold uppercase text-pitch-secondary tracking-wider flex justify-between items-center">
+                                <span>Player List</span>
+                                <span>Actions</span>
+                            </div>
+
 
                             {/* Rows */}
                             <div className="divide-y divide-white/5">
@@ -591,70 +601,74 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                     const displayName = profile?.full_name || profile?.email || 'Unknown Player';
 
                                     return (
-                                        <div key={booking.id} className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-white/5 transition-colors">
-                                            {/* Player Info */}
-                                            <div className="col-span-4 flex items-center gap-3">
+                                        <div key={booking.id} className="flex flex-col md:grid md:grid-cols-12 gap-4 p-4 items-center hover:bg-white/5 transition-colors">
+                                            {/* Player Info - Full Width on Mobile */}
+                                            <div className="w-full md:col-span-4 flex items-center gap-3">
                                                 <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 shrink-0">
                                                     <UserIcon className="w-4 h-4" />
                                                 </div>
-                                                <div>
+                                                <div className="min-w-0 flex-1">
                                                     <div className="font-bold truncate text-sm">{displayName}</div>
                                                     {booking.note && (
-                                                        <div className="text-[10px] text-pitch-accent italic truncate max-w-[120px]">
+                                                        <div className="text-[10px] text-pitch-accent italic truncate max-w-[200px] md:max-w-[120px]">
                                                             Request: {booking.note}
                                                         </div>
                                                     )}
-                                                    {/* Show Status if Promoted/Active but not paid explicitly if needed? */}
                                                 </div>
                                             </div>
 
-                                            {/* Check In */}
-                                            <div className="col-span-2 flex justify-center">
-                                                <button
-                                                    onClick={() => toggleCheckIn(booking.id, booking.checked_in)}
-                                                    className={cn(
-                                                        "w-8 h-8 rounded-full flex items-center justify-center border transition-all",
-                                                        booking.checked_in
-                                                            ? "bg-pitch-accent border-pitch-accent text-pitch-black"
-                                                            : "bg-transparent border-gray-600 text-gray-600 hover:border-white hover:text-white"
-                                                    )}
-                                                >
-                                                    <Check className="w-4 h-4" />
-                                                </button>
-                                            </div>
+                                            {/* Mobile: Controls Row */}
+                                            <div className="w-full flex items-center justify-between md:contents">
 
-                                            {/* Team Buttons */}
-                                            <div className="col-span-6 flex justify-center gap-2 flex-wrap">
-                                                {teams.map(team => {
-                                                    const isSelected = booking.team_assignment === team.name;
-                                                    // Dynamic Stylings
-                                                    const baseClass = "px-2 py-1 text-xs font-bold uppercase rounded border transition-colors flex items-center gap-1 min-w-[70px] justify-center";
+                                                {/* Check In */}
+                                                <div className="md:col-span-2 flex justify-center">
+                                                    <button
+                                                        onClick={() => toggleCheckIn(booking.id, booking.checked_in)}
+                                                        className={cn(
+                                                            "w-8 h-8 rounded-full flex items-center justify-center border transition-all",
+                                                            booking.checked_in
+                                                                ? "bg-pitch-accent border-pitch-accent text-pitch-black"
+                                                                : "bg-transparent border-gray-600 text-gray-600 hover:border-white hover:text-white"
+                                                        )}
+                                                        title={booking.checked_in ? "Checked In" : "Check In"}
+                                                    >
+                                                        <Check className="w-4 h-4" />
+                                                    </button>
+                                                </div>
 
-                                                    let styleClass = "border-gray-700 text-gray-400 hover:border-gray-500";
-                                                    let inlineStyle = {};
+                                                {/* Team Buttons - Flex Wrap for Mobile */}
+                                                <div className="flex-1 flex justify-end md:justify-center gap-2 flex-wrap md:col-span-6">
+                                                    {teams.map(team => {
+                                                        const isSelected = booking.team_assignment === team.name;
+                                                        // Dynamic Stylings
+                                                        const baseClass = "px-2 py-1 text-xs font-bold uppercase rounded border transition-colors flex items-center gap-1 min-w-[60px] md:min-w-[70px] justify-center";
 
-                                                    if (isSelected) {
-                                                        if (COLOR_MAP[team.color]) {
-                                                            styleClass = COLOR_MAP[team.color];
-                                                        } else if (team.color === 'Neon Green') {
-                                                            styleClass = 'text-pitch-black border-[#ccff00]';
-                                                            inlineStyle = { backgroundColor: '#ccff00' };
-                                                        } else {
-                                                            styleClass = 'bg-gray-600 text-white border-gray-600';
+                                                        let styleClass = "border-gray-700 text-gray-400 hover:border-gray-500";
+                                                        let inlineStyle = {};
+
+                                                        if (isSelected) {
+                                                            if (COLOR_MAP[team.color]) {
+                                                                styleClass = COLOR_MAP[team.color];
+                                                            } else if (team.color === 'Neon Green') {
+                                                                styleClass = 'text-pitch-black border-[#ccff00]';
+                                                                inlineStyle = { backgroundColor: '#ccff00' };
+                                                            } else {
+                                                                styleClass = 'bg-gray-600 text-white border-gray-600';
+                                                            }
                                                         }
-                                                    }
 
-                                                    return (
-                                                        <button
-                                                            key={team.name}
-                                                            onClick={() => assignTeam(booking.id, team.name)}
-                                                            className={cn(baseClass, styleClass)}
-                                                            style={inlineStyle}
-                                                        >
-                                                            <Shirt className="w-3 h-3" /> {team.name}
-                                                        </button>
-                                                    )
-                                                })}
+                                                        return (
+                                                            <button
+                                                                key={team.name}
+                                                                onClick={() => assignTeam(booking.id, team.name)}
+                                                                className={cn(baseClass, styleClass)}
+                                                                style={inlineStyle}
+                                                            >
+                                                                <Shirt className="w-3 h-3" /> {team.name}
+                                                            </button>
+                                                        )
+                                                    })}
+                                                </div>
                                             </div>
                                         </div>
                                     );
@@ -705,12 +719,13 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     <div className="mb-8">
                         <TeamManager
                             gameId={gameId}
+                            teams={teams}
                             players={bookings.map(b => ({
                                 id: b.id,
                                 userId: b.user_id,
                                 name: Array.isArray(b.profiles) ? b.profiles[0]?.full_name : b.profiles?.full_name || 'Unknown',
                                 email: Array.isArray(b.profiles) ? b.profiles[0]?.email : b.profiles?.email || '',
-                                team: b.team,
+                                team: b.team_assignment as any || null,
                                 status: b.status
                             }))}
                             onUpdate={() => router.refresh()}

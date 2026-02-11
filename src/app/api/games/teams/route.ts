@@ -6,7 +6,22 @@ export async function POST(request: Request) {
         const supabase = await createClient();
         const { gameId } = await request.json();
 
-        // 1. Fetch all active/paid bookings
+        // 1. Fetch Game Config (Teams) or default
+        const { data: game, error: gameError } = await supabase
+            .from('games')
+            .select('teams_config')
+            .eq('id', gameId)
+            .single();
+
+        if (gameError) throw gameError;
+
+        const teams = (game.teams_config as any[]) || [
+            { name: 'Team A', color: 'Neon Orange' },
+            { name: 'Team B', color: 'White' }
+        ];
+        const teamNames = teams.map(t => t.name);
+
+        // 2. Fetch all active/paid bookings
         const { data: bookings, error: fetchError } = await supabase
             .from('bookings')
             .select('id')
@@ -15,30 +30,33 @@ export async function POST(request: Request) {
 
         if (fetchError) throw fetchError;
         if (!bookings || bookings.length === 0) {
-            return NextResponse.json({ message: 'No players to randomize' });
+            // Return success even if empty so UI doesn't break, just nothing happens
+            return NextResponse.json({ success: true, message: 'No players to randomize' });
         }
 
-        // 2. Shuffle
+        // 3. Shuffle
         const shuffled = [...bookings].sort(() => Math.random() - 0.5);
 
-        // 3. Split
-        const mid = Math.ceil(shuffled.length / 2);
-        const teamA = shuffled.slice(0, mid);
-        const teamB = shuffled.slice(mid);
+        // 4. Distribute & Prepare Updates
+        // Supabase bulk update workaround: We will loop for now as it is reliable.
+        // For distinct values per row, standard SQL `UPDATE ... CASE ... END` is needed, or just multiple requests.
+        // Given roster size ~20-30, parallel requests are fine.
 
-        // 4. Update DB
-        // We can do this with Promise.all for now as it's likely < 30 items
-        const updates = [
-            ...teamA.map(b => supabase.from('bookings').update({ team: 'A' }).eq('id', b.id)),
-            ...teamB.map(b => supabase.from('bookings').update({ team: 'B' }).eq('id', b.id))
-        ];
+        const updates = shuffled.map((booking, index) => {
+            const teamIndex = index % teamNames.length;
+            const assignedTeam = teamNames[teamIndex];
+
+            return supabase
+                .from('bookings')
+                .update({ team_assignment: assignedTeam })
+                .eq('id', booking.id);
+        });
 
         await Promise.all(updates);
 
         return NextResponse.json({
             success: true,
-            teamA: teamA.length,
-            teamB: teamB.length
+            message: `Randomized ${bookings.length} players into ${teams.length} teams.`
         });
 
     } catch (error: any) {
@@ -52,14 +70,12 @@ export async function PUT(request: Request) {
         const supabase = await createClient();
         const { bookingId, team } = await request.json();
 
-        // Validate team
-        if (team !== 'A' && team !== 'B' && team !== null) {
-            return NextResponse.json({ error: 'Invalid team' }, { status: 400 });
-        }
+        // Validate team? We trust the UI for now, or could fetch game config.
+        // Allowing null (unassigned)
 
         const { error } = await supabase
             .from('bookings')
-            .update({ team })
+            .update({ team_assignment: team })
             .eq('id', bookingId);
 
         if (error) throw error;

@@ -12,13 +12,39 @@ interface Player {
     status: string; // 'active' | 'paid' | 'waitlist'
 }
 
+interface TeamConfig {
+    name: string;
+    color: string;
+}
+
 interface TeamManagerProps {
     gameId: string;
     players: Player[];
+    teams: TeamConfig[];
     onUpdate: () => void;
 }
 
-export function TeamManager({ gameId, players, onUpdate }: TeamManagerProps) {
+const COLOR_MAP: Record<string, string> = {
+    'Neon Orange': 'border-orange-500/30 bg-orange-500/5',
+    'Neon Blue': 'border-cyan-500/30 bg-cyan-500/5',
+    'Neon Green': 'border-[#ccff00]/30 bg-[#ccff00]/5',
+    'White': 'border-white/30 bg-white/5',
+    'Black': 'border-gray-600 bg-gray-900',
+    'Red': 'border-red-500/30 bg-red-500/5',
+    'Yellow': 'border-yellow-400/30 bg-yellow-400/5'
+};
+
+const TEXT_COLOR_MAP: Record<string, string> = {
+    'Neon Orange': 'text-orange-500',
+    'Neon Blue': 'text-cyan-400',
+    'Neon Green': 'text-[#ccff00]',
+    'White': 'text-white',
+    'Black': 'text-gray-400',
+    'Red': 'text-red-500',
+    'Yellow': 'text-yellow-400'
+};
+
+export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerProps) {
     const { success, error: toastError } = useToast();
     const [loading, setLoading] = useState(false);
 
@@ -26,12 +52,8 @@ export function TeamManager({ gameId, players, onUpdate }: TeamManagerProps) {
     const activePlayers = players.filter(p => p.status === 'active' || p.status === 'paid');
 
     const unassigned = activePlayers.filter(p => !p.team);
-    const teamA = activePlayers.filter(p => p.team === 'A');
-    const teamB = activePlayers.filter(p => p.team === 'B');
 
-    const handleMove = async (bookingId: string, team: 'A' | 'B' | null) => {
-        // Optimistic update handled by parent refresh usually, but for speed we might want local state.
-        // For now, let's just call API and refresh.
+    const handleMove = async (bookingId: string, team: string | null) => {
         setLoading(true);
         try {
             const response = await fetch('/api/games/teams', {
@@ -52,7 +74,7 @@ export function TeamManager({ gameId, players, onUpdate }: TeamManagerProps) {
     };
 
     const handleRandomize = async () => {
-        if (!confirm('This will reshuffle ALL active players into two random teams. Current assignments will be overwritten. Continue?')) return;
+        if (!confirm('This will reshuffle ALL active players into random teams. Current assignments will be overwritten. Continue?')) return;
 
         setLoading(true);
         try {
@@ -65,7 +87,7 @@ export function TeamManager({ gameId, players, onUpdate }: TeamManagerProps) {
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
 
-            success(`Teams Randomized! A: ${data.teamA}, B: ${data.teamB}`);
+            success(`Teams Randomized!`);
             onUpdate();
         } catch (err: any) {
             toastError(err.message);
@@ -82,14 +104,18 @@ export function TeamManager({ gameId, players, onUpdate }: TeamManagerProps) {
                 </h3>
                 <button
                     onClick={handleRandomize}
-                    disabled={loading || activePlayers.length < 2}
+                    disabled={loading || activePlayers.length === 0}
                     className="flex items-center gap-2 px-4 py-2 bg-pitch-accent text-pitch-black font-bold uppercase rounded-sm hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <Shuffle className="w-4 h-4" /> Randomize Teams
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className={cn(
+                "grid gap-4",
+                // Dynamic grid cols logic could be improved, but let's assume standard max 4 for now or fallback to responsive
+                teams.length >= 3 ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 md:grid-cols-3"
+            )}>
                 {/* UNASSIGNED */}
                 <TeamColumn
                     title="Unassigned"
@@ -98,30 +124,30 @@ export function TeamManager({ gameId, players, onUpdate }: TeamManagerProps) {
                     headerColor="text-gray-400"
                     onMove={handleMove}
                     target="Unassigned"
+                    allTeams={teams}
                     loading={loading}
                 />
 
-                {/* TEAM A */}
-                <TeamColumn
-                    title="Team A"
-                    players={teamA}
-                    colorClass="border-orange-500/30 bg-orange-500/5"
-                    headerColor="text-orange-500"
-                    onMove={handleMove}
-                    target="A"
-                    loading={loading}
-                />
+                {/* DYNAMIC TEAMS */}
+                {teams.map(team => {
+                    const teamPlayers = activePlayers.filter(p => p.team === team.name);
+                    const colorClass = COLOR_MAP[team.color] || 'border-gray-600 bg-gray-800';
+                    const headerColor = TEXT_COLOR_MAP[team.color] || 'text-white';
 
-                {/* TEAM B */}
-                <TeamColumn
-                    title="Team B"
-                    players={teamB}
-                    colorClass="border-cyan-500/30 bg-cyan-500/5"
-                    headerColor="text-cyan-400"
-                    onMove={handleMove}
-                    target="B"
-                    loading={loading}
-                />
+                    return (
+                        <TeamColumn
+                            key={team.name}
+                            title={team.name}
+                            players={teamPlayers}
+                            colorClass={colorClass}
+                            headerColor={headerColor}
+                            onMove={handleMove}
+                            target={team.name}
+                            allTeams={teams}
+                            loading={loading}
+                        />
+                    );
+                })}
             </div>
         </div>
     );
@@ -134,14 +160,16 @@ function TeamColumn({
     headerColor,
     onMove,
     target,
+    allTeams,
     loading
 }: {
     title: string,
     players: Player[],
     colorClass: string,
     headerColor: string,
-    onMove: (id: string, team: 'A' | 'B' | null) => void,
-    target: 'A' | 'B' | 'Unassigned',
+    onMove: (id: string, team: string | null) => void,
+    target: string, // Team Name or 'Unassigned'
+    allTeams: TeamConfig[],
     loading: boolean
 }) {
     return (
@@ -158,22 +186,49 @@ function TeamColumn({
                         </div>
 
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {target === 'Unassigned' && (
+                            {/* If in Unassigned, show buttons for ALL teams */}
+                            {target === 'Unassigned' && allTeams.map(team => (
+                                <button
+                                    key={team.name}
+                                    onClick={() => onMove(p.id, team.name)}
+                                    disabled={loading}
+                                    className={cn(
+                                        "p-1 rounded text-[10px] font-bold uppercase w-6 h-6 flex items-center justify-center border",
+                                        // Simple heuristic for button colors or just strict map
+                                        team.name.includes("A") ? "border-orange-500/50 text-orange-500 hover:bg-orange-500/20" :
+                                            team.name.includes("B") ? "border-cyan-400/50 text-cyan-400 hover:bg-cyan-400/20" :
+                                                "border-gray-500 text-gray-400 hover:bg-gray-700"
+                                    )}
+                                    title={`Move to ${team.name}`}
+                                >
+                                    {team.name.substring(0, 1)}
+                                </button>
+                            ))}
+
+                            {/* If in a Team, show Move to Unassigned + Move to other teams */}
+                            {target !== 'Unassigned' && (
                                 <>
-                                    <button onClick={() => onMove(p.id, 'A')} disabled={loading} className="p-1 hover:bg-orange-500/20 text-orange-500 rounded" title="Move to A">A</button>
-                                    <button onClick={() => onMove(p.id, 'B')} disabled={loading} className="p-1 hover:bg-cyan-500/20 text-cyan-400 rounded" title="Move to B">B</button>
-                                </>
-                            )}
-                            {target === 'A' && (
-                                <>
-                                    <button onClick={() => onMove(p.id, null)} disabled={loading} className="p-1 hover:bg-gray-700 text-gray-400 rounded"><RefreshCw className="w-3 h-3" /></button>
-                                    <button onClick={() => onMove(p.id, 'B')} disabled={loading} className="p-1 hover:bg-cyan-500/20 text-cyan-400 rounded"><ArrowRight className="w-3 h-3" /></button>
-                                </>
-                            )}
-                            {target === 'B' && (
-                                <>
-                                    <button onClick={() => onMove(p.id, 'A')} disabled={loading} className="p-1 hover:bg-orange-500/20 text-orange-500 rounded"><ArrowLeft className="w-3 h-3" /></button>
-                                    <button onClick={() => onMove(p.id, null)} disabled={loading} className="p-1 hover:bg-gray-700 text-gray-400 rounded"><RefreshCw className="w-3 h-3" /></button>
+                                    <button
+                                        onClick={() => onMove(p.id, null)}
+                                        disabled={loading}
+                                        className="p-1 hover:bg-gray-700 text-gray-400 rounded"
+                                        title="Unassign"
+                                    >
+                                        <RefreshCw className="w-3 h-3" />
+                                    </button>
+
+                                    {/* Optional: Add direct "Swap" to other teams if space allows, or just Move to... */}
+                                    {allTeams.filter(t => t.name !== target).map(otherTeam => (
+                                        <button
+                                            key={otherTeam.name}
+                                            onClick={() => onMove(p.id, otherTeam.name)}
+                                            disabled={loading}
+                                            className="p-1 hover:bg-white/10 text-white rounded"
+                                            title={`Move to ${otherTeam.name}`}
+                                        >
+                                            <ArrowRight className="w-3 h-3" />
+                                        </button>
+                                    ))}
                                 </>
                             )}
                         </div>
