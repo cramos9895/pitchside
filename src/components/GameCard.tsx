@@ -287,9 +287,15 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                     <div className="flex items-center text-pitch-secondary">
                         <span className={cn(
                             "text-xs uppercase px-2 py-0.5 rounded font-bold",
-                            currentPlayers >= game.max_players ? "bg-red-500/10 text-red-500" : "bg-white/5 text-gray-400"
+                            (game.max_players - currentPlayers) === 0
+                                ? "bg-red-500/10 text-red-500"
+                                : (game.max_players - currentPlayers) <= 3
+                                    ? "bg-orange-500/10 text-orange-400"
+                                    : "bg-green-500/10 text-green-400"
                         )}>
-                            {currentPlayers} / {game.max_players} Players
+                            {(game.max_players - currentPlayers) === 0
+                                ? "Full"
+                                : `${game.max_players - currentPlayers} spots left`}
                         </span>
                     </div>
                 </div>

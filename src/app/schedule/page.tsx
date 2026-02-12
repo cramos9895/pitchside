@@ -33,6 +33,29 @@ const formatTime = (dateString: string) => {
 export default async function SchedulePage() {
     const supabase = await createClient();
 
+    // Fetch user bookings to check status
+    const { data: { user } } = await supabase.auth.getUser();
+    const joinedGameIds = new Set<string>();
+    const waitlistedGameIds = new Set<string>();
+
+    if (user) {
+        const { data: bookings } = await supabase
+            .from('bookings')
+            .select('game_id, status')
+            .eq('user_id', user.id)
+            .neq('status', 'cancelled');
+
+        if (bookings) {
+            bookings.forEach((b: any) => {
+                if (b.status === 'waitlist') {
+                    waitlistedGameIds.add(b.game_id);
+                } else {
+                    joinedGameIds.add(b.game_id);
+                }
+            });
+        }
+    }
+
     // Fetch all upcoming games
     const { data: games, error } = await supabase
         .from('games')
@@ -92,6 +115,8 @@ export default async function SchedulePage() {
                                     {dailyGames.map((game) => {
                                         const isFull = game.current_players >= game.max_players;
                                         const spotsLeft = game.max_players - game.current_players;
+                                        const isJoined = joinedGameIds.has(game.id);
+                                        const isWaitlisted = waitlistedGameIds.has(game.id);
 
                                         return (
                                             <div
@@ -142,13 +167,17 @@ export default async function SchedulePage() {
                                                     <Link
                                                         href={`/games/${game.id}`}
                                                         className={cn(
-                                                            "inline-flex items-center justify-center px-6 py-2 rounded-sm font-black uppercase tracking-wider text-sm transition-all shadow-lg",
-                                                            isFull
-                                                                ? "bg-pitch-card border border-white/10 text-white/50 hover:bg-white/5 hover:text-white"
-                                                                : "bg-pitch-accent text-pitch-black hover:bg-white hover:scale-105"
+                                                            "inline-flex items-center justify-center px-6 py-2 rounded-sm font-black uppercase tracking-wider text-sm transition-all shadow-lg min-w-[140px]",
+                                                            isJoined
+                                                                ? "bg-white/10 text-white hover:bg-red-500/20 hover:text-red-500 border border-white/10"
+                                                                : isWaitlisted
+                                                                    ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/30"
+                                                                    : isFull
+                                                                        ? "bg-pitch-card border border-white/10 text-white/50 hover:bg-white/5 hover:text-white"
+                                                                        : "bg-pitch-accent text-pitch-black hover:bg-white hover:scale-105"
                                                         )}
                                                     >
-                                                        {isFull ? 'Join Waitlist' : 'Join Game'}
+                                                        {isJoined ? "Joined" : isWaitlisted ? "Waitlisted" : isFull ? 'Join Waitlist' : 'Join Game'}
                                                     </Link>
                                                 </div>
                                             </div>
