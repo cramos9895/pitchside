@@ -53,9 +53,7 @@ export default async function Home() {
     .order('start_time', { ascending: true })
     .limit(5);
 
-  if (joinedGameIds.length > 0) {
-    query = query.not('id', 'in', `(${joinedGameIds.join(',')})`);
-  }
+
 
   const { data: games, error } = await query;
 
