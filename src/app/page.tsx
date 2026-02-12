@@ -23,21 +23,12 @@ export const revalidate = 0; // Ensure fresh data on every request
 export default async function Home() {
   const supabase = await createClient();
 
-  // Fetch games from Supabase
-  const { data: games, error } = await supabase
-    .from('games')
-    .select('*')
-    .neq('status', 'cancelled') // Hide Cancelled Games from Feed
-    .order('start_time', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching games:', error);
-  }
-
-  // Fetch current user for the GameCard logic
+  // Fetch current user first to filter out joined games
   const { data: { user } } = await supabase.auth.getUser();
 
+  let joinedGameIds: string[] = [];
   const bookingStatusMap = new Map<string, string>();
+
   if (user) {
     const { data: bookings } = await supabase
       .from('bookings')
@@ -46,8 +37,30 @@ export default async function Home() {
       .neq('status', 'cancelled');
 
     if (bookings) {
-      bookings.forEach((b: any) => bookingStatusMap.set(b.game_id, b.status));
+      bookings.forEach((b: any) => {
+        joinedGameIds.push(b.game_id);
+        bookingStatusMap.set(b.game_id, b.status);
+      });
     }
+  }
+
+  // Fetch upcoming games not joined by user
+  let query = supabase
+    .from('games')
+    .select('*')
+    .neq('status', 'cancelled')
+    .gt('start_time', new Date().toISOString()) // Only future games
+    .order('start_time', { ascending: true })
+    .limit(5);
+
+  if (joinedGameIds.length > 0) {
+    query = query.not('id', 'in', `(${joinedGameIds.join(',')})`);
+  }
+
+  const { data: games, error } = await query;
+
+  if (error) {
+    console.error('Error fetching games:', error);
   }
 
   return (
@@ -92,7 +105,7 @@ export default async function Home() {
           {/* 'rounded-sm' keeps the corners sharp and professional */}
           <div className="pt-8">
             <Link
-              href="/games"
+              href="/schedule"
               className="group relative inline-flex items-center justify-center px-10 py-5 bg-pitch-accent text-pitch-black text-lg md:text-xl font-black uppercase tracking-wider rounded-sm hover:bg-white transition-all duration-300 transform hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(204,255,0,0.4)]"
             >
               Find Games Now
@@ -109,7 +122,7 @@ export default async function Home() {
             <h2 className="font-heading text-4xl md:text-5xl font-bold uppercase italic tracking-tighter">
               Upcoming <span className="text-pitch-accent">Matches</span>
             </h2>
-            <Link href="/games" className="hidden md:flex items-center gap-2 text-pitch-accent font-bold uppercase tracking-wider hover:text-white transition-colors">
+            <Link href="/schedule" className="hidden md:flex items-center gap-2 text-pitch-accent font-bold uppercase tracking-wider hover:text-white transition-colors">
               View All <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
