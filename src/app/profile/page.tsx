@@ -225,6 +225,21 @@ export default function ProfilePage() {
                 </div>
             </div>
 
+            {/* CREDITS BANNER */}
+            {profile?.free_game_credits > 0 && (
+                <div className="w-full max-w-sm mb-8 bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 border border-yellow-500/50 p-4 rounded-sm flex items-center justify-between shadow-[0_0_20px_rgba(234,179,8,0.1)]">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-black font-bold text-xl shadow-lg">
+                            🏆
+                        </div>
+                        <div>
+                            <p className="font-bold text-yellow-400 uppercase text-sm tracking-wider">Rewards Available</p>
+                            <p className="text-white text-xs">You have <span className="font-bold text-white text-sm">{profile.free_game_credits} Free Game Credit{profile.free_game_credits !== 1 ? 's' : ''}</span></p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* MATCH HISTORY */}
             <div className="w-full max-w-2xl px-4 pb-20">
                 <h3 className="font-heading text-xl font-bold italic uppercase mb-4 border-b border-white/10 pb-2 flex items-center gap-2">

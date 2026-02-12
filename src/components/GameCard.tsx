@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, Loader2, Check, UserPlus, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -19,6 +19,7 @@ interface Game {
     current_players: number;
     surface_type: string;
     status: string; // 'scheduled', 'active', 'completed', 'cancelled'
+    has_mvp_reward?: boolean;
 }
 
 interface GameCardProps {
@@ -54,6 +55,32 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
     } else {
         endDate = new Date(gameDate.getTime() + 90 * 60000);
     }
+
+    // Realtime Subscription
+    useEffect(() => {
+        const channel = supabase
+            .channel(`game-${game.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'games',
+                    filter: `id=eq.${game.id}`
+                },
+                (payload) => {
+                    const newGame = payload.new as Game;
+                    if (newGame.current_players !== undefined) {
+                        setCurrentPlayers(newGame.current_players);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [game.id, supabase]);
 
     // Duration
     // Duration (Fix: Explicit HH:MM math)
@@ -113,6 +140,16 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
         }
     };
 
+    const [userProfile, setUserProfile] = useState<any>(null);
+
+    useEffect(() => {
+        if (user) {
+            supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => {
+                setUserProfile(data);
+            });
+        }
+    }, [user, supabase]);
+
     const proceedToJoin = async () => {
         setLoading(true);
 
@@ -142,10 +179,10 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                 }
 
                 setJoined(true);
-
                 if (currentPlayers < game.max_players) {
                     setStatus('paid');
-                    setCurrentPlayers(prev => prev + 1);
+                    // Optimistic update handled by realtime subscription usually, 
+                    // but we can do it here too just in case.
                 } else {
                     setStatus('waitlist');
                     alert("You've been added to the waitlist!");
@@ -156,7 +193,36 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                 return;
             }
 
-            // Paid Game (Active Roster)
+            // Check for Credits (Redemption)
+            if (userProfile?.free_game_credits > 0) {
+                const useCredit = confirm(`You have ${userProfile.free_game_credits} Free Game Credit(s). Would you like to use one for this game?`);
+
+                if (useCredit) {
+                    const response = await fetch('/api/join-with-credit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            gameId: game.id,
+                            note: teammateNote
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error);
+
+                    setJoined(true);
+                    setStatus('paid');
+                    alert("Success! logic: Free credit redeemed.");
+                    // Decrement local credit count optimistically
+                    setUserProfile({ ...userProfile, free_game_credits: userProfile.free_game_credits - 1 });
+
+                    setIsModalOpen(false);
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            // Paid Game (Active Roster) - Stripe
             const response = await fetch('/api/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -200,8 +266,15 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                             CANCELLED
                         </div>
                     ) : (
-                        <div className="bg-white/5 px-2 py-1 rounded text-xs font-bold uppercase text-white">
-                            {game.surface_type}
+                        <div className="flex gap-2">
+                            {game.has_mvp_reward && (
+                                <div className="bg-yellow-500/20 border border-yellow-500/50 px-2 py-1 rounded text-xs font-bold uppercase text-yellow-500 flex items-center gap-1 shadow-[0_0_10px_rgba(234,179,8,0.2)]">
+                                    <span>🏆</span> Prize Game
+                                </div>
+                            )}
+                            <div className="bg-white/5 px-2 py-1 rounded text-xs font-bold uppercase text-white">
+                                {game.surface_type}
+                            </div>
                         </div>
                     )}
                 </div>

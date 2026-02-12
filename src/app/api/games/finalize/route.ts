@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
         // 2. Fetch Game to get Team Names
         const { data: game, error: gameError } = await supabase
             .from('games')
-            .select('teams_config')
+            .select('teams_config, has_mvp_reward')
             .eq('id', gameId)
             .single();
 
@@ -79,14 +79,24 @@ export async function POST(request: NextRequest) {
             // Since we don't have a reliable RPC for this, we fetch & update.
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('mvp_awards')
+                .select('mvp_awards, free_game_credits')
                 .eq('id', mvpPlayerId)
                 .single();
 
             if (profile) {
+                const updates: any = { mvp_awards: (profile.mvp_awards || 0) + 1 };
+
+                // 6. Check for MVP Reward (Free Credit)
+                // We need to fetch the game's has_mvp_reward status first.
+                // Re-fetch game or include it in initial fetch? Initial fetch is better.
+                // But let's check the earlier fetch.
+                if (game.has_mvp_reward) {
+                    updates.free_game_credits = (profile.free_game_credits || 0) + 1;
+                }
+
                 await supabase
                     .from('profiles')
-                    .update({ mvp_awards: (profile.mvp_awards || 0) + 1 })
+                    .update(updates)
                     .eq('id', mvpPlayerId);
             }
         }

@@ -38,6 +38,7 @@ export default function NewGamePage() {
     const [price, setPrice] = useState<number | ''>(10.00);
     const [maxPlayers, setMaxPlayers] = useState<number | ''>(22);
     const [surfaceType, setSurfaceType] = useState('Turf');
+    const [hasMvpReward, setHasMvpReward] = useState(false);
 
     const [teams, setTeams] = useState<TeamConfig[]>([
         { name: 'Team A', color: 'Neon Orange', limit: 11 },
@@ -115,7 +116,8 @@ export default function NewGamePage() {
                 max_players: maxPlayers === '' ? 22 : maxPlayers,
                 surface_type: surfaceType,
                 current_players: 0,
-                teams_config: teams
+                teams_config: teams,
+                has_mvp_reward: hasMvpReward
             };
 
             console.log('Payload:', payload);
@@ -242,16 +244,18 @@ export default function NewGamePage() {
                             <div className="grid grid-cols-2 gap-6">
                                 {/* Price */}
                                 <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex justify-between items-center">
-                                        Price ($)
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary">
+                                            Price ($)
+                                        </label>
                                         <button
                                             type="button"
                                             onClick={() => setPrice(0)}
-                                            className="text-[10px] bg-green-500/20 text-green-500 px-2 py-0.5 rounded hover:bg-green-500/40 transition-colors"
+                                            className="text-[10px] bg-pitch-accent text-pitch-black px-2 py-0.5 rounded uppercase font-black hover:bg-white transition-colors"
                                         >
-                                            Make it Free
+                                            Make Free
                                         </button>
-                                    </label>
+                                    </div>
                                     <input
                                         type="number"
                                         required
@@ -262,7 +266,6 @@ export default function NewGamePage() {
                                         className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
                                     />
                                 </div>
-
                                 {/* Max Players */}
                                 <div>
                                     <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
@@ -279,22 +282,41 @@ export default function NewGamePage() {
                                 </div>
                             </div>
 
-                            {/* Surface Type */}
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                                    Surface Type
+                            {/* MVP REWARD TOGGLE */}
+                            <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-sm">
+                                <input
+                                    type="checkbox"
+                                    id="mvpReward"
+                                    checked={hasMvpReward}
+                                    onChange={(e) => setHasMvpReward(e.target.checked)}
+                                    className="w-5 h-5 accent-pitch-accent rounded cursor-pointer"
+                                />
+                                <label htmlFor="mvpReward" className="flex items-center gap-2 cursor-pointer select-none">
+                                    <span className="text-xl">🏆</span>
+                                    <div>
+                                        <p className="font-bold uppercase text-sm text-white">Prize Game?</p>
+                                        <p className="text-xs text-pitch-secondary">MVP receives a Free Game Credit</p>
+                                    </div>
                                 </label>
-                                <select
-                                    value={surfaceType}
-                                    onChange={(e) => setSurfaceType(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
-                                >
-                                    <option value="Turf">Turf</option>
-                                    <option value="Grass">Grass</option>
-                                    <option value="Indoor">Indoor Court</option>
-                                </select>
                             </div>
                         </div>
+
+                        {/* Surface Type */}
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                Surface Type
+                            </label>
+                            <select
+                                value={surfaceType}
+                                onChange={(e) => setSurfaceType(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
+                            >
+                                <option value="Turf">Turf</option>
+                                <option value="Grass">Grass</option>
+                                <option value="Indoor">Indoor Court</option>
+                            </select>
+                        </div>
+
 
                         {/* TEAM CONFIGURATION SECTION */}
                         <div className="space-y-6">
