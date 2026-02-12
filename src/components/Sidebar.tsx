@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { X, LogOut, User, Home, LayoutDashboard, Settings } from 'lucide-react';
+import { X, LogOut, User, Home, LayoutDashboard, Settings, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -112,7 +112,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </div>
 
                 {/* Navigation Links */}
-                <div className="flex-1 py-8 px-6 space-y-6">
+                <div className="flex-1 py-8 px-6 space-y-6 overflow-y-auto">
                     <Link
                         href="/"
                         onClick={onClose}
@@ -129,6 +129,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     >
                         <LayoutDashboard className="w-6 h-6 text-gray-500 group-hover:text-pitch-accent transition-colors" />
                         My Dashboard
+                    </Link>
+
+
+
+                    <Link
+                        href="/leaderboard"
+                        onClick={onClose}
+                        className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-white hover:text-pitch-accent transition-colors group"
+                    >
+                        <Trophy className="w-6 h-6 text-gray-500 group-hover:text-pitch-accent transition-colors" />
+                        Leaderboard
                     </Link>
 
                     {isAdmin && (
@@ -209,7 +220,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                         </Link>
                     )}
                 </div>
-            </div>
+            </div >
         </>
     );
 }
