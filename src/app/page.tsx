@@ -98,20 +98,6 @@ export default async function Home() {
           <p className="text-xl md:text-2xl text-pitch-secondary max-w-2xl mx-auto font-medium">
             The premier pickup soccer network in Northwest Chicago.
           </p>
-
-          {/* CTA Button */}
-          {/* 'bg-pitch-accent' gives the button the "Electric Volt" neon color */}
-          {/* 'text-pitch-black' provides maximum contrast against the neon background */}
-          {/* 'rounded-sm' keeps the corners sharp and professional */}
-          <div className="pt-8">
-            <Link
-              href="/schedule"
-              className="group relative inline-flex items-center justify-center px-10 py-5 bg-pitch-accent text-pitch-black text-lg md:text-xl font-black uppercase tracking-wider rounded-sm hover:bg-white transition-all duration-300 transform hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(204,255,0,0.4)]"
-            >
-              Find Games Now
-              <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
         </div>
       </section>
 
@@ -122,7 +108,7 @@ export default async function Home() {
             <h2 className="font-heading text-4xl md:text-5xl font-bold uppercase italic tracking-tighter">
               Upcoming <span className="text-pitch-accent">Matches</span>
             </h2>
-            <Link href="/schedule" className="hidden md:flex items-center gap-2 text-pitch-accent font-bold uppercase tracking-wider hover:text-white transition-colors">
+            <Link href="/schedule" className="flex items-center gap-2 text-pitch-accent font-bold uppercase tracking-wider hover:text-white transition-colors">
               View All <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
