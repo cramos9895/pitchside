@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
-import { syncPlayerCount } from '@/lib/games';
+
 
 interface Props {
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>

@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { syncPlayerCount } from '@/lib/games';
+
 
 export async function POST(request: NextRequest) {
     try {
@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
             throw insertError;
         }
 
-        // 4. Sync Player Count
-        await syncPlayerCount(gameId);
+        // 4. Sync Player Count (Handled by DB Trigger now)
+        // await syncPlayerCount(gameId);
 
         return NextResponse.json({ success: true });
 

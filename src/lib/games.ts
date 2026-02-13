@@ -24,7 +24,7 @@ export async function syncPlayerCount(gameId: string) {
             .from('bookings')
             .select('*', { count: 'exact', head: true })
             .eq('game_id', gameId)
-            .eq('status', 'paid');
+            .in('status', ['active', 'paid']);
 
         if (countError) throw countError;
 

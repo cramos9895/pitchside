@@ -165,34 +165,34 @@ export default function DashboardPage() {
                                     </div>
 
                                     {booking.status === 'paid' && (
-                                        <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                                        <div className="mt-4 pt-4 border-t border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-3">
                                             <div className="flex items-center gap-2 text-green-400 text-xs font-bold uppercase tracking-wider">
                                                 <span className="w-2 h-2 bg-green-400 rounded-full" />
                                                 Confirmed Ticket
                                             </div>
                                             {!isPast && (
-                                                <button
-                                                    onClick={() => setCancellingGameId(game.id)}
-                                                    className="text-xs text-red-500 hover:text-white underline decoration-red-500/30 hover:decoration-white transition-all uppercase font-bold"
+                                                <Link
+                                                    href={`/games/${game.id}?tab=chat`}
+                                                    className="px-3 py-1.5 bg-pitch-accent text-pitch-black font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors text-center"
                                                 >
-                                                    Cancel Ticket
-                                                </button>
+                                                    Game Lobby
+                                                </Link>
                                             )}
                                         </div>
                                     )}
                                     {booking.status === 'waitlist' && (
-                                        <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                                        <div className="mt-4 pt-4 border-t border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-3">
                                             <div className="flex items-center gap-2 text-yellow-500 text-xs font-bold uppercase tracking-wider">
                                                 <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
                                                 On Waitlist
                                             </div>
                                             {!isPast && (
-                                                <button
-                                                    onClick={() => setCancellingGameId(game.id)}
-                                                    className="text-xs text-red-500 hover:text-white underline decoration-red-500/30 hover:decoration-white transition-all uppercase font-bold"
+                                                <Link
+                                                    href={`/games/${game.id}?tab=chat`}
+                                                    className="px-3 py-1.5 bg-pitch-accent text-pitch-black font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors text-center"
                                                 >
-                                                    Leave Waitlist
-                                                </button>
+                                                    Game Lobby
+                                                </Link>
                                             )}
                                         </div>
                                     )}

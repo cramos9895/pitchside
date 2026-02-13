@@ -256,8 +256,14 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                 isCancelled ? "opacity-75 grayscale hover:border-red-500/30" : "hover:border-pitch-accent/50"
             )}>
                 <div className="flex justify-between items-start mb-4">
-                    <div>
-                        <h3 className="font-heading text-xl font-bold italic">{startTimeStr} - {endTimeStr}</h3>
+                    <div
+                        onClick={() => router.push(`/games/${game.id}`)}
+                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                    >
+                        {game.title && <h3 className="font-heading text-lg font-bold italic uppercase text-pitch-accent mb-1">{game.title}</h3>}
+                        <div className="text-xl font-bold italic text-white flex items-center gap-2">
+                            {startTimeStr} <span className="text-gray-500 text-sm font-normal">- {endTimeStr}</span>
+                        </div>
                         <p className="text-sm font-bold text-gray-400">{durationStr}</p>
                         <p className="text-pitch-secondary text-sm font-bold uppercase">{dateStr}</p>
                     </div>
@@ -266,10 +272,10 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                             CANCELLED
                         </div>
                     ) : (
-                        <div className="flex gap-2">
+                        <div className="flex flex-col items-end gap-2">
                             {game.has_mvp_reward && (
                                 <div className="bg-yellow-500/20 border border-yellow-500/50 px-2 py-1 rounded text-xs font-bold uppercase text-yellow-500 flex items-center gap-1 shadow-[0_0_10px_rgba(234,179,8,0.2)]">
-                                    <span>🏆</span> Prize Game
+                                    <span>🏆</span> Prize
                                 </div>
                             )}
                             <div className="bg-white/5 px-2 py-1 rounded text-xs font-bold uppercase text-white">
@@ -309,30 +315,10 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                         </button>
                     ) : joined ? (
                         <button
-                            onClick={() => {
-                                const msg = status === 'waitlist' ? 'Are you sure you want to leave the waitlist?' : 'Are you sure you want to leave this game?';
-                                if (confirm(msg)) {
-                                    handleLeave();
-                                }
-                            }}
-                            disabled={loading}
-                            className={cn(
-                                "px-4 py-2 font-bold uppercase text-xs rounded-sm flex items-center gap-2 transition-colors relative group/btn",
-                                status === 'waitlist'
-                                    ? "bg-yellow-500/10 text-yellow-500 hover:bg-red-500/20 hover:text-red-500"
-                                    : "bg-white/10 text-white hover:bg-red-500/20 hover:text-red-500"
-                            )}
+                            onClick={() => router.push(`/games/${game.id}?tab=chat`)}
+                            className="w-full sm:w-auto px-4 py-2 bg-pitch-accent text-pitch-black font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors flex items-center justify-center gap-2"
                         >
-                            <span className="group-hover/btn:hidden flex items-center gap-2">
-                                {status === 'waitlist' ? (
-                                    <><Check className="w-4 h-4" /> Waitlisted</>
-                                ) : (
-                                    <><Check className="w-4 h-4" /> Joined</>
-                                )}
-                            </span>
-                            <span className="hidden group-hover/btn:flex items-center gap-2">
-                                {status === 'waitlist' ? 'Leave Waitlist' : 'Leave Game'}
-                            </span>
+                            Game Lobby
                         </button>
                     ) : (
                         <button
