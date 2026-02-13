@@ -8,6 +8,8 @@ import { ArrowLeft, Calendar, MapPin, Clock, Users, MessageSquare, Info, Shirt }
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { ChatInterface } from '@/components/ChatInterface';
+import { VotingModal } from '@/components/VotingModal';
+import { Trophy } from 'lucide-react';
 
 // Reuse types/interfaces if possible, or define locally for now
 interface Game {
@@ -44,10 +46,14 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const [voteModalOpen, setVoteModalOpen] = useState(false);
 
     // Derived state
     const [isParticipant, setIsParticipant] = useState(false);
     const [userBooking, setUserBooking] = useState<Booking | null>(null);
+
+    const [hasVoted, setHasVoted] = useState(false);
+    const [isVotingOpen, setIsVotingOpen] = useState(false);
 
     const supabase = createClient();
     const router = useRouter();
@@ -74,10 +80,15 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
             }
             setGame(gameData);
 
+            // Check if voting is open (Now > Start Time)
+            const now = new Date();
+            const start = new Date(gameData.start_time);
+            setIsVotingOpen(now >= start);
+
             // 3. Get Roster (Active/Paid/Waitlist)
             const { data: rosterData, error: rosterError } = await supabase
                 .from('bookings')
-                .select('*, profiles(full_name, email)')
+                .select('*, profiles(id, full_name, email)')
                 .eq('game_id', gameId)
                 .neq('status', 'cancelled');
 
@@ -92,9 +103,18 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                     if (myBooking && ['active', 'paid'].includes(myBooking.status)) {
                         setIsParticipant(true);
                         setUserBooking(myBooking);
+
+                        // Check if user has voted
+                        const { data: voteData } = await supabase
+                            .from('mvp_votes')
+                            .select('id')
+                            .eq('game_id', gameId)
+                            .eq('voter_id', user.id)
+                            .maybeSingle();
+
+                        if (voteData) setHasVoted(true);
                     } else if (myBooking && myBooking.status === 'waitlist') {
-                        // User decided Waitlist can see chat? "Participants & Admins".
-                        // Let's allow waitlist to see chat for now to keep them engaged.
+                        // Waitlist logic (keep existing)
                         setIsParticipant(true);
                         setUserBooking(myBooking);
                     }
@@ -105,7 +125,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                         .select('role')
                         .eq('id', user.id)
                         .in('role', ['admin', 'master_admin'])
-                        .maybeSingle(); // Use maybeSingle to avoid error if no role
+                        .maybeSingle();
 
                     if (roleData) setIsParticipant(true);
                 }
@@ -218,6 +238,37 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                                     </div>
                                     <p className="font-bold text-sm">{game.location}</p>
                                 </div>
+
+                                {/* MVP Voting Section */}
+                                {isParticipant && ['active', 'paid'].includes(userBooking?.status || '') && isVotingOpen && (
+                                    <div className="bg-gradient-to-br from-yellow-500/10 to-transparent border border-yellow-500/20 p-6 rounded-sm">
+                                        <h4 className="font-bold uppercase text-sm mb-2 text-yellow-500 flex items-center gap-2">
+                                            <Trophy className="w-4 h-4" /> MVP Vote
+                                        </h4>
+
+                                        {hasVoted ? (
+                                            <div className="text-center py-4">
+                                                <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500/20 text-green-500 mb-2">
+                                                    <Check className="w-6 h-6" />
+                                                </div>
+                                                <p className="text-white font-bold text-sm">Vote Submitted!</p>
+                                                <p className="text-xs text-gray-400 mt-1">Waiting for results...</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <p className="text-xs text-gray-400 mb-4">
+                                                    Voting is open! Select the player who made the biggest impact.
+                                                </p>
+                                                <button
+                                                    onClick={() => setVoteModalOpen(true)}
+                                                    className="w-full py-3 bg-yellow-500 text-black font-black uppercase tracking-wider rounded-sm hover:bg-yellow-400 transition-colors text-xs"
+                                                >
+                                                    Vote Now
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Leave Game Option */}
                                 {isParticipant && userBooking && (
@@ -345,6 +396,26 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
 
                 </div>
             </div>
+
+            {voteModalOpen && (
+                <VotingModal
+                    gameId={gameId}
+                    candidates={bookings
+                        .filter(b => ['active', 'paid'].includes(b.status) && b.user_id !== currentUser?.id)
+                        .map(b => {
+                            const p = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
+                            return {
+                                id: p?.id || b.user_id,
+                                full_name: p?.full_name || 'Unknown',
+                                email: p?.email || '',
+                                team_assignment: b.team_assignment
+                            };
+                        })
+                    }
+                    onVoteSuccess={() => setHasVoted(true)}
+                    onClose={() => setVoteModalOpen(false)}
+                />
+            )}
         </div>
     );
 }
@@ -372,5 +443,11 @@ function Loader2({ className }: { className?: string }) {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
         </svg>
+    )
+}
+
+function Check({ className }: { className?: string }) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}> <polyline points="20 6 9 17 4 12" /> </svg>
     )
 }

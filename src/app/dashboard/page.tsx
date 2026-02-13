@@ -170,14 +170,12 @@ export default function DashboardPage() {
                                                 <span className="w-2 h-2 bg-green-400 rounded-full" />
                                                 Confirmed Ticket
                                             </div>
-                                            {!isPast && (
-                                                <Link
-                                                    href={`/games/${game.id}?tab=chat`}
-                                                    className="px-3 py-1.5 bg-pitch-accent text-pitch-black font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors text-center"
-                                                >
-                                                    Game Lobby
-                                                </Link>
-                                            )}
+                                            <Link
+                                                href={`/games/${game.id}?tab=chat`}
+                                                className="px-3 py-1.5 bg-pitch-accent text-pitch-black font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors text-center"
+                                            >
+                                                Game Lobby
+                                            </Link>
                                         </div>
                                     )}
                                     {booking.status === 'waitlist' && (
@@ -186,14 +184,12 @@ export default function DashboardPage() {
                                                 <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
                                                 On Waitlist
                                             </div>
-                                            {!isPast && (
-                                                <Link
-                                                    href={`/games/${game.id}?tab=chat`}
-                                                    className="px-3 py-1.5 bg-pitch-accent text-pitch-black font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors text-center"
-                                                >
-                                                    Game Lobby
-                                                </Link>
-                                            )}
+                                            <Link
+                                                href={`/games/${game.id}?tab=chat`}
+                                                className="px-3 py-1.5 bg-pitch-accent text-pitch-black font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors text-center"
+                                            >
+                                                Game Lobby
+                                            </Link>
                                         </div>
                                     )}
                                 </div>

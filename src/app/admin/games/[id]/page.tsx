@@ -21,9 +21,11 @@ interface Booking {
     note: string | null; // Request note
     user_id: string;
     profiles: {
+        id: string; // Add id
         email: string;
         full_name: string;
     } | {
+        id: string; // Add id
         email: string;
         full_name: string;
     }[] | null;
@@ -128,6 +130,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         }
     }
 
+    const [voteTally, setVoteTally] = useState<Record<string, number>>({});
+
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
@@ -164,14 +168,64 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                 if (bookingsError) throw bookingsError;
                 setBookings((bookingsData || []) as any);
+
+                // Fetch Votes
+                const { data: votesData, error: votesError } = await supabase
+                    .from('mvp_votes')
+                    .select('candidate_id')
+                    .eq('game_id', gameId);
+
+                if (votesData) {
+                    const tally: Record<string, number> = {};
+                    votesData.forEach(v => {
+                        tally[v.candidate_id] = (tally[v.candidate_id] || 0) + 1;
+                    });
+                    setVoteTally(tally);
+                }
+
             } catch (err) {
-                console.error("Error fetching roster:", err);
+                console.error("Error fetching roster/votes:", err);
             } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
+
+        // Realtime Subscription for Votes
+        const voteChannel = supabase
+            .channel(`mvp-votes-${gameId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*', // Listen to all changes (INSERT)
+                    schema: 'public',
+                    table: 'mvp_votes',
+                    filter: `game_id=eq.${gameId}`
+                },
+                (payload) => {
+                    // Re-fetch votes to be safe and simple (or optimistic update)
+                    // Simple re-fetch logic:
+                    supabase
+                        .from('mvp_votes')
+                        .select('candidate_id')
+                        .eq('game_id', gameId)
+                        .then(({ data }) => {
+                            if (data) {
+                                const tally: Record<string, number> = {};
+                                data.forEach(v => {
+                                    tally[v.candidate_id] = (tally[v.candidate_id] || 0) + 1;
+                                });
+                                setVoteTally(tally);
+                            }
+                        });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(voteChannel);
+        };
     }, [gameId, supabase]);
 
     const toggleCheckIn = async (bookingId: string, currentStatus: boolean) => {
@@ -723,6 +777,46 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                             </div>
                         )}
                     </div>
+
+                    {/* Live Vote Tally (Visible if there are votes or game is active/completed) */}
+                    {(matchStatus === 'active' || matchStatus === 'completed' || Object.keys(voteTally).length > 0) && (
+                        <div className="bg-gradient-to-r from-yellow-500/10 to-transparent border border-yellow-500/20 rounded-sm p-6 mb-8">
+                            <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2 mb-4 text-yellow-500">
+                                <Trophy className="w-5 h-5" /> Live Player MVP Votes
+                            </h2>
+                            {Object.keys(voteTally).length === 0 ? (
+                                <p className="text-sm text-gray-500 italic">No votes cast yet.</p>
+                            ) : (
+                                <div className="flex flex-wrap gap-4">
+                                    {Object.entries(voteTally)
+                                        .sort(([, a], [, b]) => b - a)
+                                        .map(([candidateId, count], index) => {
+                                            // Find player name
+                                            const player = roster.find(b => {
+                                                const p = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
+                                                return b.user_id === candidateId || p?.id === candidateId;
+                                            });
+                                            // Fallback helper
+                                            const getPlayerName = (b: any) => {
+                                                const p = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
+                                                return p?.full_name || 'Unknown';
+                                            };
+                                            const name = player ? getPlayerName(player) : 'Unknown Player';
+
+                                            return (
+                                                <div key={candidateId} className="bg-black/40 border border-yellow-500/30 px-4 py-2 rounded flex items-center gap-3">
+                                                    <div className="text-xl font-black text-white">{index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}</div>
+                                                    <div>
+                                                        <div className="font-bold text-sm text-gray-200">{name}</div>
+                                                        <div className="text-xs text-yellow-500 font-bold">{count} Votes</div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* TEAM BALANCING SECTION */}
                     <div className="mb-8">
