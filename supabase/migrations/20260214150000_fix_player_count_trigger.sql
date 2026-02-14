@@ -1,4 +1,4 @@
--- Function to update current_players count
+-- Function to update current_players count (Fix: include 'active' status)
 CREATE OR REPLACE FUNCTION update_current_players_count()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -12,7 +12,7 @@ BEGIN
             target_game_id := NEW.game_id;
         END IF;
 
-        -- Update the games table with the count of 'paid' bookings
+        -- Update the games table with the count of 'paid' OR 'active' bookings
         UPDATE games
         SET current_players = (
             SELECT COUNT(*)
@@ -39,15 +39,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to call the function
-DROP TRIGGER IF EXISTS trg_update_player_count ON bookings;
+-- Trigger is already there (or we can recreate it to be safe)
+-- But mostly we just updated the function.
 
-CREATE TRIGGER trg_update_player_count
-AFTER INSERT OR UPDATE OR DELETE ON bookings
-FOR EACH ROW
-EXECUTE FUNCTION update_current_players_count();
-
--- Recalculate counts for all existing games
+-- Recalculate counts for all existing games to fix inconsistencies
 UPDATE games g
 SET current_players = (
     SELECT COUNT(*)

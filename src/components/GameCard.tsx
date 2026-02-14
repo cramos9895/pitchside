@@ -181,8 +181,8 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                 setJoined(true);
                 if (currentPlayers < game.max_players) {
                     setStatus('paid');
-                    // Optimistic update handled by realtime subscription usually, 
-                    // but we can do it here too just in case.
+                    // Optimistic update:
+                    setCurrentPlayers(prev => prev + 1);
                 } else {
                     setStatus('waitlist');
                     alert("You've been added to the waitlist!");
@@ -212,6 +212,7 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
 
                     setJoined(true);
                     setStatus('paid');
+                    setCurrentPlayers(prev => prev + 1); // Optimistic update
                     alert("Success! logic: Free credit redeemed.");
                     // Decrement local credit count optimistically
                     setUserProfile({ ...userProfile, free_game_credits: userProfile.free_game_credits - 1 });
