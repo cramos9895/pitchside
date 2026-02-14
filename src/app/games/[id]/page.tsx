@@ -9,7 +9,8 @@ import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { ChatInterface } from '@/components/ChatInterface';
 import { VotingModal } from '@/components/VotingModal';
-import { Trophy } from 'lucide-react';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { Trophy, AlertTriangle } from 'lucide-react';
 
 // Reuse types/interfaces if possible, or define locally for now
 interface Game {
@@ -47,6 +48,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [voteModalOpen, setVoteModalOpen] = useState(false);
+    const [leaveModalOpen, setLeaveModalOpen] = useState(false);
 
     // Derived state
     const [isParticipant, setIsParticipant] = useState(false);
@@ -280,26 +282,8 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                                                 : "Can't make it? Please leave the game to open up a spot for others."}
                                         </p>
                                         <button
-                                            onClick={async () => {
-                                                if (confirm(userBooking.status === 'waitlist' ? 'Leave waitlist?' : 'Are you sure you want to leave the game?')) {
-                                                    setLoading(true);
-                                                    try {
-                                                        const res = await fetch('/api/leave', {
-                                                            method: 'POST',
-                                                            headers: { 'Content-Type': 'application/json' },
-                                                            body: JSON.stringify({ gameId: game.id })
-                                                        });
-                                                        if (!res.ok) throw new Error('Failed to leave');
-                                                        router.refresh();
-                                                        window.location.reload(); // Hard reload to update state
-                                                    } catch (err) {
-                                                        console.error(err);
-                                                        alert('Failed to leave game.');
-                                                        setLoading(false);
-                                                    }
-                                                }
-                                            }}
-                                            className="w-full text-center px-4 py-2 border border-red-500/30 text-red-500 text-xs font-bold uppercase hover:bg-red-500 hover:text-white transition-colors rounded-sm"
+                                            onClick={() => setLeaveModalOpen(true)}
+                                            className="w-full text-center px-4 py-3 border-2 border-red-500 text-red-500 text-xs font-bold uppercase hover:bg-red-500 hover:text-white transition-colors rounded-sm shadow-md"
                                         >
                                             {userBooking.status === 'waitlist' ? 'Leave Waitlist' : 'Leave Game'}
                                         </button>
@@ -416,6 +400,54 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                     onClose={() => setVoteModalOpen(false)}
                 />
             )}
+
+            <ConfirmationModal
+                isOpen={leaveModalOpen}
+                onClose={() => setLeaveModalOpen(false)}
+                onConfirm={async () => {
+                    setLoading(true);
+                    try {
+                        const res = await fetch('/api/leave', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ gameId: game.id })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || 'Failed to leave');
+
+                        alert('You have left the game.');
+                        router.push('/dashboard');
+                        setLeaveModalOpen(false);
+                    } catch (err: any) {
+                        console.error(err);
+                        alert(err.message || 'Failed to leave game.');
+                    } finally {
+                        setLoading(false);
+                    }
+                }}
+                title={userBooking?.status === 'waitlist' ? "Leave Waitlist?" : "Leave this game?"}
+                message={
+                    userBooking?.status === 'waitlist'
+                        ? "Are you sure you want to leave the waitlist?"
+                        : (() => {
+                            const hours = (new Date(game.start_time).getTime() - new Date().getTime()) / (1000 * 60 * 60);
+                            return hours > 6
+                                ? (
+                                    <span className="text-green-400 font-medium">
+                                        You will be removed from the roster and your credit will be refunded.
+                                    </span>
+                                )
+                                : (
+                                    <span className="text-red-500 font-bold block bg-red-500/10 p-4 rounded border border-red-500/20">
+                                        ⚠️ Warning: This game starts in less than 6 hours. You will NOT receive a refund.
+                                    </span>
+                                );
+                        })()
+                }
+                confirmText="Confirm Leave"
+                cancelText="Keep Playing"
+                isDestructive={true}
+            />
         </div>
     );
 }
