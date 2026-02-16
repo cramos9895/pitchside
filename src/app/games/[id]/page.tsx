@@ -152,7 +152,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
     return (
         <div className="min-h-screen bg-pitch-black text-white font-sans pb-20">
             {/* Header Image / Gradient */}
-            <div className="h-48 md:h-64 bg-gradient-to-b from-pitch-accent/20 to-pitch-black relative">
+            <div className="h-64 md:h-80 bg-gradient-to-b from-pitch-accent/20 to-pitch-black relative">
                 <div className="absolute inset-0 bg-[url('/pattern.png')] opacity-10"></div>
 
                 <div className="max-w-4xl mx-auto px-6 h-full flex flex-col justify-end pb-8">

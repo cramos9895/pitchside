@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { useToast } from '@/components/ui/Toast';
+import { GameCard } from '@/components/GameCard';
 
 // Client components don't need revalidate=0, useEffect handles fetching
 
@@ -129,70 +130,13 @@ export default function DashboardPage() {
                             const game = booking.game;
                             if (!game) return null;
 
-                            const gameDate = new Date(game.start_time);
-                            const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                            const timeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-                            const isPast = new Date() > gameDate;
-
                             return (
-                                <div key={booking.id} className={`group relative bg-pitch-card border-l-4 ${isPast ? 'border-gray-600 opacity-60' : 'border-pitch-accent'} p-6 rounded-sm shadow-xl`}>
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h3 className="font-heading text-2xl font-bold italic">{timeStr}</h3>
-                                            <p className="text-pitch-secondary text-sm font-bold uppercase">{dateStr}</p>
-                                        </div>
-                                        <div className={`px-2 py-1 rounded text-xs font-bold uppercase ${isPast ? 'bg-gray-700 text-gray-400' : 'bg-pitch-accent text-pitch-black'}`}>
-                                            {isPast ? 'Completed' : 'Upcoming'}
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2 mb-6 flex-grow">
-                                        <div className="flex items-center text-pitch-secondary">
-                                            <MapPin className="w-4 h-4 mr-2 text-pitch-accent" />
-                                            <span className="text-sm truncate">{game.location}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs uppercase bg-white/5 px-2 py-0.5 rounded text-gray-400">
-                                                {game.surface_type}
-                                            </span>
-                                            <span className={cn(
-                                                "text-xs uppercase px-2 py-0.5 rounded font-bold",
-                                                game.current_players >= game.max_players ? "bg-red-500/10 text-red-500" : "bg-white/5 text-gray-400"
-                                            )}>
-                                                {game.current_players} / {game.max_players} Spots
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {booking.status === 'paid' && (
-                                        <div className="mt-4 pt-4 border-t border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                                            <div className="flex items-center gap-2 text-green-400 text-xs font-bold uppercase tracking-wider">
-                                                <span className="w-2 h-2 bg-green-400 rounded-full" />
-                                                Confirmed Ticket
-                                            </div>
-                                            <Link
-                                                href={`/games/${game.id}?tab=chat`}
-                                                className="px-3 py-1.5 bg-pitch-accent text-pitch-black font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors text-center"
-                                            >
-                                                Game Lobby
-                                            </Link>
-                                        </div>
-                                    )}
-                                    {booking.status === 'waitlist' && (
-                                        <div className="mt-4 pt-4 border-t border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                                            <div className="flex items-center gap-2 text-yellow-500 text-xs font-bold uppercase tracking-wider">
-                                                <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                                                On Waitlist
-                                            </div>
-                                            <Link
-                                                href={`/games/${game.id}?tab=chat`}
-                                                className="px-3 py-1.5 bg-pitch-accent text-pitch-black font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors text-center"
-                                            >
-                                                Game Lobby
-                                            </Link>
-                                        </div>
-                                    )}
-                                </div>
+                                <GameCard
+                                    key={booking.id}
+                                    game={game}
+                                    user={user}
+                                    bookingStatus={booking.status}
+                                />
                             );
                         })}
                     </div>
