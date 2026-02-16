@@ -1,7 +1,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/email';
+import { sendNotification } from '@/lib/email';
 import { GameConfirmation } from '@/emails/GameConfirmation';
 
 
