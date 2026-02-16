@@ -68,9 +68,8 @@ export function InstallPrompt() {
         );
     }
 
-    if (!isInstallable && !deferredPrompt) {
-        return null;
-    }
+    // Always render to show the option exists
+    // if (!isInstallable && !deferredPrompt) return null;
 
     return (
         <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-sm animate-in fade-in duration-500">
@@ -90,12 +89,18 @@ export function InstallPrompt() {
 
             {/* Actions */}
             {!isIOS ? (
-                <button
-                    onClick={handleInstallClick}
-                    className="bg-pitch-accent text-pitch-black px-4 py-2 font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors flex items-center gap-2 whitespace-nowrap"
-                >
-                    <Download className="w-4 h-4" /> Install
-                </button>
+                isInstallable ? (
+                    <button
+                        onClick={handleInstallClick}
+                        className="bg-pitch-accent text-pitch-black px-4 py-2 font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors flex items-center gap-2 whitespace-nowrap"
+                    >
+                        <Download className="w-4 h-4" /> Install
+                    </button>
+                ) : (
+                    <div className="text-xs text-gray-500 font-medium text-right max-w-[150px]">
+                        Install via browser menu
+                    </div>
+                )
             ) : (
                 <div className="text-xs text-pitch-accent font-bold flex flex-col items-end text-right">
                     <span>Tap <Share className="w-3 h-3 inline" /></span>

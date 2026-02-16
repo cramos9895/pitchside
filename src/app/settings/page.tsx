@@ -237,7 +237,7 @@ export default function SettingsPage() {
                                 activeTab === 'notifications' ? "bg-pitch-accent text-pitch-black" : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
                             )}
                         >
-                            <User className="w-4 h-4" /> Notifications
+                            <Settings className="w-4 h-4" /> Preferences
                         </button>
 
 
