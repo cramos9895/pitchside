@@ -22,8 +22,8 @@ export const metadata: Metadata = {
   description: "Find and book pickup soccer games in Northwest Chicago.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icon-192x192.png",
-    apple: "/icon-512x512.png",
+    icon: "/icon2-192x192.png",
+    apple: "/icon2-512x512.png",
   },
   appleWebApp: {
     capable: true,
