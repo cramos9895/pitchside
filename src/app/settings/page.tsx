@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { InstallPrompt } from '@/components/InstallPrompt';
 
 
 const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/4205/4205634.png"; // Fallback URL if we need an image URL, but we use Lucide icons mostly now.
@@ -421,6 +422,9 @@ export default function SettingsPage() {
                                                 )} />
                                             </button>
                                         </div>
+
+                                        {/* App Install Option */}
+                                        <InstallPrompt />
                                     </div>
 
                                     <div className="mt-8 flex justify-end">
