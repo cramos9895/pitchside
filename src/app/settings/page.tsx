@@ -385,42 +385,46 @@ export default function SettingsPage() {
                                         Preferences
                                     </h3>
                                     <div className="space-y-4">
-                                        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-sm">
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-white/5 border border-white/10 rounded-sm">
                                             <div>
                                                 <h4 className="font-bold text-white">Game Reminders</h4>
                                                 <p className="text-sm text-pitch-secondary">Receive emails about upcoming games you've joined.</p>
                                             </div>
-                                            <button
-                                                onClick={() => setGameReminders(!gameReminders)}
-                                                className={cn(
-                                                    "w-12 h-6 rounded-full relative transition-colors duration-300",
-                                                    gameReminders ? "bg-pitch-accent" : "bg-gray-600"
-                                                )}
-                                            >
-                                                <span className={cn(
-                                                    "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300",
-                                                    gameReminders ? "translate-x-6" : "translate-x-0"
-                                                )} />
-                                            </button>
+                                            <div className="flex justify-end w-full md:w-auto">
+                                                <button
+                                                    onClick={() => setGameReminders(!gameReminders)}
+                                                    className={cn(
+                                                        "w-12 h-6 rounded-full relative transition-colors duration-300",
+                                                        gameReminders ? "bg-pitch-accent" : "bg-gray-600"
+                                                    )}
+                                                >
+                                                    <span className={cn(
+                                                        "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300",
+                                                        gameReminders ? "translate-x-6" : "translate-x-0"
+                                                    )} />
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-sm">
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-white/5 border border-white/10 rounded-sm">
                                             <div>
                                                 <h4 className="font-bold text-white">Announcements</h4>
                                                 <p className="text-sm text-pitch-secondary">Receive product updates and community news.</p>
                                             </div>
-                                            <button
-                                                onClick={() => setAnnouncements(!announcements)}
-                                                className={cn(
-                                                    "w-12 h-6 rounded-full relative transition-colors duration-300",
-                                                    announcements ? "bg-pitch-accent" : "bg-gray-600"
-                                                )}
-                                            >
-                                                <span className={cn(
-                                                    "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300",
-                                                    announcements ? "translate-x-6" : "translate-x-0"
-                                                )} />
-                                            </button>
+                                            <div className="flex justify-end w-full md:w-auto">
+                                                <button
+                                                    onClick={() => setAnnouncements(!announcements)}
+                                                    className={cn(
+                                                        "w-12 h-6 rounded-full relative transition-colors duration-300",
+                                                        announcements ? "bg-pitch-accent" : "bg-gray-600"
+                                                    )}
+                                                >
+                                                    <span className={cn(
+                                                        "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300",
+                                                        announcements ? "translate-x-6" : "translate-x-0"
+                                                    )} />
+                                                </button>
+                                            </div>
                                         </div>
 
                                         {/* App Install Option */}
