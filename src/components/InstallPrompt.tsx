@@ -55,7 +55,7 @@ export function InstallPrompt() {
             <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-sm">
                 <div className="flex items-center gap-4">
                     <div className="bg-white p-1 rounded-lg">
-                        <img src="/logo.png" alt="App Icon" className="w-10 h-10 object-contain" />
+                        <img src="/icon2-192x192.png" alt="App Icon" className="w-10 h-10 object-contain" />
                     </div>
                     <div>
                         <h4 className="font-bold text-white">PitchSide App</h4>
@@ -75,7 +75,7 @@ export function InstallPrompt() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-white/5 border border-white/10 rounded-sm animate-in fade-in duration-500">
             <div className="flex items-center gap-4">
                 <div className="bg-white p-1 rounded-lg shrink-0">
-                    <img src="/logo.png" alt="App Icon" className="w-10 h-10 object-contain" />
+                    <img src="/icon2-192x192.png" alt="App Icon" className="w-10 h-10 object-contain" />
                 </div>
                 <div>
                     <h4 className="font-bold text-white">Install PitchSide</h4>
