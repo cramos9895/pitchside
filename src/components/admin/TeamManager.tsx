@@ -10,6 +10,7 @@ interface Player {
     email: string;
     team: 'A' | 'B' | null;
     status: string; // 'active' | 'paid' | 'waitlist'
+    payment_status: 'unpaid' | 'pending' | 'verified' | 'refunded';
 }
 
 interface TeamConfig {
@@ -22,6 +23,7 @@ interface TeamManagerProps {
     players: Player[];
     teams: TeamConfig[];
     onUpdate: () => void;
+    onVerifyPayment: (bookingId: string, currentStatus: string) => Promise<void>;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -44,7 +46,7 @@ const TEXT_COLOR_MAP: Record<string, string> = {
     'Yellow': 'text-yellow-400'
 };
 
-export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerProps) {
+export function TeamManager({ gameId, players, teams, onUpdate, onVerifyPayment }: TeamManagerProps) {
     const { success, error: toastError } = useToast();
     const [loading, setLoading] = useState(false);
 
@@ -126,6 +128,7 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
                     target="Unassigned"
                     allTeams={teams}
                     loading={loading}
+                    onVerifyPayment={onVerifyPayment}
                 />
 
                 {/* DYNAMIC TEAMS */}
@@ -145,6 +148,7 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
                             target={team.name}
                             allTeams={teams}
                             loading={loading}
+                            onVerifyPayment={onVerifyPayment}
                         />
                     );
                 })}
@@ -161,7 +165,8 @@ function TeamColumn({
     onMove,
     target,
     allTeams,
-    loading
+    loading,
+    onVerifyPayment
 }: {
     title: string,
     players: Player[],
@@ -170,7 +175,8 @@ function TeamColumn({
     onMove: (id: string, team: string | null) => void,
     target: string, // Team Name or 'Unassigned'
     allTeams: TeamConfig[],
-    loading: boolean
+    loading: boolean,
+    onVerifyPayment: (id: string, currentStatus: string) => Promise<void>
 }) {
     return (
         <div className={cn("border rounded-sm h-[500px] flex flex-col", colorClass)}>
@@ -181,11 +187,30 @@ function TeamColumn({
             <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 {players.map(p => (
                     <div key={p.id} className="bg-black/40 p-2 rounded border border-white/5 flex items-center justify-between group hover:border-white/20 transition-colors">
-                        <div className="truncate">
+                        <div className="truncate flex items-center gap-2">
+                            <div className={cn(
+                                "w-2 h-2 rounded-full",
+                                p.payment_status === 'verified' ? "bg-green-500" :
+                                    p.payment_status === 'pending' ? "bg-yellow-500 animate-pulse" : "bg-red-500"
+
+                            )} />
                             <div className="text-sm font-bold text-gray-200 truncate">{p.name}</div>
                         </div>
 
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1 opacity-100 transition-opacity">
+                            <button
+                                onClick={() => onVerifyPayment(p.id, p.payment_status || 'unpaid')}
+                                className={cn(
+                                    "p-1 rounded text-[10px] font-bold w-6 h-6 flex items-center justify-center border mr-1",
+                                    p.payment_status === 'verified' ? "border-green-500/50 text-green-500 hover:bg-green-500/20" :
+                                        p.payment_status === 'pending' ? "border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/20" :
+                                            "border-red-500/50 text-red-500 hover:bg-red-500/20"
+                                )}
+                                title={`Payment Status: ${p.payment_status}. Click to verify/toggle.`}
+                            >
+                                $
+                            </button>
+
                             {/* If in Unassigned, show buttons for ALL teams */}
                             {target === 'Unassigned' && allTeams.map(team => (
                                 <button

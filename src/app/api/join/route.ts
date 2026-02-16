@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { gameId, note = '' } = await request.json();
+        const { gameId, note = '', paymentMethod } = await request.json();
 
         if (!gameId) {
             return NextResponse.json({ error: 'Game ID required' }, { status: 400 });
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Game not found' }, { status: 404 });
         }
 
-        if (game.price > 0) {
+        if (game.price > 0 && !paymentMethod) {
             return NextResponse.json({ error: 'This game is not free. Payment required.' }, { status: 403 });
         }
 
@@ -50,12 +50,19 @@ export async function POST(request: NextRequest) {
         }
 
         // 3. Insert Booking (Status: paid)
+        const isManualPayment = !!paymentMethod;
+        const initialStatus = 'paid'; // Manual payments reserve the spot immediately
+        const initialPaymentStatus = isManualPayment ? 'pending' : 'verified'; // Free games = verified, Manual = pending
+
         const { error: insertError } = await supabase
             .from('bookings')
             .insert({
                 user_id: user.id,
                 game_id: gameId,
-                status: 'paid', // Free games are automatically confirmed/paid
+                status: initialStatus,
+                payment_status: initialPaymentStatus,
+                payment_method: paymentMethod || 'free',
+                payment_amount: isManualPayment ? game.price : 0,
                 checked_in: false,
                 team_assignment: null,
                 note: note // Store request note

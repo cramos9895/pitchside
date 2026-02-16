@@ -2,15 +2,22 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
-import { Loader2, Settings, Mail, BellOff, Bell } from 'lucide-react';
+import { Loader2, Settings, Mail, BellOff, Bell, DollarSign } from 'lucide-react';
 
 interface SystemSetting {
     key: string;
-    value: boolean;
+    value: boolean | string;
     label: string;
     description: string;
     category: string;
+
+    type: 'boolean' | 'string';
 }
+
+const DEFAULT_PAYMENT_SETTINGS: SystemSetting[] = [
+    { key: 'payment.venmo_handle', value: '', label: 'Venmo Handle/Link', description: 'Your Venmo @handle or profile link', category: 'payment', type: 'string' },
+    { key: 'payment.zelle_info', value: '', label: 'Zelle Information', description: 'Phone number or email associated with Zelle', category: 'payment', type: 'string' }
+];
 
 export default function AdminSettingsPage() {
     const [settings, setSettings] = useState<SystemSetting[]>([]);
@@ -47,10 +54,22 @@ export default function AdminSettingsPage() {
         const { data, error } = await supabase
             .from('system_settings')
             .select('*')
-            .eq('category', 'notification')
+            .in('category', ['notification', 'payment'])
             .order('key');
 
-        if (data) setSettings(data);
+        if (data) {
+            // Merge with defaults
+            const existingKeys = new Set(data.map(s => s.key));
+            const merged = [...data];
+            DEFAULT_PAYMENT_SETTINGS.forEach(def => {
+                if (!existingKeys.has(def.key)) {
+                    merged.push(def);
+                }
+            });
+            setSettings(merged as any);
+        } else {
+            setSettings(DEFAULT_PAYMENT_SETTINGS);
+        }
         setLoading(false);
     };
 
@@ -76,6 +95,25 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const updateTextSetting = async (key: string, newValue: string) => {
+        setSettings(prev => prev.map(s =>
+            s.key === key ? { ...s, value: newValue } : s
+        ));
+
+        // Use Upsert to create if missing
+        const settingToUpdate = settings.find(s => s.key === key);
+        if (settingToUpdate) {
+            await supabase.from('system_settings').upsert({
+                key,
+                value: newValue,
+                category: settingToUpdate.category,
+                label: settingToUpdate.label,
+                description: settingToUpdate.description,
+                type: settingToUpdate.type
+            });
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -94,6 +132,9 @@ export default function AdminSettingsPage() {
         );
     }
 
+    const notificationSettings = settings.filter(s => s.category === 'notification');
+    const paymentSettings = settings.filter(s => s.category === 'payment');
+
     return (
         <div className="max-w-4xl mx-auto p-6 space-y-8">
             <h1 className="font-oswald text-3xl font-bold uppercase flex items-center gap-3">
@@ -101,6 +142,41 @@ export default function AdminSettingsPage() {
                 Admin Settings
             </h1>
 
+            {/* Payment Configuration */}
+            <div className="bg-pitch-card border border-white/5 rounded-lg p-6">
+                <h2 className="font-oswald text-xl font-bold uppercase mb-4 flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-green-500" />
+                    Payment Configuration
+                </h2>
+                <p className="text-gray-400 text-sm mb-6">
+                    Manage Venmo and Zelle details displayed to users when joining games.
+                </p>
+
+                <div className="space-y-4">
+                    {paymentSettings.map((setting) => (
+                        <div key={setting.key} className="p-4 bg-black/20 rounded border border-white/5 space-y-2">
+                            <div>
+                                <h3 className="font-bold text-white">{setting.label}</h3>
+                                <p className="text-sm text-gray-500">{setting.description}</p>
+                            </div>
+                            <input
+                                type="text"
+                                value={setting.value as string || ''}
+                                onChange={(e) => updateTextSetting(setting.key, e.target.value)}
+                                className="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:outline-none focus:border-pitch-accent transition-colors"
+                                placeholder={`Enter ${setting.label}`}
+                            />
+                        </div>
+                    ))}
+                    {paymentSettings.length === 0 && (
+                        <div className="text-gray-500 italic text-center py-4">
+                            No payment settings found in database.
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Notification Center */}
             <div className="bg-pitch-card border border-white/5 rounded-lg p-6">
                 <h2 className="font-oswald text-xl font-bold uppercase mb-4 flex items-center gap-2">
                     <Mail className="w-5 h-5 text-gray-400" />
@@ -111,7 +187,7 @@ export default function AdminSettingsPage() {
                 </p>
 
                 <div className="space-y-4">
-                    {settings.map((setting) => (
+                    {notificationSettings.map((setting) => (
                         <div key={setting.key} className="flex items-center justify-between p-4 bg-black/20 rounded border border-white/5 hover:border-white/10 transition-colors">
                             <div>
                                 <h3 className="font-bold text-white">{setting.label}</h3>
@@ -119,7 +195,7 @@ export default function AdminSettingsPage() {
                             </div>
 
                             <button
-                                onClick={() => toggleSetting(setting.key, setting.value)}
+                                onClick={() => toggleSetting(setting.key, setting.value as boolean)}
                                 className={`
                                     relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-pitch-accent focus:ring-offset-2 focus:ring-offset-pitch-black
                                     ${setting.value ? 'bg-pitch-accent' : 'bg-gray-700'}
@@ -134,7 +210,7 @@ export default function AdminSettingsPage() {
                             </button>
                         </div>
                     ))}
-                    {settings.length === 0 && (
+                    {notificationSettings.length === 0 && (
                         <div className="text-gray-500 italic text-center py-4">
                             No notification settings found.
                         </div>

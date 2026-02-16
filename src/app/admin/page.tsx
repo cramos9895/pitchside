@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { AdminGameList } from '@/components/admin/AdminGameList';
+import { PendingPaymentsWidget } from '@/components/admin/PendingPaymentsWidget';
 
 export const revalidate = 0;
 
@@ -24,7 +25,7 @@ export default async function AdminDashboard() {
             <div className="max-w-7xl mx-auto">
 
                 {/* Header */}
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 border-b border-white/10 pb-6 gap-6">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 border-b border-white/10 pb-6 gap-6">
                     <div>
                         <div className="inline-block px-3 py-1 bg-red-500/10 text-red-500 text-xs font-bold uppercase tracking-widest rounded mb-2">
                             Admin Portal
@@ -44,6 +45,9 @@ export default async function AdminDashboard() {
                         <Plus className="w-5 h-5" /> Create New Game
                     </Link>
                 </div>
+
+                {/* Pending Payments Widget */}
+                <PendingPaymentsWidget />
 
                 {/* Games List (Client Component with Tabs) */}
                 <AdminGameList initialGames={games || []} />

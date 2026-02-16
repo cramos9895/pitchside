@@ -20,6 +20,9 @@ interface Booking {
     team: 'A' | 'B' | null; // NEW FIELD
     note: string | null; // Request note
     user_id: string;
+    payment_status: 'unpaid' | 'pending' | 'verified' | 'refunded';
+    payment_method: string | null;
+    payment_amount: number;
     profiles: {
         id: string; // Add id
         email: string;
@@ -238,6 +241,23 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, team_assignment: teamName } : b));
         await supabase.from('bookings').update({ team_assignment: teamName }).eq('id', bookingId);
         router.refresh();
+    };
+
+    const togglePaymentStatus = async (bookingId: string, currentStatus: string) => {
+        const newStatus = currentStatus === 'verified' ? 'pending' : 'verified';
+        // Optimistic
+        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, payment_status: newStatus } : b));
+
+        try {
+            const { error } = await supabase.from('bookings').update({ payment_status: newStatus }).eq('id', bookingId);
+            if (error) throw error;
+            toast.success(`Payment marked as ${newStatus}`);
+            router.refresh();
+        } catch (err: any) {
+            toast.error(err.message);
+            // Revert
+            setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, payment_status: currentStatus as any } : b));
+        }
     };
 
     const onFinalizeClick = () => {
@@ -469,8 +489,9 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                     <tr>
                                         <th className="p-4">Player</th>
                                         <th className="p-4">Contact</th>
-                                        <th className="p-4">Status</th>
-                                        <th className="p-4 text-right">Paid</th>
+                                        <th className="p-4">Status / Payment</th>
+                                        <th className="p-4 text-right">Amount</th>
+                                        <th className="p-4 text-right">Verify</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
@@ -482,21 +503,49 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                         const isPaid = booking.status === 'paid';
                                         const isActive = booking.status === 'active';
 
+                                        const paymentStatus = booking.payment_status || 'unpaid';
+                                        const isPending = paymentStatus === 'pending';
+                                        const isVerified = paymentStatus === 'verified';
+                                        const method = booking.payment_method;
+
                                         return (
                                             <tr key={booking.id} className="hover:bg-white/5 transition-colors">
                                                 <td className="p-4 font-bold">{name}</td>
                                                 <td className="p-4 text-sm text-gray-400">{email}</td>
                                                 <td className="p-4">
-                                                    <span className={cn(
-                                                        "text-[10px] font-bold uppercase px-2 py-0.5 rounded",
-                                                        isPaid ? "bg-green-500/10 text-green-500" :
-                                                            isActive ? "bg-blue-500/10 text-blue-500" : "bg-yellow-500/10 text-yellow-500"
-                                                    )}>
-                                                        {isPaid ? "Confirmed" : isActive ? "Promoted" : "Pending"}
-                                                    </span>
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className={cn(
+                                                            "text-[10px] font-bold uppercase w-fit px-2 py-0.5 rounded",
+                                                            isActive ? "bg-blue-500/10 text-blue-500" : "bg-green-500/10 text-green-500"
+                                                        )}>
+                                                            {isActive ? "Promoted" : "Joined"}
+                                                        </span>
+                                                        <span className={cn(
+                                                            "text-[10px] font-bold uppercase w-fit px-2 py-0.5 rounded border",
+                                                            isPending ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/30" :
+                                                                isVerified ? "bg-green-500/10 text-green-500 border-green-500/30" : "bg-gray-800 text-gray-400 border-gray-700"
+                                                        )}>
+                                                            {isPending ? "Pending" : isVerified ? "Paid" : "Unpaid"}
+                                                            {method && ` (${method})`}
+                                                        </span>
+                                                    </div>
                                                 </td>
                                                 <td className="p-4 text-right font-mono text-gray-400">
                                                     {isPaid ? `$${game.price}` : '$0.00'}
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    {(isPending || isVerified) && (
+                                                        <button
+                                                            onClick={() => togglePaymentStatus(booking.id, paymentStatus)}
+                                                            className={cn(
+                                                                "p-2 rounded hover:bg-white/10 transition-colors inline-flex justify-center",
+                                                                isVerified ? "text-green-500" : "text-yellow-500 animate-pulse"
+                                                            )}
+                                                            title="Toggle Verification"
+                                                        >
+                                                            <div className="border border-current rounded-full w-5 h-5 flex items-center justify-center font-bold text-xs">$</div>
+                                                        </button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         );
@@ -644,9 +693,10 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         <div className="bg-pitch-card border border-white/10 rounded-sm shadow-xl overflow-hidden">
                             {/* Table Header - Only visible on Desktop */}
                             <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-white/10 bg-white/5 text-xs font-bold uppercase text-pitch-secondary tracking-wider">
-                                <div className="col-span-4">Player</div>
-                                <div className="col-span-2 text-center">In</div>
-                                <div className="col-span-6 text-center">Team Assignment</div>
+                                <div className="col-span-3">Player</div>
+                                <div className="col-span-2 text-center border-l border-white/5">Payment</div>
+                                <div className="col-span-1 text-center border-l border-white/5">In</div>
+                                <div className="col-span-6 text-center border-l border-white/5">Team Assignment</div>
                             </div>
 
                             {/* Mobile Header */}
@@ -666,7 +716,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                     return (
                                         <div key={booking.id} className="flex flex-col md:grid md:grid-cols-12 gap-4 p-4 items-center hover:bg-white/5 transition-colors">
                                             {/* Player Info - Full Width on Mobile */}
-                                            <div className="w-full md:col-span-4 flex items-center gap-3">
+                                            <div className="w-full md:col-span-3 flex items-center gap-3">
                                                 <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 shrink-0">
                                                     <UserIcon className="w-4 h-4" />
                                                 </div>
@@ -681,10 +731,30 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                             </div>
 
                                             {/* Mobile: Controls Row */}
-                                            <div className="w-full flex items-center justify-between md:contents">
+                                            <div className="w-full flex flex-wrap items-center justify-between gap-y-3 md:contents">
+
+                                                {/* Payment Status - Mobile & Desktop */}
+                                                <div className="w-full md:w-auto md:col-span-2 flex justify-center md:border-l md:border-white/5">
+                                                    <button
+                                                        onClick={() => togglePaymentStatus(booking.id, booking.payment_status || 'unpaid')}
+                                                        className={cn(
+                                                            "px-3 py-1 rounded text-[10px] font-bold uppercase w-full md:w-auto h-8 flex items-center justify-center gap-2 transition-all",
+                                                            booking.payment_status === 'verified'
+                                                                ? "bg-green-500/10 text-green-500 border border-green-500/50"
+                                                                : booking.payment_status === 'pending'
+                                                                    ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/50 animate-pulse"
+                                                                    : "bg-red-500/10 text-red-500 border border-red-500/50"
+                                                        )}
+                                                        title={`Payment: ${booking.payment_status || 'unpaid'}`}
+                                                    >
+                                                        <span className="md:hidden">Payment: </span>
+                                                        <span className="text-xs">$</span>
+                                                        <span>{booking.payment_status === 'verified' ? 'PAID' : booking.payment_status === 'pending' ? 'PENDING' : 'UNPAID'}</span>
+                                                    </button>
+                                                </div>
 
                                                 {/* Check In */}
-                                                <div className="md:col-span-2 flex justify-center">
+                                                <div className="md:col-span-1 flex justify-center md:border-l md:border-white/5">
                                                     <button
                                                         onClick={() => toggleCheckIn(booking.id, booking.checked_in)}
                                                         className={cn(
@@ -829,9 +899,11 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 name: Array.isArray(b.profiles) ? b.profiles[0]?.full_name : b.profiles?.full_name || 'Unknown',
                                 email: Array.isArray(b.profiles) ? b.profiles[0]?.email : b.profiles?.email || '',
                                 team: b.team_assignment as any || null,
-                                status: b.status
+                                status: b.status,
+                                payment_status: b.payment_status
                             }))}
                             onUpdate={() => router.refresh()}
+                            onVerifyPayment={togglePaymentStatus}
                         />
                     </div>
 
@@ -951,17 +1023,9 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 />
                             )}
                             <MatchManager
-                                gameId={gameId}
-                                teams={teams as TeamConfig[]}
-                                existingMatches={matches}
-                                onMatchUpdate={handleMatchUpdate}
-                                players={bookings?.map((b: any) => ({
-                                    id: b.user_id, // bookings has user_id, profiles has details
-                                    name: b.profiles?.full_name || 'Unknown',
-                                    team: b.team_assignment
-                                })) || []}
-                                gameStatus={game?.status || 'scheduled'}
-                                initialMvpId={game?.mvp_player_id}
+                                game={game}
+                                bookings={bookings}
+                                onUpdate={handleMatchUpdate}
                             />
                             <StandingsTable
                                 key={refreshKey} // Force re-mount/re-fetch on update

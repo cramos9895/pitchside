@@ -24,20 +24,32 @@ interface TeamConfig {
 }
 
 interface MatchManagerProps {
-    gameId: string;
-    teams: TeamConfig[];
-    existingMatches: Match[];
-    onMatchUpdate?: () => void;
-    players?: { id: string; name: string; team: string }[];
-    gameStatus?: 'scheduled' | 'active' | 'completed' | 'cancelled';
-    initialMvpId?: string | null;
+    game: any;
+    bookings: any[];
+    onUpdate: () => void;
+    onVerifyPayment?: (bookingId: string, currentStatus: string) => Promise<void>;
 }
 
-export function MatchManager({ gameId, teams, existingMatches, onMatchUpdate, players = [], gameStatus, initialMvpId }: MatchManagerProps) {
+export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
     const router = useRouter();
     const supabase = createClient();
 
-    const [matches, setMatches] = useState<Match[]>(existingMatches);
+    const gameId = game.id;
+    const teams: TeamConfig[] = game.teams_config || [
+        { name: 'Team A', color: 'Neon Orange' },
+        { name: 'Team B', color: 'White' }
+    ];
+    const gameStatus = game.status;
+    const initialMvpId = game.mvp_player_id;
+
+    // Derived Players for MVP Selection (using User ID)
+    const players = bookings.map((b: any) => ({
+        id: b.user_id,
+        name: b.profiles?.full_name || b.profiles?.email || 'Unknown',
+        team: b.team_assignment || 'Unassigned'
+    }));
+
+    const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Live Tournament State
@@ -167,7 +179,8 @@ export function MatchManager({ gameId, teams, existingMatches, onMatchUpdate, pl
 
             // Refresh Standings Logic (Triggered by DB change / Page refresh)
             router.refresh();
-            if (onMatchUpdate) onMatchUpdate();
+            router.refresh();
+            if (onUpdate) onUpdate();
 
             // Advance Round
             setCurrentRound(prev => prev + 1);
@@ -230,6 +243,16 @@ export function MatchManager({ gameId, teams, existingMatches, onMatchUpdate, pl
             const winnerName = winner ? winner[0] : null;
 
             if (winnerName) {
+                const { data: bookings } = await supabase.from('bookings').select('*, profiles(full_name, email)').eq('game_id', gameId);
+                const allPlayers = (bookings || []).map((b: any) => ({
+                    id: b.id,
+                    userId: b.user_id,
+                    name: b.profiles?.full_name || 'Unknown',
+                    email: b.profiles?.email || 'No email',
+                    team: b.team_assignment as 'A' | 'B' | null,
+                    status: b.status,
+                    payment_status: b.payment_status
+                }));
                 await supabase.from('bookings').update({ is_winner: true })
                     .eq('game_id', gameId)
                     .eq('team_assignment', winnerName);
@@ -256,7 +279,7 @@ export function MatchManager({ gameId, teams, existingMatches, onMatchUpdate, pl
             setIsEditing(false); // Exit edit mode
             setRoundScores({});
             router.refresh();
-            if (onMatchUpdate) onMatchUpdate();
+            if (onUpdate) onUpdate();
 
         } catch (e: any) {
             alert("Error updating: " + e.message);
@@ -284,7 +307,7 @@ export function MatchManager({ gameId, teams, existingMatches, onMatchUpdate, pl
             setMatches([...matches, data]);
             setNewMatch({ ...newMatch, home_score: 0, away_score: 0 });
             router.refresh();
-            if (onMatchUpdate) onMatchUpdate();
+            if (onUpdate) onUpdate();
         } catch (e: any) {
             alert(e.message);
         } finally {
@@ -297,7 +320,7 @@ export function MatchManager({ gameId, teams, existingMatches, onMatchUpdate, pl
         await supabase.from('matches').delete().eq('id', id);
         setMatches(matches.filter(m => m.id !== id));
         router.refresh();
-        if (onMatchUpdate) onMatchUpdate();
+        if (onUpdate) onUpdate();
     };
 
     return (

@@ -7,6 +7,7 @@ import { MapPin, Loader2, Check, UserPlus, X, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { User } from '@supabase/supabase-js';
+import { JoinGameModal } from './JoinGameModal';
 
 interface Game {
     id: string;
@@ -35,7 +36,6 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
     const [status, setStatus] = useState<string | undefined>(bookingStatus);
     const [currentPlayers, setCurrentPlayers] = useState(game.current_players);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [teammateNote, setTeammateNote] = useState('');
     const supabase = createClient();
 
     const gameDate = new Date(game.start_time);
@@ -154,20 +154,21 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
         }
     }, [user, supabase]);
 
-    const proceedToJoin = async () => {
+    const proceedToJoin = async ({ note, paymentMethod }: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null }) => {
         setLoading(true);
 
         try {
-            // Check for Free Game OR Waitlist
-            if (game.price === 0 || currentPlayers >= game.max_players) {
-                const endpoint = currentPlayers >= game.max_players ? '/api/waitlist' : '/api/join';
+            // Check for Free Game OR Waitlist OR Manual Payment
+            if (game.price === 0 || currentPlayers >= game.max_players || paymentMethod) {
+                const endpoint = (currentPlayers >= game.max_players && !paymentMethod) ? '/api/waitlist' : '/api/join';
 
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         gameId: game.id,
-                        note: teammateNote
+                        note: note,
+                        paymentMethod: paymentMethod
                     })
                 });
 
@@ -207,7 +208,7 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             gameId: game.id,
-                            note: teammateNote
+                            note: note
                         })
                     });
 
@@ -236,7 +237,7 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                     userId: user!.id,
                     price: game.price,
                     title: `Join Match: ${game.title || 'Pickup Game'}`,
-                    note: teammateNote
+                    note: note
                 })
             });
 
@@ -371,60 +372,14 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
             </div >
 
             {/* JOIN MODAL */}
-            {
-                isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                        <div className="bg-pitch-card border border-white/10 p-6 rounded-sm max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
-                            <button
-                                onClick={() => setIsModalOpen(false)}
-                                className="absolute top-4 right-4 text-gray-500 hover:text-white"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-
-                            <div className="mb-6">
-                                <h2 className="font-heading text-2xl font-bold italic uppercase flex items-center gap-2">
-                                    <UserPlus className="w-6 h-6 text-pitch-accent" />
-                                    Bring a <span className="text-pitch-accent">Friend?</span>
-                                </h2>
-                                <p className="text-pitch-secondary text-sm mt-2">
-                                    Heading to the pitch with someone? Enter their name so we can try to put you on the same team.
-                                </p>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                                        Teammate Request (Optional)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. Mike Johnson"
-                                        value={teammateNote}
-                                        onChange={(e) => setTeammateNote(e.target.value)}
-                                        className="w-full bg-black/50 border border-white/20 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
-                                    />
-                                </div>
-
-                                <button
-                                    onClick={proceedToJoin}
-                                    disabled={loading}
-                                    className={cn(
-                                        "w-full py-4 font-black uppercase tracking-wider rounded-sm transition-colors flex items-center justify-center gap-2",
-                                        currentPlayers >= game.max_players
-                                            ? "bg-yellow-500 text-black hover:bg-yellow-400"
-                                            : "bg-pitch-accent text-pitch-black hover:bg-white"
-                                    )}
-                                >
-                                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> :
-                                        currentPlayers >= game.max_players ? "Confirm Waitlist Spot" :
-                                            game.price === 0 ? "Confirm & Join" : `Continue to Checkout ($${game.price})`}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
+            <JoinGameModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onConfirm={proceedToJoin}
+                gamePrice={game.price}
+                loading={loading}
+                isWaitlist={currentPlayers >= game.max_players}
+            />
         </>
     );
 }
