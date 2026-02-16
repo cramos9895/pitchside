@@ -1,6 +1,9 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { sendNotification } from '@/lib/email';
+import { WaitlistAlert } from '@/emails/WaitlistAlert';
+import { CancellationReceipt } from '@/emails/CancellationReceipt';
 
 
 export async function POST(request: NextRequest) {
@@ -21,7 +24,7 @@ export async function POST(request: NextRequest) {
         // 1. Fetch Game Details for Time Check
         const { data: game, error: gameError } = await supabase
             .from('games')
-            .select('start_time, price')
+            .select('start_time, price, title')
             .eq('id', gameId)
             .single();
 
@@ -88,6 +91,56 @@ export async function POST(request: NextRequest) {
             .eq('id', booking.id);
 
         if (updateError) throw updateError;
+
+        // 5b. Send Cancellation Receipt (if applicable)
+        if (booking.status === 'paid' || booking.status === 'active') {
+            await sendNotification({
+                to: user.email!,
+                subject: `Cancellation Confirmed: ${game.title}`,
+                react: CancellationReceipt({
+                    userName: user.user_metadata?.full_name || 'Player',
+                    eventName: game.title,
+                    refunded: refunded
+                }),
+                type: 'cancellation'
+            });
+        }
+
+        // 6. Check for Waitlist and Notify
+        try {
+            const { data: nextWaitlist } = await supabase
+                .from('bookings')
+                .select('user_id')
+                .eq('game_id', gameId)
+                .eq('status', 'waitlist')
+                .order('created_at', { ascending: true })
+                .limit(1)
+                .single();
+
+            if (nextWaitlist) {
+                const { data: waitlistProfile } = await supabase
+                    .from('profiles')
+                    .select('email, full_name')
+                    .eq('id', nextWaitlist.user_id)
+                    .single();
+
+                if (waitlistProfile && waitlistProfile.email) {
+                    await sendNotification({
+                        to: waitlistProfile.email,
+                        subject: `Spot Open: ${game.title}`,
+                        react: WaitlistAlert({
+                            userName: waitlistProfile.full_name || 'Player',
+                            eventName: game.title,
+                            gameId: gameId
+                        }),
+                        type: 'waitlist'
+                    });
+                }
+            }
+        } catch (emailErr) {
+            console.error('Waitlist Notification Error:', emailErr);
+            // Don't fail the cancellation if email fails
+        }
 
         return NextResponse.json({ success: true, refunded, message });
 

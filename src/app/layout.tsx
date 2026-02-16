@@ -20,9 +20,16 @@ const oswald = Oswald({
 export const metadata: Metadata = {
   title: "PitchSide - Premier Soccer Booking",
   description: "Find and book pickup soccer games in Northwest Chicago.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "PitchSide"
+  }
 };
 
 import { ToastProvider } from "@/components/ui/Toast";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 export default function RootLayout({
   children,
@@ -37,6 +44,7 @@ export default function RootLayout({
         <ToastProvider>
           <Navbar />
           {children}
+          <InstallPrompt />
         </ToastProvider>
       </body>
     </html>

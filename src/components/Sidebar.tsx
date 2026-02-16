@@ -188,8 +188,19 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                             className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-gray-400 hover:text-white transition-colors group"
                         >
                             <Settings className="w-6 h-6 text-gray-600 group-hover:text-white transition-colors" />
-                            Settings
+                            My Settings
                         </Link>
+
+                        {isMasterAdmin && (
+                            <Link
+                                href="/admin/settings"
+                                onClick={onClose}
+                                className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-purple-500 hover:text-white transition-colors group mt-4 pt-4 border-t border-white/5"
+                            >
+                                <Settings className="w-6 h-6 text-purple-500 group-hover:text-white transition-colors" />
+                                System Settings
+                            </Link>
+                        )}
                     </div>
                 </div>
 

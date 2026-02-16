@@ -1,6 +1,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { sendEmail } from '@/lib/email';
+import { GameConfirmation } from '@/emails/GameConfirmation';
 
 
 
@@ -22,7 +24,7 @@ export async function POST(request: NextRequest) {
         // 1. Fetch Game to verify price is 0
         const { data: game, error: gameError } = await supabase
             .from('games')
-            .select('price')
+            .select('price, title, start_time, location')
             .eq('id', gameId)
             .single();
 
@@ -67,6 +69,19 @@ export async function POST(request: NextRequest) {
 
         // 4. Sync Player Count (Handled by DB Trigger now)
         // await syncPlayerCount(gameId);
+
+        // 5. Send Confirmation Email
+        await sendNotification({
+            to: user.email!,
+            subject: `Booking Confirmed: ${game.title}`,
+            react: GameConfirmation({
+                userName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Player',
+                eventName: game.title,
+                date: new Date(game.start_time).toLocaleString(),
+                location: game.location
+            }),
+            type: 'confirmation'
+        });
 
         return NextResponse.json({ success: true });
 
