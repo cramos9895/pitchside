@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, Loader2, Check, UserPlus, X } from 'lucide-react';
+import { MapPin, Loader2, Check, UserPlus, X, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { User } from '@supabase/supabase-js';
@@ -99,6 +99,10 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
     const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     const startTimeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     const endTimeStr = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const isPast = new Date() > new Date(game.end_time || game.start_time); // Use end time for 'completed' check? Dashboard uses start_time. I'll use end_time to be accurate, or start_time to match Dashboard? Dashboard used start_time: `const isPast = new Date() > gameDate;`. I'll Stick to Dashboard logic: start_time.
+    // Actually, Dashboard used `gameDate` which is start_time.
+    // "Completed" if start time passed is aggressive, but matches Dashboard.
+    const isPastStrict = new Date() > gameDate;
 
     const handleJoinClick = () => {
         if (!user) {
@@ -253,37 +257,41 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
     return (
         <>
             <div className={cn(
-                "group relative bg-pitch-card border border-white/5 p-6 rounded-sm transition-colors duration-300 flex flex-col h-full",
-                isCancelled ? "opacity-75 grayscale hover:border-red-500/30" : "hover:border-pitch-accent/50"
+                "group relative bg-pitch-card p-6 rounded-sm shadow-xl transition-all duration-300 flex flex-col h-full",
+                isPastStrict ? "border-l-4 border-gray-600 opacity-60" : "border-l-4 border-pitch-accent hover:shadow-pitch-accent/10",
+                isCancelled && "opacity-75 grayscale"
             )}>
                 <div className="flex justify-between items-start mb-4">
                     <div
                         onClick={() => router.push(`/games/${game.id}`)}
                         className="cursor-pointer hover:opacity-80 transition-opacity"
                     >
-                        {game.title && <h3 className="font-heading text-lg font-bold italic uppercase text-pitch-accent mb-1">{game.title}</h3>}
-                        <div className="text-xl font-bold italic text-white flex items-center gap-2">
-                            {startTimeStr} <span className="text-gray-500 text-sm font-normal">- {endTimeStr}</span>
-                        </div>
-                        <p className="text-sm font-bold text-gray-400">{durationStr}</p>
+                        <h3 className="font-heading text-2xl font-bold italic text-white">
+                            {startTimeStr}
+                            <span className="text-gray-500 text-lg font-normal ml-1">- {endTimeStr}</span>
+                        </h3>
                         <p className="text-pitch-secondary text-sm font-bold uppercase">{dateStr}</p>
+                        {game.title && <p className="text-pitch-accent text-xs font-bold uppercase mt-1 tracking-wider">{game.title}</p>}
                     </div>
-                    {isCancelled ? (
-                        <div className="bg-red-500 px-2 py-1 rounded text-xs font-bold uppercase text-white shadow-lg shadow-red-500/20">
-                            CANCELLED
+
+                    <div className="flex flex-col items-end gap-2">
+                        <div className={cn(
+                            "px-2 py-1 rounded text-xs font-bold uppercase",
+                            isPastStrict ? 'bg-gray-700 text-gray-400' : 'bg-pitch-accent text-pitch-black'
+                        )}>
+                            {isPastStrict ? 'Completed' : 'Upcoming'}
                         </div>
-                    ) : (
-                        <div className="flex flex-col items-end gap-2">
-                            {game.has_mvp_reward && (
-                                <div className="bg-yellow-500/20 border border-yellow-500/50 px-2 py-1 rounded text-xs font-bold uppercase text-yellow-500 flex items-center gap-1 shadow-[0_0_10px_rgba(234,179,8,0.2)]">
-                                    <span>🏆</span> Prize
-                                </div>
-                            )}
-                            <div className="bg-white/5 px-2 py-1 rounded text-xs font-bold uppercase text-white">
-                                {game.surface_type}
+                        {isCancelled && (
+                            <div className="bg-red-500 px-2 py-1 rounded text-xs font-bold uppercase text-white shadow-lg shadow-red-500/20">
+                                CANCELLED
                             </div>
-                        </div>
-                    )}
+                        )}
+                        {!isCancelled && game.has_mvp_reward && (
+                            <div className="bg-yellow-500/20 border border-yellow-500/50 px-2 py-1 rounded text-xs font-bold uppercase text-yellow-500 flex items-center gap-1 shadow-[0_0_10px_rgba(234,179,8,0.2)]">
+                                <span>🏆</span> Prize
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="space-y-2 mb-6 flex-grow">
@@ -291,19 +299,22 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                         <MapPin className="w-4 h-4 mr-2 text-pitch-accent" />
                         <span className="text-sm truncate">{game.location}</span>
                     </div>
-                    <div className="flex items-center text-pitch-secondary">
+                    <div className="flex items-center gap-4">
+                        <span className="text-xs uppercase bg-white/5 px-2 py-0.5 rounded text-gray-400 font-bold border border-white/5">
+                            {game.surface_type}
+                        </span>
                         <span className={cn(
-                            "text-xs uppercase px-2 py-0.5 rounded font-bold",
+                            "text-xs uppercase px-2 py-0.5 rounded font-bold border border-white/5",
                             (game.max_players - currentPlayers) === 0
                                 ? "bg-red-500/10 text-red-500"
-                                : (game.max_players - currentPlayers) <= 3
-                                    ? "bg-orange-500/10 text-orange-400"
-                                    : "bg-green-500/10 text-green-400"
+                                : "bg-white/5 text-gray-400"
                         )}>
-                            {(game.max_players - currentPlayers) === 0
-                                ? "Full"
-                                : `${game.max_players - currentPlayers} spots left`}
+                            {currentPlayers} / {game.max_players} Spots
                         </span>
+                    </div>
+                    <div className="flex items-center text-gray-500 text-xs font-bold uppercase mt-1">
+                        <Clock className="w-3 h-3 mr-2 text-pitch-accent" />
+                        <span>Run Time: {durationStr}</span>
                     </div>
                 </div>
 
