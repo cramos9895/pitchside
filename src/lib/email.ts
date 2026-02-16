@@ -1,7 +1,6 @@
 import { Resend } from 'resend';
 import { createClient } from '@/lib/supabase/server';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface SendNotificationProps {
     to: string;
@@ -17,10 +16,19 @@ export async function sendNotification({ to, subject, react, type }: SendNotific
         return { success: true, data: null };
     }
 
+    // 2. Check API Key (Lazy Init to prevent build failures)
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+        console.error("❌ Resend API Key is missing. Email skipped.");
+        return { success: false, error: "Missing RESEND_API_KEY" };
+    }
+
+    const resend = new Resend(apiKey);
+
     try {
         const supabase = await createClient();
 
-        // 2. Check Admin Setting
+        // 3. Check Admin Setting
         const settingKey = `notification.${type}`;
         const { data: setting } = await supabase
             .from('system_settings')
@@ -41,7 +49,7 @@ export async function sendNotification({ to, subject, react, type }: SendNotific
             return { success: true, skipped: true };
         }
 
-        // 3. Send Email
+        // 4. Send Email
         const { data, error } = await resend.emails.send({
             from: 'PitchSide Team <support@pitchsidecf.com>',
             to,
