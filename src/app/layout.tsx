@@ -21,6 +21,10 @@ export const metadata: Metadata = {
   title: "PitchSide - Premier Soccer Booking",
   description: "Find and book pickup soccer games in Northwest Chicago.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon-192x192.png",
+    apple: "/icon-512x512.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
