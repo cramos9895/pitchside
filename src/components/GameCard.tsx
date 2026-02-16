@@ -319,7 +319,21 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                 </div>
 
                 <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
-                    <div className="text-lg font-bold text-white">${game.price}</div>
+                    {joined ? (
+                        status === 'waitlist' ? (
+                            <div className="flex items-center gap-2 text-yellow-500 text-xs font-bold uppercase tracking-wider">
+                                <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                                On Waitlist
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 text-green-400 text-xs font-bold uppercase tracking-wider">
+                                <span className="w-2 h-2 bg-green-400 rounded-full" />
+                                Confirmed Ticket
+                            </div>
+                        )
+                    ) : (
+                        <div className="text-lg font-bold text-white">${game.price}</div>
+                    )}
 
                     {isCancelled ? (
                         <button disabled className="px-4 py-2 border border-red-500/30 text-red-500 font-bold uppercase text-xs rounded-sm cursor-not-allowed flex items-center gap-2">
@@ -328,7 +342,7 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                     ) : joined ? (
                         <button
                             onClick={() => router.push(`/games/${game.id}?tab=chat`)}
-                            className="w-full sm:w-auto px-4 py-2 bg-pitch-accent text-pitch-black font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors flex items-center justify-center gap-2"
+                            className="px-3 py-1.5 bg-pitch-accent text-pitch-black font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors text-center"
                         >
                             Game Lobby
                         </button>
@@ -344,11 +358,12 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                                         : game.price === 0
                                             ? "bg-green-500 hover:bg-green-400 text-black"
                                             : "text-pitch-accent hover:text-white hover:bg-pitch-accent/10"
-                                )}
+                                )
+                            }
                         >
                             {currentPlayers >= game.max_players ? "Join Waitlist" :
                                 game.price === 0 ? "Join for Free" :
-                                    <>Join for ${game.price} &rarr;</>
+                                    <>Join &rarr;</>
                             }
                         </button>
                     )}
