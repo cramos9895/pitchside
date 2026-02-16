@@ -18,6 +18,7 @@ export default function DashboardPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [bookings, setBookings] = useState<any[]>([]);
+    const [user, setUser] = useState<any>(null);
     const [cancellingGameId, setCancellingGameId] = useState<string | null>(null);
     const { success, error: toastError } = useToast();
 
@@ -57,6 +58,7 @@ export default function DashboardPage() {
                     router.push('/login');
                     return;
                 }
+                setUser(user);
 
                 // Fetch bookings with game details
                 const { data: bookingsData, error } = await supabase
