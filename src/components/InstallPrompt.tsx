@@ -72,7 +72,6 @@ export function InstallPrompt() {
     // if (!isInstallable && !deferredPrompt) return null;
 
     return (
-    return (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-white/5 border border-white/10 rounded-sm animate-in fade-in duration-500">
             <div className="flex items-center gap-4">
                 <div className="bg-white p-1 rounded-lg shrink-0">
