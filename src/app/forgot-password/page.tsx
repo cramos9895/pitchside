@@ -21,8 +21,7 @@ export default function ForgotPassword() {
 
         try {
             const redirectUrl = new URL('/auth/callback', window.location.origin);
-            // Simplified to avoid "requested path invalid" error
-            // redirectUrl.searchParams.set('next', '/update-password'); 
+            redirectUrl.searchParams.set('next', '/update-password');
             const redirectTo = redirectUrl.toString();
 
             console.log('Requesting Password Reset with redirect:', redirectTo);
