@@ -1,6 +1,21 @@
 
 'use client';
 
+const TEXT_COLOR_MAP: Record<string, string> = {
+    'Neon Orange': 'text-orange-500',
+    'Neon Blue': 'text-cyan-400',
+    'Neon Green': 'text-[#ccff00]',
+    'White': 'text-white',
+    'Black': 'text-gray-400',
+    'Red': 'text-red-500',
+    'Yellow': 'text-yellow-400',
+    'Light Blue': 'text-blue-400',
+    'Pink': 'text-pink-500',
+    'Purple': 'text-purple-500',
+    'Blue': 'text-blue-600',
+    'Grey': 'text-gray-500'
+};
+
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Plus, Save, Loader2, Trash2, Layers, CheckCircle2, Trophy, ArrowRight, PlayCircle, Edit } from 'lucide-react';
@@ -323,6 +338,76 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
         if (onUpdate) onUpdate();
     };
 
+    // --- Finalization Logic ---
+
+    const calculateWinnerName = () => {
+        const stats: Record<string, { pts: number, gd: number }> = {};
+        matches.forEach(m => {
+            if (m.status !== 'completed') return;
+            if (!stats[m.home_team]) stats[m.home_team] = { pts: 0, gd: 0 };
+            if (!stats[m.away_team]) stats[m.away_team] = { pts: 0, gd: 0 };
+
+            stats[m.home_team].gd += (m.home_score - m.away_score);
+            stats[m.away_team].gd += (m.away_score - m.home_score);
+
+            if (m.home_score > m.away_score) stats[m.home_team].pts += 3;
+            else if (m.away_score > m.home_score) stats[m.away_team].pts += 3;
+            else { stats[m.home_team].pts += 1; stats[m.away_team].pts += 1; }
+        });
+
+        const sorted = Object.entries(stats).sort(([, a], [, b]) => {
+            if (b.pts !== a.pts) return b.pts - a.pts;
+            return b.gd - a.gd;
+        });
+
+        return sorted[0] ? sorted[0][0] : null;
+    };
+
+    const handleFinalizeEvent = async () => {
+        const winnerName = calculateWinnerName();
+        if (!winnerName) return alert("Could not determine a winner. Record some matches first.");
+
+        // For Manual Mode, use selected MVP. For Tournament, use editMvpId or similar.
+        // Let's use `editMvpId` as the shared state for "Selected MVP for Finalization"
+        const finalMvpId = editMvpId;
+
+        if (!confirm(`Conclude Event?\n\nWinner: ${winnerName}\nMVP: ${players.find(p => p.id === finalMvpId)?.name || 'None Selected'}\n\nThis will lock the event and update stats.`)) return;
+
+        setLoading(true);
+        try {
+            // 1. Update Game Status & MVP
+            const { error: gameError } = await supabase.from('games').update({
+                status: 'completed',
+                mvp_player_id: finalMvpId || null
+            }).eq('id', gameId);
+            if (gameError) throw gameError;
+
+            // 2. Set Winner in Bookings
+            // First reset any previous (just in case)
+            await supabase.from('bookings').update({ is_winner: false }).eq('game_id', gameId);
+            await supabase.from('bookings').update({ is_winner: true })
+                .eq('game_id', gameId)
+                .eq('team_assignment', winnerName);
+
+            // 3. Update MVP Profile Stats
+            if (finalMvpId) {
+                const { data: p } = await supabase.from('profiles').select('mvp_awards').eq('id', finalMvpId).single();
+                if (p) await supabase.from('profiles').update({ mvp_awards: (p.mvp_awards || 0) + 1 }).eq('id', finalMvpId);
+            }
+
+            alert("Event Concluded Successfully!"); // Replaced 'success' with 'alert'
+            router.refresh();
+            if (onUpdate) onUpdate();
+        } catch (e: any) {
+            alert("Error finalizing: " + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Helper used in UI
+    const calculatedWinner = calculateWinnerName();
+
     return (
         <div className="bg-gray-900 border border-gray-800 rounded-sm p-6 mb-6">
 
@@ -344,107 +429,98 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                 <div>
                     {isTournamentComplete && !isEditing ? (
                         /* VIEW MODE (Completed) */
-                        <div className="text-center py-10 bg-white/5 rounded border border-white/10 animate-in fade-in relative group">
+                        <div className="animate-in fade-in">
 
-                            {/* Edit Button */}
-                            <button
-                                onClick={() => setIsEditing(true)}
-                                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white transition-colors"
-                                title="Edit Results"
-                            >
-                                <Edit className="w-5 h-5" />
-                            </button>
+                            {/* IF GAME IS NOT COMPLETED YET, SHOW FINALIZE VIEW */}
+                            {gameStatus !== 'completed' ? (
+                                <div className="text-center py-10 bg-pitch-accent/5 rounded border border-pitch-accent/20">
+                                    <Trophy className="w-16 h-16 text-pitch-accent mx-auto mb-4 animate-bounce" />
+                                    <h3 className="text-2xl font-black text-white mb-2 uppercase italic">Tournament Finished!</h3>
+                                    <p className="text-gray-400 mb-8 max-w-md mx-auto">All rounds are complete. Confirm the results below to finalize the event and distribute stats.</p>
 
-                            <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-                            <h3 className="text-3xl font-black text-white mb-2 uppercase italic">Tournament Complete!</h3>
+                                    <div className="max-w-sm mx-auto bg-black/50 p-6 rounded border border-white/10 mb-8">
+                                        <div className="text-sm text-gray-400 uppercase tracking-widest mb-1">Champion</div>
+                                        <div className="text-3xl text-yellow-400 font-black uppercase tracking-tighter mb-6">{calculatedWinner || 'Unknown'}</div>
 
-                            {/* Winner Display */}
-                            <div className="my-8">
-                                <span className="text-sm text-gray-400 uppercase tracking-widest block mb-1">Champion</span>
-                                {(() => {
-                                    // Calc Winner Locally
-                                    const stats: Record<string, { pts: number, gd: number, w: number }> = {};
-                                    matches.forEach(m => {
-                                        if (m.status !== 'completed') return;
-                                        // Initialize
-                                        if (!stats[m.home_team]) stats[m.home_team] = { pts: 0, gd: 0, w: 0 };
-                                        if (!stats[m.away_team]) stats[m.away_team] = { pts: 0, gd: 0, w: 0 };
+                                        <div className="text-left">
+                                            <label className="text-xs font-bold text-pitch-secondary uppercase mb-2 block">Select Event MVP</label>
+                                            <select
+                                                value={editMvpId}
+                                                onChange={(e) => setEditMvpId(e.target.value)}
+                                                className="w-full bg-black border border-white/20 p-2 text-sm rounded text-white focus:border-pitch-accent outline-none"
+                                            >
+                                                <option value="">-- No MVP Selected --</option>
+                                                {players.map(p => (
+                                                    <option key={p.id} value={p.id}>{p.name} ({p.team})</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
 
-                                        const h = stats[m.home_team];
-                                        const a = stats[m.away_team];
+                                    <button
+                                        onClick={handleFinalizeEvent}
+                                        disabled={loading}
+                                        className="bg-pitch-accent text-pitch-black hover:bg-white font-bold uppercase px-8 py-3 rounded-sm shadow-lg shadow-pitch-accent/20 transition-all transform hover:scale-105"
+                                    >
+                                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5 inline mr-2" />}
+                                        Conclude & Finalize Event
+                                    </button>
+                                </div>
+                            ) : (
+                                /* ALREADY FINALIZED SUMMARY */
+                                <div className="text-center py-10 bg-white/5 rounded border border-white/10 relative group">
+                                    {/* Edit Button */}
+                                    <button
+                                        onClick={() => setIsEditing(true)}
+                                        className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white transition-colors"
+                                        title="Edit Results"
+                                    >
+                                        <Edit className="w-5 h-5" />
+                                    </button>
 
-                                        h.gd += (m.home_score - m.away_score);
-                                        a.gd += (m.away_score - m.home_score);
+                                    <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                                    <h3 className="text-3xl font-black text-white mb-2 uppercase italic">Tournament Complete!</h3>
 
-                                        if (m.home_score > m.away_score) {
-                                            h.pts += 3;
-                                            h.w += 1;
-                                        } else if (m.away_score > m.home_score) {
-                                            a.pts += 3;
-                                            a.w += 1;
-                                        } else {
-                                            h.pts += 1;
-                                            a.pts += 1;
-                                        }
-                                    });
+                                    {/* Winner Display */}
+                                    <div className="my-8">
+                                        <span className="text-sm text-gray-400 uppercase tracking-widest block mb-1">Champion</span>
+                                        <div className="text-4xl text-yellow-400 font-black uppercase tracking-tighter drop-shadow-lg mb-4">
+                                            {calculatedWinner}
+                                        </div>
+                                    </div>
 
-                                    const sorted = Object.entries(stats).sort(([, a], [, b]) => {
-                                        if (b.pts !== a.pts) return b.pts - a.pts;
-                                        return b.gd - a.gd;
-                                    });
-
-                                    const winnerName = sorted[0] ? sorted[0][0] : "Determining...";
-                                    const winnerStats = sorted[0] ? sorted[0][1] : { w: 0, gd: 0, pts: 0 };
-
-                                    return (
-                                        <div className="animate-in zoom-in duration-500">
-                                            <div className="text-4xl text-yellow-400 font-black uppercase tracking-tighter drop-shadow-lg mb-4">
-                                                {winnerName}
-                                            </div>
-
-                                            {/* Stat Card */}
-                                            <div className="grid grid-cols-3 gap-2 bg-gradient-to-b from-yellow-500/20 to-black border border-yellow-500/50 rounded-lg p-3 max-w-sm mx-auto shadow-xl backdrop-blur-sm">
-                                                <div className="text-center">
-                                                    <div className="text-xl font-black text-white">{winnerStats.w}</div>
-                                                    <div className="text-[10px] uppercase font-bold text-yellow-500 tracking-wider">Wins</div>
-                                                </div>
-                                                <div className="text-center border-l border-white/10 border-r">
-                                                    <div className="text-xl font-black text-white">{winnerStats.gd > 0 ? `+${winnerStats.gd}` : winnerStats.gd}</div>
-                                                    <div className="text-[10px] uppercase font-bold text-yellow-500 tracking-wider">GD</div>
-                                                </div>
-                                                <div className="text-center">
-                                                    <div className="text-xl font-black text-white">{winnerStats.pts}</div>
-                                                    <div className="text-[10px] uppercase font-bold text-yellow-500 tracking-wider">Pts</div>
-                                                </div>
+                                    {/* MVP Static Display */}
+                                    {initialMvpId && (
+                                        <div className="mb-8">
+                                            <span className="text-xs font-bold text-pitch-secondary uppercase mb-1 block">MVP</span>
+                                            <div className="text-white font-bold text-lg">
+                                                {players.find(p => p.id === initialMvpId)?.name || 'Unknown Player'}
                                             </div>
                                         </div>
-                                    );
-                                })()}
-                            </div>
+                                    )}
 
-                            {/* MVP Static Display */}
-                            {initialMvpId && (
-                                <div className="mb-8">
-                                    <span className="text-xs font-bold text-pitch-secondary uppercase mb-1 block">MVP</span>
-                                    <div className="text-white font-bold text-lg">
-                                        {players.find(p => p.id === initialMvpId)?.name || 'Unknown Player'}
+                                    {/* Read-Only Matches List */}
+                                    <div className="max-w-2xl mx-auto border-t border-white/10 pt-6">
+                                        <h4 className="text-xs font-bold uppercase text-gray-500 mb-4">Match Results</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {matches.map(m => {
+                                                const homeColor = teams.find(t => t.name === m.home_team)?.color || 'White';
+                                                const awayColor = teams.find(t => t.name === m.away_team)?.color || 'White';
+                                                const homeText = TEXT_COLOR_MAP[homeColor] || 'text-white';
+                                                const awayText = TEXT_COLOR_MAP[awayColor] || 'text-white';
+
+                                                return (
+                                                    <div key={m.id} className="flex justify-between items-center bg-white/5 p-3 rounded text-sm text-gray-300">
+                                                        <span className={cn(m.home_score > m.away_score ? "font-bold" : "", homeText)}>{m.home_team} {m.home_score}</span>
+                                                        <span className="text-gray-600 mx-2">-</span>
+                                                        <span className={cn(m.away_score > m.home_score ? "font-bold" : "", awayText)}>{m.away_score} {m.away_team}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
                             )}
-
-                            {/* Read-Only Matches List */}
-                            <div className="max-w-2xl mx-auto border-t border-white/10 pt-6">
-                                <h4 className="text-xs font-bold uppercase text-gray-500 mb-4">Match Results</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {matches.map(m => (
-                                        <div key={m.id} className="flex justify-between items-center bg-white/5 p-3 rounded text-sm text-gray-300">
-                                            <span className={m.home_score > m.away_score ? "text-white font-bold" : ""}>{m.home_team} {m.home_score}</span>
-                                            <span className="text-gray-600 mx-2">-</span>
-                                            <span className={m.away_score > m.home_score ? "text-white font-bold" : ""}>{m.away_score} {m.away_team}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
                         </div>
                     ) : (
                         /* ACTIVE OR EDIT MODE */
@@ -611,7 +687,7 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                     )}
                 </div>
             ) : (
-                /* --- FALLBACK MANUAL MODE --- */
+                /* --- FALLBACK MANUAL MODE / KING OF THE COURT --- */
                 <div>
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end bg-black/30 p-4 rounded border border-white/5 mb-6">
                         <div className="md:col-span-1">
@@ -667,7 +743,7 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                     </button>
 
                     {/* Simple List for Manual */}
-                    <div className="space-y-2">
+                    <div className="space-y-2 mb-8">
                         {matches.map(match => (
                             <div key={match.id} className="flex justify-between items-center bg-white/5 p-3 rounded">
                                 <div className="text-sm text-white">
@@ -679,8 +755,54 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                             </div>
                         ))}
                     </div>
+
+                    {/* CONCLUDE EVENT SECTION (Manual) */}
+                    {matches.length > 0 && gameStatus !== 'completed' && (
+                        <div className="border-t border-white/10 pt-6 mt-8">
+                            <h4 className="text-xs font-bold uppercase text-gray-500 mb-4 flex items-center gap-2">
+                                <CheckCircle2 className="w-4 h-4" /> Conclude Event
+                            </h4>
+
+                            <div className="bg-white/5 p-4 rounded border border-white/5 flex flex-col md:flex-row items-end gap-4">
+                                <div className="flex-1">
+                                    <div className="text-[10px] uppercase font-bold text-gray-500 mb-1">Calculated Winner</div>
+                                    <div className="text-lg font-black text-yellow-400">{calculatedWinner || 'No Data'}</div>
+                                </div>
+
+                                <div className="flex-1 w-full md:w-auto">
+                                    <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Select MVP</label>
+                                    <select
+                                        value={editMvpId}
+                                        onChange={(e) => setEditMvpId(e.target.value)}
+                                        className="w-full bg-black border border-white/20 p-2 text-sm rounded text-white"
+                                    >
+                                        <option value="">-- Select MVP --</option>
+                                        {players.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name} ({p.team})</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <button
+                                    onClick={handleFinalizeEvent}
+                                    disabled={loading}
+                                    className="bg-green-600 hover:bg-green-500 text-white font-bold uppercase px-6 py-2 rounded-sm whitespace-nowrap"
+                                >
+                                    Conclude Event
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {gameStatus === 'completed' && (
+                        <div className="bg-green-500/10 text-green-500 text-center py-4 rounded border border-green-500/20 font-bold uppercase">
+                            Event Concluded
+                        </div>
+                    )}
+
                 </div>
             )}
         </div>
     );
 }
+

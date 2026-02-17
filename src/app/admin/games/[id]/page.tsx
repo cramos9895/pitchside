@@ -81,6 +81,21 @@ const COLOR_MAP: Record<string, string> = {
     'Yellow': 'bg-yellow-400 border-yellow-400 text-black'
 };
 
+const HEX_COLOR_MAP: Record<string, string> = {
+    'Neon Orange': '#ff4f00',
+    'Neon Blue': '#00ccff',
+    'Neon Green': '#ccff00',
+    'White': '#ffffff',
+    'Black': '#333333',
+    'Red': '#ef4444',
+    'Yellow': '#eab308',
+    'Light Blue': '#60a5fa',
+    'Pink': '#ec4899',
+    'Purple': '#a855f7',
+    'Blue': '#2563eb',
+    'Grey': '#6b7280'
+};
+
 export default function RosterPage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = use(params);
     const gameId = resolvedParams.id;
@@ -99,7 +114,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const [mvpId, setMvpId] = useState<string>('');
 
     // View Mode
-    const [viewMode, setViewMode] = useState<'single' | 'tournament'>('single');
+    const [viewMode, setViewMode] = useState<'single' | 'king' | 'tournament'>('single');
     const [showScheduler, setShowScheduler] = useState(false);
 
     // Live Refresh (Triggers re-fetch of standings)
@@ -127,9 +142,9 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
         setMatches(matchesData || []);
 
-        // Auto-switch to tournament mode if matches exist
+        // Auto-switch to king mode if matches exist
         if (matchesData && matchesData.length > 0) {
-            setViewMode('tournament');
+            setViewMode('king');
         }
     }
 
@@ -660,12 +675,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                             const percentage = Math.min(100, (count / limit) * 100);
 
                             // Determine bar color based on team config
-                            let barColor = 'bg-pitch-accent'; // Default
-                            if (team.color === 'Neon Orange') barColor = 'bg-orange-500';
-                            if (team.color === 'Neon Blue') barColor = 'bg-cyan-400';
-                            if (team.color === 'Red') barColor = 'bg-red-500';
-                            if (team.color === 'Yellow') barColor = 'bg-yellow-400';
-                            if (team.color === 'Neon Green') barColor = 'bg-[#ccff00]';
+                            const barHex = HEX_COLOR_MAP[team.color] || '#3b82f6'; // Default blue-500
 
                             return (
                                 <div key={team.name} className="bg-pitch-card border border-white/10 p-4 rounded-sm">
@@ -677,8 +687,11 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                     </div>
                                     <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
                                         <div
-                                            className={cn("h-full transition-all duration-500", barColor)}
-                                            style={{ width: `${percentage}%` }}
+                                            className="h-full transition-all duration-500"
+                                            style={{
+                                                width: `${percentage}%`,
+                                                backgroundColor: barHex
+                                            }}
                                         />
                                     </div>
                                 </div>
@@ -776,25 +789,26 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                         // Dynamic Stylings
                                                         const baseClass = "px-2 py-1 text-xs font-bold uppercase rounded border transition-colors flex items-center gap-1 min-w-[60px] md:min-w-[70px] justify-center";
 
-                                                        let styleClass = "border-gray-700 text-gray-400 hover:border-gray-500";
-                                                        let inlineStyle = {};
+                                                        const teamHex = HEX_COLOR_MAP[team.color] || '#9ca3af';
 
-                                                        if (isSelected) {
-                                                            if (COLOR_MAP[team.color]) {
-                                                                styleClass = COLOR_MAP[team.color];
-                                                            } else if (team.color === 'Neon Green') {
-                                                                styleClass = 'text-pitch-black border-[#ccff00]';
-                                                                inlineStyle = { backgroundColor: '#ccff00' };
-                                                            } else {
-                                                                styleClass = 'bg-gray-600 text-white border-gray-600';
+                                                        // Inline styles for guaranteed color
+                                                        const inlineStyle = isSelected
+                                                            ? {
+                                                                backgroundColor: teamHex,
+                                                                borderColor: teamHex,
+                                                                color: (team.color === 'White' || team.color === 'Neon Green' || team.color === 'Yellow' || team.color === 'Neon Blue' || team.color === 'Light Blue') ? 'black' : 'white'
                                                             }
-                                                        }
+                                                            : {
+                                                                borderColor: teamHex,
+                                                                color: teamHex,
+                                                                backgroundColor: 'transparent'
+                                                            };
 
                                                         return (
                                                             <button
                                                                 key={team.name}
                                                                 onClick={() => assignTeam(booking.id, team.name)}
-                                                                className={cn(baseClass, styleClass)}
+                                                                className={cn(baseClass, !isSelected && "hover:bg-white/10")}
                                                                 style={inlineStyle}
                                                             >
                                                                 <Shirt className="w-3 h-3" /> {team.name}
@@ -908,11 +922,11 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     </div>
 
                     {/* MODE TOGGLE & TABS */}
-                    <div className="flex items-center gap-4 mb-6 border-b border-white/10 pb-4">
+                    <div className="flex items-center gap-4 mb-6 border-b border-white/10 pb-4 overflow-x-auto">
                         <button
                             onClick={() => setViewMode('single')}
                             className={cn(
-                                "text-sm font-bold uppercase flex items-center gap-2 transition-colors",
+                                "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
                                 viewMode === 'single' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
                             )}
                         >
@@ -920,18 +934,28 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         </button>
                         <div className="w-px h-4 bg-white/20"></div>
                         <button
+                            onClick={() => setViewMode('king')}
+                            className={cn(
+                                "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
+                                viewMode === 'king' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
+                            )}
+                        >
+                            <Swords className="w-4 h-4" /> King of the Court
+                        </button>
+                        <div className="w-px h-4 bg-white/20"></div>
+                        <button
                             onClick={() => setViewMode('tournament')}
                             className={cn(
-                                "text-sm font-bold uppercase flex items-center gap-2 transition-colors",
+                                "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
                                 viewMode === 'tournament' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
                             )}
                         >
-                            <Swords className="w-4 h-4" /> Tournament Mode
+                            <Calendar className="w-4 h-4" /> Tournament
                         </button>
                     </div>
 
 
-                    {viewMode === 'single' ? (
+                    {viewMode === 'single' && (
                         /* SINGLE MATCH CONTROL PANEL */
                         <div className="bg-gray-900 border border-gray-800 rounded-sm p-6">
                             <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2 mb-6">
@@ -1001,27 +1025,11 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 </div>
                             </div>
                         </div>
-                    ) : (
-                        /* TOURNAMENT MODE */
+                    )}
+
+                    {viewMode === 'king' && (
+                        /* KING OF THE COURT (MANUAL & LIST) */
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-
-                            {/* Scheduler Toggle */}
-                            <div className="flex justify-end">
-                                <button
-                                    onClick={() => setShowScheduler(!showScheduler)}
-                                    className="text-xs text-pitch-secondary hover:text-white flex items-center gap-2 uppercase font-bold"
-                                >
-                                    <Calendar className="w-3 h-3" /> {showScheduler ? "Hide Scheduler" : "Show Auto-Scheduler"}
-                                </button>
-                            </div>
-
-                            {showScheduler && (
-                                <ScheduleGenerator
-                                    gameId={gameId}
-                                    teams={teams as TeamConfig[]}
-                                    onScheduleSaved={fetchMatches}
-                                />
-                            )}
                             <MatchManager
                                 game={game}
                                 bookings={bookings}
@@ -1035,81 +1043,35 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                             />
                         </div>
                     )}
+
+                    {viewMode === 'tournament' && (
+                        /* TOURNAMENT (AUTO-SCHEDULER) */
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                            <ScheduleGenerator
+                                gameId={gameId}
+                                teams={teams as TeamConfig[]}
+                                onScheduleSaved={() => {
+                                    fetchMatches();
+                                    setViewMode('king'); // Redirect to King view to see generated matches
+                                }}
+                            />
+                        </div>
+                    )}
                 </div>
 
-                {/* RIGHT COLUMN: "Quick View" Match Preview */}
-                <div className="lg:w-[350px] shrink-0">
+                {/* RIGHT COLUMN: "Quick View" Match Preview - SUPPRESSED per user request (redundant with TeamManager) */}
+                {/* <div className="lg:w-[350px] shrink-0">
                     <div className="bg-pitch-card border border-white/10 rounded-sm shadow-xl sticky top-32">
                         <div className="p-4 border-b border-white/10 bg-white/5">
                             <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2">
                                 <Users className="w-5 h-5 text-pitch-accent" /> Match Preview
                             </h2>
                         </div>
-
                         <div className="p-4 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
-                            {teams.map(team => {
-                                const teamPlayers = bookings.filter(b => b.team_assignment === team.name);
-
-                                // Header Style
-                                let headerColor = 'text-white';
-                                if (team.color === 'Neon Orange') headerColor = 'text-orange-500';
-                                if (team.color === 'Neon Blue') headerColor = 'text-cyan-400';
-                                if (team.color === 'Neon Green') headerColor = 'text-[#ccff00]';
-                                if (team.color === 'Red') headerColor = 'text-red-500';
-                                if (team.color === 'Yellow') headerColor = 'text-yellow-400';
-
-                                return (
-                                    <div key={team.name}>
-                                        <h3 className={cn("font-bold uppercase text-sm mb-2 border-b border-white/10 pb-1", headerColor)}>
-                                            {team.name} ({teamPlayers.length})
-                                        </h3>
-                                        <ul className="space-y-1">
-                                            {teamPlayers.length > 0 ? (
-                                                teamPlayers.map(p => {
-                                                    const profilesData = p.profiles;
-                                                    const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
-                                                    const name = profile?.full_name || profile?.email || 'Unknown';
-                                                    return (
-                                                        <li key={p.id} className="text-sm text-gray-300 flex items-center gap-2">
-                                                            {p.checked_in && <span className="w-1.5 h-1.5 bg-green-500 rounded-full" title="Checked In" />}
-                                                            <span className="truncate">{name}</span>
-                                                        </li>
-                                                    )
-                                                })
-                                            ) : (
-                                                <li className="text-xs text-gray-600 italic">Empty</li>
-                                            )}
-                                        </ul>
-                                    </div>
-                                )
-                            })}
-
-                            {/* Unassigned */}
-                            <div>
-                                <h3 className="font-bold uppercase text-sm mb-2 border-b border-white/10 pb-1 text-gray-500">
-                                    Unassigned / Bench
-                                </h3>
-                                <ul className="space-y-1">
-                                    {bookings.filter(b => !b.team_assignment).map(p => {
-                                        const profilesData = p.profiles;
-                                        const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
-                                        const name = profile?.full_name || profile?.email || 'Unknown';
-                                        return (
-                                            <li key={p.id} className="text-sm text-gray-500 flex items-center gap-2">
-                                                {p.checked_in && <span className="w-1.5 h-1.5 bg-green-500 rounded-full" title="Checked In" />}
-                                                <span className="truncate">{name}</span>
-                                            </li>
-                                        )
-                                    })}
-                                    {bookings.filter(b => !b.team_assignment).length === 0 && (
-                                        <li className="text-xs text-gray-700 italic">No unassigned players</li>
-                                    )}
-                                </ul>
-                            </div>
-
+                           
                         </div>
                     </div>
-                </div>
+                </div> */}
 
             </div>
 

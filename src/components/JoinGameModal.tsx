@@ -11,10 +11,12 @@ interface JoinGameModalProps {
     onConfirm: (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null }) => Promise<void>;
     gamePrice: number;
     loading: boolean;
+
     isWaitlist: boolean;
+    gameId: string; // Needed to fetch specific game settings
 }
 
-export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, isWaitlist }: JoinGameModalProps) {
+export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, isWaitlist, gameId }: JoinGameModalProps) {
     const [step, setStep] = useState<'details' | 'payment'>('details');
     const [note, setNote] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<'venmo' | 'zelle' | 'cash' | null>(null);
@@ -22,25 +24,42 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
 
     const [venmoHandle, setVenmoHandle] = useState('PitchSideCF');
     const [zelleInfo, setZelleInfo] = useState('555-0199');
+    const [allowedMethods, setAllowedMethods] = useState<string[]>(['venmo', 'zelle']); // Default fallback
 
     const supabase = createClient();
 
     useEffect(() => {
         const fetchSettings = async () => {
-            const { data } = await supabase
+            // 1. Fetch System Settings (Global)
+            const { data: settingsData } = await supabase
                 .from('system_settings')
                 .select('key, value')
                 .in('key', ['payment.venmo_handle', 'payment.zelle_info']);
 
-            if (data) {
-                data.forEach((setting: { key: string; value: string }) => {
+            if (settingsData) {
+                settingsData.forEach((setting: { key: string; value: string }) => {
                     if (setting.key === 'payment.venmo_handle') setVenmoHandle(setting.value);
                     if (setting.key === 'payment.zelle_info') setZelleInfo(setting.value);
                 });
             }
+
+            // 2. Fetch Game Settings (Specific)
+            if (gameId) {
+                const { data: gameData } = await supabase
+                    .from('games')
+                    .select('allowed_payment_methods')
+                    .eq('id', gameId)
+                    .single();
+
+                if (gameData && gameData.allowed_payment_methods) {
+                    setAllowedMethods(gameData.allowed_payment_methods);
+                }
+            }
         };
-        fetchSettings();
-    }, []);
+        if (isOpen) {
+            fetchSettings();
+        }
+    }, [isOpen, gameId]);
 
     const VENMO_HANDLE = venmoHandle;
     const ZELLE_INFO = zelleInfo;
@@ -136,22 +155,75 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                         </div>
 
                         <div className="space-y-3 mb-6">
-                            {/* VENMO */}
-                            <button
-                                onClick={() => setPaymentMethod('venmo')}
-                                className={cn(
-                                    "w-full p-4 rounded-sm border flex items-center justify-between transition-all",
-                                    paymentMethod === 'venmo'
-                                        ? "bg-blue-500/10 border-blue-500 text-white"
-                                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                            <div className="grid gap-3">
+                                {allowedMethods.includes('venmo') && (
+                                    <button
+                                        onClick={() => setPaymentMethod('venmo')}
+                                        className={cn(
+                                            "flex items-center justify-between p-4 rounded-sm border transition-all",
+                                            paymentMethod === 'venmo'
+                                                ? "bg-blue-500/20 border-blue-500 text-white"
+                                                : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
+                                        )}
+                                    >
+                                        <span className="font-bold flex items-center gap-2">
+                                            <span className="text-xl">V</span> Venmo
+                                        </span>
+                                        {paymentMethod === 'venmo' && <Check className="w-5 h-5 text-blue-500" />}
+                                    </button>
                                 )}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <span className="font-bold text-blue-400">Venmo</span>
-                                </div>
-                                {paymentMethod === 'venmo' && <Check className="w-5 h-5 text-blue-500" />}
-                            </button>
-                            {paymentMethod === 'venmo' && (
+
+                                {allowedMethods.includes('zelle') && (
+                                    <button
+                                        onClick={() => setPaymentMethod('zelle')}
+                                        className={cn(
+                                            "flex items-center justify-between p-4 rounded-sm border transition-all",
+                                            paymentMethod === 'zelle'
+                                                ? "bg-purple-500/20 border-purple-500 text-white"
+                                                : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
+                                        )}
+                                    >
+                                        <span className="font-bold flex items-center gap-2">
+                                            <span className="text-xl">Z</span> Zelle
+                                        </span>
+                                        {paymentMethod === 'zelle' && <Check className="w-5 h-5 text-purple-500" />}
+                                    </button>
+                                )}
+
+                                {allowedMethods.includes('cash') && (
+                                    <button
+                                        onClick={() => setPaymentMethod('cash')}
+                                        className={cn(
+                                            "flex items-center justify-between p-4 rounded-sm border transition-all",
+                                            paymentMethod === 'cash'
+                                                ? "bg-green-500/20 border-green-500 text-white"
+                                                : "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300"
+                                        )}
+                                    >
+                                        <span className="font-bold flex items-center gap-2">
+                                            <DollarSign className="w-5 h-5" /> Cash (At Field)
+                                        </span>
+                                        {paymentMethod === 'cash' && <Check className="w-5 h-5 text-green-500" />}
+                                    </button>
+                                )}
+
+                                {allowedMethods.includes('stripe') && (
+                                    <div className="relative group">
+                                        <button
+                                            disabled
+                                            className="w-full flex items-center justify-between p-4 rounded-sm border border-white/5 bg-white/5 text-gray-500 cursor-not-allowed opacity-60"
+                                        >
+                                            <span className="font-bold flex items-center gap-2">
+                                                <CreditCard className="w-5 h-5" /> Pay with Card
+                                            </span>
+                                        </button>
+                                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10 shadow-xl">
+                                            Online payments coming soon
+                                        </div>
+                                    </div>
+                                )}
+
+                            </div>    {paymentMethod === 'venmo' && (
                                 <div className="p-3 bg-blue-500/10 rounded-sm text-sm text-blue-200 mb-2">
                                     <p className="mb-2">Tap to open Venmo:</p>
                                     <a
@@ -165,21 +237,6 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 </div>
                             )}
 
-                            {/* ZELLE */}
-                            <button
-                                onClick={() => setPaymentMethod('zelle')}
-                                className={cn(
-                                    "w-full p-4 rounded-sm border flex items-center justify-between transition-all",
-                                    paymentMethod === 'zelle'
-                                        ? "bg-purple-500/10 border-purple-500 text-white"
-                                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
-                                )}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <span className="font-bold text-purple-400">Zelle</span>
-                                </div>
-                                {paymentMethod === 'zelle' && <Check className="w-5 h-5 text-purple-500" />}
-                            </button>
                             {paymentMethod === 'zelle' && (
                                 <div className="p-3 bg-purple-500/10 rounded-sm text-sm text-purple-200">
                                     <p className="mb-2">Send to:</p>

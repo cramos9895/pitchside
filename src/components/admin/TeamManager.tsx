@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Shuffle, ArrowRight, ArrowLeft, RefreshCw, Save } from 'lucide-react';
+import { User, Shuffle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 
@@ -16,6 +16,7 @@ interface Player {
 interface TeamConfig {
     name: string;
     color: string;
+    limit?: number;
 }
 
 interface TeamManagerProps {
@@ -27,13 +28,33 @@ interface TeamManagerProps {
 }
 
 const COLOR_MAP: Record<string, string> = {
-    'Neon Orange': 'border-orange-500/30 bg-orange-500/5',
-    'Neon Blue': 'border-cyan-500/30 bg-cyan-500/5',
-    'Neon Green': 'border-[#ccff00]/30 bg-[#ccff00]/5',
-    'White': 'border-white/30 bg-white/5',
-    'Black': 'border-gray-600 bg-gray-900',
-    'Red': 'border-red-500/30 bg-red-500/5',
-    'Yellow': 'border-yellow-400/30 bg-yellow-400/5'
+    'Neon Orange': 'border-orange-500/50 bg-orange-500/10',
+    'Neon Blue': 'border-cyan-400/50 bg-cyan-400/10',
+    'Neon Green': 'border-[#ccff00]/50 bg-[#ccff00]/10',
+    'White': 'border-white/50 bg-white/10',
+    'Black': 'border-gray-600 bg-gray-950',
+    'Red': 'border-red-500/50 bg-red-500/10',
+    'Yellow': 'border-yellow-400/50 bg-yellow-400/10',
+    'Light Blue': 'border-blue-400/50 bg-blue-400/10',
+    'Pink': 'border-pink-500/50 bg-pink-500/10',
+    'Purple': 'border-purple-500/50 bg-purple-500/10',
+    'Blue': 'border-blue-600/50 bg-blue-600/10',
+    'Grey': 'border-gray-500/50 bg-gray-500/10'
+};
+
+const HEX_COLOR_MAP: Record<string, string> = {
+    'Neon Orange': '#ff4f00',
+    'Neon Blue': '#00ccff',
+    'Neon Green': '#ccff00',
+    'White': '#ffffff',
+    'Black': '#333333',
+    'Red': '#ef4444',
+    'Yellow': '#eab308',
+    'Light Blue': '#60a5fa',
+    'Pink': '#ec4899',
+    'Purple': '#a855f7',
+    'Blue': '#2563eb',
+    'Grey': '#6b7280'
 };
 
 const TEXT_COLOR_MAP: Record<string, string> = {
@@ -43,10 +64,15 @@ const TEXT_COLOR_MAP: Record<string, string> = {
     'White': 'text-white',
     'Black': 'text-gray-400',
     'Red': 'text-red-500',
-    'Yellow': 'text-yellow-400'
+    'Yellow': 'text-yellow-400',
+    'Light Blue': 'text-blue-400',
+    'Pink': 'text-pink-500',
+    'Purple': 'text-purple-500',
+    'Blue': 'text-blue-600',
+    'Grey': 'text-gray-500'
 };
 
-export function TeamManager({ gameId, players, teams, onUpdate, onVerifyPayment }: TeamManagerProps) {
+export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerProps) {
     const { success, error: toastError } = useToast();
     const [loading, setLoading] = useState(false);
 
@@ -54,26 +80,6 @@ export function TeamManager({ gameId, players, teams, onUpdate, onVerifyPayment 
     const activePlayers = players.filter(p => p.status === 'active' || p.status === 'paid');
 
     const unassigned = activePlayers.filter(p => !p.team);
-
-    const handleMove = async (bookingId: string, team: string | null) => {
-        setLoading(true);
-        try {
-            const response = await fetch('/api/games/teams', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gameId, bookingId, team })
-            });
-
-            if (!response.ok) throw new Error('Failed to update team');
-
-            success('Player moved successfully');
-            onUpdate();
-        } catch (err: any) {
-            toastError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleRandomize = async () => {
         if (!confirm('This will reshuffle ALL active players into random teams. Current assignments will be overwritten. Continue?')) return;
@@ -115,7 +121,6 @@ export function TeamManager({ gameId, players, teams, onUpdate, onVerifyPayment 
 
             <div className={cn(
                 "grid gap-4",
-                // Dynamic grid cols logic could be improved, but let's assume standard max 4 for now or fallback to responsive
                 teams.length >= 3 ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 md:grid-cols-3"
             )}>
                 {/* UNASSIGNED */}
@@ -124,11 +129,7 @@ export function TeamManager({ gameId, players, teams, onUpdate, onVerifyPayment 
                     players={unassigned}
                     colorClass="border-gray-700 bg-gray-900/50"
                     headerColor="text-gray-400"
-                    onMove={handleMove}
-                    target="Unassigned"
                     allTeams={teams}
-                    loading={loading}
-                    onVerifyPayment={onVerifyPayment}
                 />
 
                 {/* DYNAMIC TEAMS */}
@@ -144,11 +145,7 @@ export function TeamManager({ gameId, players, teams, onUpdate, onVerifyPayment 
                             players={teamPlayers}
                             colorClass={colorClass}
                             headerColor={headerColor}
-                            onMove={handleMove}
-                            target={team.name}
                             allTeams={teams}
-                            loading={loading}
-                            onVerifyPayment={onVerifyPayment}
                         />
                     );
                 })}
@@ -162,105 +159,56 @@ function TeamColumn({
     players,
     colorClass,
     headerColor,
-    onMove,
-    target,
     allTeams,
-    loading,
-    onVerifyPayment
 }: {
     title: string,
     players: Player[],
     colorClass: string,
     headerColor: string,
-    onMove: (id: string, team: string | null) => void,
-    target: string, // Team Name or 'Unassigned'
     allTeams: TeamConfig[],
-    loading: boolean,
-    onVerifyPayment: (id: string, currentStatus: string) => Promise<void>
 }) {
+    // Find the team config for this column to get limit/color info
+    const currentTeamConfig = allTeams.find(t => t.name === title);
+    const limit = currentTeamConfig?.limit || 10;
+    const percentage = Math.min(100, (players.length / limit) * 100);
+
+    // Use HEX map for inline style background
+    const barValues = currentTeamConfig ? HEX_COLOR_MAP[currentTeamConfig.color] : null;
+
     return (
-        <div className={cn("border rounded-sm h-[500px] flex flex-col", colorClass)}>
-            <div className="p-3 border-b border-white/5 bg-black/20 flex justify-between items-center">
-                <h4 className={cn("font-bold uppercase tracking-wider", headerColor)}>{title}</h4>
-                <span className="text-xs text-gray-500 font-mono">{players.length}</span>
+        <div className={cn("border rounded-sm flex flex-col", colorClass)}>
+            <div className="p-3 border-b border-white/5 bg-black/20 flex justify-between items-center relative overflow-hidden">
+                {/* Progress Bar */}
+                <div
+                    className="absolute bottom-0 left-0 h-1 transition-all duration-500"
+                    style={{
+                        width: `${percentage}%`,
+                        backgroundColor: barValues || '#4b5563'
+                    }}
+                />
+
+                <h4 className={cn("font-bold uppercase tracking-wider text-sm", headerColor)}>{title}</h4>
+                <div className="flex items-center gap-2 relative z-10">
+                    <span className="text-xs text-gray-400 font-mono">
+                        {players.length} / {currentTeamConfig?.limit || '-'}
+                    </span>
+                </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+
+            <div className="p-2 space-y-1">
                 {players.map(p => (
-                    <div key={p.id} className="bg-black/40 p-2 rounded border border-white/5 flex items-center justify-between group hover:border-white/20 transition-colors">
-                        <div className="truncate flex items-center gap-2">
-                            <div className={cn(
-                                "w-2 h-2 rounded-full",
-                                p.payment_status === 'verified' ? "bg-green-500" :
-                                    p.payment_status === 'pending' ? "bg-yellow-500 animate-pulse" : "bg-red-500"
+                    <div key={p.id} className="bg-black/40 px-2 py-1.5 rounded border border-white/5 flex items-center gap-2 group hover:border-white/20 transition-colors">
+                        <div className={cn(
+                            "w-1.5 h-1.5 rounded-full shrink-0",
+                            p.payment_status === 'verified' ? "bg-green-500" :
+                                p.payment_status === 'pending' ? "bg-yellow-500" : "bg-red-500"
+                        )} title={`Payment: ${p.payment_status}`} />
 
-                            )} />
-                            <div className="text-sm font-bold text-gray-200 truncate">{p.name}</div>
-                        </div>
-
-                        <div className="flex items-center gap-1 opacity-100 transition-opacity">
-                            <button
-                                onClick={() => onVerifyPayment(p.id, p.payment_status || 'unpaid')}
-                                className={cn(
-                                    "p-1 rounded text-[10px] font-bold w-6 h-6 flex items-center justify-center border mr-1",
-                                    p.payment_status === 'verified' ? "border-green-500/50 text-green-500 hover:bg-green-500/20" :
-                                        p.payment_status === 'pending' ? "border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/20" :
-                                            "border-red-500/50 text-red-500 hover:bg-red-500/20"
-                                )}
-                                title={`Payment Status: ${p.payment_status}. Click to verify/toggle.`}
-                            >
-                                $
-                            </button>
-
-                            {/* If in Unassigned, show buttons for ALL teams */}
-                            {target === 'Unassigned' && allTeams.map(team => (
-                                <button
-                                    key={team.name}
-                                    onClick={() => onMove(p.id, team.name)}
-                                    disabled={loading}
-                                    className={cn(
-                                        "p-1 rounded text-[10px] font-bold uppercase w-6 h-6 flex items-center justify-center border",
-                                        // Simple heuristic for button colors or just strict map
-                                        team.name.includes("A") ? "border-orange-500/50 text-orange-500 hover:bg-orange-500/20" :
-                                            team.name.includes("B") ? "border-cyan-400/50 text-cyan-400 hover:bg-cyan-400/20" :
-                                                "border-gray-500 text-gray-400 hover:bg-gray-700"
-                                    )}
-                                    title={`Move to ${team.name}`}
-                                >
-                                    {team.name.substring(0, 1)}
-                                </button>
-                            ))}
-
-                            {/* If in a Team, show Move to Unassigned + Move to other teams */}
-                            {target !== 'Unassigned' && (
-                                <>
-                                    <button
-                                        onClick={() => onMove(p.id, null)}
-                                        disabled={loading}
-                                        className="p-1 hover:bg-gray-700 text-gray-400 rounded"
-                                        title="Unassign"
-                                    >
-                                        <RefreshCw className="w-3 h-3" />
-                                    </button>
-
-                                    {/* Optional: Add direct "Swap" to other teams if space allows, or just Move to... */}
-                                    {allTeams.filter(t => t.name !== target).map(otherTeam => (
-                                        <button
-                                            key={otherTeam.name}
-                                            onClick={() => onMove(p.id, otherTeam.name)}
-                                            disabled={loading}
-                                            className="p-1 hover:bg-white/10 text-white rounded"
-                                            title={`Move to ${otherTeam.name}`}
-                                        >
-                                            <ArrowRight className="w-3 h-3" />
-                                        </button>
-                                    ))}
-                                </>
-                            )}
-                        </div>
+                        <div className="text-xs text-gray-200 truncate">{p.name}</div>
                     </div>
                 ))}
                 {players.length === 0 && (
-                    <div className="text-center text-gray-600 text-xs italic py-10">Empty</div>
+                    <div className="text-center text-gray-600 text-[10px] italic py-4">Empty</div>
                 )}
             </div>
         </div>

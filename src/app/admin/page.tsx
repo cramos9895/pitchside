@@ -21,7 +21,7 @@ export default async function AdminDashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-pitch-black text-white font-sans pt-32 px-6">
+        <div className="min-h-screen bg-pitch-black text-white font-sans pt-32 px-6 pb-32">
             <div className="max-w-7xl mx-auto">
 
                 {/* Header */}
@@ -39,7 +39,7 @@ export default async function AdminDashboard() {
                     </div>
 
                     <Link
-                        href="/admin/games/new"
+                        href="/admin/create-game"
                         className="flex items-center gap-2 px-6 py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-wider rounded-sm hover:bg-white transition-colors"
                     >
                         <Plus className="w-5 h-5" /> Create New Game

@@ -379,6 +379,7 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                 gamePrice={game.price}
                 loading={loading}
                 isWaitlist={currentPlayers >= game.max_players}
+                gameId={game.id}
             />
         </>
     );
