@@ -18,14 +18,17 @@ export async function GET(request: Request) {
             const forwardedHost = request.headers.get('x-forwarded-host') // original origin before load balancer
             const isLocalEnv = process.env.NODE_ENV === 'development'
 
+            const type = searchParams.get('type');
+            const finalNext = type === 'recovery' ? '/update-password' : next;
+
             let redirectUrl;
 
             if (isLocalEnv) {
-                redirectUrl = `${origin}${next}`
+                redirectUrl = `${origin}${finalNext}`
             } else if (forwardedHost) {
-                redirectUrl = `https://${forwardedHost}${next}`
+                redirectUrl = `https://${forwardedHost}${finalNext}`
             } else {
-                redirectUrl = `${origin}${next}`
+                redirectUrl = `${origin}${finalNext}`
             }
 
             console.log('[Auth Callback] Redirecting to:', redirectUrl);
