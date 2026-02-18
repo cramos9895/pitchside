@@ -1,24 +1,32 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { Users, Calendar, MapPin, Edit, Filter, XCircle, Trash2 } from 'lucide-react';
+import { Users, Calendar, MapPin, Edit, Filter, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { GameForm } from '@/components/admin/GameForm';
 
-// Define the shape of the game data we need
+// Extended Game Interface to match DB
 interface Game {
     id: string;
     title: string;
     location: string;
+    latitude?: number;
+    longitude?: number;
     start_time: string;
     end_time: string | null;
     current_players: number;
     max_players: number;
+    price: number;
+    surface_type: string;
+    description?: string;
+    teams_config?: any;
+    has_mvp_reward?: boolean;
+    allowed_payment_methods?: string[];
     status: string; // 'scheduled' | 'active' | 'completed' | 'cancelled'
     refund_processed: boolean;
 }
@@ -32,6 +40,10 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
     const [activeTab, setActiveTab] = useState<'active' | 'upcoming' | 'past' | 'cancelled'>('active');
     const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
     const [gameToCancel, setGameToCancel] = useState<string | null>(null);
+
+    // Edit Modal State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [gameToEdit, setGameToEdit] = useState<Game | null>(null);
 
     const supabase = createClient();
     const router = useRouter();
@@ -53,6 +65,18 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
     const openCancelModal = (gameId: string) => {
         setGameToCancel(gameId);
         setIsCancelModalOpen(true);
+    };
+
+    const openEditModal = (game: Game) => {
+        setGameToEdit(game);
+        setIsEditModalOpen(true);
+    };
+
+    const handleEditSuccess = () => {
+        setIsEditModalOpen(false);
+        setGameToEdit(null);
+        toast.success("Game updated successfully!");
+        router.refresh(); // Refresh server data
     };
 
     const handleCancelConfirm = async () => {
@@ -82,7 +106,6 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
         }
     };
 
-    // Filter & Sort Logic
     // Filter & Sort Logic
     const filteredGames = games.filter(game => {
         const gameDate = new Date(game.start_time);
@@ -212,7 +235,7 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
                             endTime = new Date(gameDate.getTime() + 90 * 60000);
                         }
 
-                        // Calculate Duration (Fix: Explicit HH:MM math)
+                        // Calculate Duration
                         const startHour = gameDate.getHours();
                         const startMin = gameDate.getMinutes();
                         const endHour = endTime.getHours();
@@ -231,8 +254,6 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
 
                         const isCancelled = game.status === 'cancelled';
                         const isCompleted = game.status === 'completed';
-
-                        // Refund Status Logic
                         const isRefundPending = isCancelled && game.refund_processed === false;
                         const isRefundComplete = isCancelled && game.refund_processed === true;
 
@@ -286,17 +307,26 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
                                         {isRefundPending ? "Process Refund" : isRefundComplete ? "View" : isCompleted ? "Summary" : "Manage"}
                                     </Link>
 
-                                    {/* Edit Placeholder */}
+                                    {/* Edit Button */}
                                     {!isCancelled && !isCompleted && (
-                                        <>
-                                            <button
-                                                onClick={() => openCancelModal(game.id)}
-                                                className="p-2 text-gray-500 hover:text-red-500 transition-colors"
-                                                title="Cancel Event"
-                                            >
-                                                <Trash2 className="w-5 h-5" />
-                                            </button>
-                                        </>
+                                        <button
+                                            onClick={() => openEditModal(game)}
+                                            className="p-2 text-gray-500 hover:text-pitch-accent transition-colors"
+                                            title="Edit Event"
+                                        >
+                                            <Edit className="w-5 h-5" />
+                                        </button>
+                                    )}
+
+                                    {/* Cancel Button */}
+                                    {!isCancelled && !isCompleted && (
+                                        <button
+                                            onClick={() => openCancelModal(game.id)}
+                                            className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                                            title="Cancel Event"
+                                        >
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
                                     )}
                                 </div>
                             </div>
@@ -315,6 +345,23 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
                 confirmText="Yes, Cancel Event"
                 isDestructive={true}
             />
+
+            {/* Edit Modal (Inline for now) */}
+            {isEditModalOpen && gameToEdit && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)} />
+                    <div className="relative bg-pitch-black border border-white/10 rounded-sm shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 animate-in zoom-in-95">
+                        <button
+                            onClick={() => setIsEditModalOpen(false)}
+                            className="absolute top-4 right-4 text-gray-500 hover:text-white"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
+                        <h2 className="text-2xl font-heading font-bold uppercase italic text-white mb-6">Edit <span className="text-pitch-accent">Game</span></h2>
+                        <GameForm initialData={gameToEdit} action="edit" onSuccess={handleEditSuccess} />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

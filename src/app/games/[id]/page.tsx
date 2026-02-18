@@ -12,11 +12,15 @@ import { VotingModal } from '@/components/VotingModal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { Trophy, AlertTriangle } from 'lucide-react';
 
+import { GameMap } from '@/components/GameMap';
+
 // Reuse types/interfaces if possible, or define locally for now
 interface Game {
     id: string;
     title: string;
     location: string;
+    latitude?: number;
+    longitude?: number;
     start_time: string;
     end_time: string | null;
     price: number;
@@ -235,10 +239,18 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                             <div className="md:col-span-1 space-y-6">
                                 <div className="bg-white/5 p-6 rounded-sm border border-white/10">
                                     <h4 className="font-bold uppercase text-sm mb-4 text-gray-400">Location</h4>
-                                    <div className="aspect-video bg-gray-800 rounded mb-4 flex items-center justify-center text-gray-600 text-xs">
-                                        Map View
-                                    </div>
-                                    <p className="font-bold text-sm">{game.location}</p>
+                                    {game.latitude && game.longitude ? (
+                                        <GameMap
+                                            latitude={game.latitude}
+                                            longitude={game.longitude}
+                                            locationName={game.location}
+                                        />
+                                    ) : (
+                                        <div className="aspect-video bg-gray-800 rounded mb-4 flex items-center justify-center text-gray-600 text-xs">
+                                            Map Unavailable
+                                        </div>
+                                    )}
+                                    {!game.latitude && <p className="font-bold text-sm mt-4">{game.location}</p>}
                                 </div>
 
                                 {/* MVP Voting Section */}
