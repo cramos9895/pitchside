@@ -44,6 +44,8 @@ export async function updateGame(gameId: string, formData: any) {
     revalidatePath(`/admin/games/${gameId}`);
     revalidatePath(`/games/${gameId}`);
     revalidatePath('/dashboard');
+    revalidatePath('/schedule');
+    revalidatePath('/');
 
     return { success: true };
 }

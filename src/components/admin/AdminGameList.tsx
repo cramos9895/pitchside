@@ -57,6 +57,11 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
         }
     }, []);
 
+    // Sync games state when initialGames prop updates (e.g. after router.refresh())
+    useEffect(() => {
+        setGames(initialGames);
+    }, [initialGames]);
+
     const handleTabChange = (tab: 'active' | 'upcoming' | 'past' | 'cancelled') => {
         setActiveTab(tab);
         localStorage.setItem('admin_active_tab', tab);
