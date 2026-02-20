@@ -18,6 +18,7 @@ export default function DashboardPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [bookings, setBookings] = useState<any[]>([]);
+    const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'past'>('today');
     const [user, setUser] = useState<any>(null);
     const [cancellingGameId, setCancellingGameId] = useState<string | null>(null);
     const { success, error: toastError } = useToast();
@@ -99,6 +100,41 @@ export default function DashboardPage() {
         );
     }
 
+    // Filter Logic
+    const filteredBookings = bookings.filter((booking: any) => {
+        const game = booking.game;
+        if (!game) return false;
+
+        const gameDate = new Date(game.start_time);
+
+        // Calculate End Time (simplified, matches Admin logic)
+        let endTime: Date;
+        if (game.end_time) {
+            if (game.end_time.includes('T') || game.end_time.includes('-')) {
+                endTime = new Date(game.end_time);
+            } else {
+                const [h, m] = game.end_time.split(':').map(Number);
+                endTime = new Date(gameDate);
+                endTime.setHours(h);
+                endTime.setMinutes(m);
+                if (endTime < gameDate) endTime.setDate(endTime.getDate() + 1);
+            }
+        } else {
+            endTime = new Date(gameDate.getTime() + 90 * 60000);
+        }
+
+        const now = new Date();
+        const isToday = gameDate.toDateString() === now.toDateString();
+        const isPast = game.status === 'completed' || (now > endTime);
+        const isActiveOrUpcomingToday = !isPast && (game.status === 'active' || game.status === 'scheduled') && isToday;
+        const isFutureUpcoming = !isPast && (game.status === 'scheduled' || game.status === 'active') && gameDate > now && !isToday;
+
+        if (activeTab === 'today') return isActiveOrUpcomingToday;
+        if (activeTab === 'upcoming') return isFutureUpcoming;
+        if (activeTab === 'past') return isPast;
+        return false;
+    });
+
     return (
         <div className="min-h-screen bg-pitch-black text-white font-sans pt-32 px-6">
             <div className="max-w-7xl mx-auto">
@@ -116,20 +152,57 @@ export default function DashboardPage() {
                     </Link>
                 </div>
 
-                {!bookings || bookings.length === 0 ? (
+                {/* Tabs */}
+                <div className="flex items-center gap-2 mb-8 border-b border-white/10 pb-1 overflow-x-auto">
+                    <button
+                        onClick={() => setActiveTab('today')}
+                        className={cn(
+                            "px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-t-sm transition-colors border-b-2",
+                            activeTab === 'today' ? "border-pitch-accent text-pitch-accent bg-white/5" : "border-transparent text-gray-500 hover:text-white"
+                        )}
+                    >
+                        Today
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('upcoming')}
+                        className={cn(
+                            "px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-t-sm transition-colors border-b-2",
+                            activeTab === 'upcoming' ? "border-pitch-accent text-pitch-accent bg-white/5" : "border-transparent text-gray-500 hover:text-white"
+                        )}
+                    >
+                        Upcoming
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('past')}
+                        className={cn(
+                            "px-4 py-2 text-sm font-bold uppercase tracking-wider rounded-t-sm transition-colors border-b-2",
+                            activeTab === 'past' ? "border-pitch-accent text-pitch-accent bg-white/5" : "border-transparent text-gray-500 hover:text-white"
+                        )}
+                    >
+                        Past
+                    </button>
+                </div>
+
+                {!filteredBookings || filteredBookings.length === 0 ? (
                     <div className="text-center py-20 border border-white/5 rounded-sm bg-pitch-card">
                         <h2 className="text-2xl font-bold mb-4">No Matches Found</h2>
-                        <p className="text-pitch-secondary mb-8">You haven't joined any games yet.</p>
-                        <Link
-                            href="/"
-                            className="inline-flex items-center justify-center px-8 py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-wider rounded-sm hover:bg-white transition-colors"
-                        >
-                            Join a Game
-                        </Link>
+                        <p className="text-pitch-secondary mb-8">
+                            {activeTab === 'today' ? "You don't have any games today." :
+                                activeTab === 'upcoming' ? "No upcoming games scheduled." :
+                                    "No past games recorded."}
+                        </p>
+                        {activeTab !== 'past' && (
+                            <Link
+                                href="/"
+                                className="inline-flex items-center justify-center px-8 py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-wider rounded-sm hover:bg-white transition-colors"
+                            >
+                                Join a Game
+                            </Link>
+                        )}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {bookings?.map((booking: any) => {
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-500">
+                        {filteredBookings.map((booking: any) => {
                             const game = booking.game;
                             if (!game) return null;
 
@@ -138,7 +211,11 @@ export default function DashboardPage() {
                                     key={booking.id}
                                     game={game}
                                     user={user}
-                                    bookingStatus={booking.status}
+                                    bookingStatus={booking.status} // Pass status to card if needed for visuals
+                                // Note: GameCard usually handles 'Join' button.
+                                // For Dashboard, we might want 'View Details' or 'Cancel'?
+                                // GameCard logic might need checking if it shows 'Joined' correctly.
+                                // Assuming GameCard adapts to user being joined.
                                 />
                             );
                         })}

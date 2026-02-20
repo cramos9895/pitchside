@@ -89,101 +89,73 @@ export function ScheduleGenerator({ gameId, teams, onScheduleSaved }: ScheduleGe
 
         console.log(`Debug: Usable ${usableTime}m, Max Rounds ${maxRounds}`);
 
-        // 3. The 'Circle Method' Algorithm
-        // Create an array of indices [0, 1, 2...]
-        let teamIndices = teams.map((_, i) => i);
+        // Helper to generate ONE full cycle of round robin pairings
+        const generateCycle = (): Array<{ home: number, away: number }> => {
+            let indices = teams.map((_, i) => i);
+            if (indices.length % 2 !== 0) indices.push(-1); // Bye
 
-        // If odd, add -1 (Bye)
-        // Note: We use a local copy for calculations to not mutate config, but teamIndices is local anyway.
-        if (teamIndices.length % 2 !== 0) {
-            teamIndices.push(-1);
-        }
+            const numTeams = indices.length;
+            const roundsNeeded = numTeams - 1;
+            let cycleQueue: Array<{ home: number, away: number }> = [];
 
-        const numTeams = teamIndices.length;
-        const roundsNeeded = numTeams - 1;
-
-        // We will generate ALL possible round robin rounds first
-        let allRounds: Array<Array<{ home: number, away: number }>> = [];
-
-        for (let r = 0; r < roundsNeeded; r++) {
-            let roundPairs: Array<{ home: number, away: number }> = [];
-
-            for (let i = 0; i < numTeams / 2; i++) {
-                const homeIdx = teamIndices[i];
-                const awayIdx = teamIndices[numTeams - 1 - i];
-
-                if (homeIdx !== -1 && awayIdx !== -1) {
-                    roundPairs.push({ home: homeIdx, away: awayIdx });
+            for (let r = 0; r < roundsNeeded; r++) {
+                for (let i = 0; i < numTeams / 2; i++) {
+                    const homeIdx = indices[i];
+                    const awayIdx = indices[numTeams - 1 - i];
+                    if (homeIdx !== -1 && awayIdx !== -1) {
+                        cycleQueue.push({ home: homeIdx, away: awayIdx });
+                    }
                 }
+
+                // Rotate
+                const fixed = indices[0];
+                const rotating = indices.slice(1);
+                const last = rotating.pop();
+                if (last !== undefined) rotating.unshift(last);
+                indices = [fixed, ...rotating];
             }
-            allRounds.push(roundPairs);
+            return cycleQueue;
+        };
 
-            // Rotate: Keep index 0, rotate 1 to end
-            // [0, 1, 2, 3] -> [0, 3, 1, 2]
-            const fixed = teamIndices[0];
-            const rotating = teamIndices.slice(1);
-            const last = rotating.pop();
-            if (last !== undefined) rotating.unshift(last);
-            teamIndices = [fixed, ...rotating];
+        // Create Master Queue
+        let masterQueue: Array<{ home: number, away: number }> = [];
+        const totalSlotsNeeded = maxRounds * fields;
+
+        // Safety boundary to prevent infinite loop
+        let safetyCounter = 0;
+        // Generate enough cycles to fill the needed slots
+        while (masterQueue.length < totalSlotsNeeded && safetyCounter < 10) {
+            masterQueue = masterQueue.concat(generateCycle());
+            safetyCounter++;
         }
-
-        // Now map these abstract rounds to our time slots and constraints
-        // We have `maxRounds` time slots.
-        // We have `fields` concurrent matches per slot.
-        // We might need to cycle through `allRounds` multiple times if we have time, 
-        // OR we might not fit all rounds if time is short.
-
-        // BUT, the user prompt implies "Round 1" is a time slot.
-        // If we have more matches in a logical round than fields, we technically need multiple time slots for one logical round.
-        // FOR SIMPLICITY given the prompt: "Limit to Concurrent Fields".
-        // This implies: If a logical round has 4 matches but only 2 fields, we just TAKE 2 matches and discard the rest? 
-        // OR we split them? 
-        // The prompt says: "Field Limit: Take the first concurrentFields pairs." -> implies discard or push to next?
-        // Prompt says: "If a team matches with Bye, they sit... Take the first concurrentFields pairs"
-        // We will follow the instruction: Take first N pairs. 
-        // NOTE: This usually implies we just play what fits. In a real tournament you'd want to ensure everyone plays, 
-        // so you might need multiple "slots" per "round". 
-        // However, we will strictly follow: Loop round 0 to maxRounds-1, generating pairings using circle method state.
-
-        // Re-Initialize for the actual generation loop which handles *Time Slots*
-        let currentIndices = teams.map((_, i) => i);
-        if (currentIndices.length % 2 !== 0) currentIndices.push(-1); // Add Bye
 
         let finalSchedule: Array<{ round: number, startTime: string, matches: Array<{ home: string, away: string }> }> = [];
 
         for (let r = 0; r < maxRounds; r++) {
-            // 1. Generate pairings for this rotation
-            let potentialPairs: Array<{ home: number, away: number }> = [];
-            for (let i = 0; i < currentIndices.length / 2; i++) {
-                const homeIdx = currentIndices[i];
-                const awayIdx = currentIndices[currentIndices.length - 1 - i];
-                // Filter Byes immediately
-                if (homeIdx !== -1 && awayIdx !== -1) {
-                    potentialPairs.push({ home: homeIdx, away: awayIdx });
+            let slotsFilled = 0;
+            let playingThisRound = new Set<number>();
+            let matchesForSlot: Array<{ home: number, away: number }> = [];
+
+            let i = 0;
+            while (slotsFilled < fields && i < masterQueue.length) {
+                const match = masterQueue[i];
+                if (!playingThisRound.has(match.home) && !playingThisRound.has(match.away)) {
+                    matchesForSlot.push(match);
+                    playingThisRound.add(match.home);
+                    playingThisRound.add(match.away);
+                    masterQueue.splice(i, 1);
+                    slotsFilled++;
+                } else {
+                    i++;
                 }
             }
 
-            // 2. Field Limit
-            const matchesForSlot = potentialPairs.slice(0, fields);
-
-            // 3. Create Match Objects
             const matchObjects = matchesForSlot.map(pair => ({
                 home: teams[pair.home].name,
                 away: teams[pair.away].name
             }));
 
-            // Calculate Time
-            // Start + Warmup + (Round * GameLength)
-            // We don't have exact start time object here easily without re-parsing, 
-            // but we can just display "offset" or similar. 
-            // The prompt says "scheduled_time calculated from startTime...".
-            // Since we don't strictly store scheduled_time in DB in the schema (we use round_number), 
-            // we will primarily use round_number for ordering. 
-            // However, for the preview, let's show the offset time relative to event start.
-
             const offsetMinutes = warmup + (r * gameLength);
-            // Format HH:mm for display would require the base date. 
-            // Let's just store the offset string for preview
             const timeLabel = `+${offsetMinutes} mins`;
 
             finalSchedule.push({
@@ -191,13 +163,6 @@ export function ScheduleGenerator({ gameId, teams, onScheduleSaved }: ScheduleGe
                 startTime: timeLabel,
                 matches: matchObjects
             });
-
-            // 4. Rotate for next round
-            const fixed = currentIndices[0];
-            const rotating = currentIndices.slice(1);
-            const last = rotating.pop();
-            if (last !== undefined) rotating.unshift(last);
-            currentIndices = [fixed, ...rotating];
         }
 
         setPreviewSchedule(finalSchedule);

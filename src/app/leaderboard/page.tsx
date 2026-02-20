@@ -243,7 +243,7 @@ export default function LeaderboardPage() {
                             <th className="p-4 text-center">Points</th>
                             <th className="p-4 text-center hidden md:table-cell">Record (W-D-L)</th>
                             <th className="p-4 text-center hidden md:table-cell">MVPs</th>
-                            <th className="p-4 text-center md:hidden">Stat</th>
+                            <th className="p-4 text-center md:hidden">Stats</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -294,9 +294,17 @@ export default function LeaderboardPage() {
                                         <span className="text-white/20">-</span>
                                     )}
                                 </td>
-                                <td className="p-4 text-center md:hidden">
-                                    <div className="text-xs font-bold bg-white/10 rounded px-1 py-0.5 inline-block">
-                                        {player.points} pts
+                                <td className="p-4 md:hidden">
+                                    <div className="flex flex-col gap-1 items-end">
+                                        <div className="text-sm font-black text-white">{player.points} pts</div>
+                                        <div className="text-[10px] uppercase font-bold text-pitch-secondary tracking-widest">
+                                            {player.wins}-{player.draws}-{player.losses}
+                                        </div>
+                                        {player.mvps > 0 && (
+                                            <div className="inline-flex items-center gap-1 text-[10px] font-bold text-yellow-500">
+                                                <Trophy className="w-2 h-2" /> {player.mvps} MVP{player.mvps > 1 ? 's' : ''}
+                                            </div>
+                                        )}
                                     </div>
                                 </td>
                             </tr>

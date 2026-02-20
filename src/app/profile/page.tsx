@@ -59,45 +59,49 @@ export default function ProfilePage() {
             // Calculate Stats
             const caps = bookingsData?.filter((b: any) => b.status === 'paid').length || 0;
 
-            // Calculate Wins dynamically using MATCHES table
-            const wins = bookingsData?.filter((b: any) => {
+            // Calculate Stats properly (W/D/L)
+            let wins = 0;
+            let draws = 0;
+            let losses = 0;
+
+            const validBookings = bookingsData?.filter((b: any) => {
                 const g = b.game;
-                if (!g || b.status !== 'paid') return false;
+                // Count played games
+                if (!g || b.status !== 'paid' || !g.matches) return false;
 
-                const myTeam = b.team_assignment; // e.g. "Team A"
-                if (!myTeam || !g.matches || g.matches.length === 0) return false;
+                // Only count if game has completed matches
+                const hasCompletedMatches = g.matches.some((m: any) => m.status === 'completed');
+                if (!hasCompletedMatches) return false;
 
-                // Simple Logic: Iterate all matches for this game. 
-                // If I am Team A, did Team A win?
-                // For simplified "Game Result", let's aggregate points or just check if *any* match was won? 
-                // User requirement: "Career W-L-D". 
-                // Usually taking the "Final" result is best. 
-                // Let's assume the sum of goals determines the winner if multiple matches.
-
-                let myGoals = 0;
-                let oppGoals = 0;
+                const myTeam = b.team_assignment;
+                let myScore = 0;
+                let oppScore = 0;
                 let played = false;
 
                 g.matches.forEach((m: any) => {
                     if (m.status !== 'completed') return;
-
                     if (m.home_team === myTeam) {
-                        myGoals += m.home_score;
-                        oppGoals += m.away_score;
+                        myScore += m.home_score;
+                        oppScore += m.away_score;
                         played = true;
                     } else if (m.away_team === myTeam) {
-                        myGoals += m.away_score;
-                        oppGoals += m.home_score;
+                        myScore += m.away_score;
+                        oppScore += m.home_score;
                         played = true;
                     }
                 });
 
                 if (!played) return false;
-                return myGoals > oppGoals;
-            }).length || 0;
+
+                if (myScore > oppScore) wins++;
+                else if (myScore < oppScore) losses++;
+                else draws++;
+
+                return true;
+            }) || [];
 
             setStats({
-                caps,
+                caps: validBookings.length,
                 wins
             });
             setLoading(false);
@@ -299,10 +303,16 @@ export default function ProfilePage() {
                                 </div>
 
                                 <div className="flex items-center gap-6">
-                                    <div className="text-center">
-                                        <span className="block text-xs font-bold text-pitch-secondary uppercase mb-1">vs {opponentName}</span>
-                                        <span className="font-mono font-black text-xl tracking-widest">
-                                            {myScore} - {oppScore}
+                                    <div className="text-center w-24">
+                                        <div className={cn(
+                                            "font-mono font-black text-sm tracking-widest px-2 py-1 rounded bg-black/40 border border-white/10 mb-1",
+                                            result === 'win' ? "text-green-400 border-green-500/30" :
+                                                result === 'loss' ? "text-red-400 border-red-500/30" : "text-gray-400"
+                                        )}>
+                                            {result === 'draw' ? 'D' : result === 'win' ? 'W' : 'L'}
+                                        </div>
+                                        <span className="block text-[10px] font-bold text-pitch-secondary uppercase">
+                                            Rec: {result === 'win' ? "1-0-0" : result === 'draw' ? "0-1-0" : "0-0-1"}
                                         </span>
                                     </div>
                                     <div className={cn(

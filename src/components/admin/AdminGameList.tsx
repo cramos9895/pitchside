@@ -177,7 +177,7 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
                         activeTab === 'active' ? "border-pitch-accent text-pitch-accent bg-white/5" : "border-transparent text-gray-500 hover:text-white"
                     )}
                 >
-                    Today / Active
+                    Today
                 </button>
                 <button
                     onClick={() => handleTabChange('upcoming')}

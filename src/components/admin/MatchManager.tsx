@@ -21,6 +21,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Plus, Save, Loader2, Trash2, Layers, CheckCircle2, Trophy, ArrowRight, PlayCircle, Edit } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { finalizeGame } from '@/app/actions/finalize-game';
 
 interface Match {
     id: string;
@@ -368,34 +369,27 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
         if (!winnerName) return alert("Could not determine a winner. Record some matches first.");
 
         // For Manual Mode, use selected MVP. For Tournament, use editMvpId or similar.
-        // Let's use `editMvpId` as the shared state for "Selected MVP for Finalization"
         const finalMvpId = editMvpId;
 
         if (!confirm(`Conclude Event?\n\nWinner: ${winnerName}\nMVP: ${players.find(p => p.id === finalMvpId)?.name || 'None Selected'}\n\nThis will lock the event and update stats.`)) return;
 
         setLoading(true);
         try {
-            // 1. Update Game Status & MVP
-            const { error: gameError } = await supabase.from('games').update({
-                status: 'completed',
-                mvp_player_id: finalMvpId || null
-            }).eq('id', gameId);
-            if (gameError) throw gameError;
+            // Import dynamically to avoid server-on-client errors? Usually fine if 'use client' + 'use server' separation is clean.
+            // But we need to import it at top level if not dynamic.
+            // Since this file is 'use client', standard import works if action is 'use server'.
+            // I will add the import at the top later via separate edit if needed, or assume it's available.
+            // Wait, I need to add the import first!
+            // I'll do a multi-edit or separate edits.
+            // For now, let's just write the function body assuming import update follows.
 
-            // 2. Set Winner in Bookings
-            // First reset any previous (just in case)
-            await supabase.from('bookings').update({ is_winner: false }).eq('game_id', gameId);
-            await supabase.from('bookings').update({ is_winner: true })
-                .eq('game_id', gameId)
-                .eq('team_assignment', winnerName);
+            const result = await finalizeGame(gameId, winnerName, finalMvpId || null);
 
-            // 3. Update MVP Profile Stats
-            if (finalMvpId) {
-                const { data: p } = await supabase.from('profiles').select('mvp_awards').eq('id', finalMvpId).single();
-                if (p) await supabase.from('profiles').update({ mvp_awards: (p.mvp_awards || 0) + 1 }).eq('id', finalMvpId);
+            if (!result.success) {
+                throw new Error(result.error);
             }
 
-            alert("Event Concluded Successfully!"); // Replaced 'success' with 'alert'
+            alert("Event Concluded Successfully!");
             router.refresh();
             if (onUpdate) onUpdate();
         } catch (e: any) {
