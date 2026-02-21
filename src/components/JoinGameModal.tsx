@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2, X, UserPlus, DollarSign, CreditCard, Copy, Check } from 'lucide-react';
-import { cn } from '@/lib/utils'; // Assuming this exists
+import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { WaiverModal } from './WaiverModal';
 
 interface JoinGameModalProps {
     isOpen: boolean;
@@ -11,9 +12,8 @@ interface JoinGameModalProps {
     onConfirm: (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null }) => Promise<void>;
     gamePrice: number;
     loading: boolean;
-
     isWaitlist: boolean;
-    gameId: string; // Needed to fetch specific game settings
+    gameId: string;
 }
 
 export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, isWaitlist, gameId }: JoinGameModalProps) {
@@ -24,7 +24,12 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
 
     const [venmoHandle, setVenmoHandle] = useState('PitchSideCF');
     const [zelleInfo, setZelleInfo] = useState('555-0199');
-    const [allowedMethods, setAllowedMethods] = useState<string[]>(['venmo', 'zelle']); // Default fallback
+    const [allowedMethods, setAllowedMethods] = useState<string[]>(['venmo', 'zelle']);
+
+    // Waiver State
+    const [waiverSigned, setWaiverSigned] = useState(false);
+    const [showWaiver, setShowWaiver] = useState(false);
+    const [agreeingWaiver, setAgreeingWaiver] = useState(false);
 
     const supabase = createClient();
 
@@ -55,11 +60,25 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                     setAllowedMethods(gameData.allowed_payment_methods);
                 }
             }
+
+            // 3. Fetch User Waiver Status
+            const { data: userData } = await supabase.auth.getUser();
+            if (userData.user) {
+                const { data: profileData } = await supabase
+                    .from('profiles')
+                    .select('waiver_signed')
+                    .eq('id', userData.user.id)
+                    .single();
+
+                if (profileData) {
+                    setWaiverSigned(profileData.waiver_signed || false);
+                }
+            }
         };
         if (isOpen) {
             fetchSettings();
         }
-    }, [isOpen, gameId]);
+    }, [isOpen, gameId, supabase]);
 
     const VENMO_HANDLE = venmoHandle;
     const ZELLE_INFO = zelleInfo;
@@ -74,14 +93,45 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
         if (gamePrice > 0 && !isWaitlist) {
             setStep('payment');
         } else {
-            // Free game or waitlist, direct confirm
-            onConfirm({ note, paymentMethod: null });
+            // Free game or waitlist
+            if (!waiverSigned) {
+                setShowWaiver(true);
+            } else {
+                onConfirm({ note, paymentMethod: null });
+            }
         }
     };
 
     const handlePaymentConfirm = () => {
         if (!paymentMethod) return;
-        onConfirm({ note, paymentMethod });
+        if (!waiverSigned) {
+            setShowWaiver(true);
+        } else {
+            onConfirm({ note, paymentMethod });
+        }
+    };
+
+    const handleWaiverAgree = async () => {
+        setAgreeingWaiver(true);
+        const { data: userData } = await supabase.auth.getUser();
+
+        if (userData.user) {
+            await supabase
+                .from('profiles')
+                .update({ waiver_signed: true })
+                .eq('id', userData.user.id);
+
+            setWaiverSigned(true);
+            setShowWaiver(false);
+
+            // Seamlessly continue to join
+            if (step === 'payment' && paymentMethod) {
+                onConfirm({ note, paymentMethod });
+            } else {
+                onConfirm({ note, paymentMethod: null });
+            }
+        }
+        setAgreeingWaiver(false);
     };
 
     if (!isOpen) return null;
@@ -222,8 +272,9 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                         </div>
                                     </div>
                                 )}
+                            </div>
 
-                            </div>    {paymentMethod === 'venmo' && (
+                            {paymentMethod === 'venmo' && (
                                 <div className="p-3 bg-blue-500/10 rounded-sm text-sm text-blue-200 mb-2">
                                     <p className="mb-2">Tap to open Venmo:</p>
                                     <a
@@ -248,9 +299,6 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                     </div>
                                 </div>
                             )}
-
-                            {/* CASH (If needed, or just remove) */}
-                            {/* <button ... >Cash / Other</button> */}
                         </div>
 
                         <button
@@ -275,6 +323,13 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                     </div>
                 )}
             </div>
+
+            <WaiverModal
+                isOpen={showWaiver}
+                onClose={() => setShowWaiver(false)}
+                onAgree={handleWaiverAgree}
+                loading={agreeingWaiver}
+            />
         </div>
     );
 }

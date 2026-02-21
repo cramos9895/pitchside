@@ -11,6 +11,24 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        // --- ENFORCER: BAN CHECK ---
+        const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('is_banned, banned_until')
+            .eq('id', user.id)
+            .single();
+
+        if (userProfile) {
+            if (userProfile.is_banned) {
+                return NextResponse.json({ error: 'Your account has been permanently suspended.' }, { status: 403 });
+            }
+            if (userProfile.banned_until && new Date(userProfile.banned_until) > new Date()) {
+                const date = new Date(userProfile.banned_until).toLocaleDateString();
+                return NextResponse.json({ error: `Your account is temporarily suspended until ${date}.` }, { status: 403 });
+            }
+        }
+        // ---------------------------
+
         const body = await request.json();
         const { gameId, note } = body;
 
@@ -67,6 +85,9 @@ export async function POST(request: NextRequest) {
                 game_id: gameId,
                 user_id: user.id,
                 status: 'paid',
+                payment_status: 'verified',
+                payment_method: 'credit',
+                payment_amount: 0,
                 item_desc: 'Redeemed MVP Credit', // Optional metadata if schema allows
                 note: note
             });
@@ -87,6 +108,6 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
         console.error('Join with Credit Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error.message || error.toString() || 'Internal Server Error' }, { status: 500 });
     }
 }

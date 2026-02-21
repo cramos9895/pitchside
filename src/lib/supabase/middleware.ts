@@ -51,11 +51,29 @@ export async function updateSession(request: NextRequest) {
 
         // 1. General Admin Access: Must be 'admin' OR 'master_admin'
         if (profile?.role !== 'admin' && profile?.role !== 'master_admin') {
-            return NextResponse.redirect(new URL('/', request.url))
+            // Check if they are a 'Host' for a specific game
+            const match = request.nextUrl.pathname.match(/^\/admin\/games\/([a-zA-Z0-9-]+)$/);
+            let isHost = false;
+            if (match && user) {
+                const gameId = match[1];
+                const { data: game } = await supabase
+                    .from('games')
+                    .select('host_ids')
+                    .eq('id', gameId)
+                    .single();
+
+                if (game?.host_ids && game.host_ids.includes(user.id)) {
+                    isHost = true;
+                }
+            }
+
+            if (!isHost) {
+                return NextResponse.redirect(new URL('/', request.url))
+            }
         }
 
-        // 2. Master Admin Only Access: /admin/users
-        if (request.nextUrl.pathname.startsWith('/admin/users')) {
+        // 2. Master Admin Only Access: /admin/users or /admin/settings
+        if (request.nextUrl.pathname.startsWith('/admin/users') || request.nextUrl.pathname.startsWith('/admin/settings')) {
             if (profile?.role !== 'master_admin') {
                 return NextResponse.redirect(new URL('/admin', request.url)) // Redirect to Dashboard
             }

@@ -12,6 +12,9 @@ interface Profile {
     avatar_url: string;
     role: 'player' | 'admin' | 'master_admin';
     created_at?: string;
+    is_banned?: boolean;
+    banned_until?: string | null;
+    ban_reason?: string | null;
 }
 
 interface UserTableProps {
@@ -25,6 +28,14 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
     const [sortRole, setSortRole] = useState<'asc' | 'desc' | null>(null);
 
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+    // Ban Modal State
+    const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
+    const [banReason, setBanReason] = useState('');
+    const [bannedUntil, setBannedUntil] = useState('');
+    const [isBanned, setIsBanned] = useState(false);
+    const [savingBan, setSavingBan] = useState(false);
 
     const supabase = createClient();
     const router = useRouter();
@@ -79,6 +90,51 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
         setSortRole(prev => prev === 'desc' ? 'asc' : 'desc');
     };
 
+    const openManageModal = (user: Profile) => {
+        setSelectedUser(user);
+        setIsBanned(user.is_banned || false);
+        setBanReason(user.ban_reason || '');
+        // Format datetime-local string if exists
+        if (user.banned_until) {
+            const d = new Date(user.banned_until);
+            // adjust for local timezone offset for input
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            setBannedUntil(d.toISOString().slice(0, 16));
+        } else {
+            setBannedUntil('');
+        }
+        setIsManageModalOpen(true);
+    };
+
+    const handleSaveBan = async () => {
+        if (!selectedUser) return;
+        setSavingBan(true);
+
+        try {
+            const updates = {
+                is_banned: isBanned,
+                banned_until: bannedUntil ? new Date(bannedUntil).toISOString() : null,
+                ban_reason: banReason || null
+            };
+
+            const { error } = await supabase
+                .from('profiles')
+                .update(updates)
+                .eq('id', selectedUser.id);
+
+            if (error) throw error;
+
+            // Optimistic Update
+            setProfiles(prev => prev.map(p => p.id === selectedUser.id ? { ...p, ...updates } : p));
+            setIsManageModalOpen(false);
+            router.refresh(); // Sync server state
+        } catch (err: any) {
+            alert("Failed to update user ban status: " + err.message);
+        } finally {
+            setSavingBan(false);
+        }
+    };
+
     return (
         <div className="bg-pitch-card border border-white/10 rounded-sm p-6 shadow-xl">
             {/* Header / Controls */}
@@ -105,9 +161,9 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead>
+            <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
+                <table className="w-full text-left border-collapse relative">
+                    <thead className="sticky top-0 bg-pitch-card z-10">
                         <tr className="border-b border-white/10 text-xs font-bold uppercase tracking-wider text-pitch-secondary">
                             <th className="py-3 px-4">User</th>
                             <th className="py-3 px-4">Role</th>
@@ -165,6 +221,15 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
                                                 <option value="master_admin">Master Admin</option>
                                             </select>
                                         )}
+                                        <button
+                                            onClick={() => openManageModal(profile)}
+                                            className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider transition-colors ${profile.is_banned || (profile.banned_until && new Date(profile.banned_until) > new Date())
+                                                ? 'bg-red-500/20 text-red-500 border border-red-500/50 hover:bg-red-500/30'
+                                                : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:text-white'
+                                                }`}
+                                        >
+                                            Manage
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -179,6 +244,73 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
                     </tbody>
                 </table>
             </div>
+
+            {/* Manage Player Modal */}
+            {isManageModalOpen && selectedUser && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsManageModalOpen(false)} />
+                    <div className="relative bg-pitch-black border border-white/10 rounded-sm shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
+                        <h2 className="text-xl font-heading font-bold uppercase italic text-white mb-2 flex items-center gap-2">
+                            <Ban className="w-5 h-5 text-red-500" /> Manage <span className="text-pitch-accent">Player</span>
+                        </h2>
+                        <p className="text-gray-400 text-sm mb-6">Enforce hard or soft bans for <span className="text-white font-bold">{selectedUser.full_name}</span>.</p>
+
+                        <div className="space-y-4">
+                            {/* Hard Ban Toggle */}
+                            <div className="flex items-center justify-between p-4 bg-red-500/10 border border-red-500/20 rounded-sm">
+                                <div>
+                                    <div className="font-bold text-red-500">Permanent Ban</div>
+                                    <div className="text-xs text-gray-400 mt-1">Block user from joining any games permanently.</div>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" className="sr-only peer" checked={isBanned} onChange={(e) => setIsBanned(e.target.checked)} />
+                                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                                </label>
+                            </div>
+
+                            {/* Soft Ban Date */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold uppercase text-gray-400">Temporary Ban (Until)</label>
+                                <input
+                                    type="datetime-local"
+                                    value={bannedUntil}
+                                    onChange={(e) => setBannedUntil(e.target.value)}
+                                    className="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-pitch-accent outline-none"
+                                />
+                                <p className="text-xs text-gray-500">Leave blank for no temporary ban.</p>
+                            </div>
+
+                            {/* Ban Reason */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold uppercase text-gray-400">Ban Reason (Private)</label>
+                                <textarea
+                                    value={banReason}
+                                    onChange={(e) => setBanReason(e.target.value)}
+                                    placeholder="Reason for suspension..."
+                                    className="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-pitch-accent outline-none min-h-[80px]"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-white/10">
+                            <button
+                                onClick={() => setIsManageModalOpen(false)}
+                                className="px-4 py-2 text-sm font-bold uppercase text-gray-400 hover:text-white transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveBan}
+                                disabled={savingBan}
+                                className="flex items-center gap-2 px-6 py-2 bg-pitch-accent text-pitch-black font-black uppercase tracking-wider rounded-sm hover:bg-white transition-colors disabled:opacity-50"
+                            >
+                                {savingBan ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                {savingBan ? "Saving..." : "Save Settings"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

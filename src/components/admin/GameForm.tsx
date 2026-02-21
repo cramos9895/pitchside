@@ -237,7 +237,10 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) throw new Error("You must be logged in.");
 
-                const { error: insertError } = await supabase.from('games').insert([payload]);
+                const { error: insertError } = await supabase.from('games').insert([{
+                    ...payload,
+                    host_ids: [user.id] // Automatically add creator as a host
+                }]);
                 if (insertError) throw insertError;
 
                 // Redirect done by successful submit

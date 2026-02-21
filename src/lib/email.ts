@@ -6,7 +6,7 @@ interface SendNotificationProps {
     to: string;
     subject: string;
     react: React.ReactElement;
-    type: 'welcome' | 'confirmation' | 'cancellation' | 'waitlist';
+    type: 'welcome' | 'confirmation' | 'cancellation' | 'waitlist' | 'chat_alert';
 }
 
 export async function sendNotification({ to, subject, react, type }: SendNotificationProps) {

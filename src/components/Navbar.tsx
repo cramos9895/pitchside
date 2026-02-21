@@ -6,9 +6,16 @@ import Link from 'next/link';
 import { Menu } from 'lucide-react';
 import { AuthButton } from '@/components/AuthButton';
 import { Sidebar } from '@/components/Sidebar';
+import { usePathname } from 'next/navigation';
 
 export function Navbar() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const pathname = usePathname();
+
+    // Hide Navbar entirely on Live Projector View
+    if (pathname && pathname.endsWith('/live')) {
+        return null;
+    }
 
     return (
         <>

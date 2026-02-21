@@ -10,6 +10,24 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        // --- ENFORCER: BAN CHECK ---
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_banned, banned_until')
+            .eq('id', user.id)
+            .single();
+
+        if (profile) {
+            if (profile.is_banned) {
+                return NextResponse.json({ error: 'Your account has been permanently suspended.' }, { status: 403 });
+            }
+            if (profile.banned_until && new Date(profile.banned_until) > new Date()) {
+                const date = new Date(profile.banned_until).toLocaleDateString();
+                return NextResponse.json({ error: `Your account is temporarily suspended until ${date}.` }, { status: 403 });
+            }
+        }
+        // ---------------------------
+
         const { gameId, note = '' } = await request.json();
 
         if (!gameId) {
@@ -39,6 +57,9 @@ export async function POST(request: NextRequest) {
                 user_id: user.id,
                 game_id: gameId,
                 status: 'waitlist',
+                payment_status: 'unpaid',
+                payment_amount: 0,
+                payment_method: 'free',
                 checked_in: false,
                 team_assignment: null,
                 note: note
@@ -50,6 +71,6 @@ export async function POST(request: NextRequest) {
 
     } catch (err: any) {
         console.error('Waitlist Join Error:', err);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: err.message || err.toString() || 'Internal Server Error' }, { status: 500 });
     }
 }

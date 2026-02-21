@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Send, User as UserIcon, Loader2 } from 'lucide-react';
+import { Send, User as UserIcon, Loader2, Megaphone, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Message {
@@ -11,6 +11,7 @@ interface Message {
     content: string;
     created_at: string;
     user_id: string;
+    is_broadcast?: boolean;
     profiles: {
         full_name: string;
         email: string;
@@ -20,12 +21,15 @@ interface Message {
 interface ChatInterfaceProps {
     gameId: string;
     currentUserId: string;
-    isParticipant: boolean; // Just for UI feedback or hiding input if strict
+    isParticipant: boolean;
+    isHost?: boolean;
 }
 
-export function ChatInterface({ gameId, currentUserId, isParticipant }: ChatInterfaceProps) {
+export function ChatInterface({ gameId, currentUserId, isParticipant, isHost }: ChatInterfaceProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
+    const [isBroadcast, setIsBroadcast] = useState(false);
+    const [sendEmailAlert, setSendEmailAlert] = useState(false);
     const [sending, setSending] = useState(false);
     const [loading, setLoading] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -79,6 +83,7 @@ export function ChatInterface({ gameId, currentUserId, isParticipant }: ChatInte
                         content: payload.new.content,
                         created_at: payload.new.created_at,
                         user_id: payload.new.user_id,
+                        is_broadcast: payload.new.is_broadcast,
                         profiles: profileData
                     };
 
@@ -98,14 +103,36 @@ export function ChatInterface({ gameId, currentUserId, isParticipant }: ChatInte
 
         setSending(true);
         try {
-            const { error } = await supabase.from('messages').insert({
+            const content = newMessage.trim();
+            const { error, data: insertedMessage } = await supabase.from('messages').insert({
                 event_id: gameId,
                 user_id: currentUserId,
-                content: newMessage.trim()
-            });
+                content: content,
+                is_broadcast: isHost ? isBroadcast : false
+            }).select().single();
 
             if (error) throw error;
+
             setNewMessage('');
+            setIsBroadcast(false); // Reset toggle after send
+
+            // Check for notifications (@host or explicit broadcast email)
+            const hasHostTag = content.toLowerCase().includes('@host');
+            if ((isHost && isBroadcast && sendEmailAlert) || hasHostTag) {
+                // Background trigger (fire and forget)
+                fetch('/api/messages/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        gameId,
+                        messageId: insertedMessage.id,
+                        content,
+                        isBroadcast: isHost && isBroadcast && sendEmailAlert,
+                        hasHostTag
+                    })
+                }).catch(err => console.error("Error triggering notification API:", err));
+            }
+
         } catch (error) {
             console.error('Error sending message:', error);
             alert('Failed to send message.');
@@ -148,13 +175,22 @@ export function ChatInterface({ gameId, currentUserId, isParticipant }: ChatInte
                         const senderName = msg.profiles?.full_name || msg.profiles?.email || 'Unknown';
                         const timeStr = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+                        const isBroadcastMsg = msg.is_broadcast;
+
                         return (
                             <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
+                                {isBroadcastMsg && (
+                                    <div className="flex items-center gap-1 text-[10px] uppercase font-bold text-red-400 mb-1">
+                                        <Megaphone className="w-3 h-3" /> Host Broadcast
+                                    </div>
+                                )}
                                 <div className={cn(
                                     "max-w-[80%] px-4 py-2 rounded-lg text-sm break-words",
-                                    isMe
-                                        ? "bg-pitch-accent text-pitch-black rounded-tr-none font-medium"
-                                        : "bg-white/10 text-gray-200 rounded-tl-none"
+                                    isBroadcastMsg
+                                        ? "bg-red-500/20 border border-red-500/50 text-white"
+                                        : isMe
+                                            ? "bg-pitch-accent text-pitch-black rounded-tr-none font-medium"
+                                            : "bg-white/10 text-gray-200 rounded-tl-none"
                                 )}>
                                     {msg.content}
                                 </div>
@@ -169,23 +205,58 @@ export function ChatInterface({ gameId, currentUserId, isParticipant }: ChatInte
             </div>
 
             {/* Input Area */}
-            <form onSubmit={handleSend} className="p-4 bg-white/5 border-t border-white/10 flex gap-2">
-                <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder={isParticipant ? "Type a message..." : "Join this event to chat"}
-                    disabled={!isParticipant || sending}
-                    className="flex-1 bg-black/50 border border-white/10 rounded px-4 py-2 text-sm text-white focus:outline-none focus:border-pitch-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <button
-                    type="submit"
-                    disabled={!isParticipant || !newMessage.trim() || sending}
-                    className="bg-pitch-accent text-pitch-black p-2 rounded hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                </button>
-            </form>
+            <div className="bg-white/5 border-t border-white/10 flex flex-col">
+                {/* Host Broadcast Toggles */}
+                {isHost && (
+                    <div className="px-4 pt-3 flex items-center justify-between border-b border-white/5 pb-2">
+                        <label className="flex items-center gap-2 text-xs font-bold uppercase text-gray-300 cursor-pointer hover:text-white transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={isBroadcast}
+                                onChange={(e) => setIsBroadcast(e.target.checked)}
+                                className="accent-red-500 w-3 h-3"
+                            />
+                            <Megaphone className="w-3 h-3 text-red-400" /> Send as Broadcast
+                        </label>
+
+                        {isBroadcast && (
+                            <label className="flex items-center gap-2 text-xs font-bold uppercase text-gray-300 cursor-pointer hover:text-white transition-colors animate-in fade-in slide-in-from-right-2">
+                                <input
+                                    type="checkbox"
+                                    checked={sendEmailAlert}
+                                    onChange={(e) => setSendEmailAlert(e.target.checked)}
+                                    className="accent-pitch-accent w-3 h-3"
+                                />
+                                Also Send Email Alert
+                            </label>
+                        )}
+                    </div>
+                )}
+
+                <form onSubmit={handleSend} className="p-4 flex gap-2">
+                    <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder={isParticipant ? (isBroadcast ? "Type your announcement..." : "Type a message... (Use @host to alert hosts)") : "Join this event to chat"}
+                        disabled={!isParticipant || sending}
+                        className={cn(
+                            "flex-1 bg-black/50 border rounded px-4 py-2 text-sm text-white focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                            isBroadcast ? "border-red-500/50 focus:border-red-500" : "border-white/10 focus:border-pitch-accent"
+                        )}
+                    />
+                    <button
+                        type="submit"
+                        disabled={!isParticipant || !newMessage.trim() || sending}
+                        className={cn(
+                            "p-2 rounded text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                            isBroadcast ? "bg-red-500 hover:bg-red-400" : "bg-pitch-accent hover:bg-white"
+                        )}
+                    >
+                        {sending ? <Loader2 className="w-5 h-5 animate-spin text-black" /> : <Send className="w-5 h-5" />}
+                    </button>
+                </form>
+            </div>
         </div>
     );
 }

@@ -157,28 +157,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     </span>
                                 )}
                             </Link>
-
-                            {isMasterAdmin && (
-                                <Link
-                                    href="/admin/users"
-                                    onClick={onClose}
-                                    className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-purple-500 hover:text-white transition-colors group border-l-4 border-purple-500 pl-4 -ml-5"
-                                >
-                                    <User className="w-6 h-6 text-purple-500 group-hover:text-white transition-colors" />
-                                    Users
-                                </Link>
-                            )}
                         </>
                     )}
 
-                    <Link
-                        href="/profile"
-                        onClick={onClose}
-                        className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-white hover:text-pitch-accent transition-colors group"
-                    >
-                        <User className="w-6 h-6" />
-                        Profile
-                    </Link>
+
 
                     {/* Settings Link (Bottom) */}
                     <div className="mt-auto pt-6 border-t border-white/10">

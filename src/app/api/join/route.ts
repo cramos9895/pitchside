@@ -15,16 +15,34 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        // --- ENFORCER: BAN CHECK ---
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_banned, banned_until')
+            .eq('id', user.id)
+            .single();
+
+        if (profile) {
+            if (profile.is_banned) {
+                return NextResponse.json({ error: 'Your account has been permanently suspended.' }, { status: 403 });
+            }
+            if (profile.banned_until && new Date(profile.banned_until) > new Date()) {
+                const date = new Date(profile.banned_until).toLocaleDateString();
+                return NextResponse.json({ error: `Your account is temporarily suspended until ${date}.` }, { status: 403 });
+            }
+        }
+        // ---------------------------
+
         const { gameId, note = '', paymentMethod } = await request.json();
 
         if (!gameId) {
             return NextResponse.json({ error: 'Game ID required' }, { status: 400 });
         }
 
-        // 1. Fetch Game to verify price is 0
+        // 1. Fetch Game to verify price, current players and max players
         const { data: game, error: gameError } = await supabase
             .from('games')
-            .select('price, title, start_time, location')
+            .select('price, title, start_time, location, max_players, current_players')
             .eq('id', gameId)
             .single();
 
@@ -49,17 +67,24 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, message: 'Already joined' });
         }
 
-        // 3. Insert Booking (Status: paid)
+        // 3. Determine Status based on Waitlist logic
+        const isFull = game.current_players >= game.max_players;
         const isManualPayment = !!paymentMethod;
-        const initialStatus = 'paid'; // Manual payments reserve the spot immediately
-        const initialPaymentStatus = isManualPayment ? 'pending' : 'verified'; // Free games = verified, Manual = pending
+
+        let initialStatus = 'paid'; // Legacy status
+        let initialPaymentStatus = isManualPayment ? 'pending' : 'verified';
+
+        if (isFull) {
+            initialPaymentStatus = 'unpaid';
+            initialStatus = 'waitlist'; // keep legacy status in sync
+        }
 
         const { error: insertError } = await supabase
             .from('bookings')
             .insert({
                 user_id: user.id,
                 game_id: gameId,
-                status: initialStatus,
+                status: initialStatus, // Legacy
                 payment_status: initialPaymentStatus,
                 payment_method: paymentMethod || 'free',
                 payment_amount: isManualPayment ? game.price : 0,
@@ -94,6 +119,6 @@ export async function POST(request: NextRequest) {
 
     } catch (err: any) {
         console.error('Free Join Error:', err);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: err.message || err.toString() || 'Internal Server Error' }, { status: 500 });
     }
 }

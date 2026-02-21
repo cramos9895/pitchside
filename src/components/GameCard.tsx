@@ -27,9 +27,10 @@ interface GameCardProps {
     game: Game;
     user: User | null;
     bookingStatus?: string; // 'paid', 'waitlist', 'active'
+    hasUnreadMessages?: boolean;
 }
 
-export function GameCard({ game, user, bookingStatus }: GameCardProps) {
+export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameCardProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [joined, setJoined] = useState(!!bookingStatus);
@@ -267,9 +268,16 @@ export function GameCard({ game, user, bookingStatus }: GameCardProps) {
                         onClick={() => router.push(`/games/${game.id}`)}
                         className="cursor-pointer hover:opacity-80 transition-opacity"
                     >
-                        <h3 className="font-heading text-2xl font-bold italic text-white">
-                            {startTimeStr}
-                            <span className="text-gray-500 text-lg font-normal ml-1">- {endTimeStr}</span>
+                        <h3 className="font-heading text-2xl font-bold italic text-white flex items-center gap-2">
+                            <span>
+                                {startTimeStr}
+                                <span className="text-gray-500 text-lg font-normal ml-1">- {endTimeStr}</span>
+                            </span>
+                            {hasUnreadMessages && (
+                                <div className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.8)] relative ml-1 mb-2" title="New messages in Chat">
+                                    <div className="absolute inset-0 bg-red-400 rounded-full animate-ping opacity-75"></div>
+                                </div>
+                            )}
                         </h3>
                         <p className="text-pitch-secondary text-sm font-bold uppercase">{dateStr}</p>
                         {game.title && <p className="text-pitch-accent text-xs font-bold uppercase mt-1 tracking-wider">{game.title}</p>}

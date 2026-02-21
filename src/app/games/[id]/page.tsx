@@ -35,6 +35,8 @@ interface Game {
 interface Booking {
     id: string;
     status: string;
+    roster_status?: string;
+    created_at?: string;
     user_id: string;
     team_assignment?: string;
     profiles: {
@@ -54,9 +56,10 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
     const [voteModalOpen, setVoteModalOpen] = useState(false);
     const [leaveModalOpen, setLeaveModalOpen] = useState(false);
 
-    // Derived state
     const [isParticipant, setIsParticipant] = useState(false);
-    const [userBooking, setUserBooking] = useState<Booking | null>(null);
+    const [isHost, setIsHost] = useState(false);
+    const [userBooking, setUserBooking] = useState<any>(null);
+    const [hasUnreadChat, setHasUnreadChat] = useState(false);
 
     const [hasVoted, setHasVoted] = useState(false);
     const [isVotingOpen, setIsVotingOpen] = useState(false);
@@ -110,6 +113,19 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                         setIsParticipant(true);
                         setUserBooking(myBooking);
 
+                        // Check for unread messages
+                        const { data: latestMsg } = await supabase
+                            .from('messages')
+                            .select('created_at')
+                            .eq('event_id', gameId)
+                            .order('created_at', { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+
+                        if (latestMsg && (!myBooking.last_read_at || new Date(latestMsg.created_at) > new Date(myBooking.last_read_at))) {
+                            setHasUnreadChat(true);
+                        }
+
                         // Check if user has voted
                         const { data: voteData } = await supabase
                             .from('mvp_votes')
@@ -123,6 +139,19 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                         // Waitlist logic (keep existing)
                         setIsParticipant(true);
                         setUserBooking(myBooking);
+
+                        // Check for unread messages
+                        const { data: latestMsg } = await supabase
+                            .from('messages')
+                            .select('created_at')
+                            .eq('event_id', gameId)
+                            .order('created_at', { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+
+                        if (latestMsg && (!myBooking.last_read_at || new Date(latestMsg.created_at) > new Date(myBooking.last_read_at))) {
+                            setHasUnreadChat(true);
+                        }
                     }
 
                     // Check Admin role
@@ -133,7 +162,11 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                         .in('role', ['admin', 'master_admin'])
                         .maybeSingle();
 
-                    if (roleData) setIsParticipant(true);
+                    const isUserHost = gameData.host_ids?.includes(user.id) || !!roleData;
+                    if (isUserHost) {
+                        setIsParticipant(true);
+                        setIsHost(true);
+                    }
                 }
             }
             setLoading(false);
@@ -150,8 +183,20 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
     const timeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
     // Filter active roster for sorting/display
-    const activeRoster = bookings.filter(b => ['active', 'paid'].includes(b.status));
-    const waitlist = bookings.filter(b => b.status === 'waitlist');
+    // Fallback to legacy status ('paid', 'active', 'waitlist') if roster_status is null
+    const validBookings = bookings.filter(b => b.roster_status !== 'dropped' && b.status !== 'cancelled');
+
+    // Active Roster
+    const activeRoster = validBookings.filter(b =>
+        (b.roster_status === 'confirmed') ||
+        (!b.roster_status && ['paid', 'active'].includes(b.status))
+    );
+
+    // Waitlist (First in, First out)
+    const waitlist = validBookings.filter(b =>
+        (b.roster_status === 'waitlisted') ||
+        (!b.roster_status && b.status === 'waitlist')
+    ).sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
 
     return (
         <div className="min-h-screen bg-pitch-black text-white font-sans pb-20">
@@ -196,13 +241,23 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                         <Users className="w-4 h-4" /> Roster <span className="text-xs bg-white/10 px-1.5 py-0.5 rounded ml-1">{activeRoster.length}</span>
                     </button>
                     <button
-                        onClick={() => setActiveTab('chat')}
+                        onClick={async () => {
+                            setActiveTab('chat');
+                            if (hasUnreadChat && userBooking) {
+                                setHasUnreadChat(false);
+                                await supabase
+                                    .from('bookings')
+                                    .update({ last_read_at: new Date().toISOString() })
+                                    .eq('id', userBooking.id);
+                            }
+                        }}
                         className={cn(
                             "px-6 py-4 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center gap-2 shrink-0",
                             activeTab === 'chat' ? "border-pitch-accent text-white" : "border-transparent text-gray-500 hover:text-white"
                         )}
                     >
                         <MessageSquare className="w-4 h-4" /> Chat
+                        {hasUnreadChat && <div className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.8)]" title="New unread messages" />}
                     </button>
                 </div>
 
@@ -254,7 +309,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                                 </div>
 
                                 {/* MVP Voting Section */}
-                                {isParticipant && ['active', 'paid'].includes(userBooking?.status || '') && isVotingOpen && (
+                                {false && isParticipant && ['active', 'paid'].includes(userBooking?.status || '') && isVotingOpen && (
                                     <div className="bg-gradient-to-br from-yellow-500/10 to-transparent border border-yellow-500/20 p-6 rounded-sm">
                                         <h4 className="font-bold uppercase text-sm mb-2 text-yellow-500 flex items-center gap-2">
                                             <Trophy className="w-4 h-4" /> MVP Vote
@@ -381,11 +436,14 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                                     <Link href="/login" className="bg-pitch-accent text-pitch-black px-6 py-2 rounded-sm font-bold uppercase">Log In</Link>
                                 </div>
                             ) : (
-                                <ChatInterface
-                                    gameId={gameId}
-                                    currentUserId={currentUser.id}
-                                    isParticipant={isParticipant}
-                                />
+                                <div className="md:col-span-2">
+                                    <ChatInterface
+                                        gameId={gameId}
+                                        currentUserId={currentUser.id}
+                                        isParticipant={isParticipant}
+                                        isHost={isHost}
+                                    />
+                                </div>
                             )}
                         </div>
                     )}

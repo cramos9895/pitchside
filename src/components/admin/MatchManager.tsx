@@ -18,7 +18,7 @@ const TEXT_COLOR_MAP: Record<string, string> = {
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Plus, Save, Loader2, Trash2, Layers, CheckCircle2, Trophy, ArrowRight, PlayCircle, Edit } from 'lucide-react';
+import { Plus, Save, Loader2, Trash2, Layers, CheckCircle2, Trophy, ArrowRight, PlayCircle, Edit, PauseCircle, Square, Clock, PlusCircle, MinusCircle, MonitorPlay } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { finalizeGame } from '@/app/actions/finalize-game';
@@ -44,9 +44,10 @@ interface MatchManagerProps {
     bookings: any[];
     onUpdate: () => void;
     onVerifyPayment?: (bookingId: string, currentStatus: string) => Promise<void>;
+    filterMode?: 'king' | 'tournament';
 }
 
-export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
+export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchManagerProps) {
     const router = useRouter();
     const supabase = createClient();
 
@@ -85,6 +86,101 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
         away_score: 0
     });
 
+    // Timer State
+    const [timerStatus, setTimerStatus] = useState<'stopped' | 'running' | 'paused'>(game.timer_status || 'stopped');
+    const [timerDuration, setTimerDuration] = useState<number>(game.timer_duration || 420);
+    const [timerStartedAt, setTimerStartedAt] = useState<string | null>(game.timer_started_at || null);
+    const [timeRemaining, setTimeRemaining] = useState<number>(game.timer_duration || 420);
+    const [timerLoading, setTimerLoading] = useState(false);
+
+    // Realtime Hook for Timer Sync
+    useEffect(() => {
+        const channel = supabase.channel(`admin_game_timer_${gameId}`)
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
+                (payload) => {
+                    const newGame = payload.new;
+                    setTimerStatus(newGame.timer_status);
+                    setTimerDuration(newGame.timer_duration);
+                    setTimerStartedAt(newGame.timer_started_at);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [gameId, supabase]);
+
+    // Timer Heartbeat & Remote Sync Tracking
+    useEffect(() => {
+        console.log("Timer Effect Triggered. Status:", timerStatus);
+
+        let interval: NodeJS.Timeout;
+
+        if (timerStatus === 'running' && timerStartedAt) {
+            interval = setInterval(() => {
+                const startTime = new Date(timerStartedAt).getTime();
+                const now = new Date().getTime();
+                const elapsed = Math.floor((now - startTime) / 1000);
+                const remaining = Math.max(0, timerDuration - elapsed);
+
+                setTimeRemaining(remaining);
+
+                if (remaining <= 0) {
+                    clearInterval(interval);
+                }
+            }, 1000);
+        } else {
+            if (timerDuration !== undefined) {
+                setTimeRemaining(timerDuration || 420);
+            }
+        }
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [timerStatus, timerStartedAt, timerDuration]);
+
+    // Sync timer changes
+    const updateTimerDB = async (status: 'stopped' | 'running' | 'paused', newDurationOverride?: number) => {
+        setTimerLoading(true);
+        try {
+            const payload: any = { timer_status: status };
+            let currentDuration = newDurationOverride !== undefined ? newDurationOverride : timerDuration;
+
+            if (status === 'running') {
+                payload.timer_started_at = new Date().toISOString();
+                payload.timer_duration = currentDuration;
+            } else if (status === 'paused') {
+                if (timerStatus === 'running' && timerStartedAt) {
+                    const startTime = new Date(timerStartedAt).getTime();
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    currentDuration = Math.max(0, timerDuration - elapsed);
+                }
+                payload.timer_duration = currentDuration;
+                payload.timer_started_at = null;
+            } else if (status === 'stopped') {
+                payload.timer_duration = newDurationOverride !== undefined ? newDurationOverride : 420;
+                payload.timer_started_at = null;
+                currentDuration = payload.timer_duration;
+            }
+
+            await supabase.from('games').update(payload).eq('id', gameId);
+
+            setTimerStatus(payload.timer_status);
+            setTimerDuration(payload.timer_duration);
+            setTimerStartedAt(payload.timer_started_at);
+            setTimeRemaining(payload.timer_duration);
+
+        } catch (e: any) {
+            alert('Timer Error: ' + e.message);
+        } finally {
+            setTimerLoading(false);
+        }
+    };
+
     // 1. Fetch & Sort Matches on Mount
     useEffect(() => {
         const fetchMatches = async () => {
@@ -96,7 +192,14 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                 .order('id', { ascending: true });
 
             if (data) {
-                setMatches(data);
+                let filteredData = data;
+                if (filterMode === 'king') {
+                    filteredData = data.filter(m => !m.round_number || m.round_number === 0);
+                } else if (filterMode === 'tournament') {
+                    filteredData = data.filter(m => m.round_number && m.round_number > 0);
+                }
+
+                setMatches(filteredData);
 
                 // Determine Max Round
                 const max = data.reduce((acc, m) => Math.max(acc, m.round_number || 0), 0);
@@ -305,23 +408,68 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
     };
 
 
+    const handleLiveMatchUpdate = async (field: 'home_team' | 'away_team' | 'home_score' | 'away_score', value: string | number) => {
+        const updatedMatch: any = { ...newMatch, [field]: value };
+        setNewMatch(updatedMatch);
+
+        // Instantly push this draft to the database as an active match to explicitly trip Projector Realtime listeners
+        const activeDbMatch = matches.find(m => m.status === 'active');
+
+        if (activeDbMatch) {
+            await supabase.from('matches').update({ [field]: value }).eq('id', activeDbMatch.id);
+            setMatches(prev => prev.map(m => m.id === activeDbMatch.id ? { ...m, [field]: value } : m));
+        } else {
+            const { data } = await supabase.from('matches').insert({
+                game_id: gameId,
+                home_team: updatedMatch.home_team,
+                away_team: updatedMatch.away_team,
+                home_score: updatedMatch.home_score || 0,
+                away_score: updatedMatch.away_score || 0,
+                status: 'active',
+                round_number: 0
+            }).select().single();
+            if (data) {
+                setMatches(prev => [...prev, data]);
+            }
+        }
+    };
+
+
     const handleManualAdd = async () => {
         if (!newMatch.home_team || !newMatch.away_team) return alert("Select teams");
         setLoading(true);
         try {
-            const { data, error } = await supabase.from('matches').insert({
-                game_id: gameId,
-                home_team: newMatch.home_team,
-                away_team: newMatch.away_team,
-                home_score: newMatch.home_score,
-                away_score: newMatch.away_score,
-                status: 'completed',
-                round_number: 0 // Manual
-            }).select().single();
+            const activeDbMatch = matches.find(m => m.status === 'active');
 
-            if (error) throw error;
-            setMatches([...matches, data]);
+            if (activeDbMatch) {
+                await supabase.from('matches').update({
+                    home_team: newMatch.home_team,
+                    away_team: newMatch.away_team,
+                    home_score: newMatch.home_score,
+                    away_score: newMatch.away_score,
+                    status: 'completed',
+                    is_final: true
+                }).eq('id', activeDbMatch.id);
+            } else {
+                await supabase.from('matches').insert({
+                    game_id: gameId,
+                    home_team: newMatch.home_team,
+                    away_team: newMatch.away_team,
+                    home_score: newMatch.home_score,
+                    away_score: newMatch.away_score,
+                    status: 'completed',
+                    round_number: 0,
+                    is_final: true
+                });
+            }
+
+            // Immediately reset scores for the next match
             setNewMatch({ ...newMatch, home_score: 0, away_score: 0 });
+
+            // Re-fetch everything to get the full accurate list including the new completed match
+            const { data } = await supabase.from('matches').select('*').eq('game_id', gameId).order('id', { ascending: true });
+            if (data) setMatches(data);
+
             router.refresh();
             if (onUpdate) onUpdate();
         } catch (e: any) {
@@ -406,16 +554,109 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
         <div className="bg-gray-900 border border-gray-800 rounded-sm p-6 mb-6">
 
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2">
                     {isTournamentMode ? <Trophy className="w-5 h-5 text-yellow-500" /> : <Plus className="w-5 h-5 text-pitch-accent" />}
                     {isTournamentMode ? "Live Tournament" : "Match Manager"}
                 </h2>
-                {isTournamentMode && !isTournamentComplete && (
-                    <div className="text-xs font-mono text-pitch-secondary border border-pitch-secondary/30 px-2 py-1 rounded">
-                        ROUND {currentRound} / {maxRound}
+
+                <div className="flex items-center gap-4">
+                    {isTournamentMode && !isTournamentComplete && (
+                        <div className="text-xs font-mono text-pitch-secondary border border-pitch-secondary/30 px-2 py-1 rounded shrink-0">
+                            ROUND {currentRound} / {maxRound}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* --- TIMER CONTROLS --- */}
+            <div className="bg-black border border-white/10 rounded-sm p-4 mb-8">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                        <Clock className={cn("w-6 h-6", timerStatus === 'running' ? "text-pitch-accent animate-pulse" : "text-gray-500")} />
+                        <div>
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Global Match Timer</div>
+                            <div className="text-2xl font-mono font-black tabular-nums transition-colors flex items-center gap-2">
+                                {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+                                {timerStatus === 'running' && <span className="text-[10px] text-pitch-accent uppercase tracking-widest bg-pitch-accent/10 px-2 py-0.5 rounded ml-2">Live Sync</span>}
+                            </div>
+                        </div>
                     </div>
-                )}
+
+                    <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+                        <div className="flex bg-white/5 border border-white/10 rounded mr-2">
+                            <button
+                                onClick={() => updateTimerDB(timerStatus, Math.max(0, timerDuration - 60))}
+                                disabled={timerLoading || timerStatus === 'running'}
+                                className="p-2 hover:bg-white/10 transition-colors disabled:opacity-50 text-gray-400"
+                                title="-1 Min"
+                            >
+                                <MinusCircle className="w-5 h-5" />
+                            </button>
+                            <button
+                                onClick={() => updateTimerDB(timerStatus, timerDuration + 60)}
+                                disabled={timerLoading || timerStatus === 'running'}
+                                className="p-2 hover:bg-white/10 transition-colors disabled:opacity-50 text-gray-400"
+                                title="+1 Min"
+                            >
+                                <PlusCircle className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {timerStatus === 'running' ? (
+                            <button
+                                onClick={() => updateTimerDB('paused')} // Logic handles remaining duration calc
+                                disabled={timerLoading}
+                                className="px-6 py-2 bg-yellow-600 text-white font-bold uppercase rounded flex items-center gap-2 hover:bg-yellow-500 transition-colors"
+                            >
+                                <PauseCircle className="w-4 h-4" /> Pause
+                            </button>
+                        ) : (
+                            <button
+                                onClick={async () => {
+                                    setTimerLoading(true);
+                                    const explicitStartTime = new Date().toISOString();
+
+                                    const { data, error } = await supabase
+                                        .from('games')
+                                        .update({
+                                            timer_status: 'running',
+                                            timer_started_at: explicitStartTime,
+                                            timer_duration: timerDuration
+                                        })
+                                        .eq('id', gameId)
+                                        .select();
+
+                                    if (error) {
+                                        console.error("SUPABASE UPDATE ERROR (START TIMERS):", error);
+                                        alert("Timer rejected by DB: " + error.message);
+                                    } else {
+                                        console.log("DB START SUCCESS. Returned Data:", data);
+                                        setTimerStatus('running');
+                                        setTimerStartedAt(explicitStartTime);
+                                    }
+                                    setTimerLoading(false);
+                                }}
+                                disabled={timerLoading}
+                                className="px-6 py-2 bg-pitch-accent text-black font-bold uppercase rounded flex items-center gap-2 hover:bg-white transition-colors"
+                            >
+                                <PlayCircle className="w-4 h-4" /> Start
+                            </button>
+                        )}
+                        <button
+                            onClick={() => {
+                                if (confirm("Reset Timer to 7:00?")) {
+                                    updateTimerDB('stopped', 420);
+                                }
+                            }}
+                            disabled={timerLoading}
+                            className="p-2 border border-red-500/30 text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                            title="Stop & Reset"
+                        >
+                            <Square className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* --- TOURNAMENT MODE UI --- */}
@@ -436,19 +677,21 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                                         <div className="text-sm text-gray-400 uppercase tracking-widest mb-1">Champion</div>
                                         <div className="text-3xl text-yellow-400 font-black uppercase tracking-tighter mb-6">{calculatedWinner || 'Unknown'}</div>
 
-                                        <div className="text-left">
-                                            <label className="text-xs font-bold text-pitch-secondary uppercase mb-2 block">Select Event MVP</label>
-                                            <select
-                                                value={editMvpId}
-                                                onChange={(e) => setEditMvpId(e.target.value)}
-                                                className="w-full bg-black border border-white/20 p-2 text-sm rounded text-white focus:border-pitch-accent outline-none"
-                                            >
-                                                <option value="">-- No MVP Selected --</option>
-                                                {players.map(p => (
-                                                    <option key={p.id} value={p.id}>{p.name} ({p.team})</option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                        {false && (
+                                            <div className="text-left">
+                                                <label className="text-xs font-bold text-pitch-secondary uppercase mb-2 block">Select Event MVP</label>
+                                                <select
+                                                    value={editMvpId}
+                                                    onChange={(e) => setEditMvpId(e.target.value)}
+                                                    className="w-full bg-black border border-white/20 p-2 text-sm rounded text-white focus:border-pitch-accent outline-none"
+                                                >
+                                                    <option value="">-- No MVP Selected --</option>
+                                                    {players.map(p => (
+                                                        <option key={p.id} value={p.id}>{p.name} ({p.team})</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <button
@@ -484,7 +727,7 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                                     </div>
 
                                     {/* MVP Static Display */}
-                                    {initialMvpId && (
+                                    {false && initialMvpId && (
                                         <div className="mb-8">
                                             <span className="text-xs font-bold text-pitch-secondary uppercase mb-1 block">MVP</span>
                                             <div className="text-white font-bold text-lg">
@@ -580,17 +823,21 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                                 <div className="mt-6">
                                     {isEditing ? (
                                         <div className="border-t border-white/10 pt-4">
-                                            <label className="text-xs font-bold text-pitch-secondary uppercase mb-2 block">Confirm MVP (Optional Swap)</label>
-                                            <select
-                                                value={editMvpId}
-                                                onChange={(e) => setEditMvpId(e.target.value)}
-                                                className="w-full bg-black border border-pitch-accent/50 p-2 rounded text-white mb-4"
-                                            >
-                                                <option value="">-- Select MVP --</option>
-                                                {players.map(p => (
-                                                    <option key={p.id} value={p.id}>{p.name} ({p.team})</option>
-                                                ))}
-                                            </select>
+                                            {false && (
+                                                <>
+                                                    <label className="text-xs font-bold text-pitch-secondary uppercase mb-2 block">Confirm MVP (Optional Swap)</label>
+                                                    <select
+                                                        value={editMvpId}
+                                                        onChange={(e) => setEditMvpId(e.target.value)}
+                                                        className="w-full bg-black border border-pitch-accent/50 p-2 rounded text-white mb-4"
+                                                    >
+                                                        <option value="">-- Select MVP --</option>
+                                                        {players.map(p => (
+                                                            <option key={p.id} value={p.id}>{p.name} ({p.team})</option>
+                                                        ))}
+                                                    </select>
+                                                </>
+                                            )}
 
                                             <div className="flex justify-end gap-3">
                                                 <button
@@ -630,18 +877,20 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                                         <div className="mt-8 pt-8 border-t border-white/10 text-center">
                                             <p className="text-gray-400 mb-4">All rounds complete. Ready to finalize?</p>
                                             {/* MVP Select for Initial Finalize */}
-                                            <div className="max-w-xs mx-auto mb-4 text-left">
-                                                <label className="text-xs font-bold text-pitch-secondary uppercase mb-2 block">Select MVP</label>
-                                                <select
-                                                    id="mvp-select"
-                                                    className="w-full bg-black border border-pitch-accent/50 p-3 rounded text-white"
-                                                >
-                                                    <option value="">-- Select MVP --</option>
-                                                    {players.map(p => (
-                                                        <option key={p.id} value={p.id}>{p.name} ({p.team || 'No Team'})</option>
-                                                    ))}
-                                                </select>
-                                            </div>
+                                            {false && (
+                                                <div className="max-w-xs mx-auto mb-4 text-left">
+                                                    <label className="text-xs font-bold text-pitch-secondary uppercase mb-2 block">Select MVP</label>
+                                                    <select
+                                                        id="mvp-select"
+                                                        className="w-full bg-black border border-pitch-accent/50 p-3 rounded text-white"
+                                                    >
+                                                        <option value="">-- Select MVP --</option>
+                                                        {players.map(p => (
+                                                            <option key={p.id} value={p.id}>{p.name} ({p.team || 'No Team'})</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
                                             <button
                                                 onClick={async () => {
                                                     // ... same finalize logic as before ...
@@ -688,7 +937,7 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                             <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Home Team</label>
                             <select
                                 value={newMatch.home_team}
-                                onChange={(e) => setNewMatch({ ...newMatch, home_team: e.target.value })}
+                                onChange={(e) => handleLiveMatchUpdate('home_team', e.target.value)}
                                 className="w-full bg-black border border-white/20 p-2 text-sm rounded text-white"
                             >
                                 {teams.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
@@ -699,7 +948,7 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                             <input
                                 type="number"
                                 value={newMatch.home_score}
-                                onChange={(e) => setNewMatch({ ...newMatch, home_score: Number(e.target.value) })}
+                                onChange={(e) => handleLiveMatchUpdate('home_score', Number(e.target.value))}
                                 className="w-full bg-black border border-white/20 p-2 text-center text-white"
                             />
                         </div>
@@ -710,7 +959,7 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                             <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Away Team</label>
                             <select
                                 value={newMatch.away_team}
-                                onChange={(e) => setNewMatch({ ...newMatch, away_team: e.target.value })}
+                                onChange={(e) => handleLiveMatchUpdate('away_team', e.target.value)}
                                 className="w-full bg-black border border-white/20 p-2 text-sm rounded text-white"
                             >
                                 {teams.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
@@ -721,7 +970,7 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                             <input
                                 type="number"
                                 value={newMatch.away_score}
-                                onChange={(e) => setNewMatch({ ...newMatch, away_score: Number(e.target.value) })}
+                                onChange={(e) => handleLiveMatchUpdate('away_score', Number(e.target.value))}
                                 className="w-full bg-black border border-white/20 p-2 text-center text-white"
                             />
                         </div>
@@ -763,19 +1012,21 @@ export function MatchManager({ game, bookings, onUpdate }: MatchManagerProps) {
                                     <div className="text-lg font-black text-yellow-400">{calculatedWinner || 'No Data'}</div>
                                 </div>
 
-                                <div className="flex-1 w-full md:w-auto">
-                                    <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Select MVP</label>
-                                    <select
-                                        value={editMvpId}
-                                        onChange={(e) => setEditMvpId(e.target.value)}
-                                        className="w-full bg-black border border-white/20 p-2 text-sm rounded text-white"
-                                    >
-                                        <option value="">-- Select MVP --</option>
-                                        {players.map(p => (
-                                            <option key={p.id} value={p.id}>{p.name} ({p.team})</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                {false && (
+                                    <div className="flex-1 w-full md:w-auto">
+                                        <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Select MVP</label>
+                                        <select
+                                            value={editMvpId}
+                                            onChange={(e) => setEditMvpId(e.target.value)}
+                                            className="w-full bg-black border border-white/20 p-2 text-sm rounded text-white"
+                                        >
+                                            <option value="">-- Select MVP --</option>
+                                            {players.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name} ({p.team})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
 
                                 <button
                                     onClick={handleFinalizeEvent}

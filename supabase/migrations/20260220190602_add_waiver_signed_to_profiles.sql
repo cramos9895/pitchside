@@ -1,0 +1,1 @@
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS waiver_signed BOOLEAN DEFAULT false;

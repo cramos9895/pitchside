@@ -118,7 +118,7 @@ export function StandingsTable({ gameId, teams, matches }: StandingsTableProps) 
             </h2>
 
             <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
+                <table className="w-full text-sm text-left whitespace-nowrap">
                     <thead className="text-xs text-gray-400 uppercase bg-black/50 border-b border-white/10">
                         <tr>
                             <th className="px-4 py-3">Team</th>

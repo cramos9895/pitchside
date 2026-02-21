@@ -84,10 +84,10 @@ export async function POST(request: NextRequest) {
             message = 'You have left the waitlist.';
         }
 
-        // 5. Update booking status to 'cancelled'
+        // 5. Update booking status to 'cancelled' and 'dropped'
         const { error: updateError } = await supabase
             .from('bookings')
-            .update({ status: 'cancelled' })
+            .update({ status: 'cancelled', roster_status: 'dropped' })
             .eq('id', booking.id);
 
         if (updateError) throw updateError;
@@ -106,35 +106,48 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // 6. Check for Waitlist and Notify
+        // 6. Check for Waitlist and Auto-Promote
         try {
-            const { data: nextWaitlist } = await supabase
-                .from('bookings')
-                .select('user_id')
-                .eq('game_id', gameId)
-                .eq('status', 'waitlist')
-                .order('created_at', { ascending: true })
-                .limit(1)
-                .single();
-
-            if (nextWaitlist) {
-                const { data: waitlistProfile } = await supabase
-                    .from('profiles')
-                    .select('email, full_name')
-                    .eq('id', nextWaitlist.user_id)
+            // Only promote if the person leaving was actually holding a spot, not if they were waitlisted
+            if (booking.status === 'paid' || booking.status === 'active') {
+                const { data: nextWaitlist } = await supabase
+                    .from('bookings')
+                    .select('id, user_id')
+                    .eq('game_id', gameId)
+                    .in('roster_status', ['waitlisted'])
+                    .order('created_at', { ascending: true })
+                    .limit(1)
                     .single();
 
-                if (waitlistProfile && waitlistProfile.email) {
-                    await sendNotification({
-                        to: waitlistProfile.email,
-                        subject: `Spot Open: ${game.title}`,
-                        react: WaitlistAlert({
-                            userName: waitlistProfile.full_name || 'Player',
-                            eventName: game.title,
-                            gameId: gameId
-                        }),
-                        type: 'waitlist'
-                    });
+                if (nextWaitlist) {
+                    // Auto-Promote the player
+                    await supabase
+                        .from('bookings')
+                        .update({
+                            roster_status: 'confirmed',
+                            status: 'paid', // keep legacy sync
+                            payment_status: 'pending' // need to verify payment still
+                        })
+                        .eq('id', nextWaitlist.id);
+
+                    const { data: waitlistProfile } = await supabase
+                        .from('profiles')
+                        .select('email, full_name')
+                        .eq('id', nextWaitlist.user_id)
+                        .single();
+
+                    if (waitlistProfile && waitlistProfile.email) {
+                        await sendNotification({
+                            to: waitlistProfile.email,
+                            subject: `Spot Open: You have been promoted for ${game.title}!`,
+                            react: WaitlistAlert({
+                                userName: waitlistProfile.full_name || 'Player',
+                                eventName: game.title,
+                                gameId: gameId
+                            }),
+                            type: 'waitlist'
+                        });
+                    }
                 }
             }
         } catch (emailErr) {

@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useEffect, useState, use } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft, Check, Shirt, User as UserIcon, Users, X, Trophy, Save, Loader2, Swords, Calendar, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, Shirt, User as UserIcon, Users, X, Trophy, Save, Loader2, Swords, Calendar, Trash2, Shield, MoreVertical, MonitorPlay } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { MatchManager } from '@/components/admin/MatchManager';
@@ -12,6 +11,10 @@ import { StandingsTable } from '@/components/admin/StandingsTable';
 import { ScheduleGenerator } from '@/components/admin/ScheduleGenerator';
 import { useToast } from '@/components/ui/Toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Booking {
     id: string;
@@ -23,6 +26,8 @@ interface Booking {
     payment_status: 'unpaid' | 'pending' | 'verified' | 'refunded';
     payment_method: string | null;
     payment_amount: number;
+    roster_status?: string;
+    created_at?: string;
     profiles: {
         id: string; // Add id
         email: string;
@@ -56,6 +61,7 @@ interface Game {
     max_players: number;
     score_team_a?: number | null;
     score_team_b?: number | null;
+    host_ids?: string[];
 }
 
 interface Match {
@@ -107,6 +113,10 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const [loading, setLoading] = useState(true);
     const [finalizing, setFinalizing] = useState(false);
 
+    // Current User tracking for Host vs Admin permissions
+    const [currentUserRole, setCurrentUserRole] = useState<string>('');
+    const [currentUserId, setCurrentUserId] = useState<string>('');
+
     // Match Control States
     const [homeScore, setHomeScore] = useState(0);
     const [awayScore, setAwayScore] = useState(0);
@@ -142,13 +152,18 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
         setMatches(matchesData || []);
 
-        // Auto-switch to king mode if matches exist
-        if (matchesData && matchesData.length > 0) {
+        // Auto-switch to king mode if matches exist and no mode set
+        if (matchesData && matchesData.length > 0 && viewMode === 'single') {
             setViewMode('king');
         }
     }
 
     const [voteTally, setVoteTally] = useState<Record<string, number>>({});
+
+    const handleViewModeChange = async (mode: 'single' | 'king' | 'tournament') => {
+        setViewMode(mode);
+        await supabase.from('games').update({ view_mode: mode }).eq('id', gameId);
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -163,6 +178,22 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                 if (gameError) throw gameError;
                 setGame(gameData);
+
+                if (gameData.view_mode) {
+                    setViewMode(gameData.view_mode as any);
+                }
+
+                // Fetch User and Role
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    setCurrentUserId(user.id);
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', user.id)
+                        .single();
+                    if (profile) setCurrentUserRole(profile.role);
+                }
 
                 // Initialize Control States
                 setHomeScore(gameData.home_score || 0);
@@ -365,6 +396,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     if (loading) return <div className="min-h-screen bg-pitch-black flex items-center justify-center text-white">Loading Roster...</div>;
     if (!game) return <div className="text-white pt-32 text-center">Game not found</div>;
 
+    const isAdmin = currentUserRole === 'admin' || currentUserRole === 'master_admin';
+
     const gameDate = new Date(game.start_time);
     const endDate = new Date(gameDate.getTime() + 90 * 60000);
     const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -378,8 +411,15 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     ];
 
     // Split Bookings
-    const roster = bookings.filter(b => (b as any).status === 'paid' || (b as any).status === 'active');
-    const waitlist = bookings.filter(b => (b as any).status === 'waitlist');
+    const validBookings = bookings.filter(b => b.roster_status !== 'dropped' && b.status !== 'cancelled');
+    const roster = validBookings.filter(b =>
+        (b.roster_status === 'confirmed') ||
+        (!b.roster_status && ['paid', 'active'].includes(b.status))
+    );
+    const waitlist = validBookings.filter(b =>
+        (b.roster_status === 'waitlisted') ||
+        (!b.roster_status && b.status === 'waitlist')
+    ).sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
 
     // Calculate Counts (using only roster)
     const teamCounts = teams.reduce((acc, team) => {
@@ -413,6 +453,32 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
         } catch (error: any) {
             toast.error("Error promoting player: " + error.message);
+        }
+    };
+
+    const handleKick = async (userId: string, playerName: string) => {
+        if (!confirm(`Are you sure you want to kick ${playerName} from this game? If space opens up, the next waitlisted player will be automatically promoted.`)) return;
+
+        setLoading(true);
+        try {
+            const response = await fetch('/api/kick', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gameId, targetUserId: userId })
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to kick player');
+
+            toast.success("Player removed. Remember to manually refund their Venmo/Zelle payment if applicable.");
+            router.refresh();
+            // Optimistic removal from view
+            setBookings(prev => prev.filter(b => b.user_id !== userId));
+
+        } catch (error: any) {
+            toast.error(error.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -648,415 +714,532 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         </div>
 
                         {/* Cancel Button */}
-                        <div className="flex gap-2">
-                            {matchStatus !== 'completed' && (matchStatus as string) !== 'cancelled' && (
-                                <button
-                                    onClick={onCancelClick}
-                                    className="px-4 py-2 border border-red-500/30 text-red-500 hover:bg-red-500/10 rounded uppercase font-bold text-xs tracking-wider transition-colors"
-                                >
-                                    Cancel Event
-                                </button>
-                            )}
-                            <button
-                                onClick={() => setShowDeleteModal(true)}
-                                className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded uppercase font-bold text-xs tracking-wider transition-colors flex items-center gap-2"
-                            >
-                                <Trash2 className="w-4 h-4" /> Delete
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Live Counters */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        {teams.map(team => {
-                            const count = teamCounts[team.name] || 0;
-                            const limit = (team as any).limit || 11;
-                            const isFull = count >= limit;
-                            const percentage = Math.min(100, (count / limit) * 100);
-
-                            // Determine bar color based on team config
-                            const barHex = HEX_COLOR_MAP[team.color] || '#3b82f6'; // Default blue-500
-
-                            return (
-                                <div key={team.name} className="bg-pitch-card border border-white/10 p-4 rounded-sm">
-                                    <div className="flex justify-between items-end mb-2">
-                                        <h3 className="font-bold uppercase italic">{team.name}</h3>
-                                        <span className={cn("text-xl font-black", isFull ? "text-red-500" : "text-white")}>
-                                            {count}<span className="text-gray-500 text-sm">/{limit}</span>
-                                        </span>
-                                    </div>
-                                    <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full transition-all duration-500"
-                                            style={{
-                                                width: `${percentage}%`,
-                                                backgroundColor: barHex
-                                            }}
-                                        />
-                                    </div>
+                        {isAdmin && (
+                            <div className="flex items-center">
+                                {/* Desktop View */}
+                                <div className="hidden md:flex gap-2">
+                                    {matchStatus !== 'completed' && (matchStatus as string) !== 'cancelled' && (
+                                        <button
+                                            onClick={onCancelClick}
+                                            className="px-4 py-2 border border-red-500/30 text-red-500 hover:bg-red-500/10 rounded uppercase font-bold text-xs tracking-wider transition-colors"
+                                        >
+                                            Cancel Event
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => setShowDeleteModal(true)}
+                                        className="px-4 py-2 bg-red-600/20 border border-red-500/50 text-red-500 hover:bg-red-600/30 rounded uppercase font-bold text-xs tracking-wider transition-colors flex items-center gap-2"
+                                    >
+                                        <Trash2 className="w-4 h-4" /> Delete
+                                    </button>
                                 </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Roster & Waitlist Container */}
-                    <div className="space-y-8 mb-8">
-
-                        {/* ACTIVE ROSTER */}
-                        <div className="bg-pitch-card border border-white/10 rounded-sm shadow-xl overflow-hidden">
-                            {/* Table Header - Only visible on Desktop */}
-                            <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-white/10 bg-white/5 text-xs font-bold uppercase text-pitch-secondary tracking-wider">
-                                <div className="col-span-3">Player</div>
-                                <div className="col-span-2 text-center border-l border-white/5">Payment</div>
-                                <div className="col-span-1 text-center border-l border-white/5">In</div>
-                                <div className="col-span-6 text-center border-l border-white/5">Team Assignment</div>
-                            </div>
-
-                            {/* Mobile Header */}
-                            <div className="md:hidden p-4 border-b border-white/10 bg-white/5 text-xs font-bold uppercase text-pitch-secondary tracking-wider flex justify-between items-center">
-                                <span>Player List</span>
-                                <span>Actions</span>
-                            </div>
-
-
-                            {/* Rows */}
-                            <div className="divide-y divide-white/5">
-                                {roster.map((booking: any) => {
-                                    const profilesData = booking.profiles;
-                                    const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
-                                    const displayName = profile?.full_name || profile?.email || 'Unknown Player';
-
-                                    return (
-                                        <div key={booking.id} className="flex flex-col md:grid md:grid-cols-12 gap-4 p-4 items-center hover:bg-white/5 transition-colors">
-                                            {/* Player Info - Full Width on Mobile */}
-                                            <div className="w-full md:col-span-3 flex items-center gap-3">
-                                                <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 shrink-0">
-                                                    <UserIcon className="w-4 h-4" />
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="font-bold truncate text-sm">{displayName}</div>
-                                                    {booking.note && (
-                                                        <div className="text-[10px] text-pitch-accent italic truncate max-w-[200px] md:max-w-[120px]">
-                                                            Request: {booking.note}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Mobile: Controls Row */}
-                                            <div className="w-full flex flex-wrap items-center justify-between gap-y-3 md:contents">
-
-                                                {/* Payment Status - Mobile & Desktop */}
-                                                <div className="w-full md:w-auto md:col-span-2 flex justify-center md:border-l md:border-white/5">
-                                                    <button
-                                                        onClick={() => togglePaymentStatus(booking.id, booking.payment_status || 'unpaid')}
-                                                        className={cn(
-                                                            "px-3 py-1 rounded text-[10px] font-bold uppercase w-full md:w-auto h-8 flex items-center justify-center gap-2 transition-all",
-                                                            booking.payment_status === 'verified'
-                                                                ? "bg-green-500/10 text-green-500 border border-green-500/50"
-                                                                : booking.payment_status === 'pending'
-                                                                    ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/50 animate-pulse"
-                                                                    : "bg-red-500/10 text-red-500 border border-red-500/50"
-                                                        )}
-                                                        title={`Payment: ${booking.payment_status || 'unpaid'}`}
-                                                    >
-                                                        <span className="md:hidden">Payment: </span>
-                                                        <span className="text-xs">$</span>
-                                                        <span>{booking.payment_status === 'verified' ? 'PAID' : booking.payment_status === 'pending' ? 'PENDING' : 'UNPAID'}</span>
-                                                    </button>
-                                                </div>
-
-                                                {/* Check In */}
-                                                <div className="md:col-span-1 flex justify-center md:border-l md:border-white/5">
-                                                    <button
-                                                        onClick={() => toggleCheckIn(booking.id, booking.checked_in)}
-                                                        className={cn(
-                                                            "w-8 h-8 rounded-full flex items-center justify-center border transition-all",
-                                                            booking.checked_in
-                                                                ? "bg-pitch-accent border-pitch-accent text-pitch-black"
-                                                                : "bg-transparent border-gray-600 text-gray-600 hover:border-white hover:text-white"
-                                                        )}
-                                                        title={booking.checked_in ? "Checked In" : "Check In"}
-                                                    >
-                                                        <Check className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-
-                                                {/* Team Buttons - Flex Wrap for Mobile */}
-                                                <div className="flex-1 flex justify-end md:justify-center gap-2 flex-wrap md:col-span-6">
-                                                    {teams.map(team => {
-                                                        const isSelected = booking.team_assignment === team.name;
-                                                        // Dynamic Stylings
-                                                        const baseClass = "px-2 py-1 text-xs font-bold uppercase rounded border transition-colors flex items-center gap-1 min-w-[60px] md:min-w-[70px] justify-center";
-
-                                                        const teamHex = HEX_COLOR_MAP[team.color] || '#9ca3af';
-
-                                                        // Inline styles for guaranteed color
-                                                        const inlineStyle = isSelected
-                                                            ? {
-                                                                backgroundColor: teamHex,
-                                                                borderColor: teamHex,
-                                                                color: (team.color === 'White' || team.color === 'Neon Green' || team.color === 'Yellow' || team.color === 'Neon Blue' || team.color === 'Light Blue') ? 'black' : 'white'
-                                                            }
-                                                            : {
-                                                                borderColor: teamHex,
-                                                                color: teamHex,
-                                                                backgroundColor: 'transparent'
-                                                            };
-
-                                                        return (
-                                                            <button
-                                                                key={team.name}
-                                                                onClick={() => assignTeam(booking.id, team.name)}
-                                                                className={cn(baseClass, !isSelected && "hover:bg-white/10")}
-                                                                style={inlineStyle}
-                                                            >
-                                                                <Shirt className="w-3 h-3" /> {team.name}
-                                                            </button>
-                                                        )
-                                                    })}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                {roster.length === 0 && <div className="p-8 text-center text-pitch-secondary">No players yet.</div>}
-                            </div>
-                        </div>
-
-                        {/* WAITLIST */}
-                        {waitlist.length > 0 && (
-                            <div className="bg-gray-900 border border-white/10 rounded-sm shadow-xl overflow-hidden">
-                                <div className="p-4 border-b border-white/10 bg-white/5 flex items-center gap-2">
-                                    <Users className="w-4 h-4 text-yellow-500" />
-                                    <h3 className="font-bold uppercase text-sm text-yellow-500 tracking-wider">Waitlist ({waitlist.length})</h3>
-                                </div>
-                                <div className="divide-y divide-white/5">
-                                    {waitlist.map((booking: any) => {
-                                        const profilesData = booking.profiles;
-                                        const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
-                                        const displayName = profile?.full_name || profile?.email || 'Unknown Player';
-
-                                        return (
-                                            <div key={booking.id} className="flex items-center justify-between p-4 hover:bg-white/5">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 shrink-0">
-                                                        <UserIcon className="w-4 h-4" />
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-bold truncate text-sm text-gray-300">{displayName}</div>
-                                                        <div className="text-[10px] text-gray-500 italic">Waitlisted</div>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={() => promotePlayer(booking.id)}
-                                                    className="text-xs bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500 hover:text-black font-bold uppercase px-3 py-1 rounded transition-colors"
-                                                >
-                                                    Promote to Roster
-                                                </button>
-                                            </div>
-                                        )
-                                    })}
+                                {/* Mobile Dropdown View */}
+                                <div className="md:hidden">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger className="p-2 border border-white/10 rounded bg-white/5 data-[state=open]:bg-white/10 transition-colors">
+                                            <MoreVertical className="w-5 h-5 text-white" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-48">
+                                            {matchStatus !== 'completed' && (matchStatus as string) !== 'cancelled' && (
+                                                <DropdownMenuItem className="text-red-500 font-bold uppercase tracking-wider justify-between" onClick={onCancelClick}>
+                                                    Cancel Event <X className="w-4 h-4 ml-2" />
+                                                </DropdownMenuItem>
+                                            )}
+                                            <DropdownMenuItem className="text-red-500 font-bold uppercase tracking-wider justify-between" onClick={() => setShowDeleteModal(true)}>
+                                                Delete Event <Trash2 className="w-4 h-4 ml-2" />
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* Live Vote Tally (Visible if there are votes or game is active/completed) */}
-                    {(matchStatus === 'active' || matchStatus === 'completed' || Object.keys(voteTally).length > 0) && (
-                        <div className="bg-gradient-to-r from-yellow-500/10 to-transparent border border-yellow-500/20 rounded-sm p-6 mb-8">
-                            <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2 mb-4 text-yellow-500">
-                                <Trophy className="w-5 h-5" /> Live Player MVP Votes
-                            </h2>
-                            {Object.keys(voteTally).length === 0 ? (
-                                <p className="text-sm text-gray-500 italic">No votes cast yet.</p>
-                            ) : (
-                                <div className="flex flex-wrap gap-4">
-                                    {Object.entries(voteTally)
-                                        .sort(([, a], [, b]) => b - a)
-                                        .map(([candidateId, count], index) => {
-                                            // Find player name
-                                            const player = roster.find(b => {
-                                                const p = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
-                                                return b.user_id === candidateId || p?.id === candidateId;
-                                            });
-                                            // Fallback helper
-                                            const getPlayerName = (b: any) => {
-                                                const p = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
-                                                return p?.full_name || 'Unknown';
-                                            };
-                                            const name = player ? getPlayerName(player) : 'Unknown Player';
+                    {/* Host Management */}
+                    {isAdmin && (
+                        <div className="bg-pitch-card border border-white/10 p-4 rounded-sm mb-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                            <div>
+                                <h3 className="font-heading text-lg font-bold italic uppercase flex items-center gap-2">
+                                    <Shield className="w-5 h-5 text-pitch-accent" /> Manage Hosts
+                                </h3>
+                                <p className="text-xs text-gray-400">Hosts can manage the roster and chat, but cannot delete the event or change core details.</p>
+                            </div>
+                            <div className="flex gap-2 w-full md:w-auto">
+                                <select
+                                    className="bg-black/30 w-full md:w-48 border border-white/10 rounded p-2 text-sm text-white focus:outline-none focus:border-pitch-accent"
+                                    onChange={async (e) => {
+                                        const uid = e.target.value;
+                                        if (!uid) return;
+                                        const currentHosts = game.host_ids || [];
+                                        if (currentHosts.includes(uid)) return;
 
-                                            return (
-                                                <div key={candidateId} className="bg-black/40 border border-yellow-500/30 px-4 py-2 rounded flex items-center gap-3">
-                                                    <div className="text-xl font-black text-white">{index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}</div>
-                                                    <div>
-                                                        <div className="font-bold text-sm text-gray-200">{name}</div>
-                                                        <div className="text-xs text-yellow-500 font-bold">{count} Votes</div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                        const newHosts = [...currentHosts, uid];
+                                        setGame({ ...game, host_ids: newHosts });
 
-                    {/* TEAM BALANCING SECTION */}
-                    <div className="mb-8">
-                        <TeamManager
-                            gameId={gameId}
-                            teams={teams}
-                            players={bookings.map(b => ({
-                                id: b.id,
-                                userId: b.user_id,
-                                name: Array.isArray(b.profiles) ? b.profiles[0]?.full_name : b.profiles?.full_name || 'Unknown',
-                                email: Array.isArray(b.profiles) ? b.profiles[0]?.email : b.profiles?.email || '',
-                                team: b.team_assignment as any || null,
-                                status: b.status,
-                                payment_status: b.payment_status
-                            }))}
-                            onUpdate={() => router.refresh()}
-                            onVerifyPayment={togglePaymentStatus}
-                        />
-                    </div>
-
-                    {/* MODE TOGGLE & TABS */}
-                    <div className="flex items-center gap-4 mb-6 border-b border-white/10 pb-4 overflow-x-auto">
-                        <button
-                            onClick={() => setViewMode('single')}
-                            className={cn(
-                                "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
-                                viewMode === 'single' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
-                            )}
-                        >
-                            <Trophy className="w-4 h-4" /> Single Match
-                        </button>
-                        <div className="w-px h-4 bg-white/20"></div>
-                        <button
-                            onClick={() => setViewMode('king')}
-                            className={cn(
-                                "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
-                                viewMode === 'king' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
-                            )}
-                        >
-                            <Swords className="w-4 h-4" /> King of the Court
-                        </button>
-                        <div className="w-px h-4 bg-white/20"></div>
-                        <button
-                            onClick={() => setViewMode('tournament')}
-                            className={cn(
-                                "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
-                                viewMode === 'tournament' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
-                            )}
-                        >
-                            <Calendar className="w-4 h-4" /> Tournament
-                        </button>
-                    </div>
-
-
-                    {viewMode === 'single' && (
-                        /* SINGLE MATCH CONTROL PANEL */
-                        <div className="bg-gray-900 border border-gray-800 rounded-sm p-6">
-                            <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2 mb-6">
-                                <Trophy className="w-5 h-5 text-yellow-500" /> Match Control ({matchStatus})
-                            </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {/* 1. Scoreboard */}
-                                <div className="bg-black/30 p-4 rounded border border-white/5">
-                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-3">Scoreboard</label>
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex-1">
-                                            <span className="block text-[10px] text-gray-500 mb-1 uppercase truncate">{teams[0].name}</span>
-                                            <input
-                                                type="number"
-                                                value={homeScore}
-                                                onChange={(e) => setHomeScore(Number(e.target.value))}
-                                                className="w-full bg-black border border-white/20 p-2 text-center font-mono text-xl text-white rounded focus:border-pitch-accent outline-none"
-                                            />
-                                        </div>
-                                        <span className="text-gray-600 font-bold">-</span>
-                                        <div className="flex-1">
-                                            <span className="block text-[10px] text-gray-500 mb-1 uppercase truncate">{teams[1].name}</span>
-                                            <input
-                                                type="number"
-                                                value={awayScore}
-                                                onChange={(e) => setAwayScore(Number(e.target.value))}
-                                                className="w-full bg-black border border-white/20 p-2 text-center font-mono text-xl text-white rounded focus:border-pitch-accent outline-none"
-                                            />
-                                        </div>
-                                    </div>
-                                    <p className="text-[10px] text-gray-500 mt-2 text-center italic">
-                                        Winner automatically detected from score.
-                                    </p>
-                                </div>
-
-                                {/* 2. MVP Selection */}
-                                <div className="bg-black/30 p-4 rounded border border-white/5">
-                                    <label className="block text-xs font-bold uppercase text-gray-400 mb-3">Man of the Match</label>
-                                    <select
-                                        value={mvpId}
-                                        onChange={(e) => setMvpId(e.target.value)}
-                                        className="w-full bg-black border border-white/20 rounded p-2 text-sm text-white focus:outline-none focus:border-pitch-accent"
-                                    >
-                                        <option value="">Select MVP...</option>
-                                        {playerOptions.map(p => (
-                                            <option key={p.id} value={p.id}>{p.name}</option>
-                                        ))}
-                                    </select>
-                                    <p className="text-[10px] text-gray-500 mt-2">Awarding MVP adds stats to player profile.</p>
-                                </div>
-
-                                {/* Action Button */}
-                                <div className="flex items-end justify-end">
-                                    <button
-                                        onClick={onFinalizeClick}
-                                        disabled={finalizing}
-                                        className={cn(
-                                            "w-full px-6 py-3 font-bold uppercase tracking-wider rounded-sm flex items-center justify-center gap-2 shadow-lg transition-all h-[80px]",
-                                            matchStatus === 'completed'
-                                                ? "bg-green-600 text-white hover:bg-green-500"
-                                                : "bg-pitch-accent text-pitch-black hover:bg-white hover:text-pitch-black"
-                                        )}
-                                    >
-                                        {finalizing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                                        {matchStatus === 'completed' ? "Update Match Stats" : "Finalize Match"}
-                                    </button>
-                                </div>
+                                        try {
+                                            const { error } = await supabase.from('games').update({ host_ids: newHosts }).eq('id', game.id);
+                                            if (error) throw error;
+                                            toast.success("Host added.");
+                                        } catch (err: any) {
+                                            toast.error(err.message);
+                                            setGame({ ...game, host_ids: currentHosts }); // Revert
+                                        }
+                                        e.target.value = '';
+                                    }}
+                                >
+                                    <option value="">+ Assign Roster Player as Host</option>
+                                    {playerOptions.filter(p => !(game.host_ids || []).includes(p.id)).map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     )}
 
-                    {viewMode === 'king' && (
-                        /* KING OF THE COURT (MANUAL & LIST) */
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                            <MatchManager
-                                game={game}
-                                bookings={bookings}
-                                onUpdate={handleMatchUpdate}
-                            />
-                            <StandingsTable
-                                key={refreshKey} // Force re-mount/re-fetch on update
-                                gameId={gameId}
-                                teams={teams as TeamConfig[]}
-                                matches={matches}
-                            />
-                        </div>
-                    )}
+                    <Tabs defaultValue="player-manager" className="w-full">
+                        <TabsList className="bg-black/40 border border-white/10 mb-6 h-12 flex w-full max-w-sm ml-0">
+                            <TabsTrigger value="player-manager" className="flex-1">Player Manager</TabsTrigger>
+                            <TabsTrigger value="game-management" className="flex-1">Game Management</TabsTrigger>
+                        </TabsList>
 
-                    {viewMode === 'tournament' && (
-                        /* TOURNAMENT (AUTO-SCHEDULER) */
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                            <ScheduleGenerator
-                                gameId={gameId}
-                                teams={teams as TeamConfig[]}
-                                onScheduleSaved={() => {
-                                    fetchMatches();
-                                    setViewMode('king'); // Redirect to King view to see generated matches
-                                }}
-                            />
-                        </div>
-                    )}
+                        {/* TAB 1: PLAYER MANAGER */}
+                        <TabsContent value="player-manager" className="mt-0">
+                            {/* Live Counters */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                {teams.map(team => {
+                                    const count = teamCounts[team.name] || 0;
+                                    const limit = (team as any).limit || 11;
+                                    const isFull = count >= limit;
+                                    const percentage = Math.min(100, (count / limit) * 100);
+
+                                    // Determine bar color based on team config
+                                    const barHex = HEX_COLOR_MAP[team.color] || '#3b82f6'; // Default blue-500
+
+                                    return (
+                                        <div key={team.name} className="bg-pitch-card border border-white/10 p-4 rounded-sm">
+                                            <div className="flex justify-between items-end mb-2">
+                                                <h3 className="font-bold uppercase italic">{team.name}</h3>
+                                                <span className={cn("text-xl font-black", isFull ? "text-red-500" : "text-white")}>
+                                                    {count}<span className="text-gray-500 text-sm">/{limit}</span>
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full transition-all duration-500"
+                                                    style={{
+                                                        width: `${percentage}%`,
+                                                        backgroundColor: barHex
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Roster & Waitlist Container */}
+                            <div className="space-y-8 mb-8">
+
+                                {/* ACTIVE ROSTER */}
+                                <div className="bg-pitch-card border border-white/10 rounded-sm shadow-xl overflow-hidden">
+                                    {/* Table Header - Only visible on Desktop */}
+                                    <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-white/10 bg-white/5 text-xs font-bold uppercase text-pitch-secondary tracking-wider">
+                                        <div className="col-span-4">Player</div>
+                                        <div className="col-span-2 text-center border-l border-white/5">Payment</div>
+                                        <div className="col-span-2 text-center border-l border-white/5">Check In</div>
+                                        <div className="col-span-4 text-center border-l border-white/5">Team Assignment</div>
+                                    </div>
+
+                                    {/* Mobile Header */}
+                                    <div className="md:hidden p-4 border-b border-white/10 bg-white/5 text-xs font-bold uppercase text-pitch-secondary tracking-wider flex justify-between items-center">
+                                        <span>Player List</span>
+                                        <span>Actions</span>
+                                    </div>
+
+                                    {/* Rows */}
+                                    <div className="divide-y divide-white/5">
+                                        {roster.map((booking: any) => {
+                                            const profilesData = booking.profiles;
+                                            const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
+                                            const displayName = profile?.full_name || profile?.email || 'Unknown Player';
+
+                                            return (
+                                                <div key={booking.id} className="flex flex-col md:grid md:grid-cols-12 gap-4 p-4 items-center hover:bg-white/5 transition-colors">
+                                                    {/* Player Info - Full Width on Mobile */}
+                                                    <div className="w-full md:col-span-4 flex items-center justify-between md:justify-start gap-3">
+                                                        <div className="flex items-center gap-3 w-full">
+                                                            <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 shrink-0">
+                                                                <UserIcon className="w-4 h-4" />
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="font-bold truncate text-sm">{displayName}</div>
+                                                                {booking.note && (
+                                                                    <div className="text-[10px] text-pitch-accent italic truncate max-w-[200px] md:max-w-[120px]">
+                                                                        Request: {booking.note}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="md:hidden">
+                                                            <button
+                                                                onClick={() => handleKick(booking.user_id, displayName)}
+                                                                className="w-8 h-8 rounded-full flex items-center justify-center bg-transparent border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-all shrink-0"
+                                                                title="Kick Player"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Mobile: Controls Row */}
+                                                    <div className="w-full flex flex-wrap items-center justify-between gap-y-3 md:contents mt-2 md:mt-0">
+
+                                                        {/* Payment Status - Mobile & Desktop */}
+                                                        <div className="w-1/3 md:w-auto md:col-span-2 flex justify-start md:justify-center md:border-l md:border-white/5 pl-0 md:pl-2">
+                                                            <button
+                                                                onClick={() => togglePaymentStatus(booking.id, booking.payment_status || 'unpaid')}
+                                                                className={cn(
+                                                                    "px-3 py-1 rounded text-[10px] font-bold uppercase w-full md:w-auto h-8 flex items-center justify-center gap-2 transition-all",
+                                                                    booking.payment_status === 'verified'
+                                                                        ? "bg-green-500/10 text-green-500 border border-green-500/50"
+                                                                        : booking.payment_status === 'pending'
+                                                                            ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/50 animate-pulse"
+                                                                            : "bg-red-500/10 text-red-500 border border-red-500/50"
+                                                                )}
+                                                                title={`Payment: ${booking.payment_status || 'unpaid'}`}
+                                                            >
+                                                                <span className="md:hidden">Pay: </span>
+                                                                <span>{booking.payment_status === 'verified' ? 'PAID' : booking.payment_status === 'pending' ? 'PEND' : 'UNP'}</span>
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Check In */}
+                                                        <div className="w-1/3 md:w-auto md:col-span-2 flex justify-center md:border-l md:border-white/5 pl-2 gap-2">
+                                                            <label className="text-xs font-bold uppercase text-gray-500 md:hidden flex items-center">In:</label>
+                                                            <Switch
+                                                                checked={booking.checked_in}
+                                                                onCheckedChange={() => toggleCheckIn(booking.id, booking.checked_in)}
+                                                                className={booking.checked_in ? "bg-green-500" : "bg-gray-600"}
+                                                            />
+                                                        </div>
+
+                                                        {/* Team Select - Flex Wrap for Mobile */}
+                                                        <div className="w-full md:w-auto flex-1 flex items-center gap-2 flex-wrap md:col-span-3 md:border-l md:border-white/5 pl-0 md:pl-4">
+                                                            <Select value={booking.team_assignment || "none"} onValueChange={(val) => assignTeam(booking.id, val === "none" ? null as any : val)}>
+                                                                <SelectTrigger className="h-8 max-w-[160px] md:max-w-full">
+                                                                    <SelectValue placeholder="Assign Team" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="none">Unassigned</SelectItem>
+                                                                    {teams.map(team => (
+                                                                        <SelectItem key={team.name} value={team.name}>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: HEX_COLOR_MAP[team.color] || '#ffffff' }} />
+                                                                                {team.name}
+                                                                            </div>
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+
+                                                        {/* Kick Player - Desktop Only (Mobile is alongside Name) */}
+                                                        <div className="hidden md:flex md:col-span-1 justify-end">
+                                                            <button
+                                                                onClick={() => handleKick(booking.user_id, displayName)}
+                                                                className="w-8 h-8 rounded-full flex items-center justify-center bg-transparent border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-all shrink-0"
+                                                                title="Kick Player"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {roster.length === 0 && <div className="p-8 text-center text-pitch-secondary">No players yet.</div>}
+                                    </div>
+                                </div>
+
+                                {/* WAITLIST */}
+                                {waitlist.length > 0 && (
+                                    <div className="bg-amber-950/20 border border-yellow-500/20 rounded-sm shadow-xl overflow-hidden mt-8">
+                                        <div className="p-4 border-b border-yellow-500/10 bg-yellow-500/5 flex items-center gap-2">
+                                            <Users className="w-4 h-4 text-yellow-500" />
+                                            <h3 className="font-bold uppercase text-sm text-yellow-500 tracking-wider">Waitlist ({waitlist.length})</h3>
+                                        </div>
+                                        <div className="divide-y divide-yellow-500/5">
+                                            {waitlist.map((booking: any) => {
+                                                const profilesData = booking.profiles;
+                                                const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
+                                                const displayName = profile?.full_name || profile?.email || 'Unknown Player';
+
+                                                return (
+                                                    <div key={booking.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 hover:bg-yellow-500/5 gap-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center text-gray-500 shrink-0">
+                                                                <UserIcon className="w-4 h-4" />
+                                                            </div>
+                                                            <div>
+                                                                <div className="font-bold truncate text-sm text-yellow-100">{displayName}</div>
+                                                                <div className="text-[10px] text-yellow-600 italic">Waitlist Queue</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+                                                            <button
+                                                                onClick={() => promotePlayer(booking.id)}
+                                                                className="text-xs w-full md:w-auto justify-center bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500 hover:text-black font-bold uppercase px-6 py-2 rounded transition-colors"
+                                                            >
+                                                                Promote
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleKick(booking.user_id, displayName)}
+                                                                className="w-10 h-10 rounded shrink-0 flex items-center justify-center bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-colors"
+                                                                title="Kick from Waitlist"
+                                                            >
+                                                                <X className="w-5 h-5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </TabsContent>
+
+                        {/* TAB 2: GAME MANAGEMENT */}
+                        <TabsContent value="game-management" className="mt-0">
+                            {/* TEAM BALANCING SECTION (Moved Here) */}
+                            <div className="mb-8">
+                                <TeamManager
+                                    gameId={gameId}
+                                    teams={teams}
+                                    players={bookings.map(b => ({
+                                        id: b.id,
+                                        userId: b.user_id,
+                                        name: Array.isArray(b.profiles) ? b.profiles[0]?.full_name : b.profiles?.full_name || 'Unknown',
+                                        email: Array.isArray(b.profiles) ? b.profiles[0]?.email : b.profiles?.email || '',
+                                        team: b.team_assignment as any || null,
+                                        status: b.status,
+                                        payment_status: b.payment_status
+                                    }))}
+                                    onUpdate={() => router.refresh()}
+                                    onVerifyPayment={togglePaymentStatus}
+                                />
+                            </div>
+
+                            {/* Live Vote Tally (Moved down here) */}
+                            {(matchStatus === 'active' || matchStatus === 'completed' || Object.keys(voteTally).length > 0) && (
+                                <div className="bg-gradient-to-r from-yellow-500/10 to-transparent border border-yellow-500/20 rounded-sm p-6 mb-8">
+                                    <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2 mb-4 text-yellow-500">
+                                        <Trophy className="w-5 h-5" /> Live Player MVP Votes
+                                    </h2>
+                                    {Object.keys(voteTally).length === 0 ? (
+                                        <p className="text-sm text-gray-500 italic">No votes cast yet.</p>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-4">
+                                            {Object.entries(voteTally)
+                                                .sort(([, a], [, b]) => b - a)
+                                                .map(([candidateId, count], index) => {
+                                                    // Find player name
+                                                    const player = roster.find(b => {
+                                                        const p = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
+                                                        return b.user_id === candidateId || p?.id === candidateId;
+                                                    });
+                                                    // Fallback helper
+                                                    const getPlayerName = (b: any) => {
+                                                        const p = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
+                                                        return p?.full_name || 'Unknown';
+                                                    };
+                                                    const name = player ? getPlayerName(player) : 'Unknown Player';
+
+                                                    return (
+                                                        <div key={candidateId} className="bg-black/40 border border-yellow-500/30 px-4 py-2 rounded flex items-center gap-3">
+                                                            <div className="text-xl font-black text-white">{index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}</div>
+                                                            <div>
+                                                                <div className="font-bold text-sm text-gray-200">{name}</div>
+                                                                <div className="text-xs text-yellow-500 font-bold">{count} Votes</div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* MODE TOGGLE & TABS */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-white/10 pb-4">
+                                <div className="flex items-center gap-4 overflow-x-auto">
+                                    <button
+                                        onClick={() => handleViewModeChange('single')}
+                                        className={cn(
+                                            "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
+                                            viewMode === 'single' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
+                                        )}
+                                    >
+                                        <Trophy className="w-4 h-4" /> Single Match
+                                    </button>
+                                    <div className="w-px h-4 bg-white/20"></div>
+                                    <button
+                                        onClick={() => handleViewModeChange('king')}
+                                        className={cn(
+                                            "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
+                                            viewMode === 'king' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
+                                        )}
+                                    >
+                                        <Swords className="w-4 h-4" /> King of the Court
+                                    </button>
+                                    <div className="w-px h-4 bg-white/20"></div>
+                                    <button
+                                        onClick={() => handleViewModeChange('tournament')}
+                                        className={cn(
+                                            "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
+                                            viewMode === 'tournament' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
+                                        )}
+                                    >
+                                        <Calendar className="w-4 h-4" /> Tournament
+                                    </button>
+                                </div>
+
+                                <button
+                                    onClick={() => window.open(`/games/${gameId}/live`, '_blank')}
+                                    className="hidden md:flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white text-sm font-bold uppercase rounded border border-white/10 transition-colors whitespace-nowrap"
+                                >
+                                    <MonitorPlay className="w-4 h-4 text-pitch-accent" />
+                                    Launch Projector View
+                                </button>
+                            </div>
+
+
+                            {viewMode === 'single' && (
+                                /* SINGLE MATCH CONTROL PANEL */
+                                <div className="bg-gray-900 border border-gray-800 rounded-sm p-6">
+                                    <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2 mb-6">
+                                        <Trophy className="w-5 h-5 text-yellow-500" /> Match Control ({matchStatus})
+                                    </h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {/* 1. Scoreboard */}
+                                        <div className="bg-black/30 p-4 rounded border border-white/5">
+                                            <label className="block text-xs font-bold uppercase text-gray-400 mb-3">Scoreboard</label>
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex-1">
+                                                    <span className="block text-[10px] text-gray-500 mb-1 uppercase truncate">{teams[0].name}</span>
+                                                    <input
+                                                        type="number"
+                                                        value={homeScore}
+                                                        onChange={(e) => setHomeScore(Number(e.target.value))}
+                                                        className="w-full bg-black border border-white/20 p-2 text-center font-mono text-xl text-white rounded focus:border-pitch-accent outline-none"
+                                                    />
+                                                </div>
+                                                <span className="text-gray-600 font-bold">-</span>
+                                                <div className="flex-1">
+                                                    <span className="block text-[10px] text-gray-500 mb-1 uppercase truncate">{teams[1].name}</span>
+                                                    <input
+                                                        type="number"
+                                                        value={awayScore}
+                                                        onChange={(e) => setAwayScore(Number(e.target.value))}
+                                                        className="w-full bg-black border border-white/20 p-2 text-center font-mono text-xl text-white rounded focus:border-pitch-accent outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <p className="text-[10px] text-gray-500 mt-2 text-center italic">
+                                                Winner automatically detected from score.
+                                            </p>
+                                        </div>
+
+                                        {/* 2. MVP Selection */}
+                                        {false && (
+                                            <div className="bg-black/30 p-4 rounded border border-white/5">
+                                                <label className="block text-xs font-bold uppercase text-gray-400 mb-3">Man of the Match</label>
+                                                <select
+                                                    value={mvpId}
+                                                    onChange={(e) => setMvpId(e.target.value)}
+                                                    className="w-full bg-black border border-white/20 rounded p-2 text-sm text-white focus:outline-none focus:border-pitch-accent"
+                                                >
+                                                    <option value="">Select MVP...</option>
+                                                    {playerOptions.map(p => (
+                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                    ))}
+                                                </select>
+                                                <p className="text-[10px] text-gray-500 mt-2">Awarding MVP adds stats to player profile.</p>
+                                            </div>
+                                        )}
+
+                                        {/* Action Button */}
+                                        <div className="flex items-end justify-end">
+                                            <button
+                                                onClick={onFinalizeClick}
+                                                disabled={finalizing}
+                                                className={cn(
+                                                    "w-full px-6 py-3 font-bold uppercase tracking-wider rounded-sm flex items-center justify-center gap-2 shadow-lg transition-all h-[80px]",
+                                                    matchStatus === 'completed'
+                                                        ? "bg-green-600 text-white hover:bg-green-500"
+                                                        : "bg-pitch-accent text-pitch-black hover:bg-white hover:text-pitch-black"
+                                                )}
+                                            >
+                                                {finalizing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                                                {matchStatus === 'completed' ? "Update Match Stats" : "Finalize Match"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {viewMode === 'king' && (
+                                /* KING OF THE COURT (MANUAL & LIST) */
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                    <MatchManager
+                                        game={game}
+                                        bookings={bookings}
+                                        onUpdate={handleMatchUpdate}
+                                        filterMode="king"
+                                    />
+                                    <StandingsTable
+                                        key={refreshKey} // Force re-mount/re-fetch on update
+                                        gameId={gameId}
+                                        teams={teams as TeamConfig[]}
+                                        matches={matches}
+                                    />
+                                </div>
+                            )}
+
+                            {viewMode === 'tournament' && (
+                                /* TOURNAMENT (AUTO-SCHEDULER) */
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                    {!matches.some(m => m.round_number > 0) && (
+                                        <ScheduleGenerator
+                                            gameId={gameId}
+                                            teams={teams as TeamConfig[]}
+                                            onScheduleSaved={() => {
+                                                fetchMatches();
+                                                setRefreshKey(prev => prev + 1);
+                                            }}
+                                        />
+                                    )}
+                                    <MatchManager
+                                        key={`tournament-${refreshKey}`}
+                                        game={game}
+                                        bookings={bookings}
+                                        onUpdate={handleMatchUpdate}
+                                        filterMode="tournament"
+                                    />
+                                    {matches.some(m => m.round_number > 0) && (
+                                        <StandingsTable
+                                            key={`standings-${refreshKey}`}
+                                            gameId={gameId}
+                                            teams={teams as TeamConfig[]}
+                                            matches={matches}
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </TabsContent>
+                    </Tabs>
                 </div>
 
                 {/* RIGHT COLUMN: "Quick View" Match Preview - SUPPRESSED per user request (redundant with TeamManager) */}

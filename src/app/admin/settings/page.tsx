@@ -2,7 +2,9 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
-import { Loader2, Settings, Mail, BellOff, Bell, DollarSign } from 'lucide-react';
+import { Loader2, Settings, Mail, BellOff, Bell, DollarSign, Users } from 'lucide-react';
+import { SiteEditor } from '@/components/admin/SiteEditor';
+import UserTable from '@/components/admin/UserTable';
 
 interface SystemSetting {
     key: string;
@@ -21,6 +23,7 @@ const DEFAULT_PAYMENT_SETTINGS: SystemSetting[] = [
 
 export default function AdminSettingsPage() {
     const [settings, setSettings] = useState<SystemSetting[]>([]);
+    const [profiles, setProfiles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isMasterAdmin, setIsMasterAdmin] = useState(false);
     const supabase = createClient();
@@ -70,6 +73,17 @@ export default function AdminSettingsPage() {
         } else {
             setSettings(DEFAULT_PAYMENT_SETTINGS);
         }
+
+        // Fetch Profiles for User Management
+        const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('*')
+            .order('updated_at', { ascending: false });
+
+        if (profilesData) {
+            setProfiles(profilesData);
+        }
+
         setLoading(false);
     };
 
@@ -217,6 +231,22 @@ export default function AdminSettingsPage() {
                     )}
                 </div>
             </div>
+
+            {/* User Management */}
+            <div className="bg-pitch-card border border-white/5 rounded-lg p-6">
+                <h2 className="font-oswald text-xl font-bold uppercase mb-4 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-pitch-accent" />
+                    User Management
+                </h2>
+                <p className="text-gray-400 text-sm mb-6">
+                    Manage roles and enforce system bans.
+                </p>
+
+                <UserTable initialProfiles={profiles} />
+            </div>
+
+            {/* Dynamic Site Editor (Restricted to Master Admin by Page wrapper) */}
+            <SiteEditor />
         </div>
     );
 }
