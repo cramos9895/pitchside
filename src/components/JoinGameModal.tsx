@@ -278,7 +278,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 <div className="p-3 bg-blue-500/10 rounded-sm text-sm text-blue-200 mb-2">
                                     <p className="mb-2">Tap to open Venmo:</p>
                                     <a
-                                        href={`https://venmo.com/${VENMO_HANDLE}?txn=pay&note=PitchSide Game&amount=${gamePrice}`}
+                                        href={`https://venmo.com/${VENMO_HANDLE.replace('@', '')}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="block w-full py-2 bg-blue-500 text-white font-bold text-center rounded-sm hover:bg-blue-400"
@@ -289,10 +289,10 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                             )}
 
                             {paymentMethod === 'zelle' && (
-                                <div className="p-3 bg-purple-500/10 rounded-sm text-sm text-purple-200">
-                                    <p className="mb-2">Send to:</p>
-                                    <div className="flex items-center justify-between bg-black/30 p-2 rounded">
-                                        <span className="font-mono text-lg">{ZELLE_INFO}</span>
+                                <div className="p-3 bg-purple-500/10 rounded-sm text-sm text-purple-200 mb-2">
+                                    <p className="mb-2">Please send your Zelle payment to:</p>
+                                    <div className="flex items-center justify-between bg-black/30 p-3 rounded border border-purple-500/20">
+                                        <span className="font-mono text-lg font-bold">{ZELLE_INFO}</span>
                                         <button onClick={handleCopyZelle} className="text-purple-400 hover:text-white">
                                             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                                         </button>

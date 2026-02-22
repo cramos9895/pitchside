@@ -52,6 +52,8 @@ interface Game {
     title: string;
     start_time: string;
     price: number;
+    facility_id?: string | null;
+    resource_id?: string | null;
     teams_config: TeamConfig[] | null;
     status: 'scheduled' | 'active' | 'completed' | 'cancelled';
     home_score: number;

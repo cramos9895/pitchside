@@ -14,6 +14,8 @@ interface Game {
   max_players: number;
   current_players: number;
   surface_type: string;
+  facility_id?: string | null;
+  resource_id?: string | null;
   status: string;
 }
 

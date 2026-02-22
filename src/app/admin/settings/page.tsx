@@ -6,6 +6,7 @@ import { Loader2, Settings, Mail, BellOff, Bell, DollarSign, Users } from 'lucid
 import { SiteEditor } from '@/components/admin/SiteEditor';
 import UserTable from '@/components/admin/UserTable';
 import { useToast } from '@/components/ui/Toast';
+import { clearGlobalCache } from '@/app/actions/cache';
 
 interface SystemSetting {
     key: string;
@@ -133,6 +134,7 @@ export default function AdminSettingsPage() {
                 });
             }
             success('Payment links updated globally.');
+            await clearGlobalCache();
         } catch (err) {
             console.error('Failed to save payment settings:', err);
             error('Failed to update payment links.');

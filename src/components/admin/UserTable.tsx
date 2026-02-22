@@ -11,6 +11,8 @@ interface Profile {
     full_name: string;
     avatar_url: string;
     role: 'player' | 'admin' | 'master_admin';
+    system_role?: string;
+    facility_id?: string | null;
     zip_code?: string | null;
     created_at?: string;
     is_banned?: boolean;

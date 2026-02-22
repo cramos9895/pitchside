@@ -23,6 +23,8 @@ interface Game {
     max_players: number;
     price: number;
     surface_type: string;
+    facility_id?: string | null;
+    resource_id?: string | null;
     description?: string;
     teams_config?: any;
     has_mvp_reward?: boolean;

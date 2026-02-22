@@ -11,6 +11,8 @@ interface Game {
     title: string;
     status: string;
     view_mode: string;
+    facility_id?: string | null;
+    resource_id?: string | null;
     timer_status: 'stopped' | 'running' | 'paused';
     timer_duration: number;
     timer_started_at: string | null;
