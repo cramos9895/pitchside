@@ -124,14 +124,19 @@ export default function AdminSettingsPage() {
         try {
             const paymentSettingsList = settings.filter(s => s.category === 'payment');
             for (const setting of paymentSettingsList) {
-                await supabase.from('system_settings').upsert({
+                const { data, error } = await supabase.from('system_settings').upsert({
                     key: setting.key,
                     value: setting.value,
                     category: setting.category,
                     label: setting.label,
                     description: setting.description,
                     type: setting.type
-                });
+                }).select();
+
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    throw new Error("RLS Silent Failure - the database rejected the save.");
+                }
             }
             success('Payment links updated globally.');
             await clearGlobalCache();

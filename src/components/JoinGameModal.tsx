@@ -5,6 +5,7 @@ import { Loader2, X, UserPlus, DollarSign, CreditCard, Copy, Check } from 'lucid
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { WaiverModal } from './WaiverModal';
+import { getPaymentSettings } from '@/app/actions/settings';
 
 interface JoinGameModalProps {
     isOpen: boolean;
@@ -35,11 +36,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
 
     useEffect(() => {
         const fetchSettings = async () => {
-            // 1. Fetch System Settings (Global)
-            const { data: settingsData } = await supabase
-                .from('system_settings')
-                .select('key, value')
-                .in('key', ['payment.venmo_handle', 'payment.zelle_info']);
+            // 1. Fetch System Settings via un-cached Server Action
+            const settingsData = await getPaymentSettings();
 
             if (settingsData) {
                 settingsData.forEach((setting: { key: string; value: string }) => {
