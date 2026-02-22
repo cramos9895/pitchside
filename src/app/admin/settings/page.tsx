@@ -129,20 +129,26 @@ export default function AdminSettingsPage() {
                     value: setting.value,
                     category: setting.category,
                     label: setting.label,
-                    description: setting.description,
-                    type: setting.type
-                }).select();
+                    description: setting.description
+                }, { onConflict: 'key' }).select();
 
-                if (error) throw error;
+                if (error) {
+                    throw error;
+                }
                 if (!data || data.length === 0) {
-                    throw new Error("RLS Silent Failure - the database rejected the save.");
+                    throw new Error("RLS Silent Failure - the database rejected the save. Check permissions.");
                 }
             }
             success('Payment links updated globally.');
             await clearGlobalCache();
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to save payment settings:', err);
-            error('Failed to update payment links.');
+
+            // Extract raw Postgres error details if available from Supabase
+            const errorMessage = err.message || 'Unknown database error occurred.';
+            const errorDetails = err.details || '';
+
+            error(`Failed to save: ${errorMessage} ${errorDetails}`);
         } finally {
             setSavingPayment(false);
         }
