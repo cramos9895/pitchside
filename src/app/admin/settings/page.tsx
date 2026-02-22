@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Settings, Mail, BellOff, Bell, DollarSign, Users } from 'lucide-react';
 import { SiteEditor } from '@/components/admin/SiteEditor';
 import UserTable from '@/components/admin/UserTable';
+import { useToast } from '@/components/ui/Toast';
 
 interface SystemSetting {
     key: string;
@@ -25,8 +26,10 @@ export default function AdminSettingsPage() {
     const [settings, setSettings] = useState<SystemSetting[]>([]);
     const [profiles, setProfiles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [savingPayment, setSavingPayment] = useState(false);
     const [isMasterAdmin, setIsMasterAdmin] = useState(false);
     const supabase = createClient();
+    const { success, error } = useToast();
 
     useEffect(() => {
         checkRoleAndFetch();
@@ -109,22 +112,32 @@ export default function AdminSettingsPage() {
         }
     };
 
-    const updateTextSetting = async (key: string, newValue: string) => {
+    const updateTextSetting = (key: string, newValue: string) => {
         setSettings(prev => prev.map(s =>
             s.key === key ? { ...s, value: newValue } : s
         ));
+    };
 
-        // Use Upsert to create if missing
-        const settingToUpdate = settings.find(s => s.key === key);
-        if (settingToUpdate) {
-            await supabase.from('system_settings').upsert({
-                key,
-                value: newValue,
-                category: settingToUpdate.category,
-                label: settingToUpdate.label,
-                description: settingToUpdate.description,
-                type: settingToUpdate.type
-            });
+    const savePaymentSettings = async () => {
+        setSavingPayment(true);
+        try {
+            const paymentSettingsList = settings.filter(s => s.category === 'payment');
+            for (const setting of paymentSettingsList) {
+                await supabase.from('system_settings').upsert({
+                    key: setting.key,
+                    value: setting.value,
+                    category: setting.category,
+                    label: setting.label,
+                    description: setting.description,
+                    type: setting.type
+                });
+            }
+            success('Payment links updated globally.');
+        } catch (err) {
+            console.error('Failed to save payment settings:', err);
+            error('Failed to update payment links.');
+        } finally {
+            setSavingPayment(false);
         }
     };
 
@@ -185,6 +198,19 @@ export default function AdminSettingsPage() {
                     {paymentSettings.length === 0 && (
                         <div className="text-gray-500 italic text-center py-4">
                             No payment settings found in database.
+                        </div>
+                    )}
+
+                    {paymentSettings.length > 0 && (
+                        <div className="flex justify-end mt-6">
+                            <button
+                                onClick={savePaymentSettings}
+                                disabled={savingPayment}
+                                className="flex items-center gap-2 px-6 py-2 bg-pitch-accent text-pitch-black font-black uppercase tracking-wider rounded-sm hover:bg-white transition-colors disabled:opacity-50"
+                            >
+                                {savingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign className="w-4 h-4" />}
+                                {savingPayment ? 'Saving...' : 'Save Current Links'}
+                            </button>
                         </div>
                     )}
                 </div>

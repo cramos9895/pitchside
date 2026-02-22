@@ -1,8 +1,7 @@
-
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendNotification } from '@/lib/email';
-import { GameConfirmation } from '@/emails/GameConfirmation';
+import { sendPitchSideEmail } from '@/lib/emails/sendEmail';
+import { GameSignUpEmail } from '@/emails/GameSignUpEmail';
 
 
 
@@ -42,7 +41,7 @@ export async function POST(request: NextRequest) {
         // 1. Fetch Game to verify price, current players and max players
         const { data: game, error: gameError } = await supabase
             .from('games')
-            .select('price, title, start_time, location, max_players, current_players')
+            .select('price, title, start_time, location, max_players, current_players, view_mode')
             .eq('id', gameId)
             .single();
 
@@ -103,17 +102,22 @@ export async function POST(request: NextRequest) {
         // await syncPlayerCount(gameId);
 
         // 5. Send Confirmation Email
-        await sendNotification({
-            to: user.email!,
-            subject: `Booking Confirmed: ${game.title}`,
-            react: GameConfirmation({
-                userName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Player',
-                eventName: game.title,
-                date: new Date(game.start_time).toLocaleString(),
-                location: game.location
-            }),
-            type: 'confirmation'
-        });
+        try {
+            await sendPitchSideEmail({
+                to: user.email!,
+                subject: `Booking Confirmed: ${game.title} `,
+                react: GameSignUpEmail({
+                    playerName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Player',
+                    gameDate: new Date(game.start_time).toLocaleDateString(),
+                    time: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    location: game.location || 'TBD',
+                    mode: game.view_mode || 'Single Match'
+                })
+            });
+        } catch (emailErr) {
+            console.error('Email Dispatch Error:', emailErr);
+            // Don't fail the booking if email fails
+        }
 
         return NextResponse.json({ success: true });
 

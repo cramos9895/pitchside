@@ -29,6 +29,7 @@ export default function SettingsPage() {
     const [fullName, setFullName] = useState('');
     const [position, setPosition] = useState('Utility');
     const [jerseyNumber, setJerseyNumber] = useState('');
+    const [zipCode, setZipCode] = useState('');
     const [avatarUrl, setAvatarUrl] = useState('');
 
     // Security Form
@@ -69,6 +70,7 @@ export default function SettingsPage() {
                 setPosition(profile.position || 'Utility');
                 setAvatarUrl(profile.avatar_url || '');
                 setJerseyNumber(profile.jersey_number || '');
+                setZipCode(profile.zip_code || '');
 
                 // Admin Check
                 setIsAdmin(profile.role === 'admin' || profile.role === 'master_admin');
@@ -124,6 +126,7 @@ export default function SettingsPage() {
                     full_name: fullName,
                     position,
                     jersey_number: jerseyNumber ? parseInt(jerseyNumber) : null,
+                    zip_code: zipCode || null,
                     // We also save notification preferences here if they were part of the same table
                     notification_settings: {
                         game_reminders: gameReminders,
@@ -293,6 +296,17 @@ export default function SettingsPage() {
                                             <option value="Goalkeeper">Goalkeeper</option>
                                             <option value="Utility">Utility</option>
                                         </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Zip Code</label>
+                                        <input
+                                            type="text"
+                                            value={zipCode}
+                                            onChange={(e) => setZipCode(e.target.value)}
+                                            className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
+                                            placeholder="e.g. 90210"
+                                            maxLength={10}
+                                        />
                                     </div>
                                 </div>
 

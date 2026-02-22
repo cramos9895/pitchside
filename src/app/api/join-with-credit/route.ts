@@ -1,6 +1,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { sendPitchSideEmail } from '@/lib/emails/sendEmail';
+import { GameSignUpEmail } from '@/emails/GameSignUpEmail';
 
 export async function POST(request: NextRequest) {
     try {
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
         // 2. Fetch Game to check availability
         const { data: game, error: gameError } = await supabase
             .from('games')
-            .select('max_players, current_players, price, status')
+            .select('title, start_time, location, view_mode, max_players, current_players, price, status')
             .eq('id', gameId)
             .single();
 
@@ -103,6 +105,23 @@ export async function POST(request: NextRequest) {
 
         // 5. Update Player Count (Trigger might handle this, but sync is safer if trigger absent)
         // Trigger `on_booking_change` should handle it.
+
+        try {
+            await sendPitchSideEmail({
+                to: user.email!,
+                subject: `Booking Confirmed: ${game.title}`,
+                react: GameSignUpEmail({
+                    playerName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Player',
+                    gameDate: new Date(game.start_time).toLocaleDateString(),
+                    time: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    location: game.location || 'TBD',
+                    mode: game.view_mode || 'Single Match'
+                })
+            });
+        } catch (emailErr) {
+            console.error('Email Dispatch Error:', emailErr);
+            // Don't fail the booking if email fails
+        }
 
         return NextResponse.json({ success: true, message: 'Joined with Credit!' });
 
