@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { X, LogOut, User, Home, LayoutDashboard, Settings, Trophy } from 'lucide-react';
+import { X, LogOut, User, Home, LayoutDashboard, Settings, Trophy, Building } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -18,6 +18,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     const supabase = createClient();
     const [isAdmin, setIsAdmin] = useState(false);
     const [isMasterAdmin, setIsMasterAdmin] = useState(false);
+    const [isFacilityAdmin, setIsFacilityAdmin] = useState(false);
     const [user, setUser] = useState<any>(null);
     const [refundCount, setRefundCount] = useState(0);
 
@@ -33,14 +34,16 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             if (currentUser) {
                 const { data: profile } = await supabase
                     .from('profiles')
-                    .select('role')
+                    .select('role, system_role')
                     .eq('id', currentUser.id)
                     .single();
 
                 const role = profile?.role;
+                const systemRole = profile?.system_role;
                 const isAdminUser = role === 'admin' || role === 'master_admin';
                 setIsAdmin(isAdminUser);
                 setIsMasterAdmin(role === 'master_admin');
+                setIsFacilityAdmin(systemRole === 'facility_admin' || systemRole === 'super_admin' || role === 'master_admin');
 
                 if (isAdminUser) {
                     // Fetch pending refunds
@@ -57,6 +60,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             } else {
                 setIsAdmin(false);
                 setIsMasterAdmin(false);
+                setIsFacilityAdmin(false);
             }
         };
         getUser();
@@ -141,6 +145,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                         <Trophy className="w-6 h-6 text-gray-500 group-hover:text-pitch-accent transition-colors" />
                         Leaderboard
                     </Link>
+
+                    {isFacilityAdmin && (
+                        <Link
+                            href="/facility"
+                            onClick={onClose}
+                            className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-blue-400 hover:text-white transition-colors group border-l-4 border-blue-400 pl-4 -ml-5 mt-4"
+                        >
+                            <Building className="w-6 h-6 text-blue-400 group-hover:text-white transition-colors" />
+                            Facility Portal
+                        </Link>
+                    )}
 
                     {isAdmin && (
                         <>

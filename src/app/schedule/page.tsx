@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { MapPin, Clock, ArrowRight, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { GameCard } from '@/components/GameCard';
 
 interface Game {
     id: string;
@@ -37,8 +38,7 @@ export default async function SchedulePage() {
 
     // Fetch user bookings to check status
     const { data: { user } } = await supabase.auth.getUser();
-    const joinedGameIds = new Set<string>();
-    const waitlistedGameIds = new Set<string>();
+    const bookingStatusMap = new Map<string, string>();
 
     if (user) {
         const { data: bookings } = await supabase
@@ -49,11 +49,7 @@ export default async function SchedulePage() {
 
         if (bookings) {
             bookings.forEach((b: any) => {
-                if (b.status === 'waitlist') {
-                    waitlistedGameIds.add(b.game_id);
-                } else {
-                    joinedGameIds.add(b.game_id);
-                }
+                bookingStatusMap.set(b.game_id, b.status);
             });
         }
     }
@@ -114,77 +110,14 @@ export default async function SchedulePage() {
 
                                 {/* Games List */}
                                 <div className="space-y-4">
-                                    {dailyGames.map((game) => {
-                                        const isFull = game.current_players >= game.max_players;
-                                        const spotsLeft = game.max_players - game.current_players;
-                                        const isJoined = joinedGameIds.has(game.id);
-                                        const isWaitlisted = waitlistedGameIds.has(game.id);
-
-                                        return (
-                                            <div
-                                                key={game.id}
-                                                className="group relative bg-pitch-card hover:bg-white/5 border border-white/5 rounded-sm p-4 md:p-6 transition-all duration-300 flex flex-col md:flex-row md:items-center gap-4 md:gap-8"
-                                            >
-                                                {/* Time Column */}
-                                                <div className="flex-shrink-0 w-24">
-                                                    <div className="font-heading text-2xl font-bold italic text-white">
-                                                        {formatTime(game.start_time)}
-                                                    </div>
-                                                    <div className="text-xs text-pitch-secondary uppercase font-bold tracking-wider mt-1">
-                                                        Start
-                                                    </div>
-                                                </div>
-
-                                                {/* Details Column */}
-                                                <div className="flex-grow">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <h3 className="font-bold text-lg text-white group-hover:text-pitch-accent transition-colors">
-                                                            {game.title}
-                                                        </h3>
-                                                        {game.price === 0 && (
-                                                            <span className="bg-green-500/20 text-green-400 text-[10px] font-black uppercase px-2 py-0.5 rounded">Free</span>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="flex item-center text-pitch-secondary text-sm">
-                                                        <MapPin className="w-4 h-4 mr-1 text-gray-500" />
-                                                        {game.location}
-                                                    </div>
-                                                </div>
-
-                                                {/* Info Column (Spots/Price) */}
-                                                <div className="flex items-center gap-6 text-right justify-between md:justify-end border-t border-white/5 pt-4 md:pt-0 md:border-t-0 w-full md:w-auto mt-2 md:mt-0">
-                                                    <div className="flex flex-col items-end">
-                                                        <div className={cn(
-                                                            "font-bold text-sm",
-                                                            isFull ? "text-red-500" : (spotsLeft <= 3 ? "text-orange-400" : "text-green-400")
-                                                        )}>
-                                                            {isFull ? "FULL" : `${spotsLeft} spots left`}
-                                                        </div>
-                                                        <div className="text-xs text-pitch-secondary uppercase font-bold">
-                                                            {game.price > 0 ? `$${game.price}` : 'No Cost'}
-                                                        </div>
-                                                    </div>
-
-                                                    <Link
-                                                        href={`/games/${game.id}`}
-                                                        className={cn(
-                                                            "inline-flex items-center justify-center px-6 py-2 rounded-sm font-black uppercase tracking-wider text-sm transition-all shadow-lg min-w-[140px]",
-                                                            isJoined
-                                                                ? "bg-white/10 text-white hover:bg-red-500/20 hover:text-red-500 border border-white/10"
-                                                                : isWaitlisted
-                                                                    ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/30"
-                                                                    : isFull
-                                                                        ? "bg-pitch-card border border-white/10 text-white/50 hover:bg-white/5 hover:text-white"
-                                                                        : "bg-pitch-accent text-pitch-black hover:bg-white hover:scale-105"
-                                                        )}
-                                                    >
-                                                        {isJoined ? "Joined" : isWaitlisted ? "Waitlisted" : isFull ? 'Join Waitlist' : 'Join Game'}
-                                                    </Link>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                    {dailyGames.map((game) => (
+                                        <GameCard
+                                            key={game.id}
+                                            game={game}
+                                            user={user}
+                                            bookingStatus={bookingStatusMap.get(game.id)}
+                                        />
+                                    ))}
                                 </div>
                             </div>
                         ))}

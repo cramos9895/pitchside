@@ -85,12 +85,28 @@ function LoginForm() {
                     setMessage('Check your email for the confirmation link.');
                 }
             } else {
-                const { error } = await supabase.auth.signInWithPassword({
+                const { data: authData, error } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 });
                 if (error) throw error;
-                router.push('/');
+
+                // After successful sign-in, check role for redirection
+                if (authData?.user) {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('system_role')
+                        .eq('id', authData.user.id)
+                        .single();
+
+                    if (profile?.system_role === 'facility_admin' || profile?.system_role === 'super_admin') {
+                        router.push('/facility');
+                    } else {
+                        router.push('/');
+                    }
+                } else {
+                    router.push('/');
+                }
                 router.refresh(); // Refresh to update server components/navbar
             }
         } catch (err: any) {
