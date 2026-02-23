@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendNotification } from '@/lib/email';
-import { GameConfirmation } from '@/emails/GameConfirmation';
+import { sendPitchSideEmail } from '@/lib/emails/sendEmail';
+import { WaitlistAlertEmail } from '@/emails/WaitlistAlertEmail';
 
 export async function POST(request: NextRequest) {
     try {
@@ -44,13 +44,13 @@ export async function POST(request: NextRequest) {
         if (kickError) throw kickError;
 
         // 2. Fetch game info for promotion
-        const { data: game } = await supabase
+        const { data: game, error: gameError } = await supabase
             .from('games')
-            .select('*')
+            .select('start_time, max_players, title, location')
             .eq('id', gameId)
             .single();
 
-        if (!game) throw new Error('Game not found');
+        if (gameError || !game) throw new Error('Game not found');
 
         // 3. Count currently confirmed players
         const { count: currentPlayers } = await supabase
@@ -95,16 +95,15 @@ export async function POST(request: NextRequest) {
 
                     if (promotedUser?.email) {
                         try {
-                            await sendNotification({
+                            await sendPitchSideEmail({
                                 to: promotedUser.email,
                                 subject: `You're in! Spot opened for ${game.title}`,
-                                react: GameConfirmation({
-                                    userName: promotedUser.full_name || 'Player',
-                                    eventName: game.title,
-                                    date: new Date(game.start_time).toLocaleString(),
-                                    location: game.location
-                                }),
-                                type: 'waitlist'
+                                react: WaitlistAlertEmail({
+                                    gameDate: new Date(game.start_time).toLocaleDateString(),
+                                    time: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                    location: game.location || 'TBD',
+                                    claimUrl: `https://www.pitchsidecf.com/games/${gameId}`
+                                })
                             });
                         } catch (emailErr) {
                             console.error('Waitlist promotion email failed:', emailErr);

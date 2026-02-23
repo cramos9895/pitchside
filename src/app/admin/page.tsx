@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { AdminGameList } from '@/components/admin/AdminGameList';
-import { PendingPaymentsWidget } from '@/components/admin/PendingPaymentsWidget';
 
 export const revalidate = 0;
 
@@ -45,9 +44,6 @@ export default async function AdminDashboard() {
                         <Plus className="w-5 h-5" /> Create New Game
                     </Link>
                 </div>
-
-                {/* Pending Payments Widget */}
-                <PendingPaymentsWidget />
 
                 {/* Games List (Client Component with Tabs) */}
                 <AdminGameList initialGames={games || []} />

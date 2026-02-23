@@ -94,18 +94,20 @@ export async function POST(request: NextRequest) {
 
         // 5b. Send Cancellation Receipt (if applicable)
         if (booking.status === 'paid' || booking.status === 'active') {
-            try {
-                await sendPitchSideEmail({
-                    to: user.email!,
-                    subject: `Cancellation Confirmed: ${game.title}`,
-                    react: CancellationEmail({
-                        playerName: user.user_metadata?.full_name || 'Player',
-                        gameDate: new Date(game.start_time).toLocaleDateString(),
-                        refundMethod: refunded ? 'Credits' : 'None (Late Cancellation)'
-                    })
-                });
-            } catch (emailErr) {
-                console.error('Cancellation Email Error:', emailErr);
+            if (user?.email) {
+                try {
+                    await sendPitchSideEmail({
+                        to: user.email,
+                        subject: `Cancellation Confirmed: ${game.title}`,
+                        react: CancellationEmail({
+                            playerName: user.user_metadata?.full_name || 'Player',
+                            gameDate: new Date(game.start_time).toLocaleDateString(),
+                            refundMethod: refunded ? 'Credits' : 'None (Late Cancellation)'
+                        })
+                    });
+                } catch (emailErr) {
+                    console.error('Cancellation Email Error:', emailErr);
+                }
             }
         }
 
