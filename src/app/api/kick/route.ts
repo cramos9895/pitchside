@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
             })
             .eq('game_id', gameId)
             .eq('user_id', targetUserId)
-            .neq('roster_status', 'dropped');
+            .neq('status', 'cancelled');
 
         if (kickError) throw kickError;
 
@@ -54,12 +54,15 @@ export async function POST(request: NextRequest) {
 
         if (gameError || !game) throw new Error('Game not found');
 
-        // 3. Count currently confirmed players
+        // 3. Count currently confirmed players (handle legacy 'paid'/'active')
         const { count: currentPlayers } = await supabaseAdmin
             .from('bookings')
             .select('id', { count: 'exact', head: true })
             .eq('game_id', gameId)
-            .eq('roster_status', 'confirmed');
+            .neq('status', 'cancelled')
+            .neq('status', 'waitlist')
+            .not('roster_status', 'eq', 'dropped')
+            .not('roster_status', 'eq', 'waitlisted');
 
         // 4. If space opened up, promote someone from waitlist
         if (currentPlayers !== null && currentPlayers < game.max_players) {
@@ -71,7 +74,7 @@ export async function POST(request: NextRequest) {
                     profiles:user_id(email, full_name)
                 `)
                 .eq('game_id', gameId)
-                .eq('roster_status', 'waitlisted')
+                .or('roster_status.eq.waitlisted,status.eq.waitlist')
                 .order('created_at', { ascending: true }) // Oldest first
                 .limit(1);
 

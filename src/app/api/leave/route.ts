@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
             .select('id, status, roster_status')
             .eq('game_id', gameId)
             .eq('user_id', user.id)
-            .neq('roster_status', 'dropped')
+            .neq('status', 'cancelled')
             .order('created_at', { ascending: false })
             .limit(1);
 
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
                     .from('bookings')
                     .select('id, user_id')
                     .eq('game_id', gameId)
-                    .in('roster_status', ['waitlisted'])
+                    .or('roster_status.eq.waitlisted,status.eq.waitlist')
                     .order('created_at', { ascending: true })
                     .limit(1);
 
