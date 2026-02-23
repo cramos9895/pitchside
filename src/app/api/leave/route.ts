@@ -34,16 +34,21 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Game not found' }, { status: 404 });
         }
 
-        // 2. Get current booking status
-        const { data: booking, error: fetchError } = await supabase
+        // 2. Get current booking status (Handle multiple bookings if user left and rejoined)
+        const { data: bookings, error: fetchError } = await supabaseAdmin
             .from('bookings')
-            .select('id, status')
+            .select('id, status, roster_status')
             .eq('game_id', gameId)
             .eq('user_id', user.id)
-            .single();
+            .neq('roster_status', 'dropped')
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        const booking = bookings?.[0];
 
         if (fetchError || !booking) {
-            return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+            console.error('[LEAVE] Fetch Booking Error:', fetchError);
+            return NextResponse.json({ error: 'Booking not found', details: fetchError }, { status: 404 });
         }
 
         if (booking.status === 'cancelled') {
