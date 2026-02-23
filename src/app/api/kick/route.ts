@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendPitchSideEmail } from '@/lib/emails/sendEmail';
 import { WaitlistAlertEmail } from '@/emails/WaitlistAlertEmail';
@@ -29,8 +30,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
         }
 
-        // 1. Kick the player
-        const { error: kickError } = await supabase
+        // 1. Kick the player using Admin Client to bypass strict Booking RLS
+        const supabaseAdmin = await createAdminClient();
+        const { error: kickError } = await supabaseAdmin
             .from('bookings')
             .update({
                 status: 'cancelled',
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
         if (gameError || !game) throw new Error('Game not found');
 
         // 3. Count currently confirmed players
-        const { count: currentPlayers } = await supabase
+        const { count: currentPlayers } = await supabaseAdmin
             .from('bookings')
             .select('id', { count: 'exact', head: true })
             .eq('game_id', gameId)
@@ -61,7 +63,7 @@ export async function POST(request: NextRequest) {
 
         // 4. If space opened up, promote someone from waitlist
         if (currentPlayers !== null && currentPlayers < game.max_players) {
-            const { data: waitlistedBookings } = await supabase
+            const { data: waitlistedBookings } = await supabaseAdmin
                 .from('bookings')
                 .select(`
                     id,
@@ -77,7 +79,7 @@ export async function POST(request: NextRequest) {
 
             if (nextInLine) {
                 // Promote them!
-                const { error: promoteError } = await supabase
+                const { error: promoteError } = await supabaseAdmin
                     .from('bookings')
                     .update({
                         roster_status: 'confirmed',
@@ -116,7 +118,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true });
 
     } catch (err: any) {
-        console.error('Kick logic error:', err);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        console.error('[KICK ERROR]:', err);
+        return NextResponse.json({ error: err.message || 'Internal server error', details: err }, { status: 500 });
     }
 }

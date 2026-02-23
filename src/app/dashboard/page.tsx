@@ -92,8 +92,13 @@ export default function DashboardPage() {
                 if (error) {
                     console.error("Error fetching bookings:", error);
                 } else {
-                    // Filter out cancelled games and lost references (deleted games)
-                    const validBookings = (bookingsData || []).filter((b: any) => b.game && b.game.status !== 'cancelled');
+                    // Filter out cancelled games and lost references (deleted games), as well as cancelled/dropped user bookings
+                    const validBookings = (bookingsData || []).filter((b: any) =>
+                        b.game &&
+                        b.game.status !== 'cancelled' &&
+                        b.status !== 'cancelled' &&
+                        b.roster_status !== 'dropped'
+                    );
 
                     if (validBookings.length > 0) {
                         const gameIds = validBookings.map((b: any) => b.game.id);

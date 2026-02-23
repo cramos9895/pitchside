@@ -1,5 +1,5 @@
-
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendPitchSideEmail } from '@/lib/emails/sendEmail';
 import { WaitlistAlertEmail } from '@/emails/WaitlistAlertEmail';
@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
         if (!gameId) {
             return NextResponse.json({ error: 'Game ID required' }, { status: 400 });
         }
+
+        const supabaseAdmin = createAdminClient();
 
         // 1. Fetch Game Details for Time Check
         const { data: game, error: gameError } = await supabase
@@ -61,8 +63,8 @@ export async function POST(request: NextRequest) {
         // Assuming 'paid' means they used a credit or paid cash.
         if (booking.status === 'paid' || booking.status === 'active') {
             if (hoursRemaining > 6) {
-                // Fetch current credits to increment
-                const { data: profile, error: profileError } = await supabase
+                // Fetch current credits to increment using Admin Client to bypass RLS
+                const { data: profile, error: profileError } = await supabaseAdmin
                     .from('profiles')
                     .select('free_game_credits')
                     .eq('id', user.id)
@@ -70,12 +72,14 @@ export async function POST(request: NextRequest) {
 
                 if (profile && !profileError) {
                     const newCredits = (profile.free_game_credits || 0) + 1;
-                    await supabase
+                    await supabaseAdmin
                         .from('profiles')
                         .update({ free_game_credits: newCredits })
                         .eq('id', user.id);
                     refunded = true;
                     message = 'Booking cancelled. A game credit has been refunded to your account.';
+                } else if (profileError) {
+                    console.error("Failed to refund credit:", profileError)
                 }
             } else {
                 message = 'Booking cancelled. No refund issued (less than 6 hours to start).';
@@ -85,7 +89,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 5. Update booking status to 'cancelled' and 'dropped'
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseAdmin
             .from('bookings')
             .update({ status: 'cancelled', roster_status: 'dropped' })
             .eq('id', booking.id);
@@ -113,20 +117,20 @@ export async function POST(request: NextRequest) {
 
         // 6. Check for Waitlist and Auto-Promote
         try {
-            // Only promote if the person leaving was actually holding a spot, not if they were waitlisted
             if (booking.status === 'paid' || booking.status === 'active') {
-                const { data: nextWaitlist } = await supabase
+                const { data: waitlistBookings } = await supabaseAdmin
                     .from('bookings')
                     .select('id, user_id')
                     .eq('game_id', gameId)
                     .in('roster_status', ['waitlisted'])
                     .order('created_at', { ascending: true })
-                    .limit(1)
-                    .single();
+                    .limit(1);
+
+                const nextWaitlist = waitlistBookings?.[0];
 
                 if (nextWaitlist) {
                     // Auto-Promote the player
-                    await supabase
+                    await supabaseAdmin
                         .from('bookings')
                         .update({
                             roster_status: 'confirmed',
@@ -135,7 +139,7 @@ export async function POST(request: NextRequest) {
                         })
                         .eq('id', nextWaitlist.id);
 
-                    const { data: waitlistProfile } = await supabase
+                    const { data: waitlistProfile } = await supabaseAdmin
                         .from('profiles')
                         .select('email, full_name')
                         .eq('id', nextWaitlist.user_id)
@@ -167,7 +171,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, refunded, message });
 
     } catch (err: any) {
-        console.error('Leave Error:', err);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        console.error('[LEAVE ERROR]:', err);
+        return NextResponse.json({ error: err.message || 'Internal Server Error', details: err }, { status: 500 });
     }
 }
