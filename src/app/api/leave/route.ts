@@ -46,9 +46,13 @@ export async function POST(request: NextRequest) {
 
         const booking = bookings?.[0];
 
-        if (fetchError || !booking) {
+        if (fetchError) {
             console.error('[LEAVE] Fetch Booking Error:', fetchError);
-            return NextResponse.json({ error: 'Booking not found', details: fetchError }, { status: 404 });
+            return NextResponse.json({ error: fetchError.message || 'Database fetch error', details: fetchError }, { status: 500 });
+        }
+
+        if (!booking) {
+            return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
         }
 
         if (booking.status === 'cancelled') {
