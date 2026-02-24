@@ -14,11 +14,17 @@ export default async function FacilityLayout({ children }: { children: ReactNode
 
     const { data: profile } = await supabase
         .from('profiles')
-        .select('system_role')
+        .select('system_role, facility_id')
         .eq('id', user.id)
         .single();
 
     if (profile?.system_role !== 'facility_admin' && profile?.system_role !== 'super_admin') {
+        console.warn(`[FACILITY BLOCK]: User ${user.email} attempted to access Facility Portal without facility_admin role. Redirecting to home.`);
+        redirect('/');
+    }
+
+    if (profile?.system_role !== 'super_admin' && !profile?.facility_id) {
+        console.warn(`[FACILITY BLOCK]: User ${user.email} is a facility_admin but has no assigned facility_id. Redirecting to home.`);
         redirect('/');
     }
 

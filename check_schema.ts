@@ -9,19 +9,11 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!; // Or SERVICE_RO
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function checkSchema() {
-    const { data, error } = await supabase
-        .from('games')
-        .select('*')
-        .limit(1);
+    // PostgREST exposes openapi.json which contains table definitions
+    const res = await fetch(`${supabaseUrl}/rest/v1/?apikey=${supabaseKey}`);
+    const spec = await res.json();
 
-    if (error) {
-        console.error('Error fetching games:', error);
-    } else {
-        console.log('Sample Game Data:', data);
-    }
-
-    // We can't query information_schema easily with supabase-js unless we use rpc or have direct access.
-    // But seeing the data format of an existing game will tell us if it returns "2024-..." or "19:00:00"
+    console.log('Resources Table Definition:', JSON.stringify(spec.definitions.resources, null, 2));
 }
 
 checkSchema();
