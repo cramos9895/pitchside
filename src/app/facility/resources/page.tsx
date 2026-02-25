@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { Plus, MapPin, Database } from 'lucide-react';
 import { ResourceModal } from '@/components/facility/ResourceModal';
@@ -14,11 +15,13 @@ export default async function ResourcesManager() {
     // 1. Fetch Profile to get facility_id
     const { data: profile } = await supabase
         .from('profiles')
-        .select('facility_id, system_role')
+        .select('facility_id, system_role, role')
         .eq('id', user.id)
         .single();
 
-    if (!profile?.facility_id) {
+    const isSuperAdmin = profile?.system_role === 'super_admin' || profile?.role === 'master_admin';
+
+    if (!isSuperAdmin && !profile?.facility_id) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
                 <Database className="w-16 h-16 text-gray-600 mb-6" />
@@ -32,12 +35,29 @@ export default async function ResourcesManager() {
         );
     }
 
-    // 2. Fetch Resources for this specific Facility (RLS protects this natively, but we make it explicit)
-    const { data: resources, error: fetchError } = await supabase
+    // 2. Fetch Resources
+    // Super Admins query everything. Facility Admins query their own.
+    let query = supabase
         .from('resources')
-        .select('*')
-        .eq('facility_id', profile.facility_id)
+        .select('*, facilities(name)')
         .order('created_at', { ascending: false });
+
+    if (!isSuperAdmin) {
+        query = query.eq('facility_id', profile?.facility_id);
+    }
+
+    const { data: resources, error: fetchError } = await query;
+
+    // 3. Fetch all Facilities if Super Admin (for the dropdown)
+    let allFacilities: { id: string, name: string }[] = [];
+    if (isSuperAdmin) {
+        const adminAuthClient = createAdminClient();
+        const { data: facs, error: fError } = await adminAuthClient.from('facilities').select('id, name').order('name');
+        console.log('ADMIN FACS QUERY:', facs, 'F ERROR:', fError);
+        if (facs) allFacilities = facs;
+    }
+
+    console.log('[ResourcesManager] isSuperAdmin:', isSuperAdmin, 'allFacilities count:', allFacilities.length);
 
     return (
         <div className="animate-in fade-in duration-500">
@@ -52,7 +72,7 @@ export default async function ResourcesManager() {
                 </div>
 
                 {/* Embedded Client Modal Trigger */}
-                <ResourceModal />
+                <ResourceModal isSuperAdmin={isSuperAdmin} facilities={allFacilities} />
             </div>
 
             {/* Resources Data Table */}
@@ -62,6 +82,7 @@ export default async function ResourcesManager() {
                         <thead>
                             <tr className="bg-white/5 border-b border-white/10 text-xs uppercase tracking-wider text-gray-400">
                                 <th className="p-4 font-bold">Resource Name</th>
+                                {isSuperAdmin && <th className="p-4 font-bold">Facility Name</th>}
                                 <th className="p-4 font-bold">Type</th>
                                 <th className="p-4 font-bold text-right">Added</th>
                             </tr>
@@ -69,7 +90,7 @@ export default async function ResourcesManager() {
                         <tbody className="divide-y divide-white/5">
                             {fetchError || !resources || resources.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="p-8 text-center text-gray-500 italic">
+                                    <td colSpan={isSuperAdmin ? 4 : 3} className="p-8 text-center text-gray-500 italic">
                                         No resources found. Click "Add Resource" to create your first field or court.
                                     </td>
                                 </tr>
@@ -80,6 +101,11 @@ export default async function ResourcesManager() {
                                             <div className="font-bold text-white">{resource.name}</div>
                                             <div className="text-xs text-gray-500 font-mono mt-1">{resource.id.substring(0, 8)}...</div>
                                         </td>
+                                        {isSuperAdmin && (
+                                            <td className="p-4">
+                                                <span className="text-gray-300 font-bold">{resource.facilities?.name || 'Unknown'}</span>
+                                            </td>
+                                        )}
                                         <td className="p-4">
                                             <span className="bg-pitch-accent/20 text-pitch-accent px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-wider border border-pitch-accent/30">
                                                 {resource.type}

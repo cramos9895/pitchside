@@ -1,9 +1,11 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 export async function createResource(formData: FormData) {
+    console.log('[createResource] INCOMING FORMDATA:', Array.from(formData.entries()));
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -14,7 +16,7 @@ export async function createResource(formData: FormData) {
     // 1. Fetch User Profile to securely grab their facility_id and verify role
     const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('system_role, facility_id')
+        .select('system_role, role, facility_id')
         .eq('id', user.id)
         .single();
 
@@ -22,11 +24,13 @@ export async function createResource(formData: FormData) {
         return { error: 'Profile not found' };
     }
 
-    if (profile.system_role !== 'facility_admin' && profile.system_role !== 'super_admin') {
+    const isSuperAdmin = profile.system_role === 'super_admin' || profile.role === 'master_admin';
+
+    if (profile.system_role !== 'facility_admin' && !isSuperAdmin) {
         return { error: 'Forbidden. Facility Admin rights required.' };
     }
 
-    if (profile.system_role !== 'super_admin' && !profile.facility_id) {
+    if (!isSuperAdmin && !profile.facility_id) {
         return { error: 'No facility assigned to this admin account.' };
     }
 
@@ -38,16 +42,23 @@ export async function createResource(formData: FormData) {
     }
 
     // Determine the facility_id to use
-    // For now, if a Super Admin is testing, we will reject if they don't have a facility_id attached to their profile for safety.
-    // In the future, Super Admins might pass a facility ID in the form, but for this strict CRUD, we bind to the profile.
-    const targetFacilityId = profile.facility_id;
+    let targetFacilityId = profile.facility_id;
+
+    if (isSuperAdmin) {
+        const selectedFacilityId = formData.get('facility_id') as string;
+        if (!selectedFacilityId) {
+            return { error: 'Super Admin: Please explicitly select a facility to assign this resource to.' };
+        }
+        targetFacilityId = selectedFacilityId;
+    }
 
     if (!targetFacilityId) {
-        return { error: 'Super Admin: Please assign yourself to a facility first before creating resources.' };
+        return { error: 'No facility selected or assigned.' };
     }
 
     // 2. Insert into Database
-    const { error: insertError } = await supabase
+    const adminSupabase = createAdminClient();
+    const { error: insertError } = await adminSupabase
         .from('resources')
         .insert({
             facility_id: targetFacilityId,

@@ -5,7 +5,12 @@ import { Plus, Loader2, X } from 'lucide-react';
 import { createResource } from '@/app/actions/facility';
 import { useToast } from '@/components/ui/Toast';
 
-export function ResourceModal() {
+interface ResourceModalProps {
+    isSuperAdmin?: boolean;
+    facilities?: { id: string; name: string }[];
+}
+
+export function ResourceModal({ isSuperAdmin, facilities }: ResourceModalProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isPending, setIsPending] = useState(false);
     const { success, error } = useToast();
@@ -73,6 +78,29 @@ export function ResourceModal() {
                                     className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-pitch-accent focus:ring-1 focus:ring-pitch-accent transition-all"
                                 />
                             </div>
+
+                            {isSuperAdmin && (
+                                <div className="space-y-2">
+                                    <label htmlFor="facility_id" className="block text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                        Assign to Facility
+                                    </label>
+                                    <select
+                                        id="facility_id"
+                                        name="facility_id"
+                                        required
+                                        disabled={isPending || !facilities || facilities.length === 0}
+                                        defaultValue=""
+                                        className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent focus:ring-1 focus:ring-pitch-accent transition-all appearance-none"
+                                    >
+                                        <option value="" disabled className="text-gray-500">
+                                            {!facilities || facilities.length === 0 ? 'No facilities found! Create one first.' : 'Select a facility...'}
+                                        </option>
+                                        {facilities && facilities.map(f => (
+                                            <option key={f.id} value={f.id}>{f.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             <div className="space-y-2">
                                 <label htmlFor="type" className="block text-xs font-bold text-gray-400 uppercase tracking-widest">
