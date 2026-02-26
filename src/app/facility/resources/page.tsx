@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Plus, MapPin, Database } from 'lucide-react';
 import { ResourceModal } from '@/components/facility/ResourceModal';
@@ -57,7 +58,28 @@ export default async function ResourcesManager() {
         if (facs) allFacilities = facs;
     }
 
-    console.log('[ResourcesManager] isSuperAdmin:', isSuperAdmin, 'allFacilities count:', allFacilities.length);
+    // 4. Fetch Activity Types for the current/impersonated facility
+    let activeFacilityId = profile?.facility_id;
+    if (isSuperAdmin) {
+        const cookieStore = await cookies();
+        const impersonateCookie = cookieStore.get('pitchside_impersonate_facility_id');
+        if (impersonateCookie?.value) {
+            activeFacilityId = impersonateCookie.value;
+        }
+    }
+
+    let activityTypes: any[] = [];
+    if (activeFacilityId) {
+        const adminAuthClient = createAdminClient();
+        const { data: acts } = await adminAuthClient
+            .from('activity_types')
+            .select('*')
+            .eq('facility_id', activeFacilityId)
+            .order('name');
+        if (acts) activityTypes = acts;
+    }
+
+    console.log('[ResourcesManager] isSuperAdmin:', isSuperAdmin, 'allFacilities count:', allFacilities.length, 'activityTypes count:', activityTypes.length);
 
     return (
         <div className="animate-in fade-in duration-500">
@@ -72,7 +94,11 @@ export default async function ResourcesManager() {
                 </div>
 
                 {/* Embedded Client Modal Trigger */}
-                <ResourceModal isSuperAdmin={isSuperAdmin} facilities={allFacilities} />
+                <ResourceModal
+                    isSuperAdmin={isSuperAdmin}
+                    facilities={allFacilities}
+                    activityTypes={activityTypes}
+                />
             </div>
 
             {/* Resources Data Table */}

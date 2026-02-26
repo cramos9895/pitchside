@@ -20,9 +20,8 @@ export default async function AdminDashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-pitch-black text-white font-sans pt-32 px-6 pb-32">
-            <div className="max-w-7xl mx-auto">
-
+        <div className="animate-in fade-in duration-500">
+            <div>
                 {/* Header */}
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 border-b border-white/10 pb-6 gap-6">
                     <div>

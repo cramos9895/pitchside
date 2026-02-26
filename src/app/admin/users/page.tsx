@@ -31,8 +31,8 @@ export default async function UsersPage() {
     }
 
     return (
-        <div className="min-h-screen bg-pitch-black text-white p-6 pt-32">
-            <div className="max-w-6xl mx-auto">
+        <div className="animate-in fade-in duration-500">
+            <div>
                 <div className="mb-8 flex items-center justify-between">
                     <div>
                         <h1 className="font-heading text-4xl font-bold italic uppercase tracking-tighter mb-2 flex items-center gap-3">

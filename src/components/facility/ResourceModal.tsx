@@ -8,9 +8,10 @@ import { useToast } from '@/components/ui/Toast';
 interface ResourceModalProps {
     isSuperAdmin?: boolean;
     facilities?: { id: string; name: string }[];
+    activityTypes?: any[];
 }
 
-export function ResourceModal({ isSuperAdmin, facilities }: ResourceModalProps) {
+export function ResourceModal({ isSuperAdmin, facilities, activityTypes }: ResourceModalProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isPending, setIsPending] = useState(false);
     const { success, error } = useToast();
@@ -110,18 +111,16 @@ export function ResourceModal({ isSuperAdmin, facilities }: ResourceModalProps) 
                                     id="type"
                                     name="type"
                                     required
-                                    disabled={isPending}
+                                    disabled={isPending || !activityTypes || activityTypes.length === 0}
                                     defaultValue=""
                                     className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent focus:ring-1 focus:ring-pitch-accent transition-all appearance-none"
                                 >
-                                    <option value="" disabled className="text-gray-500">Select a type...</option>
-                                    <option value="Soccer">Soccer Field</option>
-                                    <option value="Basketball">Basketball Court</option>
-                                    <option value="Volleyball">Volleyball Court</option>
-                                    <option value="Tennis">Tennis Court</option>
-                                    <option value="Pickleball">Pickleball Court</option>
-                                    <option value="Multi-purpose">Multi-purpose Area</option>
-                                    <option value="Other">Other</option>
+                                    <option value="" disabled className="text-gray-500">
+                                        {!activityTypes || activityTypes.length === 0 ? 'No activities found! Create one in Settings.' : 'Select an activity type...'}
+                                    </option>
+                                    {activityTypes && activityTypes.map(act => (
+                                        <option key={act.id} value={act.name}>{act.name}</option>
+                                    ))}
                                 </select>
                             </div>
 
