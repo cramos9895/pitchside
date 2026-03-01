@@ -20,7 +20,18 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
     const isMasterAdmin = profile?.role === 'master_admin';
     const isSuperAdmin = profile?.system_role === 'super_admin';
-    const isRegularAdmin = profile?.role === 'admin';
+    const isRegularAdmin = profile?.role === 'host';
+
+    // Fetch pending count for Master Admin badge
+    let pendingCount = 0;
+    if (isMasterAdmin || isSuperAdmin) {
+        const { count } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true })
+            .eq('verification_status', 'pending');
+
+        if (count) pendingCount = count;
+    }
 
     if (!isMasterAdmin && !isSuperAdmin && !isRegularAdmin) {
         console.warn(`[ADMIN BLOCK]: User ${user.email} attempted to access Admin Portal without rights.`);
@@ -55,6 +66,20 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                                     <Banknote className="w-5 h-5 text-gray-600" />
                                     <span className="font-bold uppercase tracking-wider text-sm">Financials</span>
                                 </Link>
+
+                                {/* New Requests Link with Badge */}
+                                <Link href="/admin/requests" className="flex items-center justify-between px-4 py-3 rounded-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors group">
+                                    <div className="flex items-center gap-3">
+                                        <Users className="w-5 h-5 group-hover:text-blue-400 transition-colors" /> {/* Note: Could use a different icon like ShieldCheck or Bell */}
+                                        <span className="font-bold uppercase tracking-wider text-sm">Requests</span>
+                                    </div>
+                                    {pendingCount > 0 && (
+                                        <div className="bg-red-500 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse">
+                                            {pendingCount}
+                                        </div>
+                                    )}
+                                </Link>
+
                                 <Link href="/admin/settings" className="flex items-center gap-3 px-4 py-3 rounded-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
                                     <Settings className="w-5 h-5" />
                                     <span className="font-bold uppercase tracking-wider text-sm">Settings</span>

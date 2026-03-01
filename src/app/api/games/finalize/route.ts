@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // In a real app, verify user.role === 'admin' here.
+        // In a real app, verify user.role === 'host' here.
 
         const body = await request.json();
         const { gameId, homeScore, awayScore, status, mvpPlayerId, winner } = body;

@@ -10,7 +10,7 @@ interface Profile {
     email: string;
     full_name: string;
     avatar_url: string;
-    role: 'player' | 'admin' | 'master_admin';
+    role: 'player' | 'host' | 'master_admin';
     system_role?: string;
     facility_id?: string | null;
     zip_code?: string | null;
@@ -18,6 +18,7 @@ interface Profile {
     is_banned?: boolean;
     banned_until?: string | null;
     ban_reason?: string | null;
+    verification_status?: 'verified' | 'pending' | 'rejected';
 }
 
 interface UserTableProps {
@@ -57,7 +58,7 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
 
         if (sortRole) {
             result.sort((a, b) => {
-                const roleOrder = { master_admin: 3, admin: 2, player: 1 };
+                const roleOrder = { master_admin: 3, host: 2, player: 1 };
                 const orderA = roleOrder[a.role] || 0;
                 const orderB = roleOrder[b.role] || 0;
                 return sortRole === 'asc' ? orderA - orderB : orderB - orderA;
@@ -67,7 +68,7 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
         return result;
     }, [profiles, search, sortRole]);
 
-    const updateRole = async (userId: string, newRole: 'player' | 'admin' | 'master_admin') => {
+    const updateRole = async (userId: string, newRole: 'player' | 'host' | 'master_admin') => {
         if (!confirm(`Are you sure you want to change this user's role to ${newRole}?`)) return;
 
         setLoadingMap(prev => ({ ...prev, [userId]: true }));
@@ -183,7 +184,12 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
                                                 <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover" />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                                    <User className="w-5 h-5" />
+                                                    {profile.system_role === 'super_admin' ? 'SYSTEM'
+                                                        : profile.role === 'host'
+                                                            ? 'HOST'
+                                                            : profile.role === 'master_admin'
+                                                                ? 'MASTER'
+                                                                : <User className="w-5 h-5" />}
                                                 </div>
                                             )}
                                         </div>
@@ -194,14 +200,16 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
                                     </div>
                                 </td>
                                 <td className="py-4 px-4">
-                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${profile.role === 'master_admin'
-                                        ? 'bg-purple-500/10 border-purple-500 text-purple-500'
-                                        : profile.role === 'admin'
-                                            ? 'bg-red-500/10 border-red-500 text-red-500'
-                                            : 'bg-green-500/10 border-green-500 text-green-500'
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${profile.system_role === 'super_admin'
+                                        ? 'bg-red-500/10 border-red-500 text-red-500'
+                                        : profile.role === 'master_admin'
+                                            ? 'bg-purple-500/10 border-purple-500 text-purple-500'
+                                            : profile.role === 'host'
+                                                ? 'bg-orange-500/10 border-orange-500 text-orange-500'
+                                                : 'bg-green-500/10 border-green-500 text-green-500'
                                         }`}>
-                                        {profile.role === 'master_admin' && <Shield className="w-3 h-3" />}
-                                        {profile.role}
+                                        {profile.system_role === 'super_admin' && <Shield className="w-3 h-3" />}
+                                        {profile.system_role === 'super_admin' ? 'Super Admin' : profile.role}
                                     </span>
                                 </td>
                                 <td className="py-4 px-4 text-right">
@@ -215,12 +223,14 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
                                                 onChange={(e) => updateRole(profile.id, e.target.value as any)}
                                                 className={`bg-black/30 border border-white/10 text-xs rounded px-2 py-1 outline-none focus:border-pitch-accent transition-colors
                                                     ${profile.id === currentUserId ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/30 cursor-pointer'}
-                                                    ${profile.role === 'master_admin' ? 'text-purple-400 font-bold' :
-                                                        profile.role === 'admin' ? 'text-red-400 font-bold' : 'text-gray-300'}
+                                                    ${profile.system_role === 'super_admin' ? 'text-red-500 font-bold' :
+                                                        profile.role === 'master_admin' ? 'text-purple-400 font-bold' :
+                                                            profile.role === 'host' ? 'text-orange-400 font-bold' : 'text-gray-300'}
                                                 `}
                                             >
+                                                {profile.system_role === 'super_admin' ? <option value="super_admin">Super Admin</option> : null}
                                                 <option value="player">Player</option>
-                                                <option value="admin">Admin</option>
+                                                <option value="host">Host</option>
                                                 <option value="master_admin">Master Admin</option>
                                             </select>
                                         )}

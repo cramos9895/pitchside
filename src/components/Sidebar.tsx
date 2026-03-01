@@ -40,7 +40,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                 const role = profile?.role;
                 const systemRole = profile?.system_role;
-                const isAdminUser = role === 'admin' || role === 'master_admin';
+                // We treat facility admins as regular players essentially in the main app, but they have their own portal.
+                const isAdminUser = role === 'host' || role === 'master_admin';
                 setIsAdmin(isAdminUser);
                 setIsMasterAdmin(role === 'master_admin');
                 setIsFacilityAdmin(systemRole === 'facility_admin' || systemRole === 'super_admin' || role === 'master_admin');
@@ -165,8 +166,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                                 className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-red-500 hover:text-white transition-colors group border-l-4 border-red-500 pl-4 -ml-5"
                             >
                                 <LayoutDashboard className="w-6 h-6 text-red-500 group-hover:text-white transition-colors" />
-                                {isMasterAdmin ? 'Master Portal' : 'Admin Portal'}
-                                {refundCount > 0 && (
+                                <span className="font-bold uppercase tracking-wider text-sm">
+                                    {isMasterAdmin ? 'Master Portal' : 'Host Portal'}
+                                </span>    {refundCount > 0 && (
                                     <span className="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]">
                                         {refundCount}
                                     </span>

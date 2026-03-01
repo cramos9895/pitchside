@@ -2,8 +2,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { Activity, Plus, Trash2 } from 'lucide-react';
-import { createActivityType, deleteActivityType } from '@/app/actions/facility';
+import { Activity, Check, Plus } from 'lucide-react';
+import { toggleFacilityActivity } from '@/app/actions/facility';
 
 export default async function ActivityTypesSettings() {
     const supabase = await createClient();
@@ -42,13 +42,22 @@ export default async function ActivityTypesSettings() {
         );
     }
 
-    // 2. Fetch configured Activity Types for this facility
     const adminSupabase = createAdminClient();
-    const { data: activities, error } = await adminSupabase
+
+    // Fetch all global activity types
+    const { data: globalActivities } = await adminSupabase
         .from('activity_types')
         .select('*')
-        .eq('facility_id', activeFacilityId)
         .order('name');
+
+    // Fetch facility's activated activities
+    const { data: activatedActivitiesArray } = await adminSupabase
+        .from('facility_activities')
+        .select('activity_type_id')
+        .eq('facility_id', activeFacilityId);
+
+    // Convert to a Set for O(1) lookups
+    const activatedIds = new Set(activatedActivitiesArray?.map((a) => a.activity_type_id) || []);
 
     return (
         <div className="animate-in fade-in duration-500 max-w-4xl">
@@ -57,112 +66,58 @@ export default async function ActivityTypesSettings() {
                 <div>
                     <h1 className="text-3xl font-heading font-black italic text-white uppercase tracking-wider mb-2 flex items-center gap-3">
                         <Activity className="w-8 h-8 text-pitch-accent" />
-                        Activity Types
+                        Activated Facility Activities
                     </h1>
-                    <p className="text-gray-400">Configure the sports and activities hosted at your facility.</p>
+                    <p className="text-gray-400">
+                        Select the sports and activities that your facility explicitly hosts. These will appear as options when adding resources.
+                    </p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* Form Column */}
-                <div className="md:col-span-1">
-                    <div className="bg-pitch-card border border-white/10 rounded-sm p-6 sticky top-24">
-                        <h2 className="text-lg font-bold text-white mb-4 uppercase tracking-wider">Add New Type</h2>
-                        {/* @ts-ignore */}
-                        <form action={createActivityType} className="space-y-4">
-                            <div className="space-y-2">
-                                <label htmlFor="name" className="block text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                    Sport / Activity Name
-                                </label>
-                                <input
-                                    id="name"
-                                    name="name"
-                                    type="text"
-                                    required
-                                    placeholder="e.g. Pickleball"
-                                    className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-pitch-accent"
-                                />
-                            </div>
+            <div className="bg-pitch-card border border-white/10 rounded-sm p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {globalActivities?.map((activity) => {
+                        const isActive = activatedIds.has(activity.id);
 
-                            <div className="space-y-2">
-                                <label htmlFor="color_code" className="block text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                    Display Color
-                                </label>
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        id="color_code"
-                                        name="color_code"
-                                        type="color"
-                                        defaultValue="#00FF00"
-                                        className="h-10 w-16 bg-black/50 border border-white/10 rounded-sm cursor-pointer p-1"
-                                    />
-                                    <span className="text-xs text-gray-500">Choose an identifier color</span>
-                                </div>
-                            </div>
-
-                            <button
-                                type="submit"
-                                className="w-full mt-4 flex items-center justify-center gap-2 bg-pitch-accent text-pitch-black px-6 py-3 rounded-sm font-black uppercase tracking-wider hover:bg-white transition-colors"
-                            >
-                                <Plus className="w-5 h-5" />
-                                Add Activity
-                            </button>
-                        </form>
-                    </div>
+                        return (
+                            <form key={activity.id} action={async () => {
+                                'use server';
+                                await toggleFacilityActivity(activeFacilityId, activity.id, isActive);
+                            }}>
+                                <button
+                                    type="submit"
+                                    className={`
+                                        w-full flex items-center justify-between p-4 rounded-sm border transition-all duration-300
+                                        ${isActive
+                                            ? 'bg-pitch-accent/10 border-pitch-accent/50 hover:bg-pitch-accent/20 hover:border-pitch-accent'
+                                            : 'bg-black/40 border-white/10 hover:border-white/30 hover:bg-white/5'}
+                                    `}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div
+                                            className="w-4 h-4 rounded-full border border-white/20"
+                                            style={{ backgroundColor: activity.color_code }}
+                                        />
+                                        <span className={`font-bold transition-colors ${isActive ? 'text-white' : 'text-gray-400'}`}>
+                                            {activity.name}
+                                        </span>
+                                    </div>
+                                    <div className={`
+                                        w-6 h-6 rounded-full flex items-center justify-center transition-all
+                                        ${isActive ? 'bg-pitch-accent text-pitch-black' : 'bg-black/50 border border-white/10 text-transparent'}
+                                    `}>
+                                        <Check className="w-4 h-4" />
+                                    </div>
+                                </button>
+                            </form>
+                        );
+                    })}
                 </div>
-
-                {/* List Column */}
-                <div className="md:col-span-2">
-                    <div className="bg-pitch-card border border-white/10 rounded-sm overflow-hidden">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-white/5 border-b border-white/10 text-xs uppercase tracking-wider text-gray-400">
-                                    <th className="p-4 font-bold">Activity Name</th>
-                                    <th className="p-4 font-bold text-center">Color</th>
-                                    <th className="p-4 font-bold text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {error || !activities || activities.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={3} className="p-8 text-center text-gray-500 italic">
-                                            No activity types configured yet. Add your first sport!
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    activities.map((activity) => (
-                                        <tr key={activity.id} className="hover:bg-white/[0.02] transition-colors group">
-                                            <td className="p-4">
-                                                <div className="font-bold text-white text-lg">{activity.name}</div>
-                                            </td>
-                                            <td className="p-4 text-center text-sm text-gray-400">
-                                                <div className="flex justify-center items-center gap-2">
-                                                    <div
-                                                        className="w-6 h-6 rounded-full border border-white/20"
-                                                        style={{ backgroundColor: activity.color_code }}
-                                                    />
-                                                    <span className="font-mono text-xs">{activity.color_code}</span>
-                                                </div>
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                {/* @ts-ignore */}
-                                                <form action={deleteActivityType.bind(null, activity.id)}>
-                                                    <button
-                                                        type="submit"
-                                                        className="text-gray-500 hover:text-red-500 transition-colors p-2 rounded-sm hover:bg-red-500/10"
-                                                        title="Delete Activity"
-                                                    >
-                                                        <Trash2 className="w-5 h-5" />
-                                                    </button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                {(!globalActivities || globalActivities.length === 0) && (
+                    <div className="text-center py-12 text-gray-400 italic">
+                        No global activities have been created by the Pitch Side Master Admins yet.
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

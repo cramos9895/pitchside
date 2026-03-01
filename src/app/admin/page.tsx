@@ -1,5 +1,6 @@
 
 import { createClient } from '@/lib/supabase/server';
+import { Shield } from 'lucide-react';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { AdminGameList } from '@/components/admin/AdminGameList';
@@ -29,7 +30,8 @@ export default async function AdminDashboard() {
                             Admin Portal
                         </div>
                         <h1 className="font-heading text-4xl md:text-5xl font-bold uppercase italic tracking-tighter">
-                            Game <span className="text-pitch-accent">Manager</span>
+                            <span className="text-red-500"><Shield className="w-8 h-8" /></span>
+                            Host Portal
                         </h1>
                         <p className="text-pitch-secondary mt-2">
                             Create matches, manage rosters, and assign teams.

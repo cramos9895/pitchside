@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { GameForm } from '@/components/admin/GameForm';
+import { hardDeleteGame } from '@/app/actions/update-game';
 
 // Extended Game Interface to match DB
 interface Game {
@@ -43,6 +44,10 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
     const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
     const [gameToCancel, setGameToCancel] = useState<string | null>(null);
 
+    // Hard Delete State
+    const [isHardDeleteModalOpen, setIsHardDeleteModalOpen] = useState(false);
+    const [gameToHardDelete, setGameToHardDelete] = useState<string | null>(null);
+
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [gameToEdit, setGameToEdit] = useState<Game | null>(null);
@@ -72,6 +77,11 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
     const openCancelModal = (gameId: string) => {
         setGameToCancel(gameId);
         setIsCancelModalOpen(true);
+    };
+
+    const openHardDeleteModal = (gameId: string) => {
+        setGameToHardDelete(gameId);
+        setIsHardDeleteModalOpen(true);
     };
 
     const openEditModal = (game: Game) => {
@@ -110,6 +120,25 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
         } finally {
             setIsCancelModalOpen(false);
             setGameToCancel(null);
+        }
+    };
+
+    const handleHardDeleteConfirm = async () => {
+        if (!gameToHardDelete) return;
+
+        try {
+            await hardDeleteGame(gameToHardDelete);
+
+            // Immediate UI Update
+            setGames(prev => prev.filter(g => g.id !== gameToHardDelete));
+            toast.success('Game permanently deleted from database.');
+            router.refresh();
+        } catch (error: any) {
+            console.error('Error hard deleting game:', error);
+            toast.error(error.message || 'Failed to permanently delete game.');
+        } finally {
+            setIsHardDeleteModalOpen(false);
+            setGameToHardDelete(null);
         }
     };
 
@@ -335,6 +364,17 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
                                             <Trash2 className="w-5 h-5" />
                                         </button>
                                     )}
+
+                                    {/* Hard Delete Button (Past/Cancelled Only) */}
+                                    {(isCompleted || isCancelled) && (
+                                        <button
+                                            onClick={() => openHardDeleteModal(game.id)}
+                                            className="p-2 text-gray-500 hover:text-red-500 transition-colors bg-white/5 rounded"
+                                            title="Permanently Delete Game"
+                                        >
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -350,6 +390,17 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
                 title="Cancel Event?"
                 message="Are you sure you want to cancel this event? This action will notify all players and cannot be undone."
                 confirmText="Yes, Cancel Event"
+                isDestructive={true}
+            />
+
+            {/* Hard Delete Modal */}
+            <ConfirmationModal
+                isOpen={isHardDeleteModalOpen}
+                onClose={() => setIsHardDeleteModalOpen(false)}
+                onConfirm={handleHardDeleteConfirm}
+                title="Permanently Delete Game?"
+                message="WARNING: This will completely wipe the game, roster, and waitlist from the database. It will not trigger refunds. Use this only for cleaning up test data. This cannot be undone."
+                confirmText="Yes, Wipe Game"
                 isDestructive={true}
             />
 

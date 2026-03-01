@@ -95,6 +95,11 @@ export default async function FacilityLayout({ children }: { children: ReactNode
                                 <MapPin className="w-5 h-5" />
                                 <span className="font-bold uppercase tracking-wider text-sm">Resources</span>
                             </Link>
+                            <Link href="/facility/settings/team" className="flex items-center gap-3 px-4 py-3 rounded-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
+                                <Users className="w-5 h-5" />
+                                <span className="font-bold uppercase tracking-wider text-sm">Team</span>
+                            </Link>
+
                             <Link href="/facility/settings" className="flex items-center gap-3 px-4 py-3 rounded-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
                                 <Settings className="w-5 h-5" />
                                 <span className="font-bold uppercase tracking-wider text-sm">Settings</span>

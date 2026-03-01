@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
 import { Loader2, Settings, Mail, BellOff, Bell, DollarSign, Users } from 'lucide-react';
+import Link from 'next/link';
 import { SiteEditor } from '@/components/admin/SiteEditor';
 import UserTable from '@/components/admin/UserTable';
 import { useToast } from '@/components/ui/Toast';
@@ -181,6 +182,27 @@ export default function AdminSettingsPage() {
                 <Settings className="w-8 h-8 text-pitch-accent" />
                 Admin Settings
             </h1>
+
+            {/* Global Platform Registries */}
+            <div className="bg-pitch-card border border-white/5 rounded-lg p-6">
+                <h2 className="font-oswald text-xl font-bold uppercase mb-4 flex items-center gap-2">
+                    <Settings className="w-5 h-5 text-pitch-accent" />
+                    Global Platform Settings
+                </h2>
+                <p className="text-gray-400 text-sm mb-6">
+                    Manage the universal, standardized lists that Facilities will pull from.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Link href="/admin/settings/activities" className="block p-4 bg-black/20 rounded border border-white/5 hover:border-pitch-accent transition-colors group">
+                        <h3 className="font-bold text-white group-hover:text-pitch-accent transition-colors">Global Activity Types</h3>
+                        <p className="text-sm text-gray-400 mt-1">Manage standard sports/activities.</p>
+                    </Link>
+                    <Link href="/admin/settings/resources" className="block p-4 bg-black/20 rounded border border-white/5 hover:border-pitch-accent transition-colors group">
+                        <h3 className="font-bold text-white group-hover:text-pitch-accent transition-colors">Global Resource Types</h3>
+                        <p className="text-sm text-gray-400 mt-1">Manage standard Field/Court archetypes.</p>
+                    </Link>
+                </div>
+            </div>
 
             {/* Payment Configuration */}
             <div className="bg-pitch-card border border-white/5 rounded-lg p-6">

@@ -73,7 +73,7 @@ export default function SettingsPage() {
                 setZipCode(profile.zip_code || '');
 
                 // Admin Check
-                setIsAdmin(profile.role === 'admin' || profile.role === 'master_admin');
+                setIsAdmin(profile.role === 'host' || profile.role === 'master_admin');
 
                 // Notification Settings (Mock implementation if column missing, or real if present)
                 if (profile.notification_settings) {
@@ -195,7 +195,7 @@ export default function SettingsPage() {
                             Settings
                         </h1>
                     </div>
-                    {profile?.role === 'admin' && (
+                    {profile?.role === 'host' && (
                         <div className="flex items-center gap-2 px-4 py-2 bg-red-900/30 border border-red-500/50 rounded-sm">
                             <Shield className="w-5 h-5 text-red-500" />
                             <span className="text-red-500 font-bold uppercase tracking-wider text-sm">Administrator</span>

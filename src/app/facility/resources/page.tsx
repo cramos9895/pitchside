@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Plus, MapPin, Database } from 'lucide-react';
 import { ResourceModal } from '@/components/facility/ResourceModal';
+import { FacilityResourceItem } from '@/components/facility/FacilityResourceItem';
 
 export default async function ResourcesManager() {
     const supabase = await createClient();
@@ -36,11 +37,17 @@ export default async function ResourcesManager() {
         );
     }
 
-    // 2. Fetch Resources
-    // Super Admins query everything. Facility Admins query their own.
+    // 2. Fetch Resources with joined resource_types
     let query = supabase
         .from('resources')
-        .select('*, facilities(name)')
+        .select(`
+            *, 
+            facilities(name),
+            resource_types(name),
+            resource_activities(
+                activity_types(id, name, color_code)
+            )
+        `)
         .order('created_at', { ascending: false });
 
     if (!isSuperAdmin) {
@@ -49,16 +56,21 @@ export default async function ResourcesManager() {
 
     const { data: resources, error: fetchError } = await query;
 
-    // 3. Fetch all Facilities if Super Admin (for the dropdown)
+    const adminAuthClient = createAdminClient();
+
+    // 3. Fetch Master Data
+
+    // 3a. All Facilities if Super Admin
     let allFacilities: { id: string, name: string }[] = [];
     if (isSuperAdmin) {
-        const adminAuthClient = createAdminClient();
-        const { data: facs, error: fError } = await adminAuthClient.from('facilities').select('id, name').order('name');
-        console.log('ADMIN FACS QUERY:', facs, 'F ERROR:', fError);
+        const { data: facs } = await adminAuthClient.from('facilities').select('id, name').order('name');
         if (facs) allFacilities = facs;
     }
 
-    // 4. Fetch Activity Types for the current/impersonated facility
+    // 3b. Global Resource Types
+    const { data: resourceTypes } = await adminAuthClient.from('resource_types').select('*').order('name');
+
+    // 3c. Fetch Activated Activity Types for the current/impersonated facility
     let activeFacilityId = profile?.facility_id;
     if (isSuperAdmin) {
         const cookieStore = await cookies();
@@ -70,16 +82,19 @@ export default async function ResourcesManager() {
 
     let activityTypes: any[] = [];
     if (activeFacilityId) {
-        const adminAuthClient = createAdminClient();
+        // We join facility_activities to activity_types to only get what's activated
         const { data: acts } = await adminAuthClient
-            .from('activity_types')
-            .select('*')
-            .eq('facility_id', activeFacilityId)
-            .order('name');
-        if (acts) activityTypes = acts;
-    }
+            .from('facility_activities')
+            .select(`
+                activity_type_id,
+                activity_types ( id, name, color_code )
+            `)
+            .eq('facility_id', activeFacilityId);
 
-    console.log('[ResourcesManager] isSuperAdmin:', isSuperAdmin, 'allFacilities count:', allFacilities.length, 'activityTypes count:', activityTypes.length);
+        if (acts) {
+            activityTypes = acts.map(a => a.activity_types).filter(Boolean); // Flatten
+        }
+    }
 
     return (
         <div className="animate-in fade-in duration-500">
@@ -97,6 +112,7 @@ export default async function ResourcesManager() {
                 <ResourceModal
                     isSuperAdmin={isSuperAdmin}
                     facilities={allFacilities}
+                    resourceTypes={resourceTypes || []}
                     activityTypes={activityTypes}
                 />
             </div>
@@ -109,7 +125,7 @@ export default async function ResourcesManager() {
                             <tr className="bg-white/5 border-b border-white/10 text-xs uppercase tracking-wider text-gray-400">
                                 <th className="p-4 font-bold">Resource Name</th>
                                 {isSuperAdmin && <th className="p-4 font-bold">Facility Name</th>}
-                                <th className="p-4 font-bold">Type</th>
+                                <th className="p-4 font-bold">Archetype</th>
                                 <th className="p-4 font-bold text-right">Added</th>
                             </tr>
                         </thead>
@@ -122,25 +138,13 @@ export default async function ResourcesManager() {
                                 </tr>
                             ) : (
                                 resources.map((resource) => (
-                                    <tr key={resource.id} className="hover:bg-white/[0.02] transition-colors">
-                                        <td className="p-4">
-                                            <div className="font-bold text-white">{resource.name}</div>
-                                            <div className="text-xs text-gray-500 font-mono mt-1">{resource.id.substring(0, 8)}...</div>
-                                        </td>
-                                        {isSuperAdmin && (
-                                            <td className="p-4">
-                                                <span className="text-gray-300 font-bold">{resource.facilities?.name || 'Unknown'}</span>
-                                            </td>
-                                        )}
-                                        <td className="p-4">
-                                            <span className="bg-pitch-accent/20 text-pitch-accent px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-wider border border-pitch-accent/30">
-                                                {resource.type}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-right text-sm text-gray-400">
-                                            {new Date(resource.created_at).toLocaleDateString()}
-                                        </td>
-                                    </tr>
+                                    <FacilityResourceItem
+                                        key={resource.id}
+                                        resource={resource}
+                                        isSuperAdmin={isSuperAdmin}
+                                        resourceTypes={resourceTypes || []}
+                                        activityTypes={activityTypes}
+                                    />
                                 ))
                             )}
                         </tbody>

@@ -1,24 +1,46 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Plus, Loader2, X } from 'lucide-react';
+import { Plus, Loader2, X, Check, ChevronDown } from 'lucide-react';
 import { createResource } from '@/app/actions/facility';
 import { useToast } from '@/components/ui/Toast';
 
 interface ResourceModalProps {
     isSuperAdmin?: boolean;
     facilities?: { id: string; name: string }[];
-    activityTypes?: any[];
+    resourceTypes?: { id: string; name: string }[];
+    activityTypes?: { id: string; name: string; color_code: string }[];
 }
 
-export function ResourceModal({ isSuperAdmin, facilities, activityTypes }: ResourceModalProps) {
+export function ResourceModal({ isSuperAdmin, facilities, resourceTypes, activityTypes }: ResourceModalProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isPending, setIsPending] = useState(false);
+    const [selectedActivities, setSelectedActivities] = useState<Set<string>>(new Set());
+    const [isActivitiesOpen, setIsActivitiesOpen] = useState(false);
+
     const { success, error } = useToast();
     const formRef = useRef<HTMLFormElement>(null);
 
+    const toggleActivity = (id: string) => {
+        const newSet = new Set(selectedActivities);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        setSelectedActivities(newSet);
+    };
+
     const handleSubmit = async (formData: FormData) => {
+        if (selectedActivities.size === 0) {
+            error('Please select at least one activity type.');
+            return;
+        }
+
         setIsPending(true);
+        // Inject the selected activities as a JSON string
+        formData.append('activity_ids', JSON.stringify(Array.from(selectedActivities)));
+
         try {
             const result = await createResource(formData);
 
@@ -27,6 +49,7 @@ export function ResourceModal({ isSuperAdmin, facilities, activityTypes }: Resou
             } else if (result.success) {
                 success('Resource successfully created!');
                 setIsOpen(false);
+                setSelectedActivities(newSet => { newSet.clear(); return newSet; });
                 formRef.current?.reset();
             }
         } catch (err: any) {
@@ -64,7 +87,7 @@ export function ResourceModal({ isSuperAdmin, facilities, activityTypes }: Resou
                         </div>
 
                         {/* Form Body */}
-                        <form ref={formRef} action={handleSubmit} className="p-6 space-y-6">
+                        <form ref={formRef} action={handleSubmit} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                             <div className="space-y-2">
                                 <label htmlFor="name" className="block text-xs font-bold text-gray-400 uppercase tracking-widest">
                                     Resource Name
@@ -104,24 +127,81 @@ export function ResourceModal({ isSuperAdmin, facilities, activityTypes }: Resou
                             )}
 
                             <div className="space-y-2">
-                                <label htmlFor="type" className="block text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                <label htmlFor="resource_type_id" className="block text-xs font-bold text-gray-400 uppercase tracking-widest">
                                     Resource Type
                                 </label>
                                 <select
-                                    id="type"
-                                    name="type"
+                                    id="resource_type_id"
+                                    name="resource_type_id"
                                     required
-                                    disabled={isPending || !activityTypes || activityTypes.length === 0}
+                                    disabled={isPending || !resourceTypes || resourceTypes.length === 0}
                                     defaultValue=""
                                     className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent focus:ring-1 focus:ring-pitch-accent transition-all appearance-none"
                                 >
                                     <option value="" disabled className="text-gray-500">
-                                        {!activityTypes || activityTypes.length === 0 ? 'No activities found! Create one in Settings.' : 'Select an activity type...'}
+                                        {!resourceTypes || resourceTypes.length === 0 ? 'No Master Types found! Create one in Master Admin Settings.' : 'Select a global resource type...'}
                                     </option>
-                                    {activityTypes && activityTypes.map(act => (
-                                        <option key={act.id} value={act.name}>{act.name}</option>
+                                    {resourceTypes && resourceTypes.map(rt => (
+                                        <option key={rt.id} value={rt.id}>{rt.name}</option>
                                     ))}
                                 </select>
+                            </div>
+
+                            <div className="space-y-3 relative">
+                                <div className="flex justify-between items-center">
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                        Supported Activities
+                                    </label>
+                                    <span className="text-xs text-gray-500">{selectedActivities.size} selected</span>
+                                </div>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsActivitiesOpen(!isActivitiesOpen)}
+                                        className="w-full flex items-center justify-between bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent transition-all"
+                                    >
+                                        <span className={selectedActivities.size === 0 ? "text-gray-500" : "text-white"}>
+                                            {selectedActivities.size === 0 ? 'Select activities...' : `${selectedActivities.size} Activities Selected`}
+                                        </span>
+                                        <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${isActivitiesOpen ? 'rotate-180' : ''}`} />
+                                    </button>
+
+                                    {isActivitiesOpen && (
+                                        <div className="absolute z-10 w-full mt-1 bg-neutral-900 border border-white/10 rounded-sm p-2 max-h-48 overflow-y-auto space-y-1 shadow-xl">
+                                            {!activityTypes || activityTypes.length === 0 ? (
+                                                <p className="text-sm text-gray-500 italic p-2">
+                                                    No activities are activated for this facility yet. Go to Settings to activate them.
+                                                </p>
+                                            ) : (
+                                                activityTypes.map(act => {
+                                                    const isSelected = selectedActivities.has(act.id);
+                                                    return (
+                                                        <button
+                                                            key={act.id}
+                                                            type="button"
+                                                            onClick={() => toggleActivity(act.id)}
+                                                            className={`
+                                                                w-full flex items-center justify-between p-2 rounded-sm transition-all text-sm
+                                                                ${isSelected
+                                                                    ? 'bg-pitch-accent/20 text-white'
+                                                                    : 'hover:bg-white/5 text-gray-400 hover:text-white'}
+                                                            `}
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <div
+                                                                    className="w-3 h-3 rounded-full border border-white/20"
+                                                                    style={{ backgroundColor: act.color_code }}
+                                                                />
+                                                                <span className="font-bold">{act.name}</span>
+                                                            </div>
+                                                            {isSelected && <Check className="w-4 h-4 text-pitch-accent" />}
+                                                        </button>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Actions */}
