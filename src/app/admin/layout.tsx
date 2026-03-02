@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
-import { LayoutDashboard, Users, Settings, ArrowLeft, Building2, Banknote } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, ArrowLeft, Building2, Banknote, Tag } from 'lucide-react';
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
     const supabase = await createClient();
@@ -78,6 +78,11 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                                             {pendingCount}
                                         </div>
                                     )}
+                                </Link>
+
+                                <Link href="/admin/marketplace" className="flex items-center gap-3 px-4 py-3 rounded-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors group">
+                                    <Tag className="w-5 h-5 group-hover:text-pitch-accent transition-colors" />
+                                    <span className="font-bold uppercase tracking-wider text-sm">Marketplace Feed</span>
                                 </Link>
 
                                 <Link href="/admin/settings" className="flex items-center gap-3 px-4 py-3 rounded-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors">

@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Trophy, Calendar, DollarSign, Users, Info, Settings, CalendarCheck2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Trophy, Calendar, DollarSign, Users, Info, Settings, CalendarCheck2, AlertTriangle, XCircle } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
+import { cancelLeague, deleteLeague } from '@/app/actions/facility';
 
 function SubmitButton({ hasActivities }: { hasActivities: boolean }) {
     const { pending } = useFormStatus();
@@ -20,26 +22,49 @@ function SubmitButton({ hasActivities }: { hasActivities: boolean }) {
 
 interface LeagueBuilderFormProps {
     activityTypes: { id: string; name: string }[];
+    resources: { id: string; name: string; resource_types?: { name: string } }[];
     action: (formData: FormData) => void;
     initialData?: any; // For edit mode later
 }
 
-export function LeagueBuilderForm({ activityTypes, action, initialData }: LeagueBuilderFormProps) {
+export function LeagueBuilderForm({ activityTypes, resources, action, initialData }: LeagueBuilderFormProps) {
     const [startDate, setStartDate] = useState<string>(initialData?.start_date || '');
     const [endDate, setEndDate] = useState<string>(initialData?.end_date || '');
+    const [startTime, setStartTime] = useState<string>(initialData?.time_range_start || '18:00');
+    const [endTime, setEndTime] = useState<string>(initialData?.time_range_end || '22:00');
+
     const [hasPlayoffs, setHasPlayoffs] = useState<boolean>(initialData?.has_playoffs || false);
     const [playoffSpots, setPlayoffSpots] = useState<string>(initialData?.playoff_spots?.toString() || '4');
+
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const router = useRouter();
+
+    const isEditing = !!initialData;
 
     // Parse initial game days
     const initialDays = initialData?.game_days ? initialData.game_days.split(',').map((d: string) => d.trim()) : [];
     const [selectedDays, setSelectedDays] = useState<string[]>(initialDays);
     const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+    // Parse initial resources
+    const initialResources = initialData?.league_resources?.map((lr: any) => lr.resource_id) || [];
+    const [selectedResources, setSelectedResources] = useState<string[]>(initialResources);
+
     const toggleDay = (day: string) => {
         if (selectedDays.includes(day)) {
             setSelectedDays(selectedDays.filter(d => d !== day));
         } else {
             setSelectedDays([...selectedDays, day]);
+        }
+    };
+
+    const toggleResource = (id: string) => {
+        if (selectedResources.includes(id)) {
+            setSelectedResources(selectedResources.filter(r => r !== id));
+        } else {
+            setSelectedResources([...selectedResources, id]);
         }
     };
 
@@ -323,6 +348,38 @@ export function LeagueBuilderForm({ activityTypes, action, initialData }: League
                                 />
                             </div>
                         </div>
+
+                        {/* Assigned Resources List */}
+                        <div className="space-y-3 md:col-span-3 pt-4 border-t border-white/5">
+                            <label className="text-sm font-bold uppercase tracking-wider text-gray-400">Assigned Resources (Fields/Courts)</label>
+                            <input type="hidden" name="resource_ids" value={JSON.stringify(selectedResources)} />
+
+                            {resources.length === 0 ? (
+                                <div className="text-sm text-gray-500 italic bg-black/30 p-4 rounded border border-white/5">
+                                    No resources configured. Add Fields or Courts in Facility Settings to assign them here.
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    {resources.map(resource => {
+                                        const isSelected = selectedResources.includes(resource.id);
+                                        return (
+                                            <button
+                                                key={resource.id}
+                                                type="button"
+                                                onClick={() => toggleResource(resource.id)}
+                                                className={`p-3 text-left rounded-sm border transition-all ${isSelected
+                                                    ? 'bg-pitch-accent/10 border-pitch-accent text-pitch-accent'
+                                                    : 'bg-black/50 border-white/10 text-gray-400 hover:border-white/30 hover:text-white'
+                                                    }`}
+                                            >
+                                                <div className="font-bold text-sm">{resource.name}</div>
+                                                <div className="text-xs opacity-70 mt-1 uppercase tracking-wider">{resource.resource_types?.name || 'Resource'}</div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -357,6 +414,32 @@ export function LeagueBuilderForm({ activityTypes, action, initialData }: League
                                     onChange={(e) => setEndDate(e.target.value)}
                                     className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent transition-colors cursor-pointer"
                                 />
+                            </div>
+
+                            {/* Time Boundary Configuration */}
+                            <div className="pt-4 border-t border-white/5 grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold uppercase tracking-wider text-gray-400">Games Start From</label>
+                                    <input
+                                        type="time"
+                                        id="time_range_start"
+                                        name="time_range_start"
+                                        value={startTime}
+                                        onChange={(e) => setStartTime(e.target.value)}
+                                        className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent transition-colors cursor-pointer"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold uppercase tracking-wider text-gray-400">Games End By</label>
+                                    <input
+                                        type="time"
+                                        id="time_range_end"
+                                        name="time_range_end"
+                                        value={endTime}
+                                        onChange={(e) => setEndTime(e.target.value)}
+                                        className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent transition-colors cursor-pointer"
+                                    />
+                                </div>
                             </div>
 
                             {/* Playoff Configuration */}
@@ -446,9 +529,21 @@ export function LeagueBuilderForm({ activityTypes, action, initialData }: League
                                         ))}
                                     </ul>
 
-                                    <div className="text-center pt-4 border-t border-white/10 flex-shrink-0">
+                                    <div className="text-center pt-4 border-t border-white/10 flex-shrink-0 flex flex-col gap-1">
                                         <p className="text-xs text-gray-500">
                                             <strong className="text-gray-400">Target Season End:</strong> {new Date(endDate + 'T00:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            <strong className="text-gray-400">Scheduled Daily Between:</strong> {(() => {
+                                                if (!startTime || !endTime) return "Not Set";
+                                                const formatTime = (time: string) => {
+                                                    const [h, m] = time.split(':');
+                                                    const d = new Date();
+                                                    d.setHours(parseInt(h), parseInt(m));
+                                                    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+                                                };
+                                                return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+                                            })()}
                                         </p>
                                     </div>
                                 </div>
@@ -461,13 +556,123 @@ export function LeagueBuilderForm({ activityTypes, action, initialData }: League
                 <div className="pt-6 border-t border-white/10 flex justify-end gap-4">
                     <Link
                         href="/facility/leagues"
-                        className="px-6 py-3 font-bold uppercase tracking-wider text-gray-400 hover:text-white transition-colors"
+                        className="px-6 py-3 font-bold uppercase tracking-wider text-gray-400 hover:text-white transition-colors flex items-center"
                     >
-                        Cancel
+                        Back to Leagues
                     </Link>
                     <SubmitButton hasActivities={activityTypes && activityTypes.length > 0} />
                 </div>
             </form>
+
+            {/* DANGER ZONE (Edit Mode Only) */}
+            {isEditing && (
+                <div className="mt-12 bg-red-950/20 border border-red-500/20 rounded-lg p-6 lg:p-8">
+                    <h3 className="text-red-500 font-heading italic uppercase font-black text-xl mb-2 flex items-center gap-2">
+                        <AlertTriangle className="w-5 h-5" /> Danger Zone
+                    </h3>
+                    <p className="text-gray-400 text-sm mb-6 max-w-2xl">
+                        These actions are irreversible. Destroying a league will permanently erase its data, schedule, and team standings. Cancelling a league preserves history but locks it permanently.
+                    </p>
+
+                    <div className="flex flex-wrap gap-4">
+                        <button
+                            type="button"
+                            onClick={() => setShowCancelModal(true)}
+                            disabled={initialData.status === 'cancelled'}
+                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-6 py-3 rounded-sm font-bold uppercase tracking-wider text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Cancel League
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowDeleteModal(true)}
+                            className="bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-500/20 px-6 py-3 rounded-sm font-bold uppercase tracking-wider text-sm transition-all hover:-translate-y-0.5"
+                        >
+                            Delete League
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* CANCEL MODAL */}
+            {showCancelModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="bg-pitch-card border border-red-500/30 p-8 rounded-lg max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-4 text-red-500 mb-6">
+                            <XCircle className="w-12 h-12" />
+                            <div>
+                                <h3 className="text-2xl font-black italic uppercase">Cancel League</h3>
+                                <p className="text-sm font-bold uppercase tracking-wider opacity-80">Lock this season?</p>
+                            </div>
+                        </div>
+                        <p className="text-gray-300 mb-8 leading-relaxed">
+                            Are you sure you want to cancel <strong className="text-white">{initialData?.name}</strong>? This will permanently lock the league preventing any further modifications. Historical matches and schedules will be preserved.
+                        </p>
+                        <div className="flex flex-col sm:flex-row justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowCancelModal(false)}
+                                disabled={isProcessing}
+                                className="px-6 py-3 font-bold uppercase tracking-wider text-gray-400 hover:text-white hover:bg-white/5 rounded-sm transition-colors text-sm"
+                            >
+                                Nevermind
+                            </button>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    setIsProcessing(true);
+                                    await cancelLeague(initialData.id);
+                                    router.push('/facility/leagues');
+                                }}
+                                disabled={isProcessing}
+                                className="px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 font-bold uppercase tracking-wider rounded-sm transition-colors text-sm flex items-center justify-center min-w-[120px]"
+                            >
+                                {isProcessing ? 'Cancelling...' : 'Yes, Cancel It'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DELETE MODAL */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+                    <div className="bg-red-950/40 border border-red-500 p-8 rounded-lg max-w-md w-full shadow-[0_0_50px_rgba(239,68,68,0.2)] animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-4 text-red-500 mb-6">
+                            <AlertTriangle className="w-12 h-12 animate-pulse" />
+                            <div>
+                                <h3 className="text-2xl font-black italic uppercase">Destroy League</h3>
+                                <p className="text-sm font-bold uppercase tracking-wider opacity-80 text-red-400">Total Data Loss</p>
+                            </div>
+                        </div>
+                        <p className="text-red-200 mb-8 leading-relaxed">
+                            Are you absolutely sure you want to permanently delete <strong className="text-white bg-red-500/20 px-2 py-0.5 rounded">{initialData?.name}</strong>? This action will instantly wipe all matchups, results, and settings from the database. <span className="underline font-bold decoration-red-500">This cannot be undone.</span>
+                        </p>
+                        <div className="flex flex-col sm:flex-row justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowDeleteModal(false)}
+                                disabled={isProcessing}
+                                className="px-6 py-3 font-bold uppercase tracking-wider text-red-300 hover:text-white hover:bg-white/10 rounded-sm transition-colors text-sm"
+                            >
+                                Abort
+                            </button>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    setIsProcessing(true);
+                                    await deleteLeague(initialData.id);
+                                    router.push('/facility/leagues');
+                                }}
+                                disabled={isProcessing}
+                                className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold uppercase tracking-wider rounded-sm transition-all shadow-[0_0_15px_rgba(239,68,68,0.5)] text-sm flex items-center justify-center min-w-[140px]"
+                            >
+                                {isProcessing ? 'Destroying...' : 'Yes, Delete Everything'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

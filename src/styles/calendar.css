@@ -1,0 +1,116 @@
+@reference "../app/globals.css";
+
+/* =========================================
+   PitchSide Calendar Polish (Notion/Linear)
+   ========================================= */
+
+@layer components {
+
+    /* The Container & Typography Defaults */
+    .rbc-calendar {
+        @apply font-sans text-pitch-secondary border-none;
+    }
+
+    /* Header Cells (Mon, Tue) */
+    .rbc-header {
+        background-color: #000000 !important;
+        @apply py-3 font-heading font-bold text-xs uppercase tracking-wider text-gray-400 border-b border-white/5;
+    }
+
+    /* Remove side borders on headers */
+    .rbc-header+.rbc-header {
+        @apply border-l-0;
+    }
+
+    /* Clean background and grid lines */
+    .rbc-month-view,
+    .rbc-time-view,
+    .rbc-agenda-view {
+        @apply border border-white/5 rounded-xl bg-black overflow-hidden shadow-2xl;
+    }
+
+    /* Inside the Grid: Row and Column Separators */
+    .rbc-day-bg,
+    .rbc-month-row,
+    .rbc-time-content,
+    .rbc-timeslot-group,
+    .rbc-time-header-content {
+        @apply border-white/5;
+    }
+
+    /* Remove default vertical borders */
+    .rbc-day-bg+.rbc-day-bg,
+    .rbc-time-content>*+*>* {
+        @apply border-l-0;
+    }
+
+    .rbc-month-row+.rbc-month-row {
+        @apply border-t border-white/5;
+    }
+
+    /* Day/Time slots - Remove vertical borders entirely inside the grid */
+    .rbc-day-slot .rbc-time-slot {
+        border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-left: 0 !important;
+        border-right: 0 !important;
+    }
+
+    /* Time Gutter (Left side labels) */
+    .rbc-time-view .rbc-time-gutter,
+    .rbc-time-view .rbc-time-header-gutter,
+    .rbc-timeslot-group {
+        background-color: #000000 !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+    }
+
+    .rbc-time-view .rbc-day-slot .rbc-time-slot {
+        background-color: #000000 !important;
+        border-color: rgba(255, 255, 255, 0.05) !important;
+        /* Subtle border */
+    }
+
+    .rbc-time-view {
+        background-color: #000000 !important;
+    }
+
+    .rbc-time-gutter .rbc-label {
+        @apply text-[10px] font-bold text-gray-500 uppercase tracking-widest pr-3;
+    }
+
+    /* Current Day Highlight */
+    .rbc-today {
+        @apply bg-blue-500/10;
+    }
+
+    /* Events (The "Stickers") */
+    .rbc-event {
+        @apply rounded-md px-2 py-1 shadow-sm border-none transition-all duration-200 z-10 bg-transparent;
+        /* We use inline styles via eventPropGetter for border-left and bg */
+    }
+
+    .rbc-event:hover {
+        @apply scale-[1.01] brightness-125 z-50 shadow-md;
+    }
+
+    .rbc-event-content {
+        @apply text-xs font-medium tracking-tight;
+    }
+
+    /* Current Time Indicator */
+    .rbc-current-time-indicator {
+        @apply bg-pitch-accent h-[1px];
+        box-shadow: 0 0 8px rgba(204, 255, 0, 0.5);
+    }
+
+    .rbc-current-time-indicator::before {
+        content: "";
+        @apply absolute -left-1 -top-1 w-2.5 h-2.5 bg-pitch-accent rounded-full;
+        box-shadow: 0 0 8px rgba(204, 255, 0, 0.8);
+    }
+
+    /* Removing the default messy toolbar (We are building a custom React component) */
+    .rbc-toolbar {
+        @apply hidden;
+        /* We hide the default so our CustomToolbar can exist independently before the calendar node */
+    }
+}

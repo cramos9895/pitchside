@@ -281,6 +281,18 @@ export async function updateLeague(leagueId: string, formData: FormData) {
     const has_playoffs = formData.get('has_playoffs') === 'on';
     const playoff_spots = formData.get('playoff_spots') as string;
 
+    const time_range_start = formData.get('time_range_start') as string;
+    const time_range_end = formData.get('time_range_end') as string;
+
+    // Parse resources
+    const resourceIdsRaw = formData.get('resource_ids') as string;
+    let resourceIds: string[] = [];
+    try {
+        if (resourceIdsRaw) resourceIds = JSON.parse(resourceIdsRaw);
+    } catch (e) {
+        console.error("Failed to parse resource_ids", e);
+    }
+
     const { error: updateError } = await adminSupabase
         .from('leagues')
         .update({
@@ -299,6 +311,8 @@ export async function updateLeague(leagueId: string, formData: FormData) {
             game_days: game_days || null,
             has_playoffs,
             playoff_spots: has_playoffs && playoff_spots ? parseInt(playoff_spots) : null,
+            time_range_start: time_range_start || null,
+            time_range_end: time_range_end || null,
         })
         .eq('id', leagueId);
 
@@ -307,7 +321,353 @@ export async function updateLeague(leagueId: string, formData: FormData) {
         return { error: 'Failed to update the league.' };
     }
 
+    // Process League Resources
+    await adminSupabase.from('league_resources').delete().eq('league_id', leagueId);
+
+    if (resourceIds.length > 0) {
+        const resourceLinks = resourceIds.map(rId => ({
+            league_id: leagueId,
+            resource_id: rId
+        }));
+
+        const { error: linkError } = await adminSupabase.from('league_resources').insert(resourceLinks);
+        if (linkError) {
+            console.error("Error linking resources:", linkError);
+            return { error: 'League updated, but failed to link resources.' };
+        }
+    }
+
     revalidatePath(`/facility/leagues`);
     revalidatePath(`/facility/leagues/${leagueId}`);
+    return { success: true };
+}
+
+export async function deleteLeague(leagueId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: 'Unauthorized' };
+    }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('facility_id, system_role, role')
+        .eq('id', user.id)
+        .single();
+
+    if (!profile) return { error: 'Profile not found' };
+
+    const isSuperAdmin = profile.system_role === 'super_admin' || profile.role === 'master_admin';
+    if (profile.system_role !== 'facility_admin' && !isSuperAdmin) {
+        return { error: 'Forbidden. Facility Admin rights required.' };
+    }
+
+    const adminSupabase = createAdminClient();
+
+    // Verify league ownership
+    const { data: existingLeague } = await adminSupabase.from('leagues').select('facility_id').eq('id', leagueId).single();
+    if (!existingLeague) return { error: 'League not found' };
+
+    if (!isSuperAdmin && existingLeague.facility_id !== profile.facility_id) {
+        return { error: 'Unauthorized to delete this league' };
+    }
+
+    // Attempt the deletion
+    const { error: deleteError } = await adminSupabase
+        .from('leagues')
+        .delete()
+        .eq('id', leagueId);
+
+    if (deleteError) {
+        console.error("Error deleting league:", deleteError);
+        return { error: 'Failed to delete the league.' };
+    }
+
+    revalidatePath(`/facility/leagues`);
+    return { success: true };
+}
+
+export async function cancelLeague(leagueId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: 'Unauthorized' };
+    }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('facility_id, system_role, role')
+        .eq('id', user.id)
+        .single();
+
+    if (!profile) return { error: 'Profile not found' };
+
+    const isSuperAdmin = profile.system_role === 'super_admin' || profile.role === 'master_admin';
+    if (profile.system_role !== 'facility_admin' && !isSuperAdmin) {
+        return { error: 'Forbidden. Facility Admin rights required.' };
+    }
+
+    const adminSupabase = createAdminClient();
+
+    // Verify league ownership
+    const { data: existingLeague } = await adminSupabase.from('leagues').select('facility_id, status').eq('id', leagueId).single();
+    if (!existingLeague) return { error: 'League not found' };
+
+    if (!isSuperAdmin && existingLeague.facility_id !== profile.facility_id) {
+        return { error: 'Unauthorized to cancel this league' };
+    }
+
+    // Cancel the league
+    const { error: cancelError } = await adminSupabase
+        .from('leagues')
+        .update({ status: 'cancelled' })
+        .eq('id', leagueId);
+
+    if (cancelError) {
+        console.error("Error cancelling league:", cancelError);
+        return { error: 'Failed to cancel the league.' };
+    }
+
+    revalidatePath(`/facility/leagues`);
+    revalidatePath(`/facility/leagues/${leagueId}`);
+    return { success: true };
+}
+
+export async function createBooking(formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: 'Unauthorized' };
+    }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('facility_id, system_role, role')
+        .eq('id', user.id)
+        .single();
+
+    if (!profile) return { error: 'Profile not found' };
+
+    const isSuperAdmin = profile.system_role === 'super_admin' || profile.role === 'master_admin';
+    if (profile.system_role !== 'facility_admin' && !isSuperAdmin) {
+        return { error: 'Forbidden. Facility Admin rights required to create bookings.' };
+    }
+
+    const facilityId = profile.facility_id;
+    if (!isSuperAdmin && !facilityId) {
+        return { error: 'No facility assigned to this profile.' };
+    }
+
+    const resource_id = formData.get('resource_id') as string;
+    const title = formData.get('title') as string;
+    const start_time = formData.get('start_time') as string;
+    const end_time = formData.get('end_time') as string;
+    const renter_name = formData.get('renter_name') as string;
+
+    if (!resource_id || !title || !start_time || !end_time) {
+        return { error: 'Missing required fields. Needs Resource, Title, Start Time, and End Time.' };
+    }
+
+    const startTimeObj = new Date(start_time);
+    const endTimeObj = new Date(end_time);
+
+    if (endTimeObj <= startTimeObj) {
+        return { error: 'End time must be after start time.' };
+    }
+
+    const adminSupabase = createAdminClient();
+
+    // Collision Check: Are there any overlapping boundaries for this exact resource?
+    const { data: conflicts, error: conflictError } = await adminSupabase
+        .from('resource_bookings')
+        .select('id')
+        .eq('resource_id', resource_id)
+        .neq('status', 'cancelled')
+        .lt('start_time', end_time)
+        .gt('end_time', start_time);
+
+    if (conflictError) {
+        console.error("Conflict checking error:", conflictError);
+        return { error: 'Failed to validate schedule availability.' };
+    }
+
+    if (conflicts && conflicts.length > 0) {
+        return { error: 'This time slot overlaps with an existing booking for the selected resource.' };
+    }
+
+    // Insert the Booking
+    const { error: insertError } = await adminSupabase
+        .from('resource_bookings')
+        .insert({
+            facility_id: facilityId,
+            resource_id: resource_id,
+            title: title,
+            start_time: start_time,
+            end_time: end_time,
+            renter_name: renter_name || null,
+            status: 'confirmed',
+            color: '#3B82F6' // Default PitchSide blue
+        });
+
+    if (insertError) {
+        console.error("Failed to create booking:", insertError);
+        return { error: 'Failed to save booking.' };
+    }
+
+    revalidatePath('/facility/calendar');
+    revalidatePath('/facility/display');
+    return { success: true };
+}
+
+export async function updateBooking(bookingId: string, formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Unauthorized' };
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('facility_id, system_role, role')
+        .eq('id', user.id)
+        .single();
+
+    if (!profile) return { error: 'Profile not found' };
+
+    const isSuperAdmin = profile.system_role === 'super_admin' || profile.role === 'master_admin';
+    if (profile.system_role !== 'facility_admin' && !isSuperAdmin) {
+        return { error: 'Forbidden. Facility Admin rights required to update bookings.' };
+    }
+
+    const facilityId = profile.facility_id;
+    if (!isSuperAdmin && !facilityId) {
+        return { error: 'No facility assigned to this profile.' };
+    }
+
+    const resource_id = formData.get('resource_id') as string;
+    const title = formData.get('title') as string;
+    const start_time = formData.get('start_time') as string;
+    const end_time = formData.get('end_time') as string;
+    const renter_name = formData.get('renter_name') as string;
+
+    if (!resource_id || !title || !start_time || !end_time) {
+        return { error: 'Missing required fields.' };
+    }
+
+    const startTimeObj = new Date(start_time);
+    const endTimeObj = new Date(end_time);
+
+    if (endTimeObj <= startTimeObj) {
+        return { error: 'End time must be after start time.' };
+    }
+
+    const adminSupabase = createAdminClient();
+
+    // Collision Check Exclusing Current Booking
+    const { data: conflicts, error: conflictError } = await adminSupabase
+        .from('resource_bookings')
+        .select('id')
+        .eq('resource_id', resource_id)
+        .neq('id', bookingId)
+        .neq('status', 'cancelled')
+        .lt('start_time', end_time)
+        .gt('end_time', start_time);
+
+    if (conflictError) {
+        console.error("Conflict checking error:", conflictError);
+        return { error: 'Failed to validate schedule availability.' };
+    }
+
+    if (conflicts && conflicts.length > 0) {
+        return { error: 'This time slot overlaps with an existing booking for the selected resource.' };
+    }
+
+    const { error: updateError } = await adminSupabase
+        .from('resource_bookings')
+        .update({
+            resource_id: resource_id,
+            title: title,
+            start_time: start_time,
+            end_time: end_time,
+            renter_name: renter_name || null,
+        })
+        .eq('id', bookingId);
+
+    if (updateError) {
+        console.error("Failed to update booking:", updateError);
+        return { error: 'Failed to save booking.' };
+    }
+
+    revalidatePath('/facility/calendar');
+    revalidatePath('/facility/display');
+    return { success: true };
+}
+
+export async function deleteBooking(bookingId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Unauthorized' };
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('facility_id, system_role, role')
+        .eq('id', user.id)
+        .single();
+
+    const isSuperAdmin = profile?.system_role === 'super_admin' || profile?.role === 'master_admin';
+    if (profile?.system_role !== 'facility_admin' && !isSuperAdmin) {
+        return { error: 'Forbidden.' };
+    }
+
+    const adminSupabase = createAdminClient();
+
+    const { error } = await adminSupabase
+        .from('resource_bookings')
+        .delete()
+        .eq('id', bookingId);
+
+    if (error) {
+        console.error("Failed to delete booking:", error);
+        return { error: 'Failed to delete booking.' };
+    }
+
+    revalidatePath('/facility/calendar');
+    revalidatePath('/facility/display');
+    return { success: true };
+}
+
+export async function updateBookingStatus(bookingId: string, status: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Unauthorized' };
+
+    const { data: profile } = await supabase.from('profiles').select('system_role, role, facility_id').eq('id', user.id).single();
+    if (!profile) return { error: 'Profile not found' };
+
+    const isSuperAdmin = profile.system_role === 'super_admin' || profile.role === 'master_admin';
+    if (profile.system_role !== 'facility_admin' && !isSuperAdmin) {
+        return { error: 'Forbidden. Facility Admin rights required.' };
+    }
+
+    const adminSupabase = createAdminClient();
+
+    const { data: existingBooking } = await adminSupabase.from('resource_bookings').select('*').eq('id', bookingId).single();
+    if (!existingBooking) return { error: 'Booking not found' };
+
+    if (!isSuperAdmin && existingBooking.facility_id !== profile.facility_id) {
+        return { error: 'Unauthorized to update this booking' };
+    }
+
+    const { error } = await adminSupabase.from('resource_bookings').update({ status }).eq('id', bookingId);
+
+    if (error) {
+        return { error: 'Failed to update booking status.' };
+    }
+
+    revalidatePath('/facility/calendar');
     return { success: true };
 }

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Oswald } from "next/font/google";
+import "react-big-calendar/lib/css/react-big-calendar.css";
 import "./globals.css";
+import "@/styles/calendar.css";
 import { Navbar } from "@/components/Navbar";
 
 // Use Inter for clean, readable body text

@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { X, LogOut, User, Home, LayoutDashboard, Settings, Trophy, Building } from 'lucide-react';
+import { X, LogOut, User, Home, LayoutDashboard, Settings, Trophy, Building, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -21,6 +21,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     const [isFacilityAdmin, setIsFacilityAdmin] = useState(false);
     const [user, setUser] = useState<any>(null);
     const [refundCount, setRefundCount] = useState(0);
+    const [notificationCount, setNotificationCount] = useState(0);
 
     useEffect(() => {
         const getUser = async () => {
@@ -48,14 +49,27 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                 if (isAdminUser) {
                     // Fetch pending refunds
-                    const { count, error } = await supabase
+                    const { count: refunds, error: refundError } = await supabase
                         .from('games')
                         .select('id', { count: 'exact', head: true })
                         .eq('status', 'cancelled')
                         .is('refund_processed', false);
 
-                    if (!error && count !== null) {
-                        setRefundCount(count);
+                    if (!refundError && refunds !== null) {
+                        setRefundCount(refunds);
+                    }
+                }
+
+                if (currentUser) {
+                    // Fetch unread notifications
+                    const { count: notifications, error: notifError } = await supabase
+                        .from('notifications')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('user_id', currentUser.id)
+                        .is('is_read', false);
+
+                    if (!notifError && notifications !== null) {
+                        setNotificationCount(notifications);
                     }
                 }
             } else {
@@ -148,14 +162,33 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     </Link>
 
                     {isFacilityAdmin && !isMasterAdmin && (
-                        <Link
-                            href="/facility"
-                            onClick={onClose}
-                            className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-blue-400 hover:text-white transition-colors group border-l-4 border-blue-400 pl-4 -ml-5 mt-4"
-                        >
-                            <Building className="w-6 h-6 text-blue-400 group-hover:text-white transition-colors" />
-                            Facility Portal
-                        </Link>
+                        <>
+                            <Link
+                                href="/facility"
+                                onClick={onClose}
+                                className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-blue-400 hover:text-white transition-colors group border-l-4 border-blue-400 pl-4 -ml-5 mt-4"
+                            >
+                                <Building className="w-6 h-6 text-blue-400 group-hover:text-white transition-colors" />
+                                Facility Portal
+                            </Link>
+
+                            {/* Notification Hub */}
+                            <Link
+                                href="/facility/notifications"
+                                onClick={onClose}
+                                className="flex items-center gap-4 text-xl font-heading font-bold uppercase tracking-wider text-gray-400 hover:text-white transition-colors group border-l-4 border-transparent hover:border-white pl-4 -ml-5"
+                            >
+                                <div className="relative">
+                                    <Bell className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors" />
+                                    {notificationCount > 0 && (
+                                        <span className="absolute -top-2 -right-2 bg-pitch-accent text-black text-[10px] font-black px-1.5 py-0.5 rounded-full animate-bounce shadow-[0_0_10px_rgba(204,255,0,0.5)]">
+                                            {notificationCount}
+                                        </span>
+                                    )}
+                                </div>
+                                Notifications
+                            </Link>
+                        </>
                     )}
 
                     {isAdmin && (

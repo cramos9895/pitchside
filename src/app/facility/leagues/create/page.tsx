@@ -49,6 +49,22 @@ export default async function CreateLeaguePage() {
         .filter(Boolean)
         .sort((a, b) => a.name.localeCompare(b.name)) || [];
 
+    // Fetch resources belonging to this facility
+    const { data: resourcesData } = await supabase
+        .from('resources')
+        .select(`
+            id, 
+            name, 
+            resource_type_id,
+            resource_types (
+                name
+            )
+        `)
+        .eq('facility_id', facilityId)
+        .order('name');
+
+    const resources = resourcesData || [];
+
     // Server Action to create the league
     async function createLeague(formData: FormData) {
         'use server';
@@ -73,10 +89,22 @@ export default async function CreateLeaguePage() {
         const has_playoffs = formData.get('has_playoffs') === 'on';
         const playoff_spots = formData.get('playoff_spots') as string;
 
+        const time_range_start = formData.get('time_range_start') as string;
+        const time_range_end = formData.get('time_range_end') as string;
+
+        // Parse resources
+        const resourceIdsRaw = formData.get('resource_ids') as string;
+        let resourceIds: string[] = [];
+        try {
+            if (resourceIdsRaw) resourceIds = JSON.parse(resourceIdsRaw);
+        } catch (e) {
+            console.error("Failed to parse resource_ids", e);
+        }
+
         // We get the sport name fallback if no activity_id is selected, but it is required in form
         const sportFallback = 'Other';
 
-        const { error } = await supabase
+        const { data: newLeague, error } = await supabase
             .from('leagues')
             .insert({
                 facility_id: facilityId,
@@ -96,14 +124,32 @@ export default async function CreateLeaguePage() {
                 game_days: game_days || null,
                 has_playoffs,
                 playoff_spots: has_playoffs && playoff_spots ? parseInt(playoff_spots) : null,
+                time_range_start: time_range_start || null,
+                time_range_end: time_range_end || null,
                 status: 'registration',
                 registration_open: true
-            });
+            })
+            .select()
+            .single();
 
-        if (error) {
+        if (error || !newLeague) {
             console.error("Error creating league:", error);
             // In a real app we'd return an error state to the form
             throw new Error("Failed to create league");
+        }
+
+        // Link Resources
+        if (resourceIds.length > 0) {
+            const resourceLinks = resourceIds.map(rId => ({
+                league_id: newLeague.id,
+                resource_id: rId
+            }));
+
+            const { error: linkError } = await supabase.from('league_resources').insert(resourceLinks);
+            if (linkError) {
+                console.error("Error linking resources:", linkError);
+                // Allow creation to proceed, warn in logs
+            }
         }
 
         revalidatePath('/facility/leagues');
@@ -134,6 +180,7 @@ export default async function CreateLeaguePage() {
             {/* Form Container (Client Component) */}
             <LeagueBuilderForm
                 activityTypes={activityTypes}
+                resources={resources}
                 action={createLeague}
             />
 

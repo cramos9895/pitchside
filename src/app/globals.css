@@ -18,6 +18,42 @@
   /* Bold/Condensed headings */
 }
 
+/* FORCE CALENDAR OVERRIDES - Nuclear Sledgehammer for Time View Gutter */
+body .rbc-time-view .rbc-time-gutter {
+  background-color: #0f172a !important;
+  /* slate-900 */
+  border-right: 1px solid #1e293b !important;
+  /* slate-800 */
+}
+
+body .rbc-time-view .rbc-time-header-gutter,
+body .rbc-header {
+  background-color: transparent !important;
+  background: transparent !important;
+  border-color: #e5e7eb !important;
+  /* Tailwind gray-200 */
+}
+
+body .rbc-timeslot-group {
+  background-color: #0f172a !important;
+  border-bottom: 1px solid #1e293b !important;
+}
+
+body .rbc-day-slot .rbc-time-slot {
+  border-top: 1px solid #1e293b !important;
+}
+
+/* Force the top-left corner specifically */
+body .rbc-time-view .rbc-header-gutter {
+  background-color: transparent !important;
+  width: auto !important;
+}
+
+/* Ensure the main background shines through */
+body .rbc-calendar {
+  background-color: transparent !important;
+}
+
 /* Set default background and text color for the entire app */
 body {
   background-color: var(--color-pitch-black);

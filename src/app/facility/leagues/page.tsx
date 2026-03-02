@@ -10,7 +10,9 @@ export const metadata = {
   description: 'Manage facility leagues and tournaments',
 };
 
-export default async function LeaguesDashboardPage() {
+export default async function LeaguesDashboardPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const resolvedParams = await searchParams;
+  const currentTab = resolvedParams.tab || 'active';
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -47,6 +49,22 @@ export default async function LeaguesDashboardPage() {
     console.error("Error fetching leagues:", error);
   }
 
+  // Filter leagues based on current tab
+  const filteredLeagues = (leagues || []).filter(league => {
+    switch (currentTab) {
+      case 'active':
+        return league.status === 'active';
+      case 'future':
+        return league.status === 'draft' || league.status === 'registration' || (new Date(league.start_date) > new Date() && league.status !== 'cancelled' && league.status !== 'completed');
+      case 'completed':
+        return league.status === 'completed';
+      case 'cancelled':
+        return league.status === 'cancelled';
+      default:
+        return league.status === 'active';
+    }
+  });
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-500">
 
@@ -71,12 +89,41 @@ export default async function LeaguesDashboardPage() {
         </Link>
       </div>
 
+      {/* Tabs Navigation */}
+      <div className="flex items-center gap-2 border-b border-white/10 pb-4 overflow-x-auto custom-scrollbar">
+        <Link
+          href="?tab=active"
+          className={`px-6 py-3 rounded-sm font-bold uppercase tracking-wider text-sm transition-all ${currentTab === 'active' ? 'bg-pitch-accent text-pitch-black' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}
+        >
+          Active
+        </Link>
+        <Link
+          href="?tab=future"
+          className={`px-6 py-3 rounded-sm font-bold uppercase tracking-wider text-sm transition-all ${currentTab === 'future' ? 'bg-pitch-accent text-pitch-black' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}
+        >
+          Future
+        </Link>
+        <Link
+          href="?tab=completed"
+          className={`px-6 py-3 rounded-sm font-bold uppercase tracking-wider text-sm transition-all ${currentTab === 'completed' ? 'bg-pitch-accent text-pitch-black' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}
+        >
+          Completed
+        </Link>
+        <Link
+          href="?tab=cancelled"
+          className={`px-6 py-3 rounded-sm font-bold uppercase tracking-wider text-sm transition-all ${currentTab === 'cancelled' ? 'bg-pitch-accent text-pitch-black' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}
+        >
+          Cancelled
+        </Link>
+        <span className="ml-auto text-sm text-gray-500 font-bold uppercase tracking-widest">{filteredLeagues.length} Leagues</span>
+      </div>
+
       {/* Leagues Data Table */}
       <div className="bg-pitch-card border border-white/10 rounded-lg overflow-hidden relative">
         {/* Glow effect */}
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pitch-accent via-blue-500 to-pitch-accent opacity-50"></div>
 
-        {(!leagues || leagues.length === 0) ? (
+        {filteredLeagues.length === 0 ? (
           <div className="p-12 text-center flex flex-col items-center justify-center border-t border-white/5">
             <div className="w-20 h-20 bg-pitch-black border border-white/10 rounded-full flex items-center justify-center mb-6 shadow-xl">
               <Trophy className="w-10 h-10 text-gray-500" />
@@ -106,7 +153,7 @@ export default async function LeaguesDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {leagues.map((league) => (
+                {filteredLeagues.map((league) => (
                   <tr key={league.id} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="p-5">
                       <div className="font-bold text-lg text-white group-hover:text-pitch-accent transition-colors">

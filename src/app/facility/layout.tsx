@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import Link from 'next/link';
-import { LayoutDashboard, Users, MapPin, Settings, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Users, MapPin, Settings, ArrowLeft, ShieldAlert, Calendar, MonitorPlay } from 'lucide-react';
 import { exitGodMode } from '@/app/actions/impersonate';
 
 export default async function FacilityLayout({ children }: { children: ReactNode }) {
@@ -98,6 +98,16 @@ export default async function FacilityLayout({ children }: { children: ReactNode
                             <Link href="/facility/settings/team" className="flex items-center gap-3 px-4 py-3 rounded-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
                                 <Users className="w-5 h-5" />
                                 <span className="font-bold uppercase tracking-wider text-sm">Team</span>
+                            </Link>
+
+                            <Link href="/facility/calendar" className="flex items-center gap-3 px-4 py-3 rounded-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
+                                <Calendar className="w-5 h-5" />
+                                <span className="font-bold uppercase tracking-wider text-sm">Schedule Engine</span>
+                            </Link>
+
+                            <Link href="/facility/display" className="flex items-center gap-3 px-4 py-3 rounded-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
+                                <MonitorPlay className="w-5 h-5" />
+                                <span className="font-bold uppercase tracking-wider text-sm">Kiosk Mode</span>
                             </Link>
 
                             <Link href="/facility/settings" className="flex items-center gap-3 px-4 py-3 rounded-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors">

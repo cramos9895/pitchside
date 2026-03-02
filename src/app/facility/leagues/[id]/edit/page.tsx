@@ -33,10 +33,15 @@ export default async function EditLeaguePage({ params }: { params: Promise<{ id:
         redirect('/');
     }
 
-    // Fetch the league to edit
+    // Fetch the league to edit along with its linked resources
     const { data: league, error: leagueError } = await supabase
         .from('leagues')
-        .select('*')
+        .select(`
+            *,
+            league_resources (
+                resource_id
+            )
+        `)
         .eq('id', resolvedParams.id)
         .single();
 
@@ -66,6 +71,22 @@ export default async function EditLeaguePage({ params }: { params: Promise<{ id:
         .filter(Boolean)
         .sort((a, b) => a.name.localeCompare(b.name)) || [];
 
+    // Fetch resources belonging to this facility
+    const { data: resourcesData } = await supabase
+        .from('resources')
+        .select(`
+            id, 
+            name, 
+            resource_type_id,
+            resource_types (
+                name
+            )
+        `)
+        .eq('facility_id', league.facility_id)
+        .order('name');
+
+    const resources = resourcesData || [];
+
     // Bind the Server Action to this specific league ID
     const updateLeagueAction = updateLeague.bind(null, resolvedParams.id);
 
@@ -93,6 +114,7 @@ export default async function EditLeaguePage({ params }: { params: Promise<{ id:
             {/* Form Container (Client Component) */}
             <LeagueBuilderForm
                 activityTypes={activityTypes}
+                resources={resources}
                 action={updateLeagueAction}
                 initialData={league}
             />
