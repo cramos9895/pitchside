@@ -63,7 +63,11 @@ export default async function CreateLeaguePage() {
         .eq('facility_id', facilityId)
         .order('name');
 
-    const resources = resourcesData || [];
+    const resources = (resourcesData || []).map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        resource_types: Array.isArray(r.resource_types) ? r.resource_types[0] : r.resource_types
+    }));
 
     // Server Action to create the league
     async function createLeague(formData: FormData) {

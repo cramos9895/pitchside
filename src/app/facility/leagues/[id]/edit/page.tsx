@@ -85,7 +85,11 @@ export default async function EditLeaguePage({ params }: { params: Promise<{ id:
         .eq('facility_id', league.facility_id)
         .order('name');
 
-    const resources = resourcesData || [];
+    const resources = (resourcesData || []).map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        resource_types: Array.isArray(r.resource_types) ? r.resource_types[0] : r.resource_types
+    }));
 
     // Bind the Server Action to this specific league ID
     const updateLeagueAction = updateLeague.bind(null, resolvedParams.id);
