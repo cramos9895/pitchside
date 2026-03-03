@@ -671,3 +671,78 @@ export async function updateBookingStatus(bookingId: string, status: string) {
     revalidatePath('/facility/calendar');
     return { success: true };
 }
+
+export async function updateFacilityProfile(formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Unauthorized' };
+
+    const { data: profile } = await supabase.from('profiles').select('system_role, role, facility_id').eq('id', user.id).single();
+    if (!profile) return { error: 'Profile not found' };
+
+    const isSuperAdmin = profile.system_role === 'super_admin' || profile.role === 'master_admin';
+    if (profile.system_role !== 'facility_admin' && !isSuperAdmin) {
+        return { error: 'Forbidden. Facility Admin rights required.' };
+    }
+
+    const facilityId = profile.facility_id;
+    if (!isSuperAdmin && !facilityId) {
+        return { error: 'No facility assigned to this profile.' };
+    }
+
+    // Extract the rich profile fields
+    const public_description = formData.get('public_description') as string;
+    const hero_image_url = formData.get('hero_image_url') as string;
+    const contact_email = formData.get('contact_email') as string;
+    const contact_phone = formData.get('contact_phone') as string;
+
+    // Parse Amenities (Expected as a JSON array string from the client)
+    const amenitiesRaw = formData.get('amenities') as string;
+    let amenities: string[] = [];
+    try {
+        if (amenitiesRaw) amenities = JSON.parse(amenitiesRaw);
+    } catch (e) {
+        console.error("Failed to parse amenities", e);
+    }
+
+    // Parse Operating Hours (Expected as a JSON string from the client)
+    const operatingHoursRaw = formData.get('operating_hours') as string;
+    let operating_hours = {};
+    try {
+        if (operatingHoursRaw) operating_hours = JSON.parse(operatingHoursRaw);
+    } catch (e) {
+        console.error("Failed to parse operating_hours", e);
+    }
+
+    const adminSupabase = createAdminClient();
+
+    const { error: updateError } = await adminSupabase
+        .from('facilities')
+        .update({
+            public_description: public_description || null,
+            hero_image_url: hero_image_url || null,
+            contact_email: contact_email || null,
+            contact_phone: contact_phone || null,
+            amenities: amenities,
+            operating_hours: operating_hours
+        })
+        .eq('id', facilityId);
+
+    if (updateError) {
+        console.error("Failed to update facility profile:", updateError);
+        return { error: 'Failed to save facility profile.' };
+    }
+
+    revalidatePath('/facility/settings');
+
+    // Attempt to revalidate the public route if we can resolve the slug
+    const { data: routeData } = await adminSupabase.from('facilities').select('slug').eq('id', facilityId).single();
+    if (routeData?.slug) {
+        revalidatePath(`/facility/${routeData.slug}`);
+    }
+
+    revalidatePath('/facilities'); // The Index
+
+    return { success: true };
+}
