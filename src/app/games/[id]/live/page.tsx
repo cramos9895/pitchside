@@ -261,61 +261,67 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
     const renderTournamentMode = () => (
         <div className="flex-1 grid grid-cols-12 gap-4 lg:gap-6 min-h-0 p-4 lg:p-6 relative z-10 w-full overflow-hidden">
             {/* Left Column (Timer, Active, Next - Span 4/12) */}
-            <div className="col-span-12 lg:col-span-4 flex flex-col h-full gap-4">
+            <div className="col-span-12 lg:col-span-4 flex flex-col h-full min-h-0 gap-3 lg:gap-4">
                 <div className="shrink-0 flex items-center justify-center">
                     {renderTimer()}
                 </div>
 
-                <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-md shrink-0">
-                    <h2 className="text-sm lg:text-base font-bold text-gray-400 uppercase tracking-widest mb-3 text-center flex items-center justify-center gap-2">
+                <div className="flex-1 min-h-0 w-full bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-md flex flex-col overflow-hidden relative">
+                    <h2 className="text-sm lg:text-base font-bold text-gray-400 uppercase tracking-widest mb-3 text-center flex items-center justify-center gap-2 shrink-0">
                         <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
                         Active Match {currentRound > 0 ? `(Round ${currentRound})` : ''}
                     </h2>
                     {matchesInCurrentRound.length > 0 ? (
-                        <div className="space-y-3">
+                        <div className="flex-1 overflow-y-auto hide-scrollbar space-y-1.5">
                             {matchesInCurrentRound.map(match => (
-                                <div key={match.id} className="flex flex-col gap-1 items-center justify-center px-4 py-3 bg-black/40 rounded-xl border border-white/5 relative z-20">
-                                    <div className="text-xl lg:text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
+                                <div key={match.id} className="flex flex-row gap-2 items-center justify-between px-3 py-1.5 bg-black/40 rounded-lg border border-white/5 relative z-20">
+                                    <div className="text-sm lg:text-base font-black uppercase tracking-tighter flex-1 text-right text-gray-200 truncate">
                                         {match.home_team}
                                     </div>
-                                    <div className="text-[10px] lg:text-xs font-bold text-pitch-accent italic text-center">
+                                    <div className="text-[10px] font-bold text-pitch-accent italic text-center shrink-0 px-2">
                                         VS
                                     </div>
-                                    <div className="text-xl lg:text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
+                                    <div className="text-sm lg:text-base font-black uppercase tracking-tighter flex-1 text-left text-gray-200 truncate">
                                         {match.away_team}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-1 items-center justify-center px-4 py-3 bg-black/40 rounded-xl border border-white/5 relative z-20">
-                            <div className="text-xl lg:text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
+                        <div className="flex flex-row gap-2 items-center justify-between px-3 py-1.5 bg-black/40 rounded-lg border border-white/5 relative z-20 shrink-0">
+                            <div className="text-sm lg:text-base font-black uppercase tracking-tighter flex-1 text-right text-gray-200 truncate">
                                 {game.teams_config && game.teams_config.length >= 2 ? game.teams_config[0].name : "Team A"}
                             </div>
-                            <div className="text-[10px] lg:text-xs font-bold text-pitch-accent italic text-center">
+                            <div className="text-[10px] font-bold text-pitch-accent italic text-center shrink-0 px-2">
                                 VS
                             </div>
-                            <div className="text-xl lg:text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
+                            <div className="text-sm lg:text-base font-black uppercase tracking-tighter flex-1 text-left text-gray-200 truncate">
                                 {game.teams_config && game.teams_config.length >= 2 ? game.teams_config[1].name : "Team B"}
                             </div>
                         </div>
                     )}
                     {sittingOutCurrentRound.length > 0 && (
-                        <div className="mt-3 text-center text-xs lg:text-sm font-bold text-gray-500 uppercase tracking-widest border-t border-white/10 pt-2 w-full">
+                        <div className="mt-3 text-center text-xs lg:text-sm font-bold text-gray-500 uppercase tracking-widest border-t border-white/10 pt-2 shrink-0">
                             Sitting Out: <span className="text-white text-[10px] lg:text-xs">{sittingOutCurrentRound.map(t => t.name).join(', ')}</span>
                         </div>
                     )}
                 </div>
 
                 {upcomingMatches.length > 0 && (
-                    <div className="flex-none flex flex-col bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-md shrink-0">
-                        <h2 className="text-sm lg:text-base font-bold text-white uppercase tracking-widest mb-2 border-b border-white/10 pb-2">Up Next</h2>
-                        <div className="space-y-1.5">
+                    <div className="flex-1 min-h-0 w-full bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-md flex flex-col overflow-hidden relative z-30 shadow-lg">
+                        <h2 className="text-sm lg:text-base font-bold text-white uppercase tracking-widest mb-3 border-b border-white/10 pb-2 text-center shrink-0">Up Next</h2>
+                        <div className="flex-1 overflow-y-auto hide-scrollbar space-y-1.5">
                             {upcomingMatches.map(match => (
-                                <div key={match.id} className="flex flex-col items-center justify-center px-2 py-2 bg-black/40 rounded-lg">
-                                    <span className="text-base lg:text-lg font-bold uppercase text-center w-full">{match.home_team}</span>
-                                    <span className="text-[10px] font-bold text-gray-500 uppercase">vs</span>
-                                    <span className="text-base lg:text-lg font-bold uppercase text-center w-full">{match.away_team}</span>
+                                <div key={match.id} className="flex flex-row gap-2 items-center justify-between px-3 py-1.5 bg-black/40 rounded-lg border border-white/5 relative z-20">
+                                    <div className="text-sm lg:text-base font-black uppercase tracking-tighter flex-1 text-right text-gray-200 truncate">
+                                        {match.home_team}
+                                    </div>
+                                    <div className="text-[10px] font-bold text-gray-400 uppercase text-center shrink-0 px-2">
+                                        VS
+                                    </div>
+                                    <div className="text-sm lg:text-base font-black uppercase tracking-tighter flex-1 text-left text-gray-200 truncate">
+                                        {match.away_team}
+                                    </div>
                                 </div>
                             ))}
                         </div>
