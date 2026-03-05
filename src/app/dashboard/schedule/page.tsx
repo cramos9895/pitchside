@@ -73,15 +73,16 @@ export default function DashboardSchedulePage() {
                     `)
                     .eq('user_id', user.id);
 
-                const validGames = (gamesData || []).filter((b: any) =>
-                    b.game &&
-                    b.game.status !== 'cancelled' &&
-                    b.status !== 'cancelled' &&
-                    b.roster_status !== 'dropped'
-                );
+                const validGames = (gamesData || []).filter((b: any) => {
+                    const g = Array.isArray(b.game) ? b.game[0] : b.game;
+                    return g &&
+                        g.status !== 'cancelled' &&
+                        b.status !== 'cancelled' &&
+                        b.roster_status !== 'dropped';
+                });
 
-                const myGames: UnifiedEvent[] = validGames.map(b => {
-                    const g = b.game;
+                const myGames: UnifiedEvent[] = validGames.map((b: any) => {
+                    const g = Array.isArray(b.game) ? b.game[0] : b.game;
                     const gameDate = new Date(g.start_time);
 
                     // Same end time calculation logic as page.tsx
