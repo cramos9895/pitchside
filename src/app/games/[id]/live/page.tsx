@@ -255,80 +255,86 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
 
     // TOURNAMENT VIEW
     const renderTournamentMode = () => (
-        <div className="flex-1 grid grid-cols-12 gap-8 min-h-0 p-8 relative z-10 w-full">
-            {/* Left Column */}
-            <div className="col-span-7 flex flex-col justify-center items-center h-full min-h-0">
-                {renderTimer()}
-                <div className="w-full bg-white/5 border border-white/10 rounded-3xl p-10 backdrop-blur-md shrink-0">
-                    <h2 className="text-2xl font-bold text-gray-400 uppercase tracking-widest mb-6 text-center flex items-center justify-center gap-4">
-                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+        <div className="flex-1 grid grid-cols-12 gap-6 min-h-0 p-6 lg:p-8 relative z-10 w-full overflow-hidden">
+            {/* Left Column (Timer, Active, Next - Span 4/12) */}
+            <div className="col-span-12 lg:col-span-4 flex flex-col h-full min-h-0 gap-6 overflow-y-auto hide-scrollbar pr-2">
+                <div className="shrink-0 scale-75 origin-top mb-[-2rem]">
+                    {renderTimer()}
+                </div>
+
+                <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md shrink-0">
+                    <h2 className="text-xl font-bold text-gray-400 uppercase tracking-widest mb-4 text-center flex items-center justify-center gap-3">
+                        <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
                         Active Match {currentRound > 0 ? `(Round ${currentRound})` : ''}
                     </h2>
                     {matchesInCurrentRound.length > 0 ? (
-                        <div className="space-y-6">
+                        <div className="space-y-4">
                             {matchesInCurrentRound.map(match => (
-                                <div key={match.id} className="flex items-center justify-between px-6 py-6 bg-black/40 rounded-2xl border border-white/5 relative z-20">
-                                    <div className="text-2xl lg:text-4xl font-black uppercase tracking-tighter w-[40%] text-right text-gray-200 break-words whitespace-normal leading-tight">
+                                <div key={match.id} className="flex flex-col gap-2 items-center justify-center px-4 py-4 bg-black/40 rounded-xl border border-white/5 relative z-20">
+                                    <div className="text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
                                         {match.home_team}
                                     </div>
-                                    <div className="text-xl lg:text-3xl font-bold text-pitch-accent italic w-[20%] text-center flex-shrink-0">
+                                    <div className="text-sm font-bold text-pitch-accent italic text-center">
                                         VS
                                     </div>
-                                    <div className="text-2xl lg:text-4xl font-black uppercase tracking-tighter w-[40%] text-left text-gray-200 break-words whitespace-normal leading-tight">
+                                    <div className="text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
                                         {match.away_team}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="flex items-center justify-between px-6 py-6 bg-black/40 rounded-2xl border border-white/5 relative z-20">
-                            <div className="text-2xl lg:text-4xl font-black uppercase tracking-tighter w-[40%] text-right text-gray-200 break-words whitespace-normal leading-tight">
+                        <div className="flex flex-col gap-2 items-center justify-center px-4 py-4 bg-black/40 rounded-xl border border-white/5 relative z-20">
+                            <div className="text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
                                 {game.teams_config && game.teams_config.length >= 2 ? game.teams_config[0].name : "Team A"}
                             </div>
-                            <div className="text-xl lg:text-3xl font-bold text-pitch-accent italic w-[20%] text-center flex-shrink-0">
+                            <div className="text-sm font-bold text-pitch-accent italic text-center">
                                 VS
                             </div>
-                            <div className="text-2xl lg:text-4xl font-black uppercase tracking-tighter w-[40%] text-left text-gray-200 break-words whitespace-normal leading-tight">
+                            <div className="text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
                                 {game.teams_config && game.teams_config.length >= 2 ? game.teams_config[1].name : "Team B"}
                             </div>
                         </div>
                     )}
                     {sittingOutCurrentRound.length > 0 && (
-                        <div className="mt-6 text-center text-lg lg:text-xl font-bold text-gray-500 uppercase tracking-widest border-t border-white/10 pt-4 w-full">
-                            Sitting Out: <span className="text-white">{sittingOutCurrentRound.map(t => t.name).join(', ')}</span>
+                        <div className="mt-4 text-center text-sm font-bold text-gray-500 uppercase tracking-widest border-t border-white/10 pt-3">
+                            Sitting Out: <span className="text-white text-xs">{sittingOutCurrentRound.map(t => t.name).join(', ')}</span>
                         </div>
                     )}
                 </div>
-            </div>
-
-            {/* Right Column (Standings & Queue) */}
-            <div className="col-span-5 flex flex-col h-full min-h-0 gap-6">
-                <div className="flex-1 min-h-[50%] overflow-hidden flex flex-col bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md relative z-20">
-                    <h2 className="text-xl font-bold text-gray-400 uppercase tracking-widest mb-4 shrink-0">Standings</h2>
-                    <div className="flex-1 min-h-0 overflow-y-auto bg-black/60 rounded-2xl border-2 border-white/20 pointer-events-none opacity-90 scale-100 origin-top [&_th]:text-sm lg:[&_th]:text-base [&_td]:text-base lg:[&_td]:text-lg [&_td]:font-bold [&_th]:px-2 [&_th]:py-2 [&_td]:px-2 [&_td]:py-2 [&_tr]:border-b [&_tr]:border-white/20 text-sm lg:text-base">
-                        <StandingsTable gameId={gameId} teams={game.teams_config} matches={matches} />
-                    </div>
-                </div>
 
                 {upcomingMatches.length > 0 && (
-                    <div className="flex-none overflow-visible flex flex-col bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md relative z-20">
-                        <h2 className="text-xl font-bold text-white uppercase tracking-widest mb-4 border-b border-white/10 pb-4 shrink-0">Up Next</h2>
-                        <div className="space-y-3">
+                    <div className="flex-none flex flex-col bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md shrink-0">
+                        <h2 className="text-lg font-bold text-white uppercase tracking-widest mb-3 border-b border-white/10 pb-3">Up Next</h2>
+                        <div className="space-y-2">
                             {upcomingMatches.map(match => (
-                                <div key={match.id} className="flex items-center justify-between px-4 py-3 bg-black/40 rounded-xl">
-                                    <span className="text-lg lg:text-2xl font-bold uppercase truncate w-[40%] text-right">{match.home_team}</span>
-                                    <span className="text-sm font-bold text-gray-500 mx-2 uppercase">vs</span>
-                                    <span className="text-lg lg:text-2xl font-bold uppercase truncate w-[40%] text-left">{match.away_team}</span>
+                                <div key={match.id} className="flex flex-col items-center justify-center px-3 py-3 bg-black/40 rounded-lg">
+                                    <span className="text-lg font-bold uppercase text-center w-full">{match.home_team}</span>
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase">vs</span>
+                                    <span className="text-lg font-bold uppercase text-center w-full">{match.away_team}</span>
                                 </div>
                             ))}
                         </div>
                         {sittingOutNextRound.length > 0 && (
-                            <div className="mt-4 text-center text-sm lg:text-md font-bold text-gray-500 uppercase tracking-widest border-t border-white/10 pt-3">
-                                Sitting Out Next: <span className="text-white">{sittingOutNextRound.map(t => t.name).join(', ')}</span>
+                            <div className="mt-3 text-center text-xs font-bold text-gray-500 uppercase tracking-widest border-t border-white/10 pt-2">
+                                Sitting Out Next: <span className="text-white text-[10px]">{sittingOutNextRound.map(t => t.name).join(', ')}</span>
                             </div>
                         )}
                     </div>
                 )}
+            </div>
+
+            {/* Right Column (Standings - Span 8/12) */}
+            <div className="col-span-12 lg:col-span-8 flex flex-col h-full min-h-0">
+                <div className="flex-1 overflow-hidden flex flex-col bg-white/5 border border-white/10 rounded-3xl p-6 lg:p-8 backdrop-blur-md relative z-20 shadow-2xl">
+                    <h2 className="text-2xl font-bold text-gray-400 uppercase tracking-widest mb-4 shrink-0 flex items-center justify-between">
+                        <span>Tournament Leaderboard</span>
+                        <span className="text-sm text-gray-500 font-normal">Auto-Updates Live</span>
+                    </h2>
+                    <div className="flex-1 min-h-0 overflow-y-auto bg-black/80 rounded-2xl border-2 border-white/20 hide-scrollbar shadow-inner drop-shadow-xl [&_th]:text-lg [&_td]:text-xl [&_th]:py-4 [&_td]:py-4">
+                        <StandingsTable gameId={gameId} teams={game.teams_config} matches={matches} viewOnly={true} />
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -336,18 +342,18 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
     return (
         <div className="fixed inset-0 overflow-hidden box-border flex flex-col bg-slate-900 text-white font-sans">
             {/* TOP BAR: Title & Status */}
-            <div className="p-6 lg:p-8 border-b border-white/10 flex items-center justify-between opacity-80 backdrop-blur-sm bg-black/50 z-10 hidden md:flex shrink-0 w-full">
-                <h1 className="text-3xl lg:text-4xl font-heading font-black italic tracking-tighter text-pitch-accent uppercase">
+            <div className="px-6 py-4 lg:px-8 lg:py-4 border-b border-white/10 flex items-center justify-between opacity-90 backdrop-blur-md bg-black/60 z-20 flex-shrink-0 w-full shadow-lg">
+                <h1 className="text-2xl lg:text-3xl font-heading font-black italic tracking-tighter text-pitch-accent uppercase">
                     PITCH<span className="text-white">SIDE</span>
                 </h1>
-                <div className="text-xl lg:text-2xl font-bold text-gray-400 capitalize">
+                <div className="text-lg lg:text-xl font-bold text-gray-400 capitalize">
                     {game.view_mode} Mode
                 </div>
             </div>
 
             {/* BACKGROUND WATERMARK */}
             <div className="absolute inset-0 flex items-center justify-center opacity-[0.02] pointer-events-none z-0">
-                <h1 className="text-[20rem] font-heading font-black italic tracking-tighter text-white uppercase transform -rotate-12">
+                <h1 className="text-[15rem] lg:text-[20rem] font-heading font-black italic tracking-tighter text-white uppercase transform -rotate-12">
                     PITCHSIDE
                 </h1>
             </div>

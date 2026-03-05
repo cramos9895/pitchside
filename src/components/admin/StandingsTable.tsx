@@ -25,9 +25,10 @@ interface StandingsTableProps {
     gameId: string;
     teams: TeamConfig[];
     matches: Match[];
+    viewOnly?: boolean;
 }
 
-export function StandingsTable({ gameId, teams, matches }: StandingsTableProps) {
+export function StandingsTable({ gameId, teams, matches, viewOnly = false }: StandingsTableProps) {
     const [finalizing, setFinalizing] = useState<string | null>(null);
     const router = useRouter();
     const supabase = createClient();
@@ -128,7 +129,7 @@ export function StandingsTable({ gameId, teams, matches }: StandingsTableProps) 
                             <th className="px-4 py-3 text-center">L</th>
                             <th className="px-4 py-3 text-center text-gray-300">GD</th>
                             <th className="px-4 py-3 text-center font-bold text-white">PTS</th>
-                            <th className="px-4 py-3 text-right">Action</th>
+                            {!viewOnly && <th className="px-4 py-3 text-right">Action</th>}
                         </tr>
                     </thead>
                     <tbody>
@@ -148,18 +149,20 @@ export function StandingsTable({ gameId, teams, matches }: StandingsTableProps) 
                                     <td className="px-4 py-3 text-center font-mono text-xs">{team.l}</td>
                                     <td className="px-4 py-3 text-center font-mono text-xs text-gray-300">{team.gd > 0 ? `+${team.gd}` : team.gd}</td>
                                     <td className="px-4 py-3 text-center font-black text-lg">{team.pts}</td>
-                                    <td className="px-4 py-3 text-right">
-                                        {isLeader && (
-                                            <button
-                                                onClick={() => handleFinalizeEvent(team.name)}
-                                                disabled={!!finalizing}
-                                                className="px-3 py-1 bg-yellow-500 text-black text-xs font-bold uppercase rounded hover:bg-white transition-colors flex items-center gap-2 ml-auto"
-                                            >
-                                                {finalizing === team.name ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trophy className="w-3 h-3" />}
-                                                Crown
-                                            </button>
-                                        )}
-                                    </td>
+                                    {!viewOnly && (
+                                        <td className="px-4 py-3 text-right">
+                                            {isLeader && (
+                                                <button
+                                                    onClick={() => handleFinalizeEvent(team.name)}
+                                                    disabled={!!finalizing}
+                                                    className="px-3 py-1 bg-yellow-500 text-black text-xs font-bold uppercase rounded hover:bg-white transition-colors flex items-center gap-2 ml-auto"
+                                                >
+                                                    {finalizing === team.name ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trophy className="w-3 h-3" />}
+                                                    Crown
+                                                </button>
+                                            )}
+                                        </td>
+                                    )}
                                 </tr>
                             );
                         })}
