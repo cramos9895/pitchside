@@ -2,7 +2,9 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendNotification } from '@/lib/notifications';
+import { sendNotification } from '@/lib/email';
+import { sendNotification as sendAppNotification } from '@/lib/notifications';
+import { NewRequestEmail } from '@/emails/NewRequestEmail';
 
 interface BookingRequestData {
     facilityId: string;
@@ -81,16 +83,40 @@ export async function submitBookingRequest(data: BookingRequestData) {
     // Find the Facility Admin(s) for this facility via profiles using admin client
     const { data: adminProfiles } = await adminSupabase
         .from('profiles')
-        .select('id')
+        .select('id, email, full_name')
         .eq('facility_id', data.facilityId)
         .eq('system_role', 'facility_admin');
+
+    const { data: resourceData } = await adminSupabase
+        .from('resources')
+        .select('name')
+        .eq('id', data.resourceId)
+        .single();
+
+    const resourceName = resourceData?.name || 'A Facility Resource';
 
     if (adminProfiles && adminProfiles.length > 0) {
         const message = `New Public Booking Request for ${new Date(data.startTime).toLocaleDateString()} at ${new Date(data.startTime).toLocaleTimeString()}.`;
 
         // Notify all valid staff members for that facility specifically with booking_request
         for (const admin of adminProfiles) {
-            await sendNotification(admin.id, message, 'booking_request');
+            await sendAppNotification(admin.id, message, 'booking_request');
+
+            if (admin.email) {
+                const adminName = admin.full_name || 'Admin';
+                const requestedDates = [`${new Date(data.startTime).toLocaleDateString()} at ${new Date(data.startTime).toLocaleTimeString()}`];
+
+                await sendNotification({
+                    to: admin.email,
+                    subject: `Action Required: New Request for ${resourceName}`,
+                    type: 'new_request',
+                    react: NewRequestEmail({
+                        userName: data.title + ` (${data.contactEmail})`,
+                        resourceName: resourceName,
+                        requestedDates: requestedDates
+                    })
+                });
+            }
         }
     }
 

@@ -1,6 +1,8 @@
 import { stripe } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
+import { sendNotification } from '@/lib/email';
+import { BookingConfirmedEmail } from '@/emails/BookingConfirmedEmail';
 
 export async function POST(req: Request) {
     const body = await req.text();
@@ -43,6 +45,49 @@ export async function POST(req: Request) {
                     console.error('[WEBHOOK_DB_ERROR] Failed to update booking:', error);
                 } else {
                     console.log(`[STRIPE_WEBHOOK] Successfully confirmed booking ${bookingId}`);
+
+                    // Trigger 3: Send Receipt Email
+                    try {
+                        const { data: bookingData } = await adminSupabase
+                            .from('resource_bookings')
+                            .select('start_time, user_id, resource_id')
+                            .eq('id', bookingId)
+                            .single();
+
+                        if (bookingData) {
+                            const { data: userProfile } = await adminSupabase
+                                .from('profiles')
+                                .select('email')
+                                .eq('id', bookingData.user_id)
+                                .single();
+
+                            const { data: resourceData } = await adminSupabase
+                                .from('resources')
+                                .select('name')
+                                .eq('id', bookingData.resource_id)
+                                .single();
+
+                            if (userProfile?.email) {
+                                const resourceName = resourceData?.name || 'Facility Resource';
+                                const amountPaid = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((session.amount_total || 0) / 100);
+                                const dateStr = `${new Date(bookingData.start_time).toLocaleDateString()} at ${new Date(bookingData.start_time).toLocaleTimeString()}`;
+
+                                await sendNotification({
+                                    to: userProfile.email,
+                                    subject: `Payment Receipt: ${resourceName}`,
+                                    type: 'booking_receipt',
+                                    react: BookingConfirmedEmail({
+                                        resourceName,
+                                        dates: [dateStr],
+                                        amountPaid
+                                    })
+                                });
+                                console.log(`[STRIPE_WEBHOOK] Sent BookingConfirmedEmail to ${userProfile.email}`);
+                            }
+                        }
+                    } catch (emailErr) {
+                        console.error('[WEBHOOK_EMAIL_ERROR] Failed to send receipt:', emailErr);
+                    }
                 }
             }
         }

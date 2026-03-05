@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+import { sendNotification } from '@/lib/email';
+import { ContractApprovedEmail } from '@/emails/ContractApprovedEmail';
 
 export async function createResource(formData: FormData) {
     console.log('[createResource] INCOMING FORMDATA:', Array.from(formData.entries()));
@@ -1017,6 +1019,41 @@ export async function approveContract(bookingId: string, finalPriceCents: number
 
     if (updateError) {
         return { error: 'Failed to update booking status.' };
+    }
+
+    // -------------------------------------------------------------------------------------------------
+    // NOTIFICATION PIPELINE: Email the User that their Contract is Ready
+    // -------------------------------------------------------------------------------------------------
+    const { data: userProfile } = await adminSupabase
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', booking.user_id)
+        .single();
+
+    const { data: facilityData } = await adminSupabase
+        .from('facilities')
+        .select('name')
+        .eq('id', booking.facility_id)
+        .single();
+
+    if (userProfile?.email && facilityData?.name) {
+        const formatPrice = (cents: number) => {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(cents / 100);
+        };
+
+        await sendNotification({
+            to: userProfile.email,
+            subject: `Contract Approved! Next steps for ${facilityData.name}`,
+            type: 'contract_ready',
+            react: ContractApprovedEmail({
+                facilityName: facilityData.name,
+                finalPrice: formatPrice(finalPriceCents),
+                paymentTerms: paymentTerm
+            })
+        });
     }
 
     revalidatePath('/facility/calendar');
