@@ -103,6 +103,26 @@ export function ResourceModal({ isSuperAdmin, facilities, resourceTypes, activit
                                 />
                             </div>
 
+                            <div className="space-y-2">
+                                <label htmlFor="default_hourly_rate" className="block text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                    Hourly Rate
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                                    <input
+                                        id="default_hourly_rate"
+                                        name="default_hourly_rate"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="0.00"
+                                        disabled={isPending}
+                                        className="w-full bg-black/50 border border-white/10 rounded-sm pl-8 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-pitch-accent focus:ring-1 focus:ring-pitch-accent transition-all"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500">Leaving this blank or 0 will make the resource free to book.</p>
+                            </div>
+
                             {isSuperAdmin && (
                                 <div className="space-y-2">
                                     <label htmlFor="facility_id" className="block text-xs font-bold text-gray-400 uppercase tracking-widest">

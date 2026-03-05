@@ -11,6 +11,7 @@ interface BookingRequestData {
     contactEmail: string;
     startTime: string; // ISO 
     endTime: string; // ISO
+    isContractRequest?: boolean;
 }
 
 export async function submitBookingRequest(data: BookingRequestData) {
@@ -66,8 +67,9 @@ export async function submitBookingRequest(data: BookingRequestData) {
             renter_name: 'Guest Request',
             contact_email: data.contactEmail,
             user_id: user.id,
-            status: 'pending_facility_review',
-            color: '#3B82F6' // Standard blue, shows up highlighted on admin side due to pending status
+            status: data.isContractRequest ? 'pending_contract' : 'pending_facility_review',
+            payment_status: data.isContractRequest ? 'unpaid' : null,
+            color: data.isContractRequest ? '#EAB308' : '#3B82F6' // Yellow for contract, Blue for generic pending
         });
 
     if (insertError) {

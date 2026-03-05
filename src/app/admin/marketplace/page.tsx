@@ -54,7 +54,7 @@ export default async function AdminMarketplacePage() {
                     <p className="text-gray-400">There are no facilities registered on the network yet.</p>
                 </div>
             ) : (
-                <div className="relative z-10">
+                <div className="relative">
                     <LiveCalendarLoader facilities={facilities} />
                 </div>
             )}

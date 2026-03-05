@@ -136,7 +136,7 @@ export default async function PublicFacilityPage({ params }: { params: Promise<{
                     </div>
 
                     {/* The Interactive Read-Only Calendar */}
-                    <div className="relative z-10 font-sans text-sm leading-normal">
+                    <div className="relative font-sans text-sm leading-normal">
                         <PublicFacilityCalendar
                             facilityId={facility.id}
                             facilityName={facility.name}

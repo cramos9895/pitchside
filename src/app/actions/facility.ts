@@ -37,6 +37,15 @@ export async function createResource(formData: FormData) {
 
     const name = formData.get('name') as string;
     const resourceTypeId = formData.get('resource_type_id') as string;
+    const rawHourlyRate = formData.get('default_hourly_rate') as string;
+
+    let defaultHourlyRate = 0;
+    if (rawHourlyRate) {
+        const parsed = parseFloat(rawHourlyRate);
+        if (!isNaN(parsed)) {
+            defaultHourlyRate = Math.round(parsed * 100);
+        }
+    }
 
     // Extract array of selected activity IDs. Checkboxes return multiple values for the same name if using standard FormData,
     // or we can expect a JSON stringified array. Let's assume a JSON string `activity_ids` for simplicity in the UI.
@@ -74,7 +83,8 @@ export async function createResource(formData: FormData) {
         .insert({
             facility_id: targetFacilityId,
             name: name,
-            resource_type_id: resourceTypeId
+            resource_type_id: resourceTypeId,
+            default_hourly_rate: defaultHourlyRate
         })
         .select()
         .single();
@@ -156,6 +166,15 @@ export async function updateResource(id: string, formData: FormData) {
 
     const name = formData.get('name') as string;
     const resourceTypeId = formData.get('resource_type_id') as string;
+    const rawHourlyRate = formData.get('default_hourly_rate') as string;
+
+    let defaultHourlyRate = 0;
+    if (rawHourlyRate) {
+        const parsed = parseFloat(rawHourlyRate);
+        if (!isNaN(parsed)) {
+            defaultHourlyRate = Math.round(parsed * 100);
+        }
+    }
 
     const activityIdsRaw = formData.get('activity_ids') as string;
     let activityIds: string[] = [];
@@ -182,7 +201,11 @@ export async function updateResource(id: string, formData: FormData) {
     // 2. Update parent resource
     const { error: updateError } = await adminSupabase
         .from('resources')
-        .update({ name, resource_type_id: resourceTypeId })
+        .update({
+            name,
+            resource_type_id: resourceTypeId,
+            default_hourly_rate: defaultHourlyRate
+        })
         .eq('id', id);
 
     if (updateError) return { error: 'Failed to update resource properties.' };
@@ -467,6 +490,13 @@ export async function createBooking(formData: FormData) {
     const end_time = formData.get('end_time') as string;
     const renter_name = formData.get('renter_name') as string;
 
+    const priceStr = formData.get('price') as string;
+    let priceCents: number | null = null;
+    if (priceStr) {
+        const parsed = parseFloat(priceStr);
+        if (!isNaN(parsed)) priceCents = Math.round(parsed * 100);
+    }
+
     if (!resource_id || !title || !start_time || !end_time) {
         return { error: 'Missing required fields. Needs Resource, Title, Start Time, and End Time.' };
     }
@@ -508,6 +538,7 @@ export async function createBooking(formData: FormData) {
             start_time: start_time,
             end_time: end_time,
             renter_name: renter_name || null,
+            listing_price: priceCents,
             status: 'confirmed',
             color: '#3B82F6' // Default PitchSide blue
         });
@@ -639,6 +670,51 @@ export async function deleteBooking(bookingId: string) {
     return { success: true };
 }
 
+export async function deleteRecurringSeries(recurringGroupId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Unauthorized' };
+
+    const { data: profile } = await supabase.from('profiles').select('system_role, role, facility_id').eq('id', user.id).single();
+    if (!profile) return { error: 'Profile not found' };
+
+    const isSuperAdmin = profile.system_role === 'super_admin' || profile.role === 'master_admin';
+    if (profile.system_role !== 'facility_admin' && !isSuperAdmin) {
+        return { error: 'Forbidden. Facility Admin rights required.' };
+    }
+
+    const adminSupabase = createAdminClient();
+
+    // Verify ownership of the series before deleting
+    const { data: sampleBooking } = await adminSupabase
+        .from('resource_bookings')
+        .select('*')
+        .eq('recurring_group_id', recurringGroupId)
+        .limit(1)
+        .single();
+
+    if (!sampleBooking) return { error: 'Series not found' };
+
+    if (!isSuperAdmin && sampleBooking.facility_id !== profile.facility_id) {
+        return { error: 'Unauthorized to delete this series' };
+    }
+
+    const { error } = await adminSupabase
+        .from('resource_bookings')
+        .delete()
+        .eq('recurring_group_id', recurringGroupId);
+
+    if (error) {
+        console.error("Failed to delete recurring series:", error);
+        return { error: 'Failed to delete recurring series.' };
+    }
+
+    revalidatePath('/facility/calendar');
+    revalidatePath('/facility/display');
+    return { success: true };
+}
+
 export async function updateBookingStatus(bookingId: string, status: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -744,5 +820,205 @@ export async function updateFacilityProfile(formData: FormData) {
 
     revalidatePath('/facilities'); // The Index
 
+    return { success: true };
+}
+
+export async function updateFacilityWaiver(formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Unauthorized' };
+
+    const { data: profile } = await supabase.from('profiles').select('system_role, facility_id').eq('id', user.id).single();
+    if (!profile) return { error: 'Profile not found' };
+
+    if (profile.system_role !== 'facility_admin') {
+        return { error: 'Forbidden. Facility Admin rights required.' };
+    }
+
+    if (!profile.facility_id) {
+        return { error: 'No facility attached to your profile.' };
+    }
+
+    const waiverText = formData.get('waiverText') as string;
+
+    // We allow an empty string to clear the waiver
+    const val = waiverText.trim() === '' ? null : waiverText;
+
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase
+        .from('facilities')
+        .update({ waiver_text: val })
+        .eq('id', profile.facility_id);
+
+    if (error) {
+        console.error('Failed to update waiver text:', error);
+        return { error: 'Failed to update waiver text.' };
+    }
+
+    revalidatePath('/facility/settings');
+    revalidatePath(`/facility/settings/legal`);
+    return { success: true };
+}
+
+export async function createRecurringBooking(formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Unauthorized' };
+
+    const { data: profile } = await supabase.from('profiles').select('system_role, facility_id').eq('id', user.id).single();
+    if (!profile || profile.system_role !== 'facility_admin' || !profile.facility_id) {
+        return { error: 'Forbidden. Facility Admin rights required.' };
+    }
+
+    const resourceId = formData.get('resource_id') as string;
+    const renterName = formData.get('renter_name') as string;
+    const priceStr = formData.get('price') as string;
+    const targetDatesJson = formData.get('target_dates') as string;
+
+    if (!resourceId || !targetDatesJson) {
+        return { error: 'Missing required fields for recurring booking' };
+    }
+
+    let priceCents: number | null = null;
+    if (priceStr) {
+        const parsed = parseFloat(priceStr);
+        if (!isNaN(parsed)) priceCents = Math.round(parsed * 100);
+    }
+
+    let bookingDates: { start: Date, end: Date }[] = [];
+    try {
+        const parsedDates = JSON.parse(targetDatesJson);
+        bookingDates = parsedDates.map((d: any) => ({
+            start: new Date(d.start),
+            end: new Date(d.end)
+        }));
+    } catch (e) {
+        return { error: 'Invalid dates payload provided.' };
+    }
+
+    // Double check there is at least one date
+    if (bookingDates.length === 0) return { error: 'No valid dates generated for this schedule.' };
+
+    const adminSupabase = createAdminClient();
+    const recurringGroupId = crypto.randomUUID();
+
+    // We must query for ANY conflicting bookings across ALL proposed dates to be safe
+    // Instead of doing 50 individual queries, we do one massive OR query
+    const timeBlocks = bookingDates.map(b => `and(start_time.lt.${b.end.toISOString()},end_time.gt.${b.start.toISOString()})`).join(',');
+
+    const { data: conflicts, error: conflictError } = await adminSupabase
+        .from('resource_bookings')
+        .select('id, start_time')
+        .eq('resource_id', resourceId)
+        .in('status', ['confirmed', 'pending', 'pending_facility_review']) // Added pending statuses just in case
+        .or(timeBlocks);
+
+    if (conflictError) {
+        console.error('Error checking recurring conflicts:', conflictError);
+        return { error: 'Failed to verify schedule availability.' };
+    }
+
+    if (conflicts && conflicts.length > 0) {
+        // Return exactly which date failed so they can adjust
+        const badDate = new Date(conflicts[0].start_time).toLocaleDateString();
+        return { error: `Server conflict detected on ${badDate}. Please choose a different schedule.` };
+    }
+
+    // Build the bulk insert payload
+    const insertPayload = bookingDates.map(b => ({
+        resource_id: resourceId,
+        facility_id: profile.facility_id,
+        user_id: user.id,
+        start_time: b.start.toISOString(),
+        end_time: b.end.toISOString(),
+        status: 'confirmed',
+        recurring_group_id: recurringGroupId,
+        renter_name: renterName || null,
+        listing_price: priceCents,
+        title: formData.get('title') as string || 'Recurring Event',
+        color: '#3B82F6' // Default PitchSide blue
+    }));
+
+    const { error: insertError } = await adminSupabase
+        .from('resource_bookings')
+        .insert(insertPayload);
+
+    if (insertError) {
+        console.error("Failed to batch insert recurring bookings:", insertError);
+        return { error: 'Failed to save recurring bookings.' };
+    }
+
+    revalidatePath('/facility/calendar');
+    revalidatePath('/facility/display');
+    return { success: true };
+}
+
+export async function approveContract(bookingId: string, finalPriceCents: number, paymentTerm: 'upfront' | 'weekly') {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Unauthorized' };
+
+    const { data: profile } = await supabase.from('profiles').select('system_role, facility_id, role').eq('id', user.id).single();
+    if (!profile) return { error: 'Profile not found' };
+
+    const isSuperAdmin = profile.system_role === 'super_admin' || profile.role === 'master_admin';
+    if (profile.system_role !== 'facility_admin' && !isSuperAdmin) {
+        return { error: 'Forbidden. Facility Admin rights required.' };
+    }
+
+    const adminSupabase = createAdminClient();
+
+    // Fetch the booking to ensure it exists and get its recurringGroupId
+    const { data: booking, error: fetchError } = await adminSupabase
+        .from('resource_bookings')
+        .select('id, recurring_group_id, user_id, facility_id')
+        .eq('id', bookingId)
+        .single();
+
+    if (fetchError || !booking) {
+        return { error: 'Booking not found.' };
+    }
+
+    if (!isSuperAdmin && booking.facility_id !== profile.facility_id) {
+        return { error: 'Forbidden. You do not manage this facility.' };
+    }
+
+    let groupId = booking.recurring_group_id;
+    if (!groupId) {
+        groupId = crypto.randomUUID();
+        // Stamp the booking so it's tied to this group
+        await adminSupabase.from('resource_bookings').update({ recurring_group_id: groupId }).eq('id', bookingId);
+    }
+
+    // Insert contract terms into the new table
+    const { error: groupError } = await adminSupabase
+        .from('recurring_booking_groups')
+        .insert({
+            id: groupId,
+            facility_id: booking.facility_id,
+            user_id: booking.user_id,
+            payment_term: paymentTerm,
+            final_price: finalPriceCents
+        });
+
+    if (groupError) {
+        console.error('Failed to create contract group:', groupError);
+        return { error: 'Failed to save contract terms.' };
+    }
+
+    // Upgrade the booking(s) status to awaiting_payment
+    const { error: updateError } = await adminSupabase
+        .from('resource_bookings')
+        .update({ status: 'awaiting_payment' })
+        .eq('recurring_group_id', groupId);
+
+    if (updateError) {
+        return { error: 'Failed to update booking status.' };
+    }
+
+    revalidatePath('/facility/calendar');
     return { success: true };
 }

@@ -95,8 +95,23 @@ export function FacilityResourceItem({ resource, isSuperAdmin, resourceTypes, ac
                             />
                         </div>
 
+                        {/* Hourly Rate Input */}
+                        <div className="md:col-span-2 space-y-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Rate ($/hr)</label>
+                            <input
+                                name="default_hourly_rate"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                defaultValue={resource.default_hourly_rate ? (resource.default_hourly_rate / 100).toFixed(2) : ''}
+                                placeholder="0.00"
+                                disabled={isPending}
+                                className="w-full bg-black/60 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent text-sm transition-colors"
+                            />
+                        </div>
+
                         {/* Resource Type Dropdown */}
-                        <div className="md:col-span-3 space-y-1">
+                        <div className="md:col-span-2 space-y-1">
                             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Type</label>
                             <select
                                 name="resource_type_id"
@@ -113,7 +128,7 @@ export function FacilityResourceItem({ resource, isSuperAdmin, resourceTypes, ac
                         </div>
 
                         {/* Supported Activities Multi-Select Dropdown */}
-                        <div className="md:col-span-4 space-y-1 relative">
+                        <div className="md:col-span-3 space-y-1 relative">
                             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Activities</label>
                             <div className="relative">
                                 <button
@@ -227,6 +242,9 @@ export function FacilityResourceItem({ resource, isSuperAdmin, resourceTypes, ac
                 <span className="bg-pitch-accent/20 text-pitch-accent px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-wider border border-pitch-accent/30 inline-block">
                     {resource.resource_types?.name || 'Legacy Resource'}
                 </span>
+            </td>
+            <td className="p-4 align-top text-right text-sm text-white font-mono">
+                {resource.default_hourly_rate ? `$${(resource.default_hourly_rate / 100).toFixed(2)}/hr` : <span className="text-gray-500 text-xs font-sans uppercase tracking-wider">Free</span>}
             </td>
             <td className="p-4 align-top text-right text-sm text-gray-400">
                 {new Date(resource.created_at).toLocaleDateString()}

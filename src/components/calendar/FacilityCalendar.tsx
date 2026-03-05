@@ -105,7 +105,8 @@ export function FacilityCalendar({
                 resourceId: b.resource_id,
                 renterName: b.renter_name,
                 status: b.status,
-                color: b.color
+                color: b.color,
+                recurringGroupId: b.recurring_group_id
             }));
 
             setResources(mappedResources);
@@ -176,6 +177,7 @@ export function FacilityCalendar({
                 initialEvents={events}
                 isAdminOverride={isMasterView}
                 onAdminSlotSelect={handleAdminSlotSelect}
+                onSuccess={refreshFeed}
             />
             {isMasterView && (
                 <AdminClaimModal

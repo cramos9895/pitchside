@@ -32,6 +32,7 @@ export interface BookingEvent extends CalendarEvent {
     isListed?: boolean;
     listingPrice?: number | null;
     marketplaceStatus?: string;
+    recurringGroupId?: string | null;
 }
 
 interface FacilityResource {
@@ -46,13 +47,15 @@ interface FacilityCalendarProps {
     initialEvents: BookingEvent[];
     isAdminOverride?: boolean;
     onAdminSlotSelect?: (slotInfo: SlotInfo) => void;
+    onSuccess?: () => void;
 }
 
 export function FacilityCalendar({
     resources,
     initialEvents,
     isAdminOverride = false,
-    onAdminSlotSelect
+    onAdminSlotSelect,
+    onSuccess
 }: FacilityCalendarProps) {
     const [events, setEvents] = useState<BookingEvent[]>(initialEvents);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -189,6 +192,8 @@ export function FacilityCalendar({
                     selectedSlot={selectedSlot}
                     selectedEvent={selectedEvent}
                     resources={resources}
+                    existingBookings={events}
+                    onSuccess={onSuccess}
                 />
             )}
 

@@ -20,10 +20,14 @@ export default async function UsersPage() {
         redirect('/admin');
     }
 
-    // Fetch all profiles
+    // Fetch all profiles and their platform-wide waiver signatures
     const { data: profiles, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+            *,
+            waiver_signatures (id, agreed_at)
+        `)
+        .is('waiver_signatures.facility_id', null)
         .order('updated_at', { ascending: false });
 
     if (error) {
@@ -40,6 +44,16 @@ export default async function UsersPage() {
                             User <span className="text-white">Management</span>
                         </h1>
                         <p className="text-gray-400">Manage user roles and permissions.</p>
+                    </div>
+
+                    <div className="bg-pitch-card border border-white/10 rounded-sm p-4 flex items-center gap-4">
+                        <div className="p-3 bg-purple-500/20 rounded-full">
+                            <Users className="w-6 h-6 text-purple-400" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-wider text-pitch-secondary">Total Platform Users</p>
+                            <p className="text-2xl font-black font-numeric text-white">{profiles?.length || 0}</p>
+                        </div>
                     </div>
                 </div>
 

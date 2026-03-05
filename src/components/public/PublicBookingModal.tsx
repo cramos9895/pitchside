@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { X, Calendar, MapPin, Clock, Info } from 'lucide-react';
 import { submitBookingRequest } from '@/app/actions/public-booking';
+import { createCheckoutSession } from '@/app/actions/stripe';
+import { WaiverModal } from '../WaiverModal';
+import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 
 interface FacilityResource {
@@ -36,6 +39,11 @@ export function PublicBookingModal({
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+    const [showWaiver, setShowWaiver] = useState(false);
+    const [agreeingWaiver, setAgreeingWaiver] = useState(false);
+    const [facilityWaiverText, setFacilityWaiverText] = useState<string | null>(null);
+    const supabase = createClient();
+
     if (!isOpen || !selectedSlot) return null;
 
     const resource = resources.find(r => r.id === selectedSlot.resourceId);
@@ -51,25 +59,129 @@ export function PublicBookingModal({
         setErrorMsg(null);
 
         try {
-            const result = await submitBookingRequest({
-                facilityId,
-                resourceId: resource.id,
-                title,
-                contactEmail: email,
-                startTime: selectedSlot.start.toISOString(),
-                endTime: selectedSlot.end.toISOString()
-            });
+            // 1. Check if facility even requires a waiver
+            const { data: facilityData } = await supabase
+                .from('facilities')
+                .select('waiver_text')
+                .eq('id', facilityId)
+                .single();
 
-            if (result.success) {
-                setSuccessMsg('Your booking request has been submitted! The facility will review it shortly.');
-                setTimeout(() => {
-                    onClose();
-                    setSuccessMsg(null);
-                    setTitle('');
-                    setEmail('');
-                }, 3000);
+            const requiredWaiverText = facilityData?.waiver_text?.trim();
+
+            if (requiredWaiverText) {
+                // 1b. Check if user already signed this facility's waiver
+                const { data: userData } = await supabase.auth.getUser();
+                if (userData.user) {
+                    const { data: signature } = await supabase
+                        .from('waiver_signatures')
+                        .select('id')
+                        .eq('user_id', userData.user.id)
+                        .eq('facility_id', facilityId)
+                        .maybeSingle();
+
+                    if (!signature) {
+                        setFacilityWaiverText(requiredWaiverText);
+                        setIsSubmitting(false);
+                        setShowWaiver(true);
+                        return; // Pause flow
+                    }
+                }
+            }
+
+            // 2. Proceed with Booking
+            await executeBooking();
+        } catch (error) {
+            setErrorMsg('An unexpected error occurred verifying your signature.');
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleWaiverAgree = async () => {
+        setAgreeingWaiver(true);
+        const { data: userData } = await supabase.auth.getUser();
+
+        if (userData.user) {
+            await supabase
+                .from('waiver_signatures')
+                .insert({ user_id: userData.user.id, facility_id: facilityId });
+
+            setShowWaiver(false);
+
+            // Resume flow
+            setIsSubmitting(true);
+            await executeBooking();
+        }
+        setAgreeingWaiver(false);
+    };
+
+    const isContractRequest = estimatedCost >= 500;
+
+    const executeBooking = async () => {
+        try {
+            if (isContractRequest) {
+                // High-value carts bypass Stripe and generate a Contract Request
+                const result = await submitBookingRequest({
+                    facilityId,
+                    resourceId: resource.id,
+                    title,
+                    contactEmail: email,
+                    startTime: selectedSlot.start.toISOString(),
+                    endTime: selectedSlot.end.toISOString(),
+                    isContractRequest: true
+                });
+
+                if (result.success) {
+                    setSuccessMsg('Contract Request Submitted! The facility will review your request and send an invoice shortly.');
+                    setTimeout(() => {
+                        onClose();
+                        setSuccessMsg(null);
+                        setTitle('');
+                        setEmail('');
+                    }, 4000);
+                } else {
+                    setErrorMsg(result.error || 'Failed to submit contract request.');
+                }
+            } else if (rate > 0) {
+                // Standard Paid Cart (< $500)
+                const amountCents = Math.round(estimatedCost * 100);
+                const result = await createCheckoutSession({
+                    facilityId,
+                    resourceId: resource.id,
+                    title,
+                    contactEmail: email,
+                    startTime: selectedSlot.start.toISOString(),
+                    endTime: selectedSlot.end.toISOString(),
+                    amountCents
+                });
+
+                if (result.url) {
+                    window.location.href = result.url; // Send to Stripe
+                    return;
+                } else {
+                    setErrorMsg(result.error || 'Failed to initiate checkout.');
+                }
             } else {
-                setErrorMsg(result.error || 'Failed to submit request.');
+                // Free Booking Request ($0)
+                const result = await submitBookingRequest({
+                    facilityId,
+                    resourceId: resource.id,
+                    title,
+                    contactEmail: email,
+                    startTime: selectedSlot.start.toISOString(),
+                    endTime: selectedSlot.end.toISOString()
+                });
+
+                if (result.success) {
+                    setSuccessMsg('Your booking request has been submitted! The facility will review it shortly.');
+                    setTimeout(() => {
+                        onClose();
+                        setSuccessMsg(null);
+                        setTitle('');
+                        setEmail('');
+                    }, 3000);
+                } else {
+                    setErrorMsg(result.error || 'Failed to submit request.');
+                }
             }
         } catch (error) {
             setErrorMsg('An unexpected error occurred.');
@@ -79,15 +191,15 @@ export function PublicBookingModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-slate-900 border border-white/10 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-slate-900 border border-white/10 rounded-xl shadow-2xl flex flex-col w-full max-w-lg max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
 
-                {/* Header */}
-                <div className="bg-slate-800 p-6 flex items-start justify-between border-b border-white/5 relative overflow-hidden">
+                {/* Header - SHRINK 0 */}
+                <div className="bg-slate-800 p-6 flex items-start justify-between border-b border-white/5 shrink-0 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pitch-accent to-blue-500"></div>
                     <div>
                         <h2 className="text-xl font-heading font-black italic uppercase tracking-tight text-white flex items-center gap-2">
-                            Request Booking
+                            {isContractRequest ? 'Request Contract' : 'Request Booking'}
                         </h2>
                         <div className="flex items-center gap-2 mt-2 text-sm text-gray-400">
                             <MapPin className="w-4 h-4 text-pitch-accent" />
@@ -104,7 +216,8 @@ export function PublicBookingModal({
                     </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto">
+                {/* Body - SCROLLS */}
+                <div className="p-6 overflow-y-auto flex-1">
                     {/* Time Summary */}
                     <div className="bg-black/40 border border-white/5 rounded-lg p-5 mb-6 flex flex-col gap-3">
                         <div className="flex items-center gap-3 text-white">
@@ -130,9 +243,16 @@ export function PublicBookingModal({
                             </div>
                         </div>
                         {rate > 0 && (
-                            <div className="mt-2 pt-3 border-t border-white/5 flex justify-between items-center text-sm">
-                                <span className="text-gray-400">Estimated Cost ({rate}/hr)</span>
-                                <span className="font-bold font-numeric text-white">${estimatedCost.toFixed(2)}</span>
+                            <div className="mt-2 pt-3 border-t border-white/5 flex flex-col gap-1 text-sm">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400">Estimated Cost ({rate}/hr)</span>
+                                    <span className={`font-bold font-numeric ${isContractRequest ? 'text-yellow-400' : 'text-white'}`}>${estimatedCost.toFixed(2)}</span>
+                                </div>
+                                {isContractRequest && (
+                                    <span className="text-xs text-yellow-500/80 italic text-right mt-1">
+                                        High-value cart. Payment collected via invoice.
+                                    </span>
+                                )}
                             </div>
                         )}
                     </div>
@@ -143,19 +263,13 @@ export function PublicBookingModal({
                             <div className="text-gray-300 text-sm leading-relaxed">
                                 You must be logged into PitchSide to request a slot at this facility. Sign in or create a quick free account to continue.
                             </div>
-                            <Link
-                                href="/login"
-                                className="inline-block bg-pitch-accent text-pitch-black font-bold uppercase w-full py-3 rounded-sm transition-transform hover:-translate-y-0.5"
-                            >
-                                Login to Request
-                            </Link>
                         </div>
                     ) : successMsg ? (
                         <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-6 rounded-lg text-center font-medium animate-in fade-in">
                             {successMsg}
                         </div>
                     ) : (
-                        <form onSubmit={handleSubmit} className="space-y-5">
+                        <form id="public-form" onSubmit={handleSubmit} className="space-y-5">
                             {errorMsg && (
                                 <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded text-sm text-center">
                                     {errorMsg}
@@ -190,18 +304,54 @@ export function PublicBookingModal({
                                 />
                                 <p className="text-xs text-gray-500 mt-2">The facility will use this to contact you if approved.</p>
                             </div>
-
-                            <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="w-full bg-white text-pitch-black font-bold uppercase tracking-wider py-3 rounded text-sm transition-all hover:bg-gray-200 disabled:opacity-50 mt-4"
-                            >
-                                {isSubmitting ? 'Submitting...' : 'Submit Request'}
-                            </button>
                         </form>
                     )}
                 </div>
+
+                {/* Footer - Pinned Bottom */}
+                <div className="p-4 border-t border-white/5 bg-slate-800/50 shrink-0">
+                    {!isAuthenticated ? (
+                        <Link
+                            href="/login"
+                            className="flex items-center justify-center bg-pitch-accent text-pitch-black font-bold uppercase w-full py-3 rounded-sm transition-transform hover:-translate-y-0.5"
+                        >
+                            Login to Request
+                        </Link>
+                    ) : successMsg ? (
+                        <button
+                            onClick={onClose}
+                            className="w-full font-bold uppercase tracking-wider py-3 rounded text-sm transition-all shadow-lg hover:-translate-y-0.5 bg-white text-pitch-black"
+                        >
+                            Close
+                        </button>
+                    ) : (
+                        <button
+                            type="submit"
+                            form="public-form"
+                            disabled={isSubmitting}
+                            className={`w-full font-bold uppercase tracking-wider py-3 rounded text-sm transition-all shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:-translate-y-0 
+                                ${isContractRequest
+                                    ? 'bg-yellow-500 text-black hover:bg-yellow-400'
+                                    : rate > 0 ? 'bg-pitch-accent text-pitch-black hover:bg-white' : 'bg-white text-pitch-black hover:bg-gray-200'}
+                            `}
+                        >
+                            {isSubmitting
+                                ? (isContractRequest ? 'Sending Request...' : rate > 0 ? 'Redirecting...' : 'Submitting...')
+                                : (isContractRequest ? `Request Contract ($${estimatedCost.toFixed(2)})` : rate > 0 ? `Proceed to Payment ($${estimatedCost.toFixed(2)})` : 'Submit Request')
+                            }
+                        </button>
+                    )}
+                </div>
             </div>
+
+            <WaiverModal
+                isOpen={showWaiver}
+                onClose={() => setShowWaiver(false)}
+                onAgree={handleWaiverAgree}
+                loading={agreeingWaiver}
+                facilityId={facilityId}
+                customText={facilityWaiverText || undefined}
+            />
         </div>
     );
 }

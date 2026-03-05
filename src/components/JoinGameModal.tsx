@@ -59,17 +59,18 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                 }
             }
 
-            // 3. Fetch User Waiver Status
+            // 3. Fetch User Waiver Status (Platform Wide)
             const { data: userData } = await supabase.auth.getUser();
             if (userData.user) {
-                const { data: profileData } = await supabase
-                    .from('profiles')
-                    .select('waiver_signed')
-                    .eq('id', userData.user.id)
-                    .single();
+                const { data: signature } = await supabase
+                    .from('waiver_signatures')
+                    .select('id')
+                    .eq('user_id', userData.user.id)
+                    .is('facility_id', null)
+                    .maybeSingle();
 
-                if (profileData) {
-                    setWaiverSigned(profileData.waiver_signed || false);
+                if (signature) {
+                    setWaiverSigned(true);
                 }
             }
         };
@@ -115,9 +116,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
 
         if (userData.user) {
             await supabase
-                .from('profiles')
-                .update({ waiver_signed: true })
-                .eq('id', userData.user.id);
+                .from('waiver_signatures')
+                .insert({ user_id: userData.user.id });
 
             setWaiverSigned(true);
             setShowWaiver(false);

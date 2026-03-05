@@ -7,9 +7,11 @@ interface WaiverModalProps {
     onClose: () => void;
     onAgree: () => void;
     loading: boolean;
+    facilityId?: string;
+    customText?: string;
 }
 
-export function WaiverModal({ isOpen, onClose, onAgree, loading }: WaiverModalProps) {
+export function WaiverModal({ isOpen, onClose, onAgree, loading, facilityId, customText }: WaiverModalProps) {
     if (!isOpen) return null;
 
     return (
@@ -38,10 +40,10 @@ export function WaiverModal({ isOpen, onClose, onAgree, loading }: WaiverModalPr
                 {/* Scrollable Content */}
                 <div className="overflow-y-auto pr-2 mb-6 text-sm text-gray-300 space-y-4 border border-white/5 bg-black/40 p-4 rounded form-scrollbar">
                     <p className="font-bold text-white mb-4 uppercase text-xs tracking-wider">
-                        Pitch Side Liability Waiver and Release
+                        {facilityId ? 'Facility Liability Waiver and Release' : 'Pitch Side Liability Waiver and Release'}
                     </p>
                     <p>
-                        By clicking &quot;I Agree&quot; and participating in any soccer matches, tournaments, or events organized by Pitch Side, you acknowledge and agree to the following terms:
+                        By clicking &quot;I Agree&quot; and participating in any soccer matches, tournaments, or events {facilityId ? 'at this facility' : 'organized by Pitch Side'}, you acknowledge and agree to the following terms:
                     </p>
 
                     <div>
@@ -54,7 +56,7 @@ export function WaiverModal({ isOpen, onClose, onAgree, loading }: WaiverModalPr
                     <div>
                         <strong className="text-pitch-accent uppercase text-xs block mb-1">2. Release of Liability</strong>
                         <p>
-                            You hereby release, waive, and discharge Pitch Side, its organizers, administrators, facility owners, and other participants from any and all claims, liabilities, or demands arising from your participation. This includes claims resulting from ordinary negligence but does not include gross negligence or willful misconduct.
+                            You hereby release, waive, and discharge {facilityId ? 'the Facility' : 'Pitch Side'}, its organizers, administrators, facility owners, and other participants from any and all claims, liabilities, or demands arising from your participation. This includes claims resulting from ordinary negligence but does not include gross negligence or willful misconduct.
                         </p>
                     </div>
 
@@ -83,7 +85,7 @@ export function WaiverModal({ isOpen, onClose, onAgree, loading }: WaiverModalPr
                 {/* Footer Action */}
                 <div className="mt-auto">
                     <p className="text-xs text-center text-gray-400 mb-4 px-2">
-                        You must agree to these terms to join the game. This will securely save to your profile.
+                        You must agree to these terms to proceed. This will securely save your signature for this {facilityId ? 'facility' : 'platform'}.
                     </p>
                     <button
                         onClick={onAgree}

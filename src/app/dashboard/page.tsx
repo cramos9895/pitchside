@@ -12,6 +12,8 @@ import { useToast } from '@/components/ui/Toast';
 import { GameCard } from '@/components/GameCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+import { createContractCheckoutSession } from '@/app/actions/stripe';
+
 // Profile Utility
 function formatPosition(pos: string) {
     if (pos === 'Forward') return 'FWD';
@@ -28,6 +30,10 @@ export default function DashboardPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [bookings, setBookings] = useState<any[]>([]);
+    const [resourceBookings, setResourceBookings] = useState<any[]>([]);
+    const [contracts, setContracts] = useState<any[]>([]);
+    const [isPayingContract, setIsPayingContract] = useState<string | null>(null);
+
     const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'past'>('today');
     const [user, setUser] = useState<any>(null);
     const [cancellingGameId, setCancellingGameId] = useState<string | null>(null);
@@ -74,7 +80,20 @@ export default function DashboardPage() {
                     return;
                 }
                 setUser(user);
-                setUser(user);
+
+                // --- Fetch Resource Bookings & Contracts (Rentals) ---
+                const { data: rbData } = await supabase
+                    .from('resource_bookings')
+                    .select('*, facility:facilities(name), resource:resources(title)')
+                    .eq('user_id', user.id)
+                    .order('start_time', { ascending: true });
+                if (rbData) setResourceBookings(rbData);
+
+                const { data: cData } = await supabase
+                    .from('recurring_booking_groups')
+                    .select('*')
+                    .eq('user_id', user.id);
+                if (cData) setContracts(cData);
 
                 // Fetch bookings with game details
                 const { data: bookingsData, error } = await supabase
@@ -242,6 +261,43 @@ export default function DashboardPage() {
     else if (ovr >= 75) tierColor = "text-gray-200 border-gray-300 bg-white/10"; // Silver
     else tierColor = "text-orange-300 border-orange-400 bg-orange-900/20"; // Bronze
 
+    const groupedRentals = resourceBookings.reduce((acc: any, booking: any) => {
+        const key = booking.recurring_group_id || booking.id;
+        if (!acc[key]) {
+            acc[key] = {
+                id: key,
+                isGroup: !!booking.recurring_group_id,
+                bookings: [],
+                facility: booking.facility?.name || 'Unknown Facility',
+                resource: booking.resource?.title || 'Unknown Resource',
+                status: booking.status, // assume all in group have same status
+                contract: contracts.find(c => c.id === booking.recurring_group_id)
+            };
+        }
+        acc[key].bookings.push(booking);
+        return acc;
+    }, {});
+
+    const rentalGroups = Object.values(groupedRentals).sort((a: any, b: any) => {
+        return new Date(b.bookings[0].start_time).getTime() - new Date(a.bookings[0].start_time).getTime();
+    });
+
+    const handlePayContract = async (groupId: string) => {
+        setIsPayingContract(groupId);
+        try {
+            const result = await createContractCheckoutSession(groupId);
+            if (result.error) {
+                toastError(result.error);
+            } else if (result.url) {
+                window.location.href = result.url;
+            }
+        } catch (err) {
+            toastError("Failed to initiate payment.");
+        } finally {
+            setIsPayingContract(null);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-pitch-black text-white font-sans pt-32 px-6">
             <div className="max-w-7xl mx-auto">
@@ -254,6 +310,7 @@ export default function DashboardPage() {
                         </div>
                         <TabsList className="bg-black/40 border border-white/10">
                             <TabsTrigger value="my-games">My Games</TabsTrigger>
+                            <TabsTrigger value="rentals">Facility Rentals</TabsTrigger>
                             <TabsTrigger value="profile">Profile</TabsTrigger>
                         </TabsList>
                     </div>
@@ -327,6 +384,85 @@ export default function DashboardPage() {
                                         />
                                     );
                                 })}
+                            </div>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="rentals" className="space-y-6 mt-0">
+                        {rentalGroups.length === 0 ? (
+                            <div className="text-center py-20 border border-white/5 rounded-sm bg-pitch-card">
+                                <h2 className="text-2xl font-bold mb-4">No Rentals Found</h2>
+                                <p className="text-pitch-secondary mb-8">
+                                    You haven't requested any facility rentals yet.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4 animate-in fade-in duration-500">
+                                {rentalGroups.map((group: any) => (
+                                    <div key={group.id} className="bg-pitch-card border border-white/10 rounded-sm p-6 space-y-4">
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4">
+                                            <div>
+                                                <h3 className="font-bold text-lg">{group.facility}</h3>
+                                                <p className="text-pitch-secondary text-sm">{group.resource}</p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                {group.status === 'awaiting_payment' ? (
+                                                    <span className="px-3 py-1 bg-yellow-500/20 text-yellow-500 text-xs font-bold uppercase tracking-wider rounded-sm border border-yellow-500/30">
+                                                        Action Required
+                                                    </span>
+                                                ) : group.status === 'confirmed' ? (
+                                                    <span className="px-3 py-1 bg-green-500/20 text-green-500 text-xs font-bold uppercase tracking-wider rounded-sm border border-green-500/30">
+                                                        Confirmed
+                                                    </span>
+                                                ) : group.status === 'pending_contract' || group.status === 'pending_facility_review' ? (
+                                                    <span className="px-3 py-1 bg-white/10 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-sm border border-white/20">
+                                                        Under Review
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-3 py-1 bg-white/5 text-gray-400 text-xs font-bold uppercase tracking-wider rounded-sm border border-white/10">
+                                                        {group.status.replace('_', ' ')}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            {group.bookings.slice(0, 3).map((b: any) => (
+                                                <div key={b.id} className="flex justify-between items-center text-sm p-3 bg-black/30 rounded border border-white/5">
+                                                    <div className="font-medium text-gray-300">{new Date(b.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                                                    <div className="text-pitch-secondary">
+                                                        {new Date(b.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - {new Date(b.end_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {group.bookings.length > 3 && (
+                                                <div className="text-xs text-center text-pitch-secondary pt-2 italic">
+                                                    + {group.bookings.length - 3} more dates in this series
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {group.status === 'awaiting_payment' && group.contract && (
+                                            <div className="mt-4 pt-4 border-t border-yellow-500/20 bg-yellow-500/5 p-4 rounded-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                                                <div>
+                                                    <h4 className="font-bold text-yellow-400 mb-1">Payment Required</h4>
+                                                    <p className="text-sm text-gray-300">
+                                                        {group.contract.payment_term === 'weekly'
+                                                            ? `Weekly Auto-Pay Setup (Total: $${(group.contract.final_price / 100).toFixed(2)})`
+                                                            : `Upfront Payment of $${(group.contract.final_price / 100).toFixed(2)}`}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => handlePayContract(group.id)}
+                                                    disabled={isPayingContract === group.id}
+                                                    className="w-full md:w-auto px-6 py-3 bg-pitch-accent text-pitch-black font-bold uppercase tracking-wider text-sm rounded-sm hover:-translate-y-0.5 transition-all shadow-lg disabled:opacity-50 disabled:hover:-translate-y-0"
+                                                >
+                                                    {isPayingContract === group.id ? 'Processing...' : 'Pay & Confirm'}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </TabsContent>

@@ -201,6 +201,13 @@ export default function AdminSettingsPage() {
                         <h3 className="font-bold text-white group-hover:text-pitch-accent transition-colors">Global Resource Types</h3>
                         <p className="text-sm text-gray-400 mt-1">Manage standard Field/Court archetypes.</p>
                     </Link>
+                    <Link href="/admin/settings/financials" className="block p-4 bg-black/20 rounded border border-white/5 hover:border-green-500 transition-colors group relative overflow-hidden">
+                        <DollarSign className="w-16 h-16 absolute top-2 right-2 text-green-500 opacity-5 group-hover:opacity-10 transition-opacity" />
+                        <h3 className="font-bold text-white group-hover:text-green-500 transition-colors relative z-10 flex items-center gap-2">
+                            Revenue Engine
+                        </h3>
+                        <p className="text-sm text-gray-400 mt-1 relative z-10">Configure dynamic platform fees.</p>
+                    </Link>
                 </div>
             </div>
 
@@ -293,21 +300,10 @@ export default function AdminSettingsPage() {
                 </div>
             </div>
 
-            {/* User Management */}
-            <div className="bg-pitch-card border border-white/5 rounded-lg p-6">
-                <h2 className="font-oswald text-xl font-bold uppercase mb-4 flex items-center gap-2">
-                    <Users className="w-5 h-5 text-pitch-accent" />
-                    User Management
-                </h2>
-                <p className="text-gray-400 text-sm mb-6">
-                    Manage roles and enforce system bans.
-                </p>
 
-                <UserTable initialProfiles={profiles} />
-            </div>
 
             {/* Dynamic Site Editor (Restricted to Master Admin by Page wrapper) */}
             <SiteEditor />
-        </div>
+        </div >
     );
 }

@@ -19,6 +19,7 @@ interface Profile {
     banned_until?: string | null;
     ban_reason?: string | null;
     verification_status?: 'verified' | 'pending' | 'rejected';
+    waiver_signatures?: { id: string; agreed_at: string }[];
 }
 
 interface UserTableProps {
@@ -171,6 +172,7 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
                         <tr className="border-b border-white/10 text-xs font-bold uppercase tracking-wider text-pitch-secondary">
                             <th className="py-3 px-4">User</th>
                             <th className="py-3 px-4">Role</th>
+                            <th className="py-3 px-4">Waiver (Global)</th>
                             <th className="py-3 px-4 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -211,6 +213,16 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
                                         {profile.system_role === 'super_admin' && <Shield className="w-3 h-3" />}
                                         {profile.system_role === 'super_admin' ? 'Super Admin' : profile.role}
                                     </span>
+                                </td>
+                                <td className="py-4 px-4">
+                                    {profile.waiver_signatures && profile.waiver_signatures.length > 0 ? (
+                                        <div className="flex items-center gap-2 text-green-400 text-xs font-bold uppercase">
+                                            <Shield className="w-3.5 h-3.5" />
+                                            Signed {new Date(profile.waiver_signatures[0].agreed_at).toLocaleDateString()}
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-500 text-xs uppercase tracking-wider italic">Pending</span>
+                                    )}
                                 </td>
                                 <td className="py-4 px-4 text-right">
                                     <div className="flex justify-end gap-2">

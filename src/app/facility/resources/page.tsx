@@ -126,13 +126,14 @@ export default async function ResourcesManager() {
                                 <th className="p-4 font-bold">Resource Name</th>
                                 {isSuperAdmin && <th className="p-4 font-bold">Facility Name</th>}
                                 <th className="p-4 font-bold">Archetype</th>
+                                <th className="p-4 font-bold text-right">Rate</th>
                                 <th className="p-4 font-bold text-right">Added</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {fetchError || !resources || resources.length === 0 ? (
                                 <tr>
-                                    <td colSpan={isSuperAdmin ? 4 : 3} className="p-8 text-center text-gray-500 italic">
+                                    <td colSpan={isSuperAdmin ? 5 : 4} className="p-8 text-center text-gray-500 italic">
                                         No resources found. Click "Add Resource" to create your first field or court.
                                     </td>
                                 </tr>

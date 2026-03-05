@@ -43,7 +43,7 @@ export default async function FacilityCalendarPage() {
                 </div>
             </div>
 
-            <div className="relative z-10">
+            <div className="relative">
                 <FacilityCalendar
                     initialFacilityId={facilityId}
                 />

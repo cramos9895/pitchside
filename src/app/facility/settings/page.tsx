@@ -1,4 +1,4 @@
-import { Settings, Users, Activity, Globe } from 'lucide-react';
+import { Settings, Users, Activity, Globe, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { FacilityProfileForm } from '@/components/facility/FacilityProfileForm';
@@ -35,7 +35,7 @@ export default async function FacilitySettingsPage() {
             </h1>
 
             {/* Quick Actions Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Link href="/facility/settings/activities" className="block p-6 bg-pitch-card border border-white/5 hover:border-pitch-accent transition-colors rounded group">
                     <Activity className="w-8 h-8 text-pitch-secondary mb-4 group-hover:text-pitch-accent transition-colors" />
                     <h2 className="font-oswald text-xl font-bold uppercase text-white mb-2">Activities Available</h2>
@@ -49,6 +49,25 @@ export default async function FacilitySettingsPage() {
                     <h2 className="font-oswald text-xl font-bold uppercase text-white mb-2">Team Management</h2>
                     <p className="text-sm text-gray-400">
                         Invite staff members to help manage your facility, leagues, and bookings.
+                    </p>
+                </Link>
+
+                <Link href="/facility/settings/payments" className="block p-6 bg-pitch-card border border-white/5 hover:border-pitch-accent transition-colors rounded group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <DollarSign className="w-24 h-24" />
+                    </div>
+                    <DollarSign className="w-8 h-8 text-pitch-accent mb-4" />
+                    <h2 className="font-oswald text-xl font-bold uppercase text-white mb-2 relative z-10">Payouts & Billing</h2>
+                    <p className="text-sm text-gray-400 relative z-10">
+                        Connect with Stripe to manage payments, monitor checkout sessions, and receive payouts.
+                    </p>
+                </Link>
+
+                <Link href="/facility/settings/legal" className="block p-6 bg-pitch-card border border-white/5 hover:border-pitch-accent transition-colors rounded group">
+                    <Settings className="w-8 h-8 text-pitch-secondary mb-4 group-hover:text-pitch-accent transition-colors" />
+                    <h2 className="font-oswald text-xl font-bold uppercase text-white mb-2">Legal & Compliance</h2>
+                    <p className="text-sm text-gray-400">
+                        Configure customized liability waivers for facility rentals.
                     </p>
                 </Link>
             </div>

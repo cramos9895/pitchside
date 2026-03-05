@@ -26,7 +26,8 @@ interface FacilityResource {
     id: string;
     title: string;
     resource_type_id: string;
-    resource_types?: { name: string; default_hourly_rate?: number };
+    default_hourly_rate?: number;
+    resource_types?: { name: string };
 }
 
 interface PublicFacilityCalendarProps {
@@ -63,7 +64,7 @@ export function PublicFacilityCalendar({ facilityId, facilityName, isAuthenticat
             // Resources
             const { data: resourcesData, error: resourceError } = await supabase
                 .from('resources')
-                .select(`id, name, resource_type_id, resource_types (name, default_hourly_rate)`)
+                .select(`id, name, default_hourly_rate, resource_type_id, resource_types (name)`)
                 .eq('facility_id', facilityId)
                 .order('name');
 
@@ -76,6 +77,7 @@ export function PublicFacilityCalendar({ facilityId, facilityName, isAuthenticat
             const mappedResources: FacilityResource[] = (resourcesData || []).map((r: any) => ({
                 id: r.id,
                 title: r.name,
+                default_hourly_rate: r.default_hourly_rate,
                 resource_type_id: r.resource_type_id,
                 resource_types: Array.isArray(r.resource_types) ? r.resource_types[0] : r.resource_types
             }));
