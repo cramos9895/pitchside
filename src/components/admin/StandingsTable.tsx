@@ -120,15 +120,15 @@ export function StandingsTable({ gameId, teams, matches, viewOnly = false }: Sta
 
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left whitespace-nowrap">
-                    <thead className="text-xs text-gray-400 uppercase bg-black/50 border-b border-white/10">
+                    <thead className={cn("uppercase bg-black/50 border-b border-white/10", viewOnly ? "text-[10px] text-gray-400" : "text-xs text-gray-400")}>
                         <tr>
-                            <th className="px-4 py-3">Team</th>
-                            <th className="px-4 py-3 text-center">GP</th>
-                            <th className="px-4 py-3 text-center">W</th>
-                            <th className="px-4 py-3 text-center">D</th>
-                            <th className="px-4 py-3 text-center">L</th>
-                            <th className="px-4 py-3 text-center text-gray-300">GD</th>
-                            <th className="px-4 py-3 text-center font-bold text-white">PTS</th>
+                            <th className={cn(viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>Team</th>
+                            <th className={cn("text-center", viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>GP</th>
+                            <th className={cn("text-center", viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>W</th>
+                            <th className={cn("text-center", viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>D</th>
+                            <th className={cn("text-center", viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>L</th>
+                            <th className={cn("text-center text-gray-300", viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>GD</th>
+                            <th className={cn("text-center font-bold text-white", viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>PTS</th>
                             {!viewOnly && <th className="px-4 py-3 text-right">Action</th>}
                         </tr>
                     </thead>
@@ -140,15 +140,15 @@ export function StandingsTable({ gameId, teams, matches, viewOnly = false }: Sta
                                     "border-b border-white/5 transition-colors",
                                     isLeader ? "bg-yellow-500/10 hover:bg-yellow-500/20" : "hover:bg-white/5"
                                 )}>
-                                    <td className={cn("px-4 py-3 font-bold uppercase flex items-center gap-2", isLeader ? "text-yellow-400" : "text-white")}>
-                                        <span className="font-mono text-gray-600 font-normal mr-1">{index + 1}.</span> {team.name}
+                                    <td className={cn("font-bold uppercase flex items-center gap-2", isLeader ? "text-yellow-400" : "text-white", viewOnly ? "px-2 py-1.5 text-xs lg:text-sm" : "px-4 py-3")}>
+                                        <span className={cn("font-mono font-normal mr-1", viewOnly ? "text-[10px] text-gray-500" : "text-gray-600")}>{index + 1}.</span> {team.name}
                                     </td>
-                                    <td className="px-4 py-3 text-center text-gray-400">{team.gp}</td>
-                                    <td className="px-4 py-3 text-center font-mono text-xs">{team.w}</td>
-                                    <td className="px-4 py-3 text-center font-mono text-xs">{team.d}</td>
-                                    <td className="px-4 py-3 text-center font-mono text-xs">{team.l}</td>
-                                    <td className="px-4 py-3 text-center font-mono text-xs text-gray-300">{team.gd > 0 ? `+${team.gd}` : team.gd}</td>
-                                    <td className="px-4 py-3 text-center font-black text-lg">{team.pts}</td>
+                                    <td className={cn("text-center text-gray-400", viewOnly ? "px-2 py-1.5 text-xs" : "px-4 py-3")}>{team.gp}</td>
+                                    <td className={cn("text-center font-mono", viewOnly ? "px-2 py-1.5 text-[10px]" : "px-4 py-3 text-xs")}>{team.w}</td>
+                                    <td className={cn("text-center font-mono", viewOnly ? "px-2 py-1.5 text-[10px]" : "px-4 py-3 text-xs")}>{team.d}</td>
+                                    <td className={cn("text-center font-mono", viewOnly ? "px-2 py-1.5 text-[10px]" : "px-4 py-3 text-xs")}>{team.l}</td>
+                                    <td className={cn("text-center font-mono text-gray-300", viewOnly ? "px-2 py-1.5 text-[10px]" : "px-4 py-3 text-xs")}>{team.gd > 0 ? `+${team.gd}` : team.gd}</td>
+                                    <td className={cn("text-center font-black", viewOnly ? "px-2 py-1.5 text-base" : "px-4 py-3 text-lg")}>{team.pts}</td>
                                     {!viewOnly && (
                                         <td className="px-4 py-3 text-right">
                                             {isLeader && (

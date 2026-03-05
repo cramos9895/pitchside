@@ -171,26 +171,30 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
 
     // --- VIEW RENDERERS ---
 
-    const renderTimer = () => (
-        <div className="mb-8 text-center shrink-0">
-            <div className={cn(
-                "font-mono font-black tracking-tighter tabular-nums transition-colors duration-500",
-                game.timer_status === 'paused' && "animate-pulse text-gray-500",
-                timeRemaining === 0 && game.timer_status !== 'stopped' ? "text-red-600 animate-pulse" :
-                    isLowTime ? "text-yellow-500" : "text-white text-[15rem] leading-none drop-shadow-2xl"
-            )}
-                style={{ fontSize: 'clamp(8rem, 18vw, 15rem)', lineHeight: '0.85' }}
-            >
-                {timeDisplay}
+    const renderTimer = () => {
+        const isTournament = game.view_mode === 'tournament' || game.view_mode === 'king';
+        return (
+            <div className={cn("text-center w-full shrink-0", isTournament ? "mb-2 lg:mb-4" : "mb-8")}>
+                <div className={cn(
+                    "font-mono font-black tracking-tighter tabular-nums transition-colors duration-500",
+                    game.timer_status === 'paused' && "animate-pulse text-gray-500",
+                    timeRemaining === 0 && game.timer_status !== 'stopped' ? "text-red-600 animate-pulse" :
+                        isLowTime ? "text-yellow-500" : "text-white drop-shadow-2xl",
+                    isTournament ? "text-[5rem] lg:text-[7rem] leading-none" : "text-[10rem] lg:text-[15rem] leading-none"
+                )}
+                    style={!isTournament ? { fontSize: 'clamp(8rem, 18vw, 15rem)' } : undefined}
+                >
+                    {timeDisplay}
+                </div>
+                {game.timer_status === 'paused' && (
+                    <div className={cn("font-bold uppercase tracking-widest text-gray-500 mt-2 shrink-0", isTournament ? "text-xl lg:text-2xl" : "text-4xl")}>PAUSED</div>
+                )}
+                {timeRemaining === 0 && game.timer_status !== 'stopped' && (
+                    <div className={cn("font-black uppercase tracking-widest text-red-600 mt-2 italic shrink-0", isTournament ? "text-2xl lg:text-4xl" : "text-6xl")}>TIME!</div>
+                )}
             </div>
-            {game.timer_status === 'paused' && (
-                <div className="text-4xl font-bold uppercase tracking-widest text-gray-500 mt-4 shrink-0">PAUSED</div>
-            )}
-            {timeRemaining === 0 && game.timer_status !== 'stopped' && (
-                <div className="text-6xl font-black uppercase tracking-widest text-red-600 mt-4 italic shrink-0">TIME!</div>
-            )}
-        </div>
-    );
+        );
+    };
 
     // SINGLE VIEW
     const renderSingleMode = () => (
@@ -255,68 +259,68 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
 
     // TOURNAMENT VIEW
     const renderTournamentMode = () => (
-        <div className="flex-1 grid grid-cols-12 gap-6 min-h-0 p-6 lg:p-8 relative z-10 w-full overflow-hidden">
+        <div className="flex-1 grid grid-cols-12 gap-4 lg:gap-6 min-h-0 p-4 lg:p-6 relative z-10 w-full overflow-hidden">
             {/* Left Column (Timer, Active, Next - Span 4/12) */}
-            <div className="col-span-12 lg:col-span-4 flex flex-col h-full min-h-0 gap-6 overflow-y-auto hide-scrollbar pr-2">
-                <div className="shrink-0 scale-75 origin-top mb-[-2rem]">
+            <div className="col-span-12 lg:col-span-4 flex flex-col h-full gap-4">
+                <div className="shrink-0 flex items-center justify-center">
                     {renderTimer()}
                 </div>
 
-                <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md shrink-0">
-                    <h2 className="text-xl font-bold text-gray-400 uppercase tracking-widest mb-4 text-center flex items-center justify-center gap-3">
+                <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-md shrink-0">
+                    <h2 className="text-sm lg:text-base font-bold text-gray-400 uppercase tracking-widest mb-3 text-center flex items-center justify-center gap-2">
                         <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
                         Active Match {currentRound > 0 ? `(Round ${currentRound})` : ''}
                     </h2>
                     {matchesInCurrentRound.length > 0 ? (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             {matchesInCurrentRound.map(match => (
-                                <div key={match.id} className="flex flex-col gap-2 items-center justify-center px-4 py-4 bg-black/40 rounded-xl border border-white/5 relative z-20">
-                                    <div className="text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
+                                <div key={match.id} className="flex flex-col gap-1 items-center justify-center px-4 py-3 bg-black/40 rounded-xl border border-white/5 relative z-20">
+                                    <div className="text-xl lg:text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
                                         {match.home_team}
                                     </div>
-                                    <div className="text-sm font-bold text-pitch-accent italic text-center">
+                                    <div className="text-[10px] lg:text-xs font-bold text-pitch-accent italic text-center">
                                         VS
                                     </div>
-                                    <div className="text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
+                                    <div className="text-xl lg:text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
                                         {match.away_team}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-2 items-center justify-center px-4 py-4 bg-black/40 rounded-xl border border-white/5 relative z-20">
-                            <div className="text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
+                        <div className="flex flex-col gap-1 items-center justify-center px-4 py-3 bg-black/40 rounded-xl border border-white/5 relative z-20">
+                            <div className="text-xl lg:text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
                                 {game.teams_config && game.teams_config.length >= 2 ? game.teams_config[0].name : "Team A"}
                             </div>
-                            <div className="text-sm font-bold text-pitch-accent italic text-center">
+                            <div className="text-[10px] lg:text-xs font-bold text-pitch-accent italic text-center">
                                 VS
                             </div>
-                            <div className="text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
+                            <div className="text-xl lg:text-2xl font-black uppercase tracking-tighter w-full text-center text-gray-200">
                                 {game.teams_config && game.teams_config.length >= 2 ? game.teams_config[1].name : "Team B"}
                             </div>
                         </div>
                     )}
                     {sittingOutCurrentRound.length > 0 && (
-                        <div className="mt-4 text-center text-sm font-bold text-gray-500 uppercase tracking-widest border-t border-white/10 pt-3">
-                            Sitting Out: <span className="text-white text-xs">{sittingOutCurrentRound.map(t => t.name).join(', ')}</span>
+                        <div className="mt-3 text-center text-xs lg:text-sm font-bold text-gray-500 uppercase tracking-widest border-t border-white/10 pt-2 w-full">
+                            Sitting Out: <span className="text-white text-[10px] lg:text-xs">{sittingOutCurrentRound.map(t => t.name).join(', ')}</span>
                         </div>
                     )}
                 </div>
 
                 {upcomingMatches.length > 0 && (
-                    <div className="flex-none flex flex-col bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md shrink-0">
-                        <h2 className="text-lg font-bold text-white uppercase tracking-widest mb-3 border-b border-white/10 pb-3">Up Next</h2>
-                        <div className="space-y-2">
+                    <div className="flex-none flex flex-col bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-md shrink-0">
+                        <h2 className="text-sm lg:text-base font-bold text-white uppercase tracking-widest mb-2 border-b border-white/10 pb-2">Up Next</h2>
+                        <div className="space-y-1.5">
                             {upcomingMatches.map(match => (
-                                <div key={match.id} className="flex flex-col items-center justify-center px-3 py-3 bg-black/40 rounded-lg">
-                                    <span className="text-lg font-bold uppercase text-center w-full">{match.home_team}</span>
+                                <div key={match.id} className="flex flex-col items-center justify-center px-2 py-2 bg-black/40 rounded-lg">
+                                    <span className="text-base lg:text-lg font-bold uppercase text-center w-full">{match.home_team}</span>
                                     <span className="text-[10px] font-bold text-gray-500 uppercase">vs</span>
-                                    <span className="text-lg font-bold uppercase text-center w-full">{match.away_team}</span>
+                                    <span className="text-base lg:text-lg font-bold uppercase text-center w-full">{match.away_team}</span>
                                 </div>
                             ))}
                         </div>
                         {sittingOutNextRound.length > 0 && (
-                            <div className="mt-3 text-center text-xs font-bold text-gray-500 uppercase tracking-widest border-t border-white/10 pt-2">
+                            <div className="mt-2 text-center text-[10px] lg:text-xs font-bold text-gray-500 uppercase tracking-widest border-t border-white/10 pt-1.5">
                                 Sitting Out Next: <span className="text-white text-[10px]">{sittingOutNextRound.map(t => t.name).join(', ')}</span>
                             </div>
                         )}
@@ -325,13 +329,13 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
             </div>
 
             {/* Right Column (Standings - Span 8/12) */}
-            <div className="col-span-12 lg:col-span-8 flex flex-col h-full min-h-0">
-                <div className="flex-1 overflow-hidden flex flex-col bg-white/5 border border-white/10 rounded-3xl p-6 lg:p-8 backdrop-blur-md relative z-20 shadow-2xl">
-                    <h2 className="text-2xl font-bold text-gray-400 uppercase tracking-widest mb-4 shrink-0 flex items-center justify-between">
+            <div className="col-span-12 lg:col-span-8 flex flex-col h-full overflow-hidden">
+                <div className="flex-1 overflow-hidden flex flex-col bg-white/5 border border-white/10 rounded-3xl p-4 lg:p-6 backdrop-blur-md relative z-20 shadow-2xl">
+                    <h2 className="text-xl lg:text-2xl font-bold text-gray-400 uppercase tracking-widest mb-3 shrink-0 flex items-center justify-between">
                         <span>Tournament Leaderboard</span>
-                        <span className="text-sm text-gray-500 font-normal">Auto-Updates Live</span>
+                        <span className="text-xs lg:text-sm text-gray-500 font-normal">Auto-Updates Live</span>
                     </h2>
-                    <div className="flex-1 min-h-0 overflow-y-auto bg-black/80 rounded-2xl border-2 border-white/20 hide-scrollbar shadow-inner drop-shadow-xl [&_th]:text-lg [&_td]:text-xl [&_th]:py-4 [&_td]:py-4">
+                    <div className="flex-1 min-h-0 bg-black/80 rounded-2xl border-2 border-white/20 shadow-inner drop-shadow-xl overflow-hidden flex flex-col">
                         <StandingsTable gameId={gameId} teams={game.teams_config} matches={matches} viewOnly={true} />
                     </div>
                 </div>
