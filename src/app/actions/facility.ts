@@ -6,6 +6,8 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { sendNotification } from '@/lib/email';
 import { ContractApprovedEmail } from '@/emails/ContractApprovedEmail';
+import { BookingCancelledEmail } from '@/emails/BookingCancelledEmail';
+import { refundPayment } from '@/lib/stripe';
 
 export async function createResource(formData: FormData) {
     console.log('[createResource] INCOMING FORMDATA:', Array.from(formData.entries()));
@@ -657,6 +659,9 @@ export async function deleteBooking(bookingId: string) {
 
     const adminSupabase = createAdminClient();
 
+    // Patch for Phase 31: Clean up ghost rosters on hard delete
+    await adminSupabase.from('booking_rosters').delete().eq('booking_group_id', bookingId);
+
     const { error } = await adminSupabase
         .from('resource_bookings')
         .delete()
@@ -701,6 +706,9 @@ export async function deleteRecurringSeries(recurringGroupId: string) {
     if (!isSuperAdmin && sampleBooking.facility_id !== profile.facility_id) {
         return { error: 'Unauthorized to delete this series' };
     }
+
+    // Patch for Phase 31: Clean up ghost rosters on hard delete
+    await adminSupabase.from('booking_rosters').delete().eq('booking_group_id', recurringGroupId);
 
     const { error } = await adminSupabase
         .from('resource_bookings')
@@ -1057,5 +1065,142 @@ export async function approveContract(bookingId: string, finalPriceCents: number
     }
 
     revalidatePath('/facility/calendar');
+    return { success: true };
+}
+
+export async function cancelBooking(bookingId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Unauthorized' };
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('facility_id, system_role, role')
+        .eq('id', user.id)
+        .single();
+
+    if (!profile) return { error: 'Profile not found' };
+
+    const isSuperAdmin = profile.system_role === 'super_admin' || profile.role === 'master_admin';
+    if (profile.system_role !== 'facility_admin' && !isSuperAdmin) {
+        return { error: 'Forbidden. Admin rights required.' };
+    }
+
+    const adminSupabase = createAdminClient();
+
+    // 1. Fetch Booking and verify ownership
+    const { data: booking, error: fetchError } = await adminSupabase
+        .from('resource_bookings')
+        .select('*, facility:facilities(name), resource:resources(name)')
+        .eq('id', bookingId)
+        .single();
+
+    if (fetchError || !booking) return { error: 'Booking not found' };
+
+    if (!isSuperAdmin && booking.facility_id !== profile.facility_id) {
+        return { error: 'Unauthorized to cancel this booking' };
+    }
+
+    // 2. Process Stripe Refund natively if paid
+    if (booking.stripe_payment_intent_id && booking.payment_status === 'paid') {
+        const refundResult = await refundPayment(booking.stripe_payment_intent_id);
+
+        // We aren't blocking cancellation on refund failure, but we log it aggressively. 
+        // In a real production system, you might want to return { error: "Refund failed" } to halt UI.
+        if (!refundResult.success) {
+            console.error('[CANCEL_BOOKING] Stripe Refund Failed:', refundResult.error);
+            return { error: `Failed to refund Stripe Payment: ${refundResult.error}` };
+        }
+    }
+
+    // 3. Mark booking as cancelled (soft delete for calendar)
+    const { error: updateError } = await adminSupabase
+        .from('resource_bookings')
+        .update({
+            status: 'cancelled',
+            payment_status: 'refunded'
+        })
+        .eq('id', bookingId);
+
+    if (updateError) {
+        console.error('[CANCEL_BOOKING] Database Update Error:', updateError);
+        return { error: 'Booking cancelled in Stripe, but failed to update status.' };
+    }
+
+    // 4. Send Email
+    if (booking.user_id) {
+        const { data: renterProfile } = await adminSupabase
+            .from('profiles')
+            .select('email')
+            .eq('id', booking.user_id)
+            .single();
+
+        if (renterProfile?.email) {
+            const dateStr = `${new Date(booking.start_time).toLocaleDateString()} at ${new Date(booking.start_time).toLocaleTimeString()}`;
+            const amountRefunded = booking.marketplace_price
+                ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(booking.marketplace_price / 100)
+                : 'Full Original Amount';
+
+            await sendNotification({
+                to: renterProfile.email,
+                subject: `Booking Cancelled: ${booking.facility?.name}`,
+                type: 'booking_cancellation',
+                react: BookingCancelledEmail({
+                    resourceName: booking.resource?.name || 'Facility Resource',
+                    dates: [dateStr],
+                    amountRefunded
+                })
+            });
+        }
+    }
+
+    revalidatePath('/facility/calendar');
+    revalidatePath('/facility/calendar');
+    revalidatePath('/facility/display');
+    return { success: true };
+}
+
+export async function toggleCheckIn(rosterId: string, currentState: boolean) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Unauthorized' };
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('facility_id, system_role, role')
+        .eq('id', user.id)
+        .single();
+
+    if (!profile) return { error: 'Profile not found' };
+
+    const isSuperAdmin = profile.system_role === 'super_admin' || profile.role === 'master_admin';
+    if (profile.system_role !== 'facility_admin' && !isSuperAdmin) {
+        return { error: 'Forbidden. Admin rights required.' };
+    }
+
+    const adminSupabase = createAdminClient();
+
+    // Verify ownership of the roster entry
+    const { data: rosterEntry, error: fetchError } = await adminSupabase
+        .from('booking_rosters')
+        .select('id, booking_group_id')
+        .eq('id', rosterId)
+        .single();
+
+    if (fetchError || !rosterEntry) return { error: 'Roster entry not found.' };
+
+    const { error: updateError } = await adminSupabase
+        .from('booking_rosters')
+        .update({ is_checked_in: !currentState })
+        .eq('id', rosterId);
+
+    if (updateError) {
+        console.error('[TOGGLE_CHECK_IN] Error:', updateError);
+        return { error: 'Failed to update check-in status.' };
+    }
+
+    revalidatePath('/facility/operations');
     return { success: true };
 }

@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import Link from 'next/link';
-import { LayoutDashboard, Users, MapPin, Settings, ArrowLeft, ShieldAlert, Calendar, MonitorPlay } from 'lucide-react';
+import { LayoutDashboard, Users, MapPin, Settings, ArrowLeft, ShieldAlert, Calendar, MonitorPlay, ClipboardList, Tag } from 'lucide-react';
 import { exitGodMode } from '@/app/actions/impersonate';
 
 export default async function FacilityLayout({ children }: { children: ReactNode }) {
@@ -87,6 +87,10 @@ export default async function FacilityLayout({ children }: { children: ReactNode
                                 <LayoutDashboard className="w-5 h-5" />
                                 <span className="font-bold uppercase tracking-wider text-sm">Dashboard</span>
                             </Link>
+                            <Link href="/facility/operations" className="flex items-center gap-3 px-4 py-3 rounded-sm text-pitch-accent/80 hover:bg-white/5 hover:text-pitch-accent transition-colors">
+                                <ClipboardList className="w-5 h-5" />
+                                <span className="font-bold uppercase tracking-wider text-sm">Game Day</span>
+                            </Link>
                             <Link href="/facility/leagues" className="flex items-center gap-3 px-4 py-3 rounded-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
                                 <Users className="w-5 h-5" />
                                 <span className="font-bold uppercase tracking-wider text-sm">Leagues</span>
@@ -113,6 +117,11 @@ export default async function FacilityLayout({ children }: { children: ReactNode
                             <Link href="/facility/settings" className="flex items-center gap-3 px-4 py-3 rounded-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors">
                                 <Settings className="w-5 h-5" />
                                 <span className="font-bold uppercase tracking-wider text-sm">Settings</span>
+                            </Link>
+
+                            <Link href="/facility/settings/promotions" className="flex items-center gap-3 px-4 py-3 rounded-sm text-pitch-accent/80 hover:bg-white/5 hover:text-pitch-accent transition-colors ml-4 border-l border-white/10">
+                                <Tag className="w-4 h-4" />
+                                <span className="font-bold uppercase tracking-wider text-xs">Promotions Hub</span>
                             </Link>
                         </nav>
                     </div>

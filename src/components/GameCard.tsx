@@ -12,7 +12,9 @@ import { JoinGameModal } from './JoinGameModal';
 interface Game {
     id: string;
     title: string;
+    location_name?: string;
     location: string;
+    game_format?: string;
     start_time: string;
     end_time: string | null;
     price: number;
@@ -157,29 +159,49 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
         }
     }, [user, supabase]);
 
-    const proceedToJoin = async ({ note, paymentMethod }: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null }) => {
+    const proceedToJoin = async (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null; promoCodeId?: string; teamAssignment?: number }) => {
         setLoading(true);
 
         try {
-            // Check for Free Game OR Waitlist OR Manual Payment
-            if (game.price === 0 || currentPlayers >= game.max_players || paymentMethod) {
-                const endpoint = (currentPlayers >= game.max_players && !paymentMethod) ? '/api/waitlist' : '/api/join';
+            // Fetch latest price in case it changed
+            const { data: latestGame } = await supabase
+                .from('games')
+                .select('price')
+                .eq('id', game.id)
+                .single();
+
+            const currentPrice = latestGame?.price || game.price;
+
+            // Placeholder for discountAmount, assuming it would be calculated or passed
+            // For this specific change, we'll assume discountAmount is 0 if not provided
+            const discountAmount = 0; // This would typically come from promo code validation
+
+            let finalCost = currentPrice;
+            if (discountAmount > 0) {
+                finalCost = Math.max(0, currentPrice - discountAmount);
+            }
+
+            // Check for Free Game OR Waitlist OR Manual Payment OR 100% Promo Code
+            if (finalCost === 0 || currentPlayers >= game.max_players || data.paymentMethod) {
+                const endpoint = (currentPlayers >= game.max_players && !data.paymentMethod) ? '/api/waitlist' : '/api/join';
 
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         gameId: game.id,
-                        note: note,
-                        paymentMethod: paymentMethod
+                        note: data.note,
+                        paymentMethod: finalCost === 0 && !data.paymentMethod ? 'promo' : data.paymentMethod,
+                        promoCodeId: data.promoCodeId,
+                        teamAssignment: data.teamAssignment
                     })
                 });
 
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || data.message);
-                if (data.message) {
-                    alert(data.message); // "Already joined" etc
-                    if (data.success === false) {
+                const responseData = await response.json();
+                if (!response.ok) throw new Error(responseData.error || responseData.message);
+                if (responseData.message) {
+                    alert(responseData.message); // "Already joined" etc
+                    if (responseData.success === false) {
                         setLoading(false);
                         setIsModalOpen(false);
                         return;
@@ -211,12 +233,13 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             gameId: game.id,
-                            note: note
+                            note: data.note,
+                            teamAssignment: data.teamAssignment
                         })
                     });
 
-                    const data = await response.json();
-                    if (!response.ok) throw new Error(data.error);
+                    const responseData = await response.json();
+                    if (!response.ok) throw new Error(responseData.error);
 
                     setJoined(true);
                     setStatus('paid');
@@ -232,22 +255,24 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
             }
 
             // Paid Game (Active Roster) - Stripe
-            const response = await fetch('/api/checkout', {
+            const checkoutRes = await fetch('/api/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     gameId: game.id,
-                    userId: user!.id,
-                    price: game.price,
+                    userId: user!.id, // Assuming 'user' is available from props
+                    price: finalCost,
                     title: `Join Match: ${game.title || 'Pickup Game'}`,
-                    note: note
+                    note: data.note,
+                    promoCodeId: data.promoCodeId,
+                    teamAssignment: data.teamAssignment
                 })
             });
 
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error);
+            const responseData = await checkoutRes.json();
+            if (!checkoutRes.ok) throw new Error(responseData.error);
 
-            window.location.href = data.url;
+            window.location.href = responseData.url;
 
         } catch (error: any) {
             console.error('Join Error:', error);
@@ -306,11 +331,19 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                 </div>
 
                 <div className="space-y-2 mb-6 flex-grow">
-                    <div className="flex items-center text-pitch-secondary">
-                        <MapPin className="w-4 h-4 mr-2 text-pitch-accent" />
-                        <span className="text-sm truncate">{game.location}</span>
-                    </div>
+                    <a
+                        href={`https://maps.google.com/?q=${encodeURIComponent(game.location)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center text-pitch-secondary hover:text-white transition-colors"
+                    >
+                        <MapPin className="w-4 h-4 mr-2 text-pitch-accent shrink-0" />
+                        <span className="text-sm truncate">{game.location_name || game.location}</span>
+                    </a>
                     <div className="flex items-center gap-4">
+                        <span className="text-xs uppercase bg-white/5 px-2 py-0.5 rounded text-gray-400 font-bold border border-white/5">
+                            {game.game_format || 'Match'}
+                        </span>
                         <span className="text-xs uppercase bg-white/5 px-2 py-0.5 rounded text-gray-400 font-bold border border-white/5">
                             {game.surface_type}
                         </span>

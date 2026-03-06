@@ -31,6 +31,7 @@ export default function NewGamePage() {
 
     // DISTINCT STATES as requested
     const [title, setTitle] = useState('');
+    const [locationName, setLocationName] = useState('');
     const [location, setLocation] = useState('');
     const [gameDate, setGameDate] = useState('');
     const [startTime, setStartTime] = useState('');
@@ -38,6 +39,7 @@ export default function NewGamePage() {
     const [price, setPrice] = useState<number | ''>(10.00);
     const [maxPlayers, setMaxPlayers] = useState<number | ''>(22);
     const [surfaceType, setSurfaceType] = useState('Turf');
+    const [gameFormat, setGameFormat] = useState('7v7');
     const [hasMvpReward, setHasMvpReward] = useState(false);
 
     const [teams, setTeams] = useState<TeamConfig[]>([
@@ -109,12 +111,14 @@ export default function NewGamePage() {
 
             const payload = {
                 title,
+                location_name: locationName,
                 location,
                 start_time: startDateTime.toISOString(), // TIMESTAMPTZ: Full ISO String
                 end_time: formattedEndTime,              // TIME: "HH:mm:ss" (Likely column type mismatch in DB)
                 price: price === '' ? 0 : price,
                 max_players: maxPlayers === '' ? 22 : maxPlayers,
                 surface_type: surfaceType,
+                game_format: gameFormat,
                 current_players: 0,
                 teams_config: teams,
                 has_mvp_reward: hasMvpReward
@@ -182,10 +186,25 @@ export default function NewGamePage() {
                                 />
                             </div>
 
-                            {/* Location */}
+                            {/* Location Name */}
                             <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                                    Location
+                                    Location Name
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="e.g. Huntley Park District"
+                                    value={locationName}
+                                    onChange={(e) => setLocationName(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
+                                />
+                            </div>
+
+                            {/* Location (Address) */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Street Address
                                 </label>
                                 <input
                                     type="text"
@@ -301,20 +320,40 @@ export default function NewGamePage() {
                             </div>
                         </div>
 
-                        {/* Surface Type */}
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                                Surface Type
-                            </label>
-                            <select
-                                value={surfaceType}
-                                onChange={(e) => setSurfaceType(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
-                            >
-                                <option value="Turf">Turf</option>
-                                <option value="Grass">Grass</option>
-                                <option value="Indoor">Indoor Court</option>
-                            </select>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Surface Type */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Surface Type
+                                </label>
+                                <select
+                                    value={surfaceType}
+                                    onChange={(e) => setSurfaceType(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
+                                >
+                                    <option value="Turf">Turf</option>
+                                    <option value="Grass">Grass</option>
+                                    <option value="Indoor">Indoor Court</option>
+                                </select>
+                            </div>
+                            {/* Game Format */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Game Format
+                                </label>
+                                <select
+                                    value={gameFormat}
+                                    onChange={(e) => setGameFormat(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
+                                >
+                                    <option value="5v5">5v5</option>
+                                    <option value="6v6">6v6</option>
+                                    <option value="7v7">7v7</option>
+                                    <option value="8v8">8v8</option>
+                                    <option value="9v9">9v9</option>
+                                    <option value="11v11">11v11</option>
+                                </select>
+                            </div>
                         </div>
 
 

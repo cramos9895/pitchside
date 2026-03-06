@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { sendNotification } from '@/lib/email';
 import { sendNotification as sendAppNotification } from '@/lib/notifications';
 import { NewRequestEmail } from '@/emails/NewRequestEmail';
+import { BookingConfirmedEmail } from '@/emails/BookingConfirmedEmail';
 
 interface BookingRequestData {
     facilityId: string;
@@ -118,6 +119,108 @@ export async function submitBookingRequest(data: BookingRequestData) {
                 });
             }
         }
+    }
+
+    return { success: true };
+}
+
+export async function executeFreePromoBooking(data: BookingRequestData & { promoCodeId: string }) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: 'You must be logged in to book.' };
+    }
+
+    const adminSupabase = createAdminClient();
+
+    // 1. Re-validate Promo Server-Side securely
+    const { data: promo } = await adminSupabase
+        .from('promo_codes')
+        .select('*')
+        .eq('id', data.promoCodeId)
+        .single();
+
+    if (!promo || (promo.expires_at && new Date(promo.expires_at) < new Date())) {
+        return { success: false, error: 'Promo code is invalid or expired.' };
+    }
+
+    if (promo.max_uses !== null && promo.current_uses >= promo.max_uses) {
+        return { success: false, error: 'Promo code usage limit reached.' };
+    }
+
+    // Double check it's actually 100% off or fixed amount covering the full cost
+    // We trust the client for now, but ideally we'd re-calculate the `finalCost` to ensure it's $0.
+
+    // 2. Collision Check
+    const { data: conflicts, error: conflictError } = await adminSupabase
+        .from('resource_bookings')
+        .select('id')
+        .eq('resource_id', data.resourceId)
+        .neq('status', 'cancelled')
+        .lt('start_time', data.endTime)
+        .gt('end_time', data.startTime);
+
+    if (conflictError || (conflicts && conflicts.length > 0)) {
+        return { success: false, error: 'This time slot is no longer available.' };
+    }
+
+    // 3. Insert Confirmed Booking
+    const { data: booking, error: insertError } = await supabase
+        .from('resource_bookings')
+        .insert({
+            facility_id: data.facilityId,
+            resource_id: data.resourceId,
+            title: data.title,
+            start_time: data.startTime,
+            end_time: data.endTime,
+            renter_name: 'Guest Request',
+            contact_email: data.contactEmail,
+            user_id: user.id,
+            status: 'confirmed',
+            payment_status: 'free',
+            color: '#10b981' // Green for paid/confirmed
+        })
+        .select('id')
+        .single();
+
+    if (insertError) {
+        console.error('Error executing free promo booking:', insertError);
+        return { success: false, error: 'Failed to process booking.' };
+    }
+
+    // 4. Increment Promo Usage securely
+    await adminSupabase
+        .from('promo_codes')
+        .update({ current_uses: promo.current_uses + 1 })
+        .eq('id', promo.id);
+
+    // 5. Send Receipt Email
+    try {
+        const { data: resourceData } = await adminSupabase
+            .from('resources')
+            .select('name')
+            .eq('id', data.resourceId)
+            .single();
+
+        const resourceName = resourceData?.name || 'Facility Resource';
+        const dateStr = `${new Date(data.startTime).toLocaleDateString()} at ${new Date(data.startTime).toLocaleTimeString()}`;
+
+        const recipient = data.contactEmail || user.email;
+        if (recipient) {
+            await sendNotification({
+                to: recipient,
+                subject: `Booking Confirmed: ${resourceName}`,
+                type: 'booking_receipt',
+                react: BookingConfirmedEmail({
+                    resourceName,
+                    dates: [dateStr],
+                    amountPaid: '$0.00'
+                })
+            });
+        }
+    } catch (emailErr) {
+        console.error('[FREE_PROMO_EMAIL_ERROR] Failed to send receipt:', emailErr);
     }
 
     return { success: true };

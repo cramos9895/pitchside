@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { X, LogOut, User, Home, LayoutDashboard, Settings, Trophy, Building, Bell, MapPin } from 'lucide-react';
+import { X, LogOut, User, Home, LayoutDashboard, Settings, Trophy, Building, Bell, MapPin, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -179,6 +179,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                             >
                                 <Building className="w-6 h-6 text-blue-400 group-hover:text-white transition-colors" />
                                 Facility Portal
+                            </Link>
+
+                            <Link
+                                href="/facility/operations"
+                                onClick={onClose}
+                                className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-pitch-accent hover:text-white transition-colors group border-l-4 border-pitch-accent pl-4 -ml-5 mt-4"
+                            >
+                                <ClipboardList className="w-6 h-6 text-pitch-accent group-hover:text-white transition-colors" />
+                                Game Day
                             </Link>
 
                             {/* Notification Hub */}

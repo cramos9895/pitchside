@@ -11,7 +11,8 @@ export async function createCheckoutSession({
     contactEmail,
     startTime,
     endTime,
-    amountCents
+    amountCents,
+    promoCodeId
 }: {
     facilityId: string;
     resourceId: string;
@@ -20,6 +21,7 @@ export async function createCheckoutSession({
     startTime: string;
     endTime: string;
     amountCents: number;
+    promoCodeId?: string;
 }) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -129,7 +131,8 @@ export async function createCheckoutSession({
             },
             metadata: {
                 booking_id: booking.id,
-                facility_id: facilityId
+                facility_id: facilityId,
+                ...(promoCodeId && { promo_code_id: promoCodeId })
             },
             // Since we are Server Action driven, the easiest is to define an absolute success/cancel URL
             success_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL ? 'https://' + process.env.NEXT_PUBLIC_SUPABASE_URL.split('//')[1] : 'http://localhost:3000'}/facility/${facility.name}?payment=success`,

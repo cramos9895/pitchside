@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { X, Calendar, Clock, MapPin, Tag, User, Trash2, Edit2, CheckCircle2, XCircle, ChevronDown, Repeat } from 'lucide-react';
-import { createBooking, updateBooking, deleteBooking, updateBookingStatus, createRecurringBooking, deleteRecurringSeries, approveContract } from '@/app/actions/facility';
+import { X, Calendar, Clock, MapPin, Tag, User, Trash2, Edit2, CheckCircle2, XCircle, ChevronDown, Repeat, Users, UserCheck } from 'lucide-react';
+import { createBooking, updateBooking, deleteBooking, updateBookingStatus, createRecurringBooking, deleteRecurringSeries, approveContract, cancelBooking } from '@/app/actions/facility';
+import { createClient } from '@/lib/supabase/client';
 import { format, parseISO, isBefore, isAfter, isEqual } from 'date-fns';
 import { BookingEvent } from './FacilityCalendar';
 import { useRouter } from 'next/navigation';
@@ -21,6 +22,7 @@ export function BookingModal({ isOpen, onClose, selectedSlot, selectedEvent, res
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const router = useRouter();
 
@@ -43,6 +45,35 @@ export function BookingModal({ isOpen, onClose, selectedSlot, selectedEvent, res
     const [contractPrice, setContractPrice] = useState<string>('');
     const [contractTerm, setContractTerm] = useState<'upfront' | 'weekly'>('weekly');
     const [isApprovingContract, setIsApprovingContract] = useState(false);
+
+    // Roster State
+    const [activeTab, setActiveTab] = useState<'details' | 'roster'>('details');
+    const [roster, setRoster] = useState<any[]>([]);
+    const [isLoadingRoster, setIsLoadingRoster] = useState(false);
+
+    // Fetch Roster when event is selected
+    useEffect(() => {
+        if (!selectedEvent || activeTab !== 'roster') return;
+
+        async function fetchRoster() {
+            setIsLoadingRoster(true);
+            const supabase = createClient();
+
+            // The relevant ID is likely the recurring group ID or the booking ID
+            const groupId = selectedEvent?.recurringGroupId || selectedEvent?.id;
+
+            const { data } = await supabase
+                .from('booking_rosters')
+                .select(`id, joined_at, profile:profiles(id, full_name)`)
+                .eq('booking_group_id', groupId)
+                .order('joined_at', { ascending: true });
+
+            setRoster(data || []);
+            setIsLoadingRoster(false);
+        }
+
+        fetchRoster();
+    }, [selectedEvent, activeTab]);
 
     // Close dropdown on click outside
     useEffect(() => {
@@ -250,6 +281,29 @@ export function BookingModal({ isOpen, onClose, selectedSlot, selectedEvent, res
         }
     }
 
+    async function handleCancel() {
+        if (!selectedEvent) return;
+
+        const confirmMsg = "Are you sure you want to cancel and refund this booking? This action cannot be undone, the user will be emailed, and the event will be removed from the calendar.";
+        if (!confirm(confirmMsg)) return;
+
+        setIsCancelling(true);
+        setErrorMsg(null);
+        try {
+            const result = await cancelBooking(selectedEvent.id);
+            if (result.error) {
+                setErrorMsg(result.error);
+            } else {
+                router.refresh();
+                onClose();
+            }
+        } catch (err: any) {
+            setErrorMsg("Failed to cancel and refund booking.");
+        } finally {
+            setIsCancelling(false);
+        }
+    }
+
     // Format initial values
     const targetDate = isEditMode && selectedEvent ? selectedEvent.start : selectedSlot!.start;
     const targetEnd = isEditMode && selectedEvent ? selectedEvent.end : selectedSlot!.end;
@@ -276,7 +330,23 @@ export function BookingModal({ isOpen, onClose, selectedSlot, selectedEvent, res
                         {!isEditing ? 'Booking Details' : (isEditMode ? 'Edit Booking' : 'New Booking')}
                     </h3>
                     <div className="flex items-center gap-4">
-                        {!isEditing && (
+                        {!isEditing && selectedEvent && (
+                            <div className="flex bg-black/40 rounded border border-white/10 p-0.5 mr-2">
+                                <button
+                                    onClick={() => setActiveTab('details')}
+                                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded transition-colors ${activeTab === 'details' ? 'bg-pitch-accent text-black' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    Details
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('roster')}
+                                    className={`px-3 py-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest rounded transition-colors ${activeTab === 'roster' ? 'bg-pitch-accent text-black' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    <Users className="w-3 h-3" /> Roster
+                                </button>
+                            </div>
+                        )}
+                        {!isEditing && activeTab === 'details' && (
                             <button
                                 onClick={() => setIsEditing(true)}
                                 className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white px-3 py-1.5 rounded text-sm font-bold uppercase tracking-wider transition-colors"
@@ -340,7 +410,7 @@ export function BookingModal({ isOpen, onClose, selectedSlot, selectedEvent, res
                                 </div>
                             </div>
 
-                            {selectedEvent?.status === 'pending_contract' && (
+                            {selectedEvent?.status === 'pending_contract' && activeTab === 'details' && (
                                 <div className="mt-6 pt-6 border-t border-white/10 space-y-5 animate-in slide-in-from-bottom-2">
                                     <h4 className="text-yellow-400 font-bold uppercase tracking-wider flex items-center gap-2 text-sm">
                                         <Tag className="w-4 h-4" /> Review Contract
@@ -372,6 +442,62 @@ export function BookingModal({ isOpen, onClose, selectedSlot, selectedEvent, res
                                     </div>
                                 </div>
                             )}
+
+                            {activeTab === 'roster' && (
+                                <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h4 className="text-sm font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                                            <Users className="w-4 h-4 text-pitch-accent" /> Verified Players ({roster.length + (selectedEvent?.renterName ? 1 : 0)})
+                                        </h4>
+                                    </div>
+
+                                    {isLoadingRoster ? (
+                                        <div className="py-8 text-center text-gray-500 text-sm animate-pulse">Loading roster database...</div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {/* Always show captain as verified inherently since they booked */}
+                                            {selectedEvent?.renterName && (
+                                                <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-md">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-pitch-accent/20 flex items-center justify-center text-pitch-accent font-bold text-sm">
+                                                            {selectedEvent.renterName.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <span className="font-bold text-white">{selectedEvent.renterName}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest text-pitch-accent px-2 py-0.5 bg-pitch-accent/10 rounded">
+                                                            Captain
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Roster Players */}
+                                            {roster.map((player) => (
+                                                <div key={player.id} className="flex items-center justify-between p-3 bg-transparent border border-white/5 rounded-md hover:bg-white/5 transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-gray-300 font-bold text-sm">
+                                                            {player.profile?.full_name?.charAt(0).toUpperCase() || '?'}
+                                                        </div>
+                                                        <span className="font-medium text-gray-200">{player.profile?.full_name || 'Unknown Player'}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <UserCheck className="w-4 h-4 text-green-400" />
+                                                        <span className="text-[10px] uppercase font-bold text-green-400">Waiver Signed</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {!selectedEvent?.renterName && roster.length === 0 && (
+                                                <div className="py-6 text-center border border-dashed border-white/10 rounded-md bg-black/20 text-gray-500 text-sm">
+                                                    No players have joined this roster yet.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                         </div>
                     ) : (
                         <form id="booking-form" action={handleSubmit} className="space-y-5">
@@ -604,6 +730,24 @@ export function BookingModal({ isOpen, onClose, selectedSlot, selectedEvent, res
                                         className="px-5 py-3 flex items-center gap-2 font-bold uppercase tracking-wider text-black bg-pitch-accent hover:bg-pitch-accent/90 transition-all rounded-sm text-xs shadow-lg focus:outline-none disabled:opacity-50"
                                     >
                                         <CheckCircle2 className="w-4 h-4" /> Approve
+                                    </button>
+                                </>
+                            ) : selectedEvent?.status === 'confirmed' ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={handleCancel}
+                                        disabled={isCancelling}
+                                        className="px-4 py-3 flex items-center gap-2 font-bold uppercase tracking-wider text-red-500 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/50 transition-colors rounded-sm text-xs focus:outline-none disabled:opacity-50"
+                                    >
+                                        <Trash2 className="w-4 h-4" /> {isCancelling ? 'Refunding...' : 'Cancel & Refund Booking'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={onClose}
+                                        className="px-6 py-3 font-bold uppercase tracking-wider text-white bg-white/10 hover:bg-white/20 transition-colors rounded-sm text-sm"
+                                    >
+                                        Close
                                     </button>
                                 </>
                             ) : (

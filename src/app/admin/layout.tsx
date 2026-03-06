@@ -89,6 +89,11 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                                     <Settings className="w-5 h-5" />
                                     <span className="font-bold uppercase tracking-wider text-sm">Settings</span>
                                 </Link>
+
+                                <Link href="/admin/settings/promotions" className="flex items-center gap-3 px-4 py-3 rounded-sm text-pitch-accent/80 hover:bg-white/5 hover:text-pitch-accent transition-colors ml-4 border-l border-white/10">
+                                    <Tag className="w-4 h-4" />
+                                    <span className="font-bold uppercase tracking-wider text-xs">Promotions Hub</span>
+                                </Link>
                             </>
                         )}
                     </nav>

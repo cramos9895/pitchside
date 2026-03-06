@@ -37,7 +37,8 @@ export async function POST(req: Request) {
                     .from('resource_bookings')
                     .update({
                         payment_status: 'paid',
-                        status: 'confirmed'  // We auto-confirm paid bookings natively.
+                        status: 'confirmed',  // We auto-confirm paid bookings natively.
+                        stripe_payment_intent_id: session.payment_intent
                     })
                     .eq('id', bookingId);
 
@@ -45,6 +46,24 @@ export async function POST(req: Request) {
                     console.error('[WEBHOOK_DB_ERROR] Failed to update booking:', error);
                 } else {
                     console.log(`[STRIPE_WEBHOOK] Successfully confirmed booking ${bookingId}`);
+
+                    const promoCodeId = session.metadata?.promo_code_id;
+                    if (promoCodeId) {
+                        // Increment Promo Code usage securely
+                        const { data: currentPromo } = await adminSupabase
+                            .from('promo_codes')
+                            .select('current_uses')
+                            .eq('id', promoCodeId)
+                            .single();
+
+                        if (currentPromo) {
+                            await adminSupabase
+                                .from('promo_codes')
+                                .update({ current_uses: currentPromo.current_uses + 1 })
+                                .eq('id', promoCodeId);
+                            console.log(`[STRIPE_WEBHOOK] Incremented usage for promo code ${promoCodeId}`);
+                        }
+                    }
 
                     // Trigger 3: Send Receipt Email
                     try {

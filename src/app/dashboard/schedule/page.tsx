@@ -249,12 +249,19 @@ export default function DashboardSchedulePage() {
                                                     Series
                                                 </span>
                                             )}
-                                            {evt.type === 'game' && evt.rawGameId && (
+                                            {evt.type === 'game' && evt.rawGameId ? (
                                                 <Link
                                                     href={`/games/${evt.rawGameId}`}
                                                     className="px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[10px] font-bold uppercase tracking-widest rounded transition-colors"
                                                 >
                                                     View Match
+                                                </Link>
+                                            ) : (
+                                                <Link
+                                                    href={`/dashboard/schedule/${evt.id}`}
+                                                    className="px-3 py-1 bg-white/5 hover:bg-pitch-accent border border-white/10 hover:border-pitch-accent text-white hover:text-black text-[10px] font-bold uppercase tracking-widest rounded transition-colors"
+                                                >
+                                                    View Roster
                                                 </Link>
                                             )}
                                         </div>

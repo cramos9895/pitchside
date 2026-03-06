@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendPitchSideEmail } from '@/lib/emails/sendEmail';
 import { GameSignUpEmail } from '@/emails/GameSignUpEmail';
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
         }
         // ---------------------------
 
-        const { gameId, note = '', paymentMethod } = await request.json();
+        const { gameId, note = '', paymentMethod, promoCodeId, teamAssignment } = await request.json();
 
         if (!gameId) {
             return NextResponse.json({ error: 'Game ID required' }, { status: 400 });
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
         // 1. Fetch Game to verify price, current players and max players
         const { data: game, error: gameError } = await supabase
             .from('games')
-            .select('price, title, start_time, location, max_players, current_players, view_mode')
+            .select('price, title, start_time, location, max_players, current_players, view_mode, teams_config')
             .eq('id', gameId)
             .single();
 
@@ -52,6 +53,28 @@ export async function POST(request: NextRequest) {
         if (game.price > 0 && !paymentMethod) {
             return NextResponse.json({ error: 'This game is not free. Payment required.' }, { status: 403 });
         }
+
+        // --- ENFORCER: SQUAD CAPACITY CHECK ---
+        if (teamAssignment !== undefined && teamAssignment !== null && game.teams_config && Array.isArray(game.teams_config)) {
+            const teamConfig = game.teams_config[teamAssignment - 1];
+
+            if (teamConfig && teamConfig.limit && teamConfig.limit > 0) {
+                const maxPerTeam = teamConfig.limit;
+
+                const adminSupabase = createAdminClient();
+                const { count } = await adminSupabase
+                    .from('bookings')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('game_id', gameId)
+                    .neq('status', 'cancelled')
+                    .eq('team_assignment', teamAssignment);
+
+                if (count !== null && count >= maxPerTeam) {
+                    return NextResponse.json({ error: 'This team just filled up! Please select another squad.' }, { status: 400 });
+                }
+            }
+        }
+        // --------------------------------------
 
         // 2. Check if already joined (excluding cancelled)
         const { data: existing } = await supabase
@@ -88,7 +111,7 @@ export async function POST(request: NextRequest) {
                 payment_method: paymentMethod || 'free',
                 payment_amount: isManualPayment ? game.price : 0,
                 checked_in: false,
-                team_assignment: null,
+                team_assignment: teamAssignment !== undefined ? teamAssignment : null,
                 note: note // Store request note
             });
 
@@ -100,6 +123,24 @@ export async function POST(request: NextRequest) {
 
         // 4. Sync Player Count (Handled by DB Trigger now)
         // await syncPlayerCount(gameId);
+
+        // 4.5. Log Promo Code Usage
+        if (promoCodeId) {
+            const adminSupabase = createAdminClient();
+            const { data: currentPromo } = await adminSupabase
+                .from('promo_codes')
+                .select('current_uses')
+                .eq('id', promoCodeId)
+                .single();
+
+            if (currentPromo) {
+                await adminSupabase
+                    .from('promo_codes')
+                    .update({ current_uses: currentPromo.current_uses + 1 })
+                    .eq('id', promoCodeId);
+                console.log(`[JOIN_API] Incremented usage for promo code ${promoCodeId}`);
+            }
+        }
 
         // 5. Send Confirmation Email
         try {

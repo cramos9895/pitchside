@@ -18,6 +18,7 @@ import { GameMap } from '@/components/GameMap';
 interface Game {
     id: string;
     title: string;
+    location_name?: string;
     location: string;
     latitude?: number;
     longitude?: number;
@@ -30,6 +31,7 @@ interface Game {
     facility_id?: string | null;
     resource_id?: string | null;
     status: string;
+    game_format?: string;
     description?: string; // Optional field if it exists
     teams_config?: { name: string; color: string }[];
 }
@@ -40,7 +42,7 @@ interface Booking {
     roster_status?: string;
     created_at?: string;
     user_id: string;
-    team_assignment?: string;
+    team_assignment?: number;
     profiles: {
         full_name: string;
         email: string;
@@ -200,6 +202,16 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
         (!b.roster_status && b.status === 'waitlist')
     ).sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
 
+    // Compute My Team Data
+    const assignedTeamConfig = game.teams_config && userBooking?.team_assignment
+        ? game.teams_config[userBooking.team_assignment - 1]
+        : null;
+    const assignedTeamName = assignedTeamConfig?.name || `Team ${userBooking?.team_assignment}`;
+
+    const teammates = userBooking?.team_assignment
+        ? validBookings.filter(b => b.team_assignment === userBooking.team_assignment)
+        : [];
+
     return (
         <div className="min-h-screen bg-pitch-black text-white font-sans pb-20">
             {/* Header Image / Gradient */}
@@ -216,7 +228,10 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                     <div className="flex flex-wrap gap-4 text-sm md:text-base text-gray-300 font-medium">
                         <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-pitch-accent" /> {dateStr}</div>
                         <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-pitch-accent" /> {timeStr}</div>
-                        <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-pitch-accent" /> {game.location}</div>
+                        <a href={`https://maps.google.com/?q=${encodeURIComponent(game.location)}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-white transition-colors">
+                            <MapPin className="w-4 h-4 text-pitch-accent shrink-0" />
+                            {game.location_name || game.location}
+                        </a>
                     </div>
                 </div>
             </div>
@@ -274,7 +289,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                                     <h3 className="font-heading text-xl font-bold italic uppercase mb-4 text-pitch-accent">Game Info</h3>
                                     <div className="space-y-4 text-gray-300">
                                         <p><strong>Surface:</strong> {game.surface_type}</p>
-                                        <p><strong>Format:</strong> {game.max_players / 2}v{game.max_players / 2}</p>
+                                        <p><strong>Format:</strong> {game.game_format || 'Pickup Match'}</p>
                                         <p><strong>Price:</strong> ${game.price}</p>
                                         {game.description && <p className="mt-4 pt-4 border-t border-white/10">{game.description}</p>}
                                     </div>
@@ -283,11 +298,36 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                                 {/* Team Assignment (if joined and assigned) */}
                                 {userBooking?.team_assignment && (
                                     <section className="bg-gradient-to-r from-pitch-card to-white/5 border border-white/10 p-6 rounded-sm">
-                                        <h3 className="font-heading text-lg font-bold italic uppercase mb-2 flex items-center gap-2">
-                                            <Shirt className="w-5 h-5" /> Your Team
+                                        <h3 className="font-heading text-lg font-bold italic uppercase mb-4 flex items-center gap-2 text-pitch-accent border-b border-white/10 pb-2">
+                                            <Shirt className="w-5 h-5" /> Active Squad
                                         </h3>
-                                        <p className="text-xl font-black text-white">{userBooking.team_assignment}</p>
-                                        <p className="text-sm text-gray-400 mt-1">Get ready to dominate!</p>
+                                        <div className="mb-4">
+                                            <p className="text-3xl font-black text-white uppercase italic tracking-wider">{assignedTeamName}</p>
+                                        </div>
+
+                                        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                                            {teammates.length > 0 ? (
+                                                teammates.map(mate => {
+                                                    const isMe = mate.user_id === currentUser?.id;
+                                                    const parts = (mate.profiles?.full_name || mate.profiles?.email || 'Player').split(' ');
+                                                    const firstName = parts[0];
+                                                    const lastInitial = parts.length > 1 ? parts[1].charAt(0) + '.' : '';
+
+                                                    return (
+                                                        <div key={mate.id} className={cn("text-sm font-medium flex items-center gap-2 p-2 rounded", isMe ? "bg-pitch-accent/10 border border-pitch-accent/20" : "bg-black/30 border border-white/5")}>
+                                                            <div className="w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-[10px] text-gray-400 font-bold shrink-0">
+                                                                {firstName.charAt(0)}
+                                                            </div>
+                                                            <span className={isMe ? "text-pitch-accent" : "text-gray-300"}>
+                                                                {firstName} {lastInitial} {isMe && "(You)"}
+                                                            </span>
+                                                        </div>
+                                                    )
+                                                })
+                                            ) : (
+                                                <div className="text-sm text-gray-500 italic">No teammates yet.</div>
+                                            )}
+                                        </div>
                                     </section>
                                 )}
                             </div>
@@ -300,14 +340,18 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                                         <GameMap
                                             latitude={game.latitude}
                                             longitude={game.longitude}
-                                            locationName={game.location}
+                                            locationName={game.location_name || game.location}
                                         />
                                     ) : (
                                         <div className="aspect-video bg-gray-800 rounded mb-4 flex items-center justify-center text-gray-600 text-xs">
                                             Map Unavailable
                                         </div>
                                     )}
-                                    {!game.latitude && <p className="font-bold text-sm mt-4">{game.location}</p>}
+                                    {!game.latitude && (
+                                        <a href={`https://maps.google.com/?q=${encodeURIComponent(game.location)}`} target="_blank" rel="noreferrer" className="font-bold text-sm mt-4 hover:text-pitch-accent transition-colors block">
+                                            {game.location_name || game.location}
+                                        </a>
+                                    )}
                                 </div>
 
                                 {/* MVP Voting Section */}
@@ -388,8 +432,8 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                                                                 {name} {isMe && "(You)"}
                                                             </div>
                                                             {player.team_assignment && (
-                                                                <div className="text-xs text-gray-500 uppercase font-bold mt-0.5">
-                                                                    Team: {player.team_assignment}
+                                                                <div className="text-xs text-gray-400 uppercase font-bold mt-0.5 max-w-[120px] truncate">
+                                                                    Squad: {game.teams_config?.[player.team_assignment - 1]?.name || player.team_assignment}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -464,7 +508,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                                 id: p?.id || b.user_id,
                                 full_name: p?.full_name || 'Unknown',
                                 email: p?.email || '',
-                                team_assignment: b.team_assignment
+                                team_assignment: b.team_assignment?.toString()
                             };
                         })
                     }

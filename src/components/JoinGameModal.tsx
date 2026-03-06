@@ -6,11 +6,12 @@ import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { WaiverModal } from './WaiverModal';
 import { getPaymentSettings } from '@/app/actions/settings';
+import { validatePromoCode } from '@/app/actions/payments';
 
 interface JoinGameModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null }) => Promise<void>;
+    onConfirm: (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null; promoCodeId?: string; teamAssignment?: number }) => Promise<void>;
     gamePrice: number;
     loading: boolean;
     isWaitlist: boolean;
@@ -32,6 +33,17 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     const [showWaiver, setShowWaiver] = useState(false);
     const [agreeingWaiver, setAgreeingWaiver] = useState(false);
 
+    // Promo Code State
+    const [promoCode, setPromoCode] = useState('');
+    const [isApplyingPromo, setIsApplyingPromo] = useState(false);
+    const [appliedPromo, setAppliedPromo] = useState<{ id: string; discount_type: string; discount_value: number; code: string } | null>(null);
+    const [promoError, setPromoError] = useState<string | null>(null);
+
+    // Squad UI State
+    const [selectedTeam, setSelectedTeam] = useState<number | null>(null);
+    const [teamsConfig, setTeamsConfig] = useState<any[]>([]);
+    const [rosters, setRosters] = useState<any[]>([]);
+
     const supabase = createClient();
 
     useEffect(() => {
@@ -50,12 +62,29 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             if (gameId) {
                 const { data: gameData } = await supabase
                     .from('games')
-                    .select('allowed_payment_methods')
+                    .select('allowed_payment_methods, teams_config')
                     .eq('id', gameId)
                     .single();
 
                 if (gameData && gameData.allowed_payment_methods) {
                     setAllowedMethods(gameData.allowed_payment_methods);
+                }
+
+                if (gameData && gameData.teams_config && Array.isArray(gameData.teams_config)) {
+                    setTeamsConfig(gameData.teams_config);
+
+                    // Fetch Active Squad Rosters
+                    const { data: activeBookings } = await supabase
+                        .from('bookings')
+                        .select(`
+                            team_assignment,
+                            user:profiles!bookings_user_id_fkey (first_name, last_name)
+                        `)
+                        .eq('game_id', gameId)
+                        .neq('status', 'cancelled')
+                        .not('team_assignment', 'is', null);
+
+                    if (activeBookings) setRosters(activeBookings);
                 }
             }
 
@@ -88,7 +117,41 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
         setTimeout(() => setCopied(false), 2000);
     };
 
+    let discountAmount = 0;
+    if (appliedPromo) {
+        if (appliedPromo.discount_type === 'percentage') {
+            discountAmount = gamePrice * (appliedPromo.discount_value / 100);
+        } else if (appliedPromo.discount_type === 'fixed_amount') {
+            discountAmount = appliedPromo.discount_value / 100;
+        }
+    }
+    const finalPrice = Math.max(0, gamePrice - discountAmount);
+
+    const handleApplyPromo = async () => {
+        if (!promoCode.trim()) return;
+        setIsApplyingPromo(true);
+        setPromoError(null);
+
+        // Fetch Global Codes
+        const result = await validatePromoCode(promoCode.trim());
+
+        if (result.error) {
+            setPromoError(result.error);
+            setAppliedPromo(null);
+        } else if (result.promo) {
+            setAppliedPromo(result.promo);
+            setPromoCode('');
+        }
+
+        setIsApplyingPromo(false);
+    };
+
     const handleNext = () => {
+        if (teamsConfig.length > 0 && selectedTeam === null && !isWaitlist) {
+            alert("Please select a squad to join.");
+            return;
+        }
+
         if (gamePrice > 0 && !isWaitlist) {
             setStep('payment');
         } else {
@@ -96,7 +159,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             if (!waiverSigned) {
                 setShowWaiver(true);
             } else {
-                onConfirm({ note, paymentMethod: null });
+                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined });
             }
         }
     };
@@ -106,7 +169,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
         if (!waiverSigned) {
             setShowWaiver(true);
         } else {
-            onConfirm({ note, paymentMethod });
+            onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined });
         }
     };
 
@@ -124,9 +187,9 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
 
             // Seamlessly continue to join
             if (step === 'payment' && paymentMethod) {
-                onConfirm({ note, paymentMethod });
+                onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined });
             } else {
-                onConfirm({ note, paymentMethod: null });
+                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined });
             }
         }
         setAgreeingWaiver(false);
@@ -159,18 +222,113 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                         </div>
 
                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                                    Teammate Request (Optional)
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. Mike Johnson"
-                                    value={note}
-                                    onChange={(e) => setNote(e.target.value)}
-                                    className="w-full bg-black/50 border border-white/20 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
-                                />
-                            </div>
+                            {teamsConfig.length > 0 && !isWaitlist ? (
+                                <div className="space-y-3 mb-6">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Select Your Squad</label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                                        {teamsConfig.map((team, i) => {
+                                            const teamNum = i + 1;
+                                            const teamRoster = rosters.filter(r => r.team_assignment === teamNum);
+                                            const maxForThisTeam = team.limit || 0;
+                                            const teamName = team.name || `Team ${teamNum}`;
+                                            const isFull = maxForThisTeam > 0 && teamRoster.length >= maxForThisTeam;
+                                            const isSelected = selectedTeam === teamNum;
+
+                                            return (
+                                                <button
+                                                    key={teamNum}
+                                                    onClick={() => !isFull && setSelectedTeam(teamNum)}
+                                                    disabled={isFull}
+                                                    className={cn(
+                                                        "text-left p-4 rounded-sm border transition-all relative overflow-hidden group",
+                                                        isSelected ? "bg-pitch-accent/10 border-pitch-accent" : "bg-black/60 border-white/10 hover:border-white/30",
+                                                        isFull && "opacity-50 cursor-not-allowed grayscale"
+                                                    )}
+                                                >
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <h4 className={cn("font-black italic uppercase tracking-wider", isSelected ? "text-pitch-accent" : "text-white")}>
+                                                            {teamName}
+                                                        </h4>
+                                                        <div className="text-[10px] font-bold bg-white/10 px-2 py-0.5 rounded tracking-widest text-gray-400">
+                                                            {teamRoster.length}/{maxForThisTeam > 0 ? maxForThisTeam : '∞'}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-1.5 min-h-[60px]">
+                                                        {teamRoster.map((player, idx) => (
+                                                            <div key={idx} className="text-xs text-gray-300 font-medium flex items-center gap-1.5">
+                                                                <div className="w-1 h-1 rounded-full bg-pitch-accent/50"></div>
+                                                                {player.user.first_name || 'Anonymous'} {player.user.last_name?.charAt(0) || ''}.
+                                                            </div>
+                                                        ))}
+                                                        {teamRoster.length === 0 && (
+                                                            <div className="text-xs text-gray-500 italic">No players yet.</div>
+                                                        )}
+                                                    </div>
+
+                                                    {isFull && (
+                                                        <div className="absolute inset-x-0 bottom-0 bg-red-500/20 text-red-400 text-[10px] font-bold uppercase text-center py-1 border-t border-red-500/20">
+                                                            Squad Full
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                        Teammate Request (Optional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Mike Johnson"
+                                        value={note}
+                                        onChange={(e) => setNote(e.target.value)}
+                                        className="w-full bg-black/50 border border-white/20 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
+                                    />
+                                </div>
+                            )}
+
+                            {!isWaitlist && gamePrice > 0 && (
+                                <div className="space-y-3 pb-3 border-b border-white/10">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">Promo Code</label>
+
+                                    {appliedPromo ? (
+                                        <div className="flex items-center justify-between bg-pitch-accent/10 border border-pitch-accent/30 rounded-sm px-4 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-pitch-accent animate-pulse"></div>
+                                                <span className="text-pitch-accent font-bold uppercase tracking-widest text-sm">{appliedPromo.code}</span>
+                                                <span className="text-white text-xs ml-2 border-l border-white/20 pl-2">
+                                                    {appliedPromo.discount_type === 'percentage' ? `${appliedPromo.discount_value}% OFF` : `$${(appliedPromo.discount_value / 100).toFixed(2)} OFF`}
+                                                </span>
+                                            </div>
+                                            <button onClick={() => setAppliedPromo(null)} className="text-gray-400 hover:text-white transition-colors">
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Enter code"
+                                                value={promoCode}
+                                                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                                                className="flex-1 bg-black/50 border border-white/20 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent uppercase placeholder:normal-case font-bold"
+                                            />
+                                            <button
+                                                onClick={handleApplyPromo}
+                                                disabled={!promoCode || isApplyingPromo}
+                                                className="bg-white/10 hover:bg-white/20 text-white font-bold uppercase tracking-wider px-6 rounded-sm transition-colors disabled:opacity-50"
+                                            >
+                                                Apply
+                                            </button>
+                                        </div>
+                                    )}
+                                    {promoError && <p className="text-red-400 text-xs font-medium">{promoError}</p>}
+                                </div>
+                            )}
 
                             <button
                                 onClick={handleNext}
@@ -184,7 +342,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                             >
                                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> :
                                     isWaitlist ? "Confirm Waitlist Spot" :
-                                        gamePrice === 0 ? "Confirm & Join" : `Continue to Payment ($${gamePrice})`}
+                                        finalPrice === 0 ? "Confirm & Join" : `Continue to Payment ($${finalPrice.toFixed(2)})`}
                             </button>
                         </div>
                     </>
@@ -198,7 +356,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 Payment Required
                             </h2>
                             <p className="text-pitch-secondary text-sm mt-2">
-                                Please send <strong>${gamePrice}</strong> via one of the methods below. Your spot is reserved pending verification.
+                                Please send <strong>${finalPrice.toFixed(2)}</strong> via one of the methods below. Your spot is reserved pending verification.
                             </p>
                         </div>
 
@@ -281,7 +439,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                         rel="noopener noreferrer"
                                         className="block w-full py-2 bg-blue-500 text-white font-bold text-center rounded-sm hover:bg-blue-400"
                                     >
-                                        Pay ${gamePrice} on Venmo
+                                        Pay ${finalPrice.toFixed(2)} on Venmo
                                     </a>
                                 </div>
                             )}

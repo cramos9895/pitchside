@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { X, Calendar, MapPin, Clock, Info } from 'lucide-react';
-import { submitBookingRequest } from '@/app/actions/public-booking';
+import { submitBookingRequest, executeFreePromoBooking } from '@/app/actions/public-booking';
 import { createCheckoutSession } from '@/app/actions/stripe';
+import { validatePromoCode } from '@/app/actions/payments';
 import { WaiverModal } from '../WaiverModal';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -39,6 +40,11 @@ export function PublicBookingModal({
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+    const [promoCode, setPromoCode] = useState('');
+    const [isApplyingPromo, setIsApplyingPromo] = useState(false);
+    const [appliedPromo, setAppliedPromo] = useState<{ id: string; discount_type: string; discount_value: number; code: string } | null>(null);
+    const [promoError, setPromoError] = useState<string | null>(null);
+
     const [showWaiver, setShowWaiver] = useState(false);
     const [agreeingWaiver, setAgreeingWaiver] = useState(false);
     const [facilityWaiverText, setFacilityWaiverText] = useState<string | null>(null);
@@ -52,6 +58,35 @@ export function PublicBookingModal({
     const rate = resource.resource_types?.default_hourly_rate || 0;
     const durationHours = (selectedSlot.end.getTime() - selectedSlot.start.getTime()) / (1000 * 60 * 60);
     const estimatedCost = rate * durationHours;
+
+    let discountAmount = 0;
+    if (appliedPromo) {
+        if (appliedPromo.discount_type === 'percentage') {
+            discountAmount = estimatedCost * (appliedPromo.discount_value / 100);
+        } else if (appliedPromo.discount_type === 'fixed_amount') {
+            // Fixed amount is in cents
+            discountAmount = appliedPromo.discount_value / 100;
+        }
+    }
+    const finalCost = Math.max(0, estimatedCost - discountAmount);
+
+    const handleApplyPromo = async () => {
+        if (!promoCode.trim()) return;
+        setIsApplyingPromo(true);
+        setPromoError(null);
+
+        const result = await validatePromoCode(promoCode.trim(), facilityId);
+
+        if (result.error) {
+            setPromoError(result.error);
+            setAppliedPromo(null);
+        } else if (result.promo) {
+            setAppliedPromo(result.promo);
+            setPromoCode('');
+        }
+
+        setIsApplyingPromo(false);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -114,7 +149,7 @@ export function PublicBookingModal({
         setAgreeingWaiver(false);
     };
 
-    const isContractRequest = estimatedCost >= 500;
+    const isContractRequest = finalCost >= 500;
 
     const executeBooking = async () => {
         try {
@@ -141,9 +176,9 @@ export function PublicBookingModal({
                 } else {
                     setErrorMsg(result.error || 'Failed to submit contract request.');
                 }
-            } else if (rate > 0) {
-                // Standard Paid Cart (< $500)
-                const amountCents = Math.round(estimatedCost * 100);
+            } else if (finalCost > 0) {
+                // Standard Paid Cart
+                const amountCents = Math.round(finalCost * 100);
                 const result = await createCheckoutSession({
                     facilityId,
                     resourceId: resource.id,
@@ -151,7 +186,8 @@ export function PublicBookingModal({
                     contactEmail: email,
                     startTime: selectedSlot.start.toISOString(),
                     endTime: selectedSlot.end.toISOString(),
-                    amountCents
+                    amountCents,
+                    promoCodeId: appliedPromo?.id
                 });
 
                 if (result.url) {
@@ -159,6 +195,27 @@ export function PublicBookingModal({
                     return;
                 } else {
                     setErrorMsg(result.error || 'Failed to initiate checkout.');
+                }
+            } else if (rate > 0 && finalCost === 0 && appliedPromo?.id) {
+                // $0 Cart Bypass
+                const result = await executeFreePromoBooking({
+                    facilityId,
+                    resourceId: resource.id,
+                    title,
+                    contactEmail: email,
+                    startTime: selectedSlot.start.toISOString(),
+                    endTime: selectedSlot.end.toISOString(),
+                    promoCodeId: appliedPromo.id
+                });
+
+                if (result.success) {
+                    setSuccessMsg('Booking Confirmed! Your promo code covered the full amount.');
+                    setTimeout(() => {
+                        onClose();
+                        window.location.href = `/dashboard`;
+                    }, 2000);
+                } else {
+                    setErrorMsg(result.error || 'Failed to process free booking.');
                 }
             } else {
                 // Free Booking Request ($0)
@@ -244,11 +301,18 @@ export function PublicBookingModal({
                         </div>
                         {rate > 0 && (
                             <div className="mt-2 pt-3 border-t border-white/5 flex flex-col gap-1 text-sm">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-400">Estimated Cost ({rate}/hr)</span>
-                                    <span className={`font-bold font-numeric ${isContractRequest ? 'text-yellow-400' : 'text-white'}`}>${estimatedCost.toFixed(2)}</span>
+                                <div className="flex justify-between items-center text-lg mt-2">
+                                    <span className="text-white font-bold">Total Cost</span>
+                                    <div className="flex items-center gap-2">
+                                        {appliedPromo && (
+                                            <span className="text-gray-500 line-through text-sm">${estimatedCost.toFixed(2)}</span>
+                                        )}
+                                        <span className={`font-black font-numeric ${isContractRequest ? 'text-yellow-400' : 'text-pitch-accent'}`}>
+                                            ${finalCost.toFixed(2)}
+                                        </span>
+                                    </div>
                                 </div>
-                                {isContractRequest && (
+                                {isContractRequest && finalCost > 0 && (
                                     <span className="text-xs text-yellow-500/80 italic text-right mt-1">
                                         High-value cart. Payment collected via invoice.
                                     </span>
@@ -306,6 +370,47 @@ export function PublicBookingModal({
                             </div>
                         </form>
                     )}
+
+                    {isAuthenticated && !successMsg && rate > 0 && (
+                        <div className="mt-6 pt-6 border-t border-white/5 space-y-3">
+                            <label className="block text-sm font-bold uppercase tracking-wider text-gray-400">Promo Code</label>
+
+                            {appliedPromo ? (
+                                <div className="flex items-center justify-between bg-pitch-accent/10 border border-pitch-accent/30 rounded px-4 py-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-pitch-accent animate-pulse"></div>
+                                        <span className="text-pitch-accent font-bold uppercase tracking-widest text-sm">{appliedPromo.code}</span>
+                                        <span className="text-white text-xs ml-2 border-l border-white/20 pl-2">
+                                            {appliedPromo.discount_type === 'percentage' ? `${appliedPromo.discount_value}% OFF` : `$${(appliedPromo.discount_value / 100).toFixed(2)} OFF`}
+                                        </span>
+                                    </div>
+                                    <button onClick={() => setAppliedPromo(null)} className="text-gray-400 hover:text-white transition-colors">
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Enter code"
+                                        value={promoCode}
+                                        onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                                        className="flex-1 bg-black/50 border border-white/10 rounded px-4 py-3 text-white focus:outline-none focus:border-pitch-accent uppercase placeholder:normal-case font-bold"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleApplyPromo}
+                                        disabled={!promoCode || isApplyingPromo}
+                                        className="bg-white/10 hover:bg-white/20 text-white font-bold uppercase tracking-wider px-6 rounded transition-colors disabled:opacity-50"
+                                    >
+                                        Apply
+                                    </button>
+                                </div>
+                            )}
+
+                            {promoError && <p className="text-red-400 text-xs font-medium">{promoError}</p>}
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer - Pinned Bottom */}
@@ -337,7 +442,7 @@ export function PublicBookingModal({
                         >
                             {isSubmitting
                                 ? (isContractRequest ? 'Sending Request...' : rate > 0 ? 'Redirecting...' : 'Submitting...')
-                                : (isContractRequest ? `Request Contract ($${estimatedCost.toFixed(2)})` : rate > 0 ? `Proceed to Payment ($${estimatedCost.toFixed(2)})` : 'Submit Request')
+                                : (isContractRequest ? `Request Contract ($${finalCost.toFixed(2)})` : finalCost > 0 ? `Proceed to Payment ($${finalCost.toFixed(2)})` : 'Submit Request')
                             }
                         </button>
                     )}
