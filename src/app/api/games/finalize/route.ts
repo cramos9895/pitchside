@@ -39,6 +39,10 @@ export async function POST(request: NextRequest) {
         const homeTeamName = teams[0].name;
         const awayTeamName = teams[1].name;
 
+        let winningTeamName = null;
+        if (winner === 'home') winningTeamName = '1';
+        else if (winner === 'away') winningTeamName = '2';
+
         // 3. Update Game
         const { error: updateError } = await supabase
             .from('games')
@@ -46,7 +50,8 @@ export async function POST(request: NextRequest) {
                 home_score: homeScore,
                 away_score: awayScore,
                 status: status, // 'completed'
-                mvp_player_id: mvpPlayerId || null
+                mvp_player_id: mvpPlayerId || null,
+                winning_team_assignment: winningTeamName
             })
             .eq('id', gameId);
 
@@ -64,13 +69,13 @@ export async function POST(request: NextRequest) {
                 .from('bookings')
                 .update({ is_winner: true })
                 .eq('game_id', gameId)
-                .eq('team_assignment', homeTeamName);
+                .eq('team_assignment', 1);
         } else if (winner === 'away') {
             await supabase
                 .from('bookings')
                 .update({ is_winner: true })
                 .eq('game_id', gameId)
-                .eq('team_assignment', awayTeamName);
+                .eq('team_assignment', 2);
         }
 
         // 5. Update MVP (Increment mvp_awards)

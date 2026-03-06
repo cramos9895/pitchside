@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft, Check, Shirt, User as UserIcon, Users, X, Trophy, Save, Loader2, Swords, Calendar, Trash2, Shield, MoreVertical, MonitorPlay } from 'lucide-react';
+import { ArrowLeft, Check, Shirt, User as UserIcon, Users, X, Trophy, Save, Loader2, Swords, Calendar, Trash2, Shield, MoreVertical, MonitorPlay, UserCheck, UserX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { MatchManager } from '@/components/admin/MatchManager';
@@ -38,6 +38,7 @@ interface Booking {
         full_name: string;
     }[] | null;
     status: string; // Add status explicitly to interface
+    has_signed?: boolean;
 }
 
 import { TeamManager } from '@/components/admin/TeamManager';
@@ -170,6 +171,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
+            let fetchedGame: any = null;
             try {
                 // Fetch Game
                 const { data: gameData, error: gameError } = await supabase
@@ -179,6 +181,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     .single();
 
                 if (gameError) throw gameError;
+                fetchedGame = gameData;
                 setGame(gameData);
 
                 if (gameData.view_mode) {
@@ -218,7 +221,24 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     .order('created_at', { ascending: true });
 
                 if (bookingsError) throw bookingsError;
-                setBookings((bookingsData || []) as any);
+
+                let signedIds = new Set<string>();
+                if (fetchedGame?.facility_id && bookingsData) {
+                    const userIds = bookingsData.map((b: any) => b.user_id);
+                    const { data: waiverData } = await supabase
+                        .from('waiver_signatures')
+                        .select('user_id')
+                        .eq('facility_id', fetchedGame.facility_id)
+                        .in('user_id', userIds);
+                    signedIds = new Set(waiverData?.map((w: any) => w.user_id) || []);
+                }
+
+                const enrichedBookings = (bookingsData || []).map((b: any) => ({
+                    ...b,
+                    has_signed: signedIds.has(b.user_id)
+                }));
+
+                setBookings(enrichedBookings as any);
 
                 // Fetch Votes
                 const { data: votesData, error: votesError } = await supabase
@@ -412,16 +432,15 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         { name: 'Team B', color: 'White' }
     ];
 
-    // Split Bookings
-    const validBookings = bookings.filter(b => b.roster_status !== 'dropped' && b.status !== 'cancelled');
-    const roster = validBookings.filter(b =>
-        (b.roster_status === 'confirmed') ||
-        (!b.roster_status && ['paid', 'active'].includes(b.status))
-    );
-    const waitlist = validBookings.filter(b =>
-        (b.roster_status === 'waitlisted') ||
-        (!b.roster_status && b.status === 'waitlist')
-    ).sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
+    // Split Bookings Strict
+    const validBookings = bookings.filter(b => b.status !== 'cancelled' && b.roster_status !== 'dropped');
+
+    // ACTIVE ROSTER: Status precisely equals 'confirmed', or legacy fallbacks 'paid' / 'active'
+    const roster = validBookings.filter(b => ['confirmed', 'paid', 'active'].includes(b.status) || b.roster_status === 'confirmed');
+
+    // WAITLIST QUEUE: Status precisely equals 'waitlisted', or legacy fallbacks 'waitlist'
+    const waitlist = validBookings.filter(b => ['waitlisted', 'waitlist'].includes(b.status) || b.roster_status === 'waitlisted')
+        .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
 
     // Calculate Counts (using only roster)
     const teamCounts = teams.reduce((acc, team) => {
@@ -875,6 +894,15 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                             </div>
                                                             <div className="min-w-0 flex-1">
                                                                 <div className="font-bold truncate text-sm">{displayName}</div>
+                                                                {game.facility_id && (
+                                                                    <div className="text-[10px] uppercase font-bold tracking-wider mt-1 mb-1">
+                                                                        {booking.has_signed ? (
+                                                                            <span className="text-green-400 flex items-center gap-1.5"><UserCheck className="w-3.5 h-3.5" /> Waiver Verified</span>
+                                                                        ) : (
+                                                                            <span className="text-red-400 flex items-center gap-1.5"><UserX className="w-3.5 h-3.5" /> Action Req: Waiver</span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                                 {booking.note && (
                                                                     <div className="text-[10px] text-pitch-accent italic truncate max-w-[200px] md:max-w-[120px]">
                                                                         Request: {booking.note}
@@ -986,7 +1014,10 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                             </div>
                                                             <div>
                                                                 <div className="font-bold truncate text-sm text-yellow-100">{displayName}</div>
-                                                                <div className="text-[10px] text-yellow-600 italic">Waitlist Queue</div>
+                                                                <div className="flex gap-2">
+                                                                    <span className="text-[10px] uppercase tracking-wider font-bold bg-gray-500/20 text-gray-400 px-2 py-0.5 rounded border border-gray-500/30 mt-1 inline-block">Waitlisted</span>
+                                                                    {booking.note && <span className="text-[10px] text-pitch-accent italic mt-1 inline-block truncate max-w-[120px]">Request: {booking.note}</span>}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2 w-full md:w-auto justify-end">

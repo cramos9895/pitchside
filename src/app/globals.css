@@ -16,6 +16,14 @@
   /* Clean body text */
   --font-heading: var(--font-oswald);
   /* Bold/Condensed headings */
+
+  --animate-shimmer: shimmer 2.5s infinite linear;
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
 }
 
 /* FORCE CALENDAR OVERRIDES - Nuclear Sledgehammer for Time View Gutter */

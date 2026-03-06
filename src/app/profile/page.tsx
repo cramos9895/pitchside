@@ -16,7 +16,7 @@ export default function ProfilePage() {
     const [user, setUser] = useState<any>(null);
     const [profile, setProfile] = useState<any>(null);
     const [bookings, setBookings] = useState<any[]>([]);
-    const [stats, setStats] = useState({ caps: 0, wins: 0 });
+    const [stats, setStats] = useState({ caps: 0, wins: 0, draws: 0, losses: 0 });
     const supabase = createClient();
     const router = useRouter();
 
@@ -48,7 +48,8 @@ export default function ProfilePage() {
                     *,
                     game:games(
                         *,
-                        matches(*)
+                        matches(*),
+                        bookings(is_winner)
                     )
                 `)
                 .eq('user_id', user.id)
@@ -67,42 +68,43 @@ export default function ProfilePage() {
             const validBookings = bookingsData?.filter((b: any) => {
                 const g = b.game;
                 // Count played games
-                if (!g || b.status !== 'paid' || !g.matches) return false;
-
-                // Only count if game has completed matches
-                const hasCompletedMatches = g.matches.some((m: any) => m.status === 'completed');
-                if (!hasCompletedMatches) return false;
+                if (!g || (b.status !== 'paid' && b.status !== 'active' && b.status !== 'confirmed') || g.status !== 'completed') return false;
 
                 const myTeam = b.team_assignment;
-                let myScore = 0;
-                let oppScore = 0;
-                let played = false;
+                let isWin = false;
+                let isLoss = false;
+                let isDraw = false;
 
-                g.matches.forEach((m: any) => {
-                    if (m.status !== 'completed') return;
-                    if (m.home_team === myTeam) {
-                        myScore += m.home_score;
-                        oppScore += m.away_score;
-                        played = true;
-                    } else if (m.away_team === myTeam) {
-                        myScore += m.away_score;
-                        oppScore += m.home_score;
-                        played = true;
-                    }
-                });
+                // Pre-compute if the game had any winner recorded to distinguish Losses from True Draws (specifically for legacy games)
+                const gameHadWinner = g.bookings?.some((bk: any) => bk.is_winner === true) || !!g.winning_team_assignment;
 
-                if (!played) return false;
+                if (b.is_winner === true || (myTeam && g.winning_team_assignment && String(myTeam) === String(g.winning_team_assignment))) {
+                    isWin = true;
+                } else if (gameHadWinner) {
+                    isLoss = true;
+                } else {
+                    isDraw = true;
+                }
 
-                if (myScore > oppScore) wins++;
-                else if (myScore < oppScore) losses++;
-                else draws++;
+                if (isWin) {
+                    wins++;
+                    b.calculated_result = 'win';
+                } else if (isLoss) {
+                    losses++;
+                    b.calculated_result = 'loss';
+                } else {
+                    draws++;
+                    b.calculated_result = 'draw';
+                }
 
                 return true;
             }) || [];
 
             setStats({
                 caps: validBookings.length,
-                wins
+                wins,
+                draws,
+                losses
             });
             setLoading(false);
         };
@@ -111,21 +113,50 @@ export default function ProfilePage() {
     }, [supabase, router]);
 
     // New "Slow Burn" Rating Calculation
-    const mvpCount = profile?.mvp_awards || 0;
     const baseRating = 70;
-    const gamesBonus = stats.caps * 0.1;
-    const winBonus = stats.wins * 0.5;
-    const mvpBonus = mvpCount * 1.0;
 
-    const ovr = Math.min(99, Math.floor(
-        baseRating + gamesBonus + winBonus + mvpBonus
-    ));
+    // Calculate raw bonus points
+    const rawBonus = (stats.caps * 0.1) + (stats.draws * 0.1) + (stats.wins * 0.5);
 
-    // Rating Tier Logic
-    let tierColor = "text-gray-400 border-gray-400"; // Bronze/Default
-    if (ovr >= 80) tierColor = "text-yellow-400 border-yellow-400 bg-yellow-500/10"; // Gold
-    else if (ovr >= 75) tierColor = "text-gray-200 border-gray-300 bg-white/10"; // Silver
-    else tierColor = "text-orange-300 border-orange-400 bg-orange-900/20"; // Bronze
+    // Apply diminishing returns curve
+    let finalBonus = 0;
+
+    if (rawBonus <= 10) {
+        // Linear until OVR 80 (70 + 10)
+        finalBonus = rawBonus;
+    } else if (rawBonus <= 23.33) {
+        // -25% growth penalty after OVR 80.
+        // Needs 13.33 raw points * 0.75 = 10 actual points to reach OVR 90
+        finalBonus = 10 + ((rawBonus - 10) * 0.75);
+    } else {
+        // -50% growth penalty after OVR 90.
+        finalBonus = 20 + ((rawBonus - 23.33) * 0.5);
+    }
+
+    const ovr = Math.min(99, Math.floor(baseRating + finalBonus));
+
+    // Rating Tier Logic (Bronze 70-79, Silver 80-89, Gold 90-94, Diamond 95-99)
+    let cardGradient = "bg-gradient-to-br from-[#8c5a3b] via-[#b67352] to-[#512c17] border-[#cc8a63] shadow-[0_0_30px_rgba(182,115,82,0.4)] text-[#ffece0]";
+    let holographic = ""; // No shimmer for Bronze
+    let badgeStyle = "text-[#ffcaad] border-[#ffcaad] bg-black/20";
+    let isNeon = false;
+
+    if (ovr >= 95) {
+        // Diamond 
+        cardGradient = "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-300 via-white to-indigo-300 border-white shadow-[0_0_50px_rgba(255,255,255,0.7)] text-indigo-900";
+        holographic = "after:absolute after:inset-0 after:bg-gradient-to-tr after:from-transparent after:via-white/60 after:to-transparent after:-translate-x-full hover:after:animate-[shimmer_2s_infinite]";
+        badgeStyle = "text-blue-700 font-bold border-blue-400 bg-white/40 shadow-sm";
+    } else if (ovr >= 90) {
+        // Gold 
+        cardGradient = "bg-gradient-to-br from-[#bf953f] via-[#fcf6ba] to-[#b38728] border-[#fcf6ba] shadow-[0_0_40px_rgba(252,246,186,0.5)] text-yellow-900";
+        holographic = "after:absolute after:inset-0 after:bg-gradient-to-tr after:from-transparent after:via-white/40 after:to-transparent after:-translate-x-full hover:after:animate-[shimmer_2.5s_infinite]";
+        badgeStyle = "text-amber-800 font-bold border-amber-600 bg-white/30";
+    } else if (ovr >= 80) {
+        // Silver 
+        cardGradient = "bg-gradient-to-br from-[#757f9a] via-[#e2e8f0] to-[#656d81] border-[#f8fafc] shadow-[0_0_35px_rgba(226,232,240,0.3)] text-gray-900";
+        holographic = "after:absolute after:inset-0 after:bg-gradient-to-tr after:from-transparent after:via-white/20 after:to-transparent after:-translate-x-full hover:after:animate-[shimmer_3s_infinite]";
+        badgeStyle = "text-slate-800 font-bold border-slate-500 bg-white/40";
+    }
 
     if (loading) return <div className="min-h-screen bg-pitch-black flex items-center justify-center text-white"><Loader2 className="w-8 h-8 animate-spin" /></div>;
 
@@ -140,21 +171,21 @@ export default function ProfilePage() {
 
             {/* FIFA CARD CONTAINER */}
             <div className={cn(
-                "relative w-full max-w-sm aspect-[2/3] rounded-xl border-4 shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col items-center pt-8 text-center select-none transform transition-transform hover:scale-[1.02]",
-                ovr >= 80 ? "bg-gradient-to-br from-yellow-600 via-yellow-500 to-yellow-800 border-yellow-400 shadow-[0_0_40px_rgba(234,179,8,0.4)]"
-                    : "bg-gradient-to-br from-gray-300 via-gray-100 to-gray-400 border-gray-300 shadow-[0_0_40px_rgba(255,255,255,0.2)] text-black"
+                "relative w-full max-w-sm aspect-[2/3] rounded-xl shadow-[inset_0_0_0_6px_rgba(255,255,255,0.2)] overflow-hidden flex flex-col items-center pt-8 text-center select-none transform transition-transform hover:scale-[1.02] cursor-pointer group",
+                cardGradient,
+                holographic
             )}>
 
                 {/* Card Background pattern */}
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 pointer-events-none" />
 
                 {/* Rating & Position (Top Left) */}
-                <div className="absolute top-8 left-8 text-left z-10 flex flex-col items-center">
+                <div className="absolute top-8 left-8 text-left z-10 flex flex-col items-center drop-shadow-md">
                     {/* Stat Shield */}
-                    <div className={cn("w-16 h-16 border-2 flex items-center justify-center rounded-full mb-1 backdrop-blur-md shadow-lg", tierColor)}>
+                    <div className={cn("w-16 h-16 border-2 flex items-center justify-center rounded-full mb-1 backdrop-blur-md shadow-lg", badgeStyle)}>
                         <span className="text-4xl font-black italic leading-none">{ovr}</span>
                     </div>
-                    <div className={cn("text-lg font-bold uppercase tracking-wider", ovr >= 80 ? "text-white/80" : "text-black/60")}>
+                    <div className={cn("text-lg font-bold uppercase tracking-wider", badgeStyle.replace('bg-white/40', '').replace('bg-white/30', '').replace('bg-black/20', '').split(' ')[0])}>
                         {formatPosition(profile?.position || 'Utility')}
                     </div>
                 </div>
@@ -173,20 +204,17 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Name */}
-                <div className="relative z-10 uppercase w-full px-4 mb-2">
-                    <h2 className={cn(
-                        "font-heading text-3xl font-bold italic truncate text-shadow-sm",
-                        ovr >= 80 ? "text-white" : "text-black"
-                    )}>
+                <div className="relative z-10 uppercase w-full px-4 mb-2 drop-shadow-md">
+                    <h2 className="font-heading text-3xl font-bold italic truncate">
                         {profile?.full_name || 'ROOKIE'}
                     </h2>
                 </div>
 
                 {/* Divider */}
-                <div className="w-2/3 h-0.5 bg-current opacity-20 mb-6 z-10" />
+                <div className="w-2/3 h-0.5 bg-current opacity-30 mb-6 z-10" />
 
                 {/* Stats Grid */}
-                <div className={cn("grid grid-cols-2 gap-x-12 gap-y-2 text-left w-full px-12 z-10 font-mono text-sm", ovr >= 80 ? "text-white" : "text-black")}>
+                <div className="grid grid-cols-2 gap-x-12 gap-y-2 text-left w-full px-12 z-10 font-mono text-sm drop-shadow-sm">
                     <div className="flex items-center justify-between">
                         <span className="font-bold opacity-70">PAC</span>
                         <span className="font-black text-lg">88</span>
@@ -206,15 +234,15 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Bio / Footer */}
-                <div className="mt-auto mb-8 w-full px-6 z-10">
-                    <p className={cn("text-xs italic line-clamp-2 min-h-[2.5em]", ovr >= 80 ? "text-white/70" : "text-black/60")}>
+                <div className="mt-auto mb-8 w-full px-6 z-10 drop-shadow-sm">
+                    <p className="text-xs font-bold italic line-clamp-2 min-h-[2.5em] opacity-80">
                         {profile?.bio || "No bio yet. Ready to play!"}
                     </p>
                 </div>
             </div>
 
             {/* CAREER STATS SECTION */}
-            <div className="w-full max-w-sm mt-8 grid grid-cols-3 gap-4 mb-8">
+            <div className="w-full max-w-sm mt-8 grid grid-cols-2 gap-4 mb-8">
                 <div className="bg-pitch-card p-4 rounded-sm border border-white/10 text-center flex flex-col items-center shadow-lg">
                     <span className="text-3xl font-heading font-black italic text-white mb-1">{stats.caps}</span>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-pitch-secondary">APPS</span>
@@ -223,26 +251,7 @@ export default function ProfilePage() {
                     <span className="text-3xl font-heading font-black italic text-green-500 mb-1">{stats.wins}</span>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-pitch-secondary">WINS</span>
                 </div>
-                <div className="bg-pitch-card p-4 rounded-sm border border-white/10 text-center flex flex-col items-center shadow-lg">
-                    <span className="text-3xl font-heading font-black italic text-pitch-accent mb-1">{mvpCount}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-pitch-secondary">MVPs</span>
-                </div>
             </div>
-
-            {/* CREDITS BANNER */}
-            {profile?.free_game_credits > 0 && (
-                <div className="w-full max-w-sm mb-8 bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 border border-yellow-500/50 p-4 rounded-sm flex items-center justify-between shadow-[0_0_20px_rgba(234,179,8,0.1)]">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-black font-bold text-xl shadow-lg">
-                            🏆
-                        </div>
-                        <div>
-                            <p className="font-bold text-yellow-400 uppercase text-sm tracking-wider">Rewards Available</p>
-                            <p className="text-white text-xs">You have <span className="font-bold text-white text-sm">{profile.free_game_credits} Free Game Credit{profile.free_game_credits !== 1 ? 's' : ''}</span></p>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* MATCH HISTORY */}
             <div className="w-full max-w-2xl px-4 pb-20">
@@ -254,37 +263,9 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                     {bookings.map((booking: any) => {
                         const game = booking.game;
-                        if (!game || !game.matches || game.matches.filter((m: any) => m.status === 'completed').length === 0) return null;
+                        if (!game || game.status !== 'completed' || !booking.calculated_result) return null;
 
-                        const myTeam = booking.team_assignment;
-                        if (!myTeam) return null;
-
-                        // Aggregate Score
-                        let myScore = 0;
-                        let oppScore = 0;
-                        let played = false;
-                        let opponentName = "Opponent";
-
-                        game.matches.forEach((m: any) => {
-                            if (m.status !== 'completed') return;
-                            if (m.home_team === myTeam) {
-                                myScore += m.home_score;
-                                oppScore += m.away_score;
-                                opponentName = m.away_team; // grab last opponent name
-                                played = true;
-                            } else if (m.away_team === myTeam) {
-                                myScore += m.away_score;
-                                oppScore += m.home_score;
-                                opponentName = m.home_team;
-                                played = true;
-                            }
-                        });
-
-                        if (!played) return null;
-
-                        let result: 'win' | 'loss' | 'draw' = 'draw';
-                        if (myScore > oppScore) result = 'win';
-                        if (myScore < oppScore) result = 'loss';
+                        const result = booking.calculated_result; // 'win' | 'loss' | 'draw'
 
                         return (
                             <div key={booking.id} className="bg-pitch-card border border-white/5 p-4 rounded-sm flex items-center justify-between">
@@ -297,7 +278,7 @@ export default function ProfilePage() {
                                     <div>
                                         <div className="font-bold text-lg mb-0.5">{game.title}</div>
                                         <div className="text-xs text-pitch-secondary uppercase font-bold">
-                                            {new Date(game.start_time).toLocaleDateString()} • {game.location}
+                                            {new Date(game.start_time).toLocaleDateString()} • {game.location || 'PitchSide'}
                                         </div>
                                     </div>
                                 </div>
@@ -327,12 +308,9 @@ export default function ProfilePage() {
                             </div>
                         );
                     })}
-                    {bookings.filter((b: any) => {
-                        const g = b.game;
-                        return g && g.matches && g.matches.some((m: any) => m.status === 'completed');
-                    }).length === 0 && (
-                            <p className="text-center text-gray-500 italic py-8">No match history recorded yet.</p>
-                        )}
+                    {bookings.filter((b: any) => b.calculated_result).length === 0 && (
+                        <p className="text-center text-gray-500 italic py-8">No match history recorded yet.</p>
+                    )}
                 </div>
             </div>
 

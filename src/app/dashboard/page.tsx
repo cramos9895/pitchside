@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Calendar, Clock, MapPin, AlertCircle, Loader2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, AlertCircle, Loader2, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/components/ui/Toast';
@@ -161,9 +161,15 @@ export default function DashboardOverviewPage() {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 text-white">
-            <div>
-                <h2 className="text-2xl font-bold mb-1 border-b border-white/5 pb-4">Welcome back.</h2>
-                <p className="text-pitch-secondary mt-2">Here's a snapshot of your PitchSide activity.</p>
+            <div className="flex justify-between items-start mb-1 border-b border-white/5 pb-4">
+                <div>
+                    <h2 className="text-2xl font-bold mb-1">Welcome back.</h2>
+                    <p className="text-pitch-secondary mt-2">Here's a snapshot of your PitchSide activity.</p>
+                </div>
+                <Link href="/profile" className="flex items-center gap-2 bg-pitch-card border border-white/10 px-4 py-2 rounded-sm hover:border-white/30 transition-all shrink-0">
+                    <User className="w-4 h-4 text-pitch-accent" />
+                    <span className="text-sm font-bold uppercase tracking-widest text-white hidden sm:inline">Player Profile</span>
+                </Link>
             </div>
 
             {/* ACTION REQUIRED SECTION */}
