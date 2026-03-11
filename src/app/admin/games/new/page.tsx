@@ -147,7 +147,7 @@ export default function NewGamePage() {
     };
 
     return (
-        <div className="min-h-screen bg-pitch-black text-white p-6 pt-32">
+        <div className="min-h-screen bg-pitch-black text-white p-6 pt-8">
             <div className="max-w-2xl mx-auto">
                 <Link href="/admin" className="flex items-center text-pitch-secondary hover:text-white mb-6 transition-colors">
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard

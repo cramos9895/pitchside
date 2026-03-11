@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, X, UserPlus, DollarSign, CreditCard, Copy, Check } from 'lucide-react';
+import { Loader2, X, UserPlus, DollarSign, CreditCard, Copy, Check, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { WaiverModal } from './WaiverModal';
@@ -11,14 +11,15 @@ import { validatePromoCode } from '@/app/actions/payments';
 interface JoinGameModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null; promoCodeId?: string; teamAssignment?: number }) => Promise<void>;
+    onConfirm: (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean }) => Promise<void>;
     gamePrice: number;
     loading: boolean;
     isWaitlist: boolean;
     gameId: string;
+    isLeague?: boolean;
 }
 
-export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, isWaitlist, gameId }: JoinGameModalProps) {
+export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, isWaitlist, gameId, isLeague }: JoinGameModalProps) {
     const [step, setStep] = useState<'details' | 'payment'>('details');
     const [note, setNote] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<'venmo' | 'zelle' | 'cash' | null>(null);
@@ -40,9 +41,17 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     const [promoError, setPromoError] = useState<string | null>(null);
 
     // Squad UI State
-    const [selectedTeam, setSelectedTeam] = useState<number | null>(null);
+    const [joinMode, setJoinMode] = useState<'squad' | 'free-agent'>('squad');
+    const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
     const [teamsConfig, setTeamsConfig] = useState<any[]>([]);
     const [rosters, setRosters] = useState<any[]>([]);
+
+    // Prize Pool State
+    const [hasPrizePool, setHasPrizePool] = useState(false);
+    const [prizeSplitPreference, setPrizeSplitPreference] = useState<'pay_captain' | 'split_evenly'>('split_evenly');
+    
+    // Strict Waiver State
+    const [isStrictWaiver, setIsStrictWaiver] = useState(false);
 
     const supabase = createClient();
 
@@ -59,15 +68,25 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             }
 
             // 2. Fetch Game Settings (Specific)
+            let isStrict = false;
             if (gameId) {
                 const { data: gameData } = await supabase
                     .from('games')
-                    .select('allowed_payment_methods, teams_config')
+                    .select('allowed_payment_methods, teams_config, prize_pool_percentage, strict_waiver_required')
                     .eq('id', gameId)
                     .single();
 
                 if (gameData && gameData.allowed_payment_methods) {
                     setAllowedMethods(gameData.allowed_payment_methods);
+                }
+
+                if (gameData?.prize_pool_percentage && gameData.prize_pool_percentage > 0) {
+                    setHasPrizePool(true);
+                }
+                
+                if (gameData?.strict_waiver_required) {
+                    setIsStrictWaiver(true);
+                    isStrict = true;
                 }
 
                 if (gameData && gameData.teams_config && Array.isArray(gameData.teams_config)) {
@@ -78,7 +97,9 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                         .from('bookings')
                         .select(`
                             team_assignment,
-                            user:profiles!bookings_user_id_fkey (first_name, last_name)
+                            custom_invite_fee,
+                            stripe_payment_method_id,
+                            user:profiles!bookings_user_id_fkey (full_name)
                         `)
                         .eq('game_id', gameId)
                         .neq('status', 'cancelled')
@@ -88,15 +109,21 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                 }
             }
 
-            // 3. Fetch User Waiver Status (Platform Wide)
+            // 3. Fetch User Waiver Status
             const { data: userData } = await supabase.auth.getUser();
             if (userData.user) {
-                const { data: signature } = await supabase
+                let query = supabase
                     .from('waiver_signatures')
                     .select('id')
-                    .eq('user_id', userData.user.id)
-                    .is('facility_id', null)
-                    .maybeSingle();
+                    .eq('user_id', userData.user.id);
+
+                if (isStrict) {
+                    query = query.eq('game_id', gameId);
+                } else {
+                    query = query.is('facility_id', null).is('game_id', null);
+                }
+
+                const { data: signature } = await query.maybeSingle();
 
                 if (signature) {
                     setWaiverSigned(true);
@@ -117,15 +144,28 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
         setTimeout(() => setCopied(false), 2000);
     };
 
+    let targetPrice = gamePrice;
+    let customFeeActive = false;
+
+    // Phase 43: Split Payments Invite Override
+    if (isLeague && selectedTeam) {
+        // Find if this team has a captain (someone with a vaulted card on this team)
+        const teamCaptain = rosters.find(r => r.team_assignment === selectedTeam && !!r.stripe_payment_method_id);
+        if (teamCaptain && teamCaptain.custom_invite_fee !== null && teamCaptain.custom_invite_fee !== undefined) {
+            targetPrice = teamCaptain.custom_invite_fee;
+            customFeeActive = true;
+        }
+    }
+
     let discountAmount = 0;
     if (appliedPromo) {
         if (appliedPromo.discount_type === 'percentage') {
-            discountAmount = gamePrice * (appliedPromo.discount_value / 100);
+            discountAmount = targetPrice * (appliedPromo.discount_value / 100);
         } else if (appliedPromo.discount_type === 'fixed_amount') {
             discountAmount = appliedPromo.discount_value / 100;
         }
     }
-    const finalPrice = Math.max(0, gamePrice - discountAmount);
+    const finalPrice = Math.max(0, targetPrice - discountAmount);
 
     const handleApplyPromo = async () => {
         if (!promoCode.trim()) return;
@@ -147,29 +187,48 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     };
 
     const handleNext = () => {
-        if (teamsConfig.length > 0 && selectedTeam === null && !isWaitlist) {
+        if (joinMode === 'squad' && teamsConfig.length > 0 && selectedTeam === null && !isWaitlist) {
             alert("Please select a squad to join.");
             return;
         }
 
-        if (gamePrice > 0 && !isWaitlist) {
+        if (joinMode === 'free-agent' && !isWaitlist) {
+            // Free Agents IMMEDIATELY go to Stripe to vault. No manual cash/venmo.
+            if (!waiverSigned) {
+                setShowWaiver(true);
+            } else {
+                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, isFreeAgent: true });
+            }
+            return;
+        }
+
+        const isCaptain = selectedTeam !== null && rosters.filter(r => r.team_assignment === selectedTeam).length === 0;
+        const finalPrizePref = hasPrizePool && isCaptain ? prizeSplitPreference : undefined;
+        const isVaultingSession = isLeague && isCaptain;
+
+        if (finalPrice > 0 && !isWaitlist) {
             setStep('payment');
         } else {
             // Free game or waitlist
             if (!waiverSigned) {
                 setShowWaiver(true);
             } else {
-                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined });
+                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession });
             }
         }
     };
 
     const handlePaymentConfirm = () => {
         if (!paymentMethod) return;
+        
+        const isCaptain = selectedTeam !== null && rosters.filter(r => r.team_assignment === selectedTeam).length === 0;
+        const finalPrizePref = hasPrizePool && isCaptain ? prizeSplitPreference : undefined;
+        const isVaultingSession = isLeague && isCaptain;
+
         if (!waiverSigned) {
             setShowWaiver(true);
         } else {
-            onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined });
+            onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession });
         }
     };
 
@@ -180,16 +239,23 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
         if (userData.user) {
             await supabase
                 .from('waiver_signatures')
-                .insert({ user_id: userData.user.id });
+                .insert({ 
+                    user_id: userData.user.id,
+                    ...(isStrictWaiver && { game_id: gameId }) 
+                });
 
             setWaiverSigned(true);
             setShowWaiver(false);
 
+            const isCaptain = selectedTeam !== null && rosters.filter(r => r.team_assignment === selectedTeam).length === 0;
+            const finalPrizePref = hasPrizePool && isCaptain ? prizeSplitPreference : undefined;
+            const isVaultingSession = isLeague && isCaptain;
+
             // Seamlessly continue to join
             if (step === 'payment' && paymentMethod) {
-                onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined });
+                onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, isFreeAgent: joinMode === 'free-agent', prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession });
             } else {
-                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined });
+                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, isFreeAgent: joinMode === 'free-agent', prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession });
             }
         }
         setAgreeingWaiver(false);
@@ -222,22 +288,47 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                         </div>
 
                         <div className="space-y-4">
-                            {teamsConfig.length > 0 && !isWaitlist ? (
+                            {teamsConfig.length > 0 && !isWaitlist && (
+                                <div className="mb-6 space-y-3">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">How are you joining?</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={() => setJoinMode('squad')}
+                                            className={cn(
+                                                "p-3 rounded-sm border transition-all text-center",
+                                                joinMode === 'squad' ? "bg-pitch-accent/10 border-pitch-accent text-white font-bold" : "bg-black/60 border-white/10 hover:border-white/30 text-gray-400"
+                                            )}
+                                        >
+                                            Pick a Squad
+                                        </button>
+                                        <button
+                                            onClick={() => setJoinMode('free-agent')}
+                                            className={cn(
+                                                "p-3 rounded-sm border transition-all text-center",
+                                                joinMode === 'free-agent' ? "bg-pitch-accent/10 border-pitch-accent text-white font-bold" : "bg-black/60 border-white/10 hover:border-white/30 text-gray-400"
+                                            )}
+                                        >
+                                            Free Agent
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {joinMode === 'squad' && teamsConfig.length > 0 && !isWaitlist ? (
                                 <div className="space-y-3 mb-6">
                                     <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Select Your Squad</label>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                                         {teamsConfig.map((team, i) => {
-                                            const teamNum = i + 1;
-                                            const teamRoster = rosters.filter(r => r.team_assignment === teamNum);
+                                            const teamName = team.name || `Team ${i + 1}`;
+                                            const teamRoster = rosters.filter(r => r.team_assignment === teamName);
                                             const maxForThisTeam = team.limit || 0;
-                                            const teamName = team.name || `Team ${teamNum}`;
                                             const isFull = maxForThisTeam > 0 && teamRoster.length >= maxForThisTeam;
-                                            const isSelected = selectedTeam === teamNum;
+                                            const isSelected = selectedTeam === teamName;
 
                                             return (
                                                 <button
-                                                    key={teamNum}
-                                                    onClick={() => !isFull && setSelectedTeam(teamNum)}
+                                                    key={teamName}
+                                                    onClick={() => !isFull && setSelectedTeam(teamName)}
                                                     disabled={isFull}
                                                     className={cn(
                                                         "text-left p-4 rounded-sm border transition-all relative overflow-hidden group",
@@ -255,12 +346,16 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                                     </div>
 
                                                     <div className="space-y-1.5 min-h-[60px]">
-                                                        {teamRoster.map((player, idx) => (
-                                                            <div key={idx} className="text-xs text-gray-300 font-medium flex items-center gap-1.5">
-                                                                <div className="w-1 h-1 rounded-full bg-pitch-accent/50"></div>
-                                                                {player.user.first_name || 'Anonymous'} {player.user.last_name?.charAt(0) || ''}.
-                                                            </div>
-                                                        ))}
+                                                        {teamRoster.map((player, idx) => {
+                                                            const profile = Array.isArray(player.user) ? player.user[0] : player.user;
+                                                            const fullName = profile?.full_name || 'Anonymous';
+                                                            return (
+                                                                <div key={idx} className="text-xs text-gray-300 font-medium flex items-center gap-1.5 truncate pr-2">
+                                                                    <div className="w-1 h-1 rounded-full bg-pitch-accent/50 shrink-0"></div>
+                                                                    <span className="truncate">{fullName}</span>
+                                                                </div>
+                                                            );
+                                                        })}
                                                         {teamRoster.length === 0 && (
                                                             <div className="text-xs text-gray-500 italic">No players yet.</div>
                                                         )}
@@ -275,6 +370,37 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                             );
                                         })}
                                     </div>
+                                    
+                                    {hasPrizePool && selectedTeam !== null && rosters.filter(r => r.team_assignment === selectedTeam).length === 0 && (
+                                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-sm p-4 mt-4 animate-in fade-in">
+                                            <h4 className="flex items-center gap-2 text-yellow-500 font-bold uppercase text-xs mb-3">
+                                                <Award className="w-4 h-4" /> Prize Distribution Preference
+                                            </h4>
+                                            <p className="text-[10px] text-gray-400 mb-3 uppercase font-medium">As team captain, how should the prize be distributed if your squad wins?</p>
+                                            <div className="flex flex-col gap-2">
+                                                <label className="flex items-center gap-2 cursor-pointer bg-black/40 p-2 rounded border border-white/5 hover:border-white/20 transition-colors">
+                                                    <input 
+                                                        type="radio" 
+                                                        name="prizePref" 
+                                                        checked={prizeSplitPreference === 'split_evenly'} 
+                                                        onChange={() => setPrizeSplitPreference('split_evenly')}
+                                                        className="accent-pitch-accent w-4 h-4"
+                                                    />
+                                                    <span className="text-sm font-bold text-gray-300">Split Evenly Among Roster</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer bg-black/40 p-2 rounded border border-white/5 hover:border-white/20 transition-colors">
+                                                    <input 
+                                                        type="radio" 
+                                                        name="prizePref" 
+                                                        checked={prizeSplitPreference === 'pay_captain'} 
+                                                        onChange={() => setPrizeSplitPreference('pay_captain')}
+                                                        className="accent-pitch-accent w-4 h-4"
+                                                    />
+                                                    <span className="text-sm font-bold text-gray-300">Send Entirely to Captain (You)</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div>
@@ -330,11 +456,31 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 </div>
                             )}
 
+                            {joinMode === 'free-agent' && !isWaitlist && (
+                                <div className="bg-pitch-accent/10 border border-pitch-accent/20 rounded-sm p-4 mb-4 text-sm mt-4">
+                                    <h4 className="font-bold text-pitch-accent mb-1 uppercase tracking-wider text-xs">Pre-Authorization Hold</h4>
+                                    <p className="text-gray-300">
+                                        Your card will <strong className="text-white">not be charged today</strong>. We will secure your card on file and automatically charge <strong>${finalPrice.toFixed(2)}</strong> only if you are officially drafted to a squad.
+                                    </p>
+                                </div>
+                            )}
+
+                            {customFeeActive && !isWaitlist && (
+                                <div className="bg-green-500/10 border border-green-500/20 rounded-sm p-4 mb-4 text-sm mt-4">
+                                    <h4 className="font-bold text-green-400 mb-1 uppercase tracking-wider text-xs flex items-center gap-2">
+                                        <DollarSign className="w-4 h-4" /> Captain's Invite Fee
+                                    </h4>
+                                    <p className="text-gray-300 text-xs">
+                                        The Captain of <strong>{selectedTeam}</strong> has set a customized split roster fee of <strong className="text-white">${finalPrice.toFixed(2)}</strong> to join their squad.
+                                    </p>
+                                </div>
+                            )}
+
                             <button
                                 onClick={handleNext}
                                 disabled={loading}
                                 className={cn(
-                                    "w-full py-4 font-black uppercase tracking-wider rounded-sm transition-colors flex items-center justify-center gap-2",
+                                    "w-full py-4 font-black uppercase tracking-wider rounded-sm transition-colors flex items-center justify-center gap-2 mt-4",
                                     isWaitlist
                                         ? "bg-yellow-500 text-black hover:bg-yellow-400"
                                         : "bg-pitch-accent text-pitch-black hover:bg-white"
@@ -342,7 +488,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                             >
                                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> :
                                     isWaitlist ? "Confirm Waitlist Spot" :
-                                        finalPrice === 0 ? "Confirm & Join" : `Continue to Payment ($${finalPrice.toFixed(2)})`}
+                                        joinMode === 'free-agent' ? "Vault Card & Register as Free Agent" :
+                                            finalPrice === 0 ? "Confirm & Join" : `Continue to Payment ($${finalPrice.toFixed(2)})`}
                             </button>
                         </div>
                     </>

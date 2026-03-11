@@ -170,6 +170,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                         Leaderboard
                     </Link>
 
+                    <Link
+                        href="/free-agents"
+                        onClick={onClose}
+                        className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-white hover:text-pitch-accent transition-colors group"
+                    >
+                        <User className="w-6 h-6 text-gray-500 group-hover:text-pitch-accent transition-colors" />
+                        Free Agent Pool
+                    </Link>
+
                     {isFacilityAdmin && !isMasterAdmin && (
                         <>
                             <Link

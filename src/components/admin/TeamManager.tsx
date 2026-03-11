@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { User, Shuffle } from 'lucide-react';
+import { User, Shuffle, Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
+import { buildHouseTeam } from '@/app/actions/house-team';
 
 interface Player {
     id: string; // booking_id
@@ -104,19 +105,49 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
         }
     };
 
+    const handleBuildHouseTeam = async () => {
+        if (!confirm('This will create a new team and automatically draft all pending Free Agents, charging their securely vaulted cards. Continue?')) return;
+
+        setLoading(true);
+        try {
+            const result = await buildHouseTeam(gameId);
+
+            if (!result.success) {
+                throw new Error(result.error);
+            }
+
+            success(result.message || 'House Team Built!');
+            onUpdate();
+        } catch (err: any) {
+            toastError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold italic uppercase flex items-center gap-2">
                     <User className="w-5 h-5 text-pitch-accent" /> Team Management
                 </h3>
-                <button
-                    onClick={handleRandomize}
-                    disabled={loading || activePlayers.length === 0}
-                    className="flex items-center gap-2 px-4 py-2 bg-pitch-accent text-pitch-black font-bold uppercase rounded-sm hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    <Shuffle className="w-4 h-4" /> Randomize Teams
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleBuildHouseTeam}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#ccff00]/10 border border-[#ccff00]/30 text-[#ccff00] font-bold uppercase rounded-sm hover:bg-[#ccff00] hover:text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Auto-draft all pending Free Agents into a new squad"
+                    >
+                        <Crown className="w-4 h-4" /> Build House Team
+                    </button>
+                    <button
+                        onClick={handleRandomize}
+                        disabled={loading || activePlayers.length === 0}
+                        className="flex items-center gap-2 px-4 py-2 bg-pitch-accent text-pitch-black font-bold uppercase rounded-sm hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <Shuffle className="w-4 h-4" /> Randomize Teams
+                    </button>
+                </div>
             </div>
 
             <div className={cn(

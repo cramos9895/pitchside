@@ -30,30 +30,71 @@ export default async function SuccessPage({ searchParams }: Props) {
         // 1. Retrieve session from Stripe
         const session = await stripe.checkout.sessions.retrieve(sessionId);
 
-        if (session.payment_status !== 'paid') {
-            return (
-                <div className="min-h-screen bg-pitch-black flex items-center justify-center text-white">
-                    <div className="text-center">
-                        <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-                        <h1 className="text-2xl font-bold mb-2">Payment Not Completed</h1>
-                        <Link href="/" className="text-pitch-accent hover:underline">Return Home</Link>
+        if (session.mode === 'setup') {
+            if (session.status !== 'complete') {
+                return (
+                    <div className="min-h-screen bg-pitch-black flex items-center justify-center text-white">
+                        <div className="text-center">
+                            <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                            <h1 className="text-2xl font-bold mb-2">Vaulting Not Completed</h1>
+                            <Link href="/" className="text-pitch-accent hover:underline">Return Home</Link>
+                        </div>
                     </div>
-                </div>
-            );
+                );
+            }
+        } else {
+            if (session.payment_status !== 'paid') {
+                return (
+                    <div className="min-h-screen bg-pitch-black flex items-center justify-center text-white">
+                        <div className="text-center">
+                            <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                            <h1 className="text-2xl font-bold mb-2">Payment Not Completed</h1>
+                            <Link href="/" className="text-pitch-accent hover:underline">Return Home</Link>
+                        </div>
+                    </div>
+                );
+            }
         }
 
         const gameId = session.metadata?.game_id;
         const userId = session.metadata?.user_id;
-        const note = session.metadata?.note; // Extract note
+        const note = session.metadata?.note;
+        const isFreeAgent = session.metadata?.is_free_agent === 'true';
+        const isLeagueCaptain = session.metadata?.is_league_captain === 'true';
+        const teamAssignment = session.metadata?.team_assignment || null;
+        const prizeSplitPreference = session.metadata?.prize_split_preference;
 
         if (!gameId || !userId) {
             throw new Error("Missing metadata in Stripe session");
         }
 
-        // 2. Insert Booking into Supabase
         const supabase = await createClient();
 
-        // Check if already exists to avoid duplicate insert errors
+        // If Vault Session: Extract SetupIntent to get the Payment Method ID
+        let paymentMethodId = null;
+        if (session.mode === 'setup' && session.setup_intent) {
+            const setupIntentId = typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent.id;
+            const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+            paymentMethodId = typeof setupIntent.payment_method === 'string' ? setupIntent.payment_method : setupIntent.payment_method?.id;
+
+            // Optional: Save the Stripe Customer ID to Profile if it was newly created
+            if (session.customer) {
+                const customerId = typeof session.customer === 'string' ? session.customer : session.customer.id;
+                await supabase.from('profiles').update({ stripe_customer_id: customerId }).eq('id', userId);
+            }
+        } else if (session.mode === 'payment' && session.payment_intent && isLeagueCaptain) {
+            // Vaulting during a deposit charge
+            const paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent.id;
+            const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+            paymentMethodId = typeof paymentIntent.payment_method === 'string' ? paymentIntent.payment_method : paymentIntent.payment_method?.id;
+
+            if (session.customer) {
+                const customerId = typeof session.customer === 'string' ? session.customer : session.customer.id;
+                await supabase.from('profiles').update({ stripe_customer_id: customerId }).eq('id', userId);
+            }
+        }
+
+        // 2. Insert Booking into Supabase
         const { data: existingBooking } = await supabase
             .from('bookings')
             .select('id')
@@ -67,14 +108,83 @@ export default async function SuccessPage({ searchParams }: Props) {
                 .insert({
                     game_id: gameId,
                     user_id: userId,
-                    status: 'paid',
-                    note: note // Save note
+                    status: isFreeAgent ? 'free_agent_pending' : 'paid',
+                    note: note, // Save note
+                    stripe_payment_method_id: paymentMethodId, // Specifically Vaulted for Free Agents or League Captains
+                    ...(teamAssignment && { team_assignment: teamAssignment }),
+                    ...(prizeSplitPreference && { prize_split_preference: prizeSplitPreference })
                 });
 
             if (insertError) {
                 console.error("Supabase Insert Error:", insertError);
-                // We continue anyway, as payment was successful. 
-                // In a real app we might log this to a monitoring service.
+            } else if (teamAssignment && session.payment_intent && typeof session.payment_intent === 'string') {
+                // Phase 43: Split Payments Auto-Refund Overage
+                const { data: gameData } = await supabase
+                    .from('games')
+                    .select('is_league, team_roster_fee')
+                    .eq('id', gameId)
+                    .single();
+
+                if (gameData?.is_league && gameData.team_roster_fee && gameData.team_roster_fee > 0) {
+                    // Fetch all teammates who have paid (excluding dropped/cancelled)
+                    const { data: teamBookings } = await supabase
+                        .from('bookings')
+                        .select('user_id')
+                        .eq('game_id', gameId)
+                        .eq('team_assignment', teamAssignment)
+                        .in('status', ['paid', 'active'])
+                        .neq('roster_status', 'dropped');
+
+                    if (teamBookings) {
+                        const totalPlayers = teamBookings.length;
+                        // For simplicity in this iteration, we assume all players paying via stripe paid the custom_invite_fee.
+                        // Ideally, we'd query the actual Stripe PaymentIntents or store the individual paid amount in `bookings`.
+                        // But since we just captured `session.amount_total`, let's use that to approximate the final team total.
+                        // Actually, a more robust way: If (totalPlayers * custom_fee) > team_roster_fee, refund the difference.
+                        // Let's assume the user just paid `session.amount_total` (in cents).
+                        
+                        // We need the captain's deposit and fee
+                        const { data: captainBooking } = await supabase
+                            .from('bookings')
+                            .select('custom_invite_fee')
+                            .eq('game_id', gameId)
+                            .eq('team_assignment', teamAssignment)
+                            .not('stripe_payment_method_id', 'is', null)
+                            .maybeSingle();
+
+                        if (captainBooking && captainBooking.custom_invite_fee) {
+                            const assumedDeposit = gameData.team_roster_fee * 0.2; // Temporary: Need a deposit column or assumption. We added deposit_amount to games! Let's re-query.
+                            
+                            const { data: fullGame } = await supabase.from('games').select('deposit_amount, team_roster_fee').eq('id', gameId).single();
+                            
+                            const actualDeposit = fullGame?.deposit_amount || 0;
+                            const inviteFee = captainBooking.custom_invite_fee;
+                            
+                            // Captain paid deposit.
+                            // The rest paid the invite fee. (Total players - 1) * inviteFee
+                            const totalCollected = actualDeposit + ((totalPlayers - 1) * inviteFee);
+                            
+                            if (totalCollected > fullGame!.team_roster_fee) {
+                                const overage = totalCollected - fullGame!.team_roster_fee;
+                                
+                                // Make sure we don't refund more than this specific user just paid
+                                const refundAmount = Math.min(overage, (session.amount_total || 0) / 100);
+                                
+                                if (refundAmount > 0) {
+                                    console.log(`[ESCROW REFUND] Team ${teamAssignment} over-collected by $${overage}. Refunding $${refundAmount} to user ${userId}`);
+                                    try {
+                                        await stripe.refunds.create({
+                                            payment_intent: session.payment_intent,
+                                            amount: Math.round(refundAmount * 100) // in cents
+                                        });
+                                    } catch (refundError) {
+                                        console.error('Failed to issue escrow refund:', refundError);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 

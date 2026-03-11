@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft, Check, Shirt, User as UserIcon, Users, X, Trophy, Save, Loader2, Swords, Calendar, Trash2, Shield, MoreVertical, MonitorPlay, UserCheck, UserX } from 'lucide-react';
+import { ArrowLeft, Check, Shirt, User as UserIcon, Users, X, Trophy, Save, Loader2, Swords, Calendar, Trash2, Shield, MoreVertical, MonitorPlay, UserCheck, UserX, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { MatchManager } from '@/components/admin/MatchManager';
@@ -22,6 +22,7 @@ interface Booking {
     team_assignment: string | null;
     team: 'A' | 'B' | null; // NEW FIELD
     note: string | null; // Request note
+    prize_split_preference?: string | null;
     user_id: string;
     payment_status: 'unpaid' | 'pending' | 'verified' | 'refunded';
     payment_method: string | null;
@@ -42,6 +43,7 @@ interface Booking {
 }
 
 import { TeamManager } from '@/components/admin/TeamManager';
+import { generatePlayoffs } from '@/app/actions/tournament';
 
 interface TeamConfig {
     name: string;
@@ -55,8 +57,13 @@ interface Game {
     price: number;
     facility_id?: string | null;
     resource_id?: string | null;
+    is_league?: boolean;
+    total_weeks?: number;
+    team_roster_fee?: number | null;
     teams_config: TeamConfig[] | null;
     status: 'scheduled' | 'active' | 'completed' | 'cancelled';
+    event_type?: string;
+    prize_pool_percentage?: number | null;
     home_score: number;
     away_score: number;
     mvp_player_id: string | null;
@@ -77,6 +84,7 @@ interface Match {
     round_number: number;
     status: 'scheduled' | 'active' | 'completed' | 'cancelled';
     is_final?: boolean;
+    tournament_stage?: string;
 }
 
 
@@ -142,6 +150,39 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         fetchMatches(); // Also re-fetch matches locally
     };
 
+    const [isExecutingShortfalls, setIsExecutingShortfalls] = useState(false);
+
+    const handleExecuteShortfalls = async () => {
+        if (!confirm("Are you sure you want to execute escrow shortfalls? This will permanently charge the vaulted cards of League Captains whose rosters have not met their minimum roster fees.")) return;
+        setIsExecutingShortfalls(true);
+        try {
+            const { executeEscrowShortfalls } = await import('@/app/actions/execute-shortfalls');
+            const result = await executeEscrowShortfalls(gameId);
+            if (result.success) {
+                success(result.message);
+                router.refresh(); // Refresh to catch any new native Stripe charges logged
+            } else {
+                toastError(result.error || "Failed to execute shortfalls");
+            }
+        } catch (err: any) {
+            toastError(err.message || 'Error occurred');
+        } finally {
+            setIsExecutingShortfalls(false);
+        }
+    };
+
+    const handleGeneratePlayoffs = async () => {
+        if (!confirm('Are you sure you want to lock the Standings and produce the Knockout Phase Matches?')) return;
+        try {
+            const res = await generatePlayoffs(gameId);
+            toast.success(res.message);
+            fetchMatches();
+            setRefreshKey(prev => prev + 1);
+        } catch (error: any) {
+            toast.error(error.message);
+        }
+    };
+
     const supabase = createClient();
     const router = useRouter();
     const toast = useToast();
@@ -186,6 +227,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                 if (gameData.view_mode) {
                     setViewMode(gameData.view_mode as any);
+                } else if (gameData.event_type === 'tournament' || gameData.event_type === 'league') {
+                    setViewMode('tournament');
                 }
 
                 // Fetch User and Role
@@ -506,7 +549,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     // CANCELLATION SUMMARY VIEW
     if (matchStatus === 'cancelled') {
         return (
-            <div className="min-h-screen bg-pitch-black text-white p-6 pt-32 font-sans overflow-x-hidden pb-40">
+            <div className="min-h-screen bg-pitch-black text-white p-6 pt-8 font-sans overflow-x-hidden pb-40">
                 <div className="max-w-4xl mx-auto">
                     <Link href="/admin" className="flex items-center text-pitch-secondary hover:text-white mb-6 transition-colors">
                         <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
@@ -713,7 +756,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     }
 
     return (
-        <div className="min-h-screen bg-pitch-black text-white p-6 pt-32 font-sans overflow-x-hidden pb-40">
+        <div className="min-h-screen bg-pitch-black text-white p-6 pt-8 font-sans overflow-x-hidden pb-40">
             <div className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto">
 
                 {/* LEFT COLUMN: Main Roster Manager */}
@@ -1046,6 +1089,62 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                         {/* TAB 2: GAME MANAGEMENT */}
                         <TabsContent value="game-management" className="mt-0">
+
+                            {/* TOURNAMENT FINAL PAYOUT REPORT */}
+                            {matchStatus === 'completed' && game?.event_type === 'tournament' && game?.prize_pool_percentage && game.prize_pool_percentage > 0 ? (() => {
+                                const totalCollected = bookings.reduce((sum, b) => {
+                                    if (b.status !== 'cancelled' && b.payment_status === 'verified') {
+                                        return sum + (b.payment_amount || 0);
+                                    }
+                                    return sum;
+                                }, 0);
+                                const prizePot = totalCollected * (game.prize_pool_percentage / 100);
+
+                                return (
+                                    <div className="bg-gradient-to-br from-green-500/20 to-pitch-card border-2 border-green-500/50 rounded-sm p-6 mb-8 shadow-[0_0_30px_rgba(34,197,94,0.15)] animate-in fade-in slide-in-from-top-4">
+                                        <h2 className="font-heading text-2xl font-bold italic uppercase flex items-center gap-2 mb-4 text-green-400">
+                                            <Award className="w-6 h-6" /> Tournament Finalized: Payout Report
+                                        </h2>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            <div className="bg-black/40 p-4 border border-green-500/20 rounded shadow-inner">
+                                                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Total Prize Pot</div>
+                                                <div className="text-3xl font-black text-green-500">${prizePot.toFixed(2)}</div>
+                                                <div className="text-[10px] text-gray-500 mt-1">Found from {game.prize_pool_percentage}% of ${totalCollected.toFixed(2)} collected.</div>
+                                            </div>
+                                            <div className="bg-black/40 p-4 border border-white/10 rounded md:col-span-2 shadow-inner">
+                                                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Winning Squad & Distribution</div>
+                                                {(() => {
+                                                    const finalMatch = matches.find(m => m.tournament_stage === 'final' && m.status === 'completed');
+                                                    if (!finalMatch) return <div className="text-sm italic text-pitch-secondary pt-2">Final match not completed yet. Ensure playoffs are fully resulted.</div>;
+                                                    
+                                                    const winningTeam = finalMatch.home_score > finalMatch.away_score ? finalMatch.home_team : finalMatch.home_score < finalMatch.away_score ? finalMatch.away_team : null;
+                                                    if (!winningTeam) return <div className="text-sm italic text-pitch-secondary pt-2">Final match ended in a draw. No clear winner found.</div>;
+
+                                                    const captain = bookings.find(b => b.team_assignment === winningTeam && b.prize_split_preference);
+                                                    const captainName = captain ? (Array.isArray(captain.profiles) ? captain.profiles[0]?.full_name : captain.profiles?.full_name) : 'Unknown Captain';
+                                                    
+                                                    return (
+                                                        <div className="mt-2">
+                                                            <div className="text-xl font-bold text-white mb-2 uppercase italic">{winningTeam}</div>
+                                                            <div className="text-sm text-gray-300 mb-1">
+                                                                <span className="font-bold text-pitch-accent uppercase text-[10px] tracking-wider mr-2">Captain:</span> {captainName}
+                                                            </div>
+                                                            <div className="text-sm text-gray-300">
+                                                                <span className="font-bold text-pitch-accent uppercase text-[10px] tracking-wider mr-2">Distribution Preference:</span> 
+                                                                {captain?.prize_split_preference === 'pay_captain' ? 'Pay directly to Captain' : captain?.prize_split_preference === 'split_evenly' ? 'Split evenly among roster' : 'Manual / Not specified'}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded text-sm text-green-200">
+                                            <span className="font-bold uppercase tracking-wider text-xs">Admin Action Required:</span> Please process the ${prizePot.toFixed(2)} payout offline via Venmo, Zelle, or Cash according to the captain's preference. Stripe automatic payouts are not supported.
+                                        </div>
+                                    </div>
+                                );
+                            })() : null}
+
                             {/* TEAM BALANCING SECTION (Moved Here) */}
                             <div className="mb-8">
                                 <TeamManager
@@ -1064,6 +1163,31 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                     onVerifyPayment={togglePaymentStatus}
                                 />
                             </div>
+
+                            {/* LEAGUE PAYMENTS & ESCROW */}
+                            {game.event_type === 'league' && (
+                                <div className="bg-gradient-to-br from-pitch-card to-blue-900/10 border border-blue-500/20 p-6 rounded-sm mb-8 shadow-xl">
+                                    <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2 mb-4 text-blue-400">
+                                        <Shield className="w-5 h-5 text-blue-500" /> League Payments & Escrow
+                                    </h2>
+                                    <p className="text-sm text-gray-300 mb-6">
+                                        League Capatins who vaulted their card for a deposit are liable for any missing <strong>Team Roster Fee</strong> balance. 
+                                        Execute shortfalls after the roster lock deadline to auto-charge their cards for the difference.
+                                    </p>
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={handleExecuteShortfalls}
+                                            disabled={isExecutingShortfalls || !game.team_roster_fee}
+                                            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold uppercase tracking-wider rounded-sm transition-colors disabled:opacity-50"
+                                        >
+                                            {isExecutingShortfalls ? 'Executing...' : 'Execute Escrow Shortfalls'}
+                                        </button>
+                                    </div>
+                                    {!game.team_roster_fee && (
+                                        <p className="text-xs text-red-400 mt-2 text-right italic">Action disabled: No Team Roster Fee configured for this League.</p>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Live Vote Tally (Moved down here) */}
                             {(matchStatus === 'active' || matchStatus === 'completed' || Object.keys(voteTally).length > 0) && (
@@ -1108,35 +1232,43 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                             {/* MODE TOGGLE & TABS */}
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-white/10 pb-4">
                                 <div className="flex items-center gap-4 overflow-x-auto">
-                                    <button
-                                        onClick={() => handleViewModeChange('single')}
-                                        className={cn(
-                                            "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
-                                            viewMode === 'single' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
-                                        )}
-                                    >
-                                        <Trophy className="w-4 h-4" /> Single Match
-                                    </button>
-                                    <div className="w-px h-4 bg-white/20"></div>
-                                    <button
-                                        onClick={() => handleViewModeChange('king')}
-                                        className={cn(
-                                            "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
-                                            viewMode === 'king' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
-                                        )}
-                                    >
-                                        <Swords className="w-4 h-4" /> King of the Court
-                                    </button>
-                                    <div className="w-px h-4 bg-white/20"></div>
-                                    <button
-                                        onClick={() => handleViewModeChange('tournament')}
-                                        className={cn(
-                                            "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
-                                            viewMode === 'tournament' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
-                                        )}
-                                    >
-                                        <Calendar className="w-4 h-4" /> Tournament
-                                    </button>
+                                    {game.event_type !== 'tournament' && game.event_type !== 'league' ? (
+                                        <>
+                                            <button
+                                                onClick={() => handleViewModeChange('single')}
+                                                className={cn(
+                                                    "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
+                                                    viewMode === 'single' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
+                                                )}
+                                            >
+                                                <Trophy className="w-4 h-4" /> Single Match
+                                            </button>
+                                            <div className="w-px h-4 bg-white/20"></div>
+                                            <button
+                                                onClick={() => handleViewModeChange('king')}
+                                                className={cn(
+                                                    "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
+                                                    viewMode === 'king' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
+                                                )}
+                                            >
+                                                <Swords className="w-4 h-4" /> King of the Court
+                                            </button>
+                                            <div className="w-px h-4 bg-white/20"></div>
+                                            <button
+                                                onClick={() => handleViewModeChange('tournament')}
+                                                className={cn(
+                                                    "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
+                                                    viewMode === 'tournament' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
+                                                )}
+                                            >
+                                                <Calendar className="w-4 h-4" /> Tournament
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <h3 className="text-xl font-bold uppercase italic flex items-center gap-2 text-pitch-accent">
+                                            <Calendar className="w-5 h-5" /> Tournament Manager
+                                        </h3>
+                                    )}
                                 </div>
 
                                 <button
@@ -1248,6 +1380,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                         <ScheduleGenerator
                                             gameId={gameId}
                                             teams={teams as TeamConfig[]}
+                                            isLeague={game?.is_league || false}
+                                            totalWeeks={game?.total_weeks || 4}
                                             onScheduleSaved={() => {
                                                 fetchMatches();
                                                 setRefreshKey(prev => prev + 1);
@@ -1262,12 +1396,24 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                         filterMode="tournament"
                                     />
                                     {matches.some(m => m.round_number > 0) && (
-                                        <StandingsTable
-                                            key={`standings-${refreshKey}`}
-                                            gameId={gameId}
-                                            teams={teams as TeamConfig[]}
-                                            matches={matches}
-                                        />
+                                        <>
+                                            <StandingsTable
+                                                key={`standings-${refreshKey}`}
+                                                gameId={gameId}
+                                                teams={teams as TeamConfig[]}
+                                                matches={matches}
+                                            />
+
+                                            {/* PLAYOFF GENERATOR TRIGGER */}
+                                            <div className="flex justify-end pt-4 border-t border-white/10 mt-6">
+                                                <button
+                                                    onClick={handleGeneratePlayoffs}
+                                                    className="px-6 py-3 bg-pitch-accent hover:bg-white text-black font-bold uppercase rounded-sm flex items-center gap-2 transition-colors"
+                                                >
+                                                    <Trophy className="w-5 h-5" /> Generate Playoffs
+                                                </button>
+                                            </div>
+                                        </>
                                     )}
                                 </div>
                             )}

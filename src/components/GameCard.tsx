@@ -25,6 +25,8 @@ interface Game {
     resource_id?: string | null;
     status: string; // 'scheduled', 'active', 'completed', 'cancelled'
     has_mvp_reward?: boolean;
+    event_type?: string;
+    is_league?: boolean;
 }
 
 interface GameCardProps {
@@ -159,7 +161,7 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
         }
     }, [user, supabase]);
 
-    const proceedToJoin = async (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null; promoCodeId?: string; teamAssignment?: number }) => {
+    const proceedToJoin = async (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean }) => {
         setLoading(true);
 
         try {
@@ -193,7 +195,8 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                         note: data.note,
                         paymentMethod: finalCost === 0 && !data.paymentMethod ? 'promo' : data.paymentMethod,
                         promoCodeId: data.promoCodeId,
-                        teamAssignment: data.teamAssignment
+                        teamAssignment: data.teamAssignment,
+                        prizeSplitPreference: data.prizeSplitPreference
                     })
                 });
 
@@ -234,7 +237,8 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                         body: JSON.stringify({
                             gameId: game.id,
                             note: data.note,
-                            teamAssignment: data.teamAssignment
+                            teamAssignment: data.teamAssignment,
+                            prizeSplitPreference: data.prizeSplitPreference
                         })
                     });
 
@@ -265,7 +269,10 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                     title: `Join Match: ${game.title || 'Pickup Game'}`,
                     note: data.note,
                     promoCodeId: data.promoCodeId,
-                    teamAssignment: data.teamAssignment
+                    teamAssignment: data.teamAssignment,
+                    isFreeAgent: data.isFreeAgent,
+                    prizeSplitPreference: data.prizeSplitPreference,
+                    isLeagueCaptainVaulting: data.isLeagueCaptainVaulting
                 })
             });
 
@@ -390,6 +397,13 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                         >
                             Game Lobby
                         </button>
+                    ) : game.event_type === 'tournament' ? (
+                        <button
+                            onClick={() => router.push(`/games/${game.id}`)}
+                            className="px-4 py-2 text-sm font-bold uppercase transition-colors rounded-sm flex items-center gap-2 text-pitch-accent hover:text-white hover:bg-pitch-accent/10 border border-pitch-accent/30"
+                        >
+                            View Details &rarr;
+                        </button>
                     ) : (
                         <button
                             onClick={handleJoinClick}
@@ -423,6 +437,7 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                 loading={loading}
                 isWaitlist={currentPlayers >= game.max_players}
                 gameId={game.id}
+                isLeague={game.is_league}
             />
         </>
     );

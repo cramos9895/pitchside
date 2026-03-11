@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
         }
         // ---------------------------
 
-        const { gameId, note = '', paymentMethod, promoCodeId, teamAssignment } = await request.json();
+        const { gameId, note = '', paymentMethod, promoCodeId, teamAssignment, prizeSplitPreference } = await request.json();
 
         if (!gameId) {
             return NextResponse.json({ error: 'Game ID required' }, { status: 400 });
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
         // --- ENFORCER: SQUAD CAPACITY CHECK ---
         if (teamAssignment !== undefined && teamAssignment !== null && game.teams_config && Array.isArray(game.teams_config)) {
-            const teamConfig = game.teams_config[teamAssignment - 1];
+            const teamConfig = game.teams_config.find((t: any) => t.name === teamAssignment);
 
             if (teamConfig && teamConfig.limit && teamConfig.limit > 0) {
                 const maxPerTeam = teamConfig.limit;
@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
                 payment_amount: isManualPayment ? game.price : 0,
                 checked_in: false,
                 team_assignment: teamAssignment !== undefined ? teamAssignment : null,
+                prize_split_preference: prizeSplitPreference !== undefined ? prizeSplitPreference : null,
                 note: note // Store request note
             });
 

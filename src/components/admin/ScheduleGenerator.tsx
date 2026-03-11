@@ -14,10 +14,12 @@ interface TeamConfig {
 interface ScheduleGeneratorProps {
     gameId: string;
     teams: TeamConfig[];
+    isLeague?: boolean;
+    totalWeeks?: number;
     onScheduleSaved?: () => void;
 }
 
-export function ScheduleGenerator({ gameId, teams, onScheduleSaved }: ScheduleGeneratorProps) {
+export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onScheduleSaved }: ScheduleGeneratorProps) {
     const [duration, setDuration] = useState(60);
     const [warmup, setWarmup] = useState(10);
     const [gameLength, setGameLength] = useState(10);
@@ -36,6 +38,10 @@ export function ScheduleGenerator({ gameId, teams, onScheduleSaved }: ScheduleGe
         const fetchGameTimes = async () => {
             const { data } = await supabase.from('games').select('start_time, end_time').eq('id', gameId).single();
             if (data && data.start_time) {
+                if (isLeague) {
+                     setDuration((totalWeeks || 4) * 60); // dummy value just to bypass checks
+                     return;
+                }
                 const startDate = new Date(data.start_time);
                 let endDate = new Date(startDate.getTime() + 60 * 60000); // Default 60m
 
@@ -84,24 +90,27 @@ export function ScheduleGenerator({ gameId, teams, onScheduleSaved }: ScheduleGe
     }, [gameId, supabase]);
 
     const generateSchedule = () => {
-        const usableTime = duration - warmup;
-        const maxRounds = Math.floor(usableTime / gameLength);
-
-        console.log(`Debug: Usable ${usableTime}m, Max Rounds ${maxRounds}`);
+        let maxRounds = isLeague ? (totalWeeks! || 4) : Math.floor((duration - warmup) / gameLength);
+        
+        // If league, we usually want round-robin until weeks are filled.
+        const numTeams = teams.length;
+        if (numTeams < 2) {
+             alert("Need at least 2 teams to generate a schedule.");
+             return;
+        }
 
         // Helper to generate ONE full cycle of round robin pairings
         const generateCycle = (): Array<{ home: number, away: number }> => {
             let indices = teams.map((_, i) => i);
             if (indices.length % 2 !== 0) indices.push(-1); // Bye
 
-            const numTeams = indices.length;
-            const roundsNeeded = numTeams - 1;
-            let cycleQueue: Array<{ home: number, away: number }> = [];
+            const cycleQueue: Array<{ home: number, away: number }> = [];
+            const rRounds = indices.length - 1;
 
-            for (let r = 0; r < roundsNeeded; r++) {
-                for (let i = 0; i < numTeams / 2; i++) {
+            for (let r = 0; r < rRounds; r++) {
+                for (let i = 0; i < indices.length / 2; i++) {
                     const homeIdx = indices[i];
-                    const awayIdx = indices[numTeams - 1 - i];
+                    const awayIdx = indices[indices.length - 1 - i];
                     if (homeIdx !== -1 && awayIdx !== -1) {
                         cycleQueue.push({ home: homeIdx, away: awayIdx });
                     }
@@ -119,14 +128,27 @@ export function ScheduleGenerator({ gameId, teams, onScheduleSaved }: ScheduleGe
 
         // Create Master Queue
         let masterQueue: Array<{ home: number, away: number }> = [];
-        const totalSlotsNeeded = maxRounds * fields;
-
+        
         // Safety boundary to prevent infinite loop
         let safetyCounter = 0;
-        // Generate enough cycles to fill the needed slots
-        while (masterQueue.length < totalSlotsNeeded && safetyCounter < 10) {
-            masterQueue = masterQueue.concat(generateCycle());
-            safetyCounter++;
+        
+        if (isLeague) {
+            // Fill master queue with enough cycles to cover all weeks
+            const matchesPerWeek = Math.floor(teams.length / 2);
+            const totalSlotsNeeded = maxRounds * matchesPerWeek;
+            
+            while (masterQueue.length < totalSlotsNeeded && safetyCounter < 50) {
+                masterQueue = masterQueue.concat(generateCycle());
+                safetyCounter++;
+            }
+        } else {
+             const usableTime = duration - warmup;
+             maxRounds = Math.floor(usableTime / gameLength);
+             const totalSlotsNeeded = maxRounds * fields;
+             while (masterQueue.length < totalSlotsNeeded && safetyCounter < 10) {
+                masterQueue = masterQueue.concat(generateCycle());
+                safetyCounter++;
+             }
         }
 
         let finalSchedule: Array<{ round: number, startTime: string, matches: Array<{ home: string, away: string }> }> = [];
@@ -135,9 +157,11 @@ export function ScheduleGenerator({ gameId, teams, onScheduleSaved }: ScheduleGe
             let slotsFilled = 0;
             let playingThisRound = new Set<number>();
             let matchesForSlot: Array<{ home: number, away: number }> = [];
+            
+            const matchLimit = isLeague ? Math.floor(teams.length / 2) : fields;
 
             let i = 0;
-            while (slotsFilled < fields && i < masterQueue.length) {
+            while (slotsFilled < matchLimit && i < masterQueue.length) {
                 const match = masterQueue[i];
                 if (!playingThisRound.has(match.home) && !playingThisRound.has(match.away)) {
                     matchesForSlot.push(match);
@@ -155,8 +179,7 @@ export function ScheduleGenerator({ gameId, teams, onScheduleSaved }: ScheduleGe
                 away: teams[pair.away].name
             }));
 
-            const offsetMinutes = warmup + (r * gameLength);
-            const timeLabel = `+${offsetMinutes} mins`;
+            const timeLabel = isLeague ? `Week ${r + 1}` : `+${warmup + (r * gameLength)} mins`;
 
             finalSchedule.push({
                 round: r + 1,
@@ -206,38 +229,45 @@ export function ScheduleGenerator({ gameId, teams, onScheduleSaved }: ScheduleGe
 
             {!generated ? (
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div>
-                            <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Duration (Min)</label>
-                            <input
-                                type="number"
-                                value={duration}
-                                readOnly
-                                className="w-full bg-black/50 border border-white/10 p-2 text-gray-400 rounded cursor-not-allowed"
-                            />
+                    {!isLeague ? (
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Duration (Min)</label>
+                                <input
+                                    type="number"
+                                    value={duration}
+                                    readOnly
+                                    className="w-full bg-black/50 border border-white/10 p-2 text-gray-400 rounded cursor-not-allowed"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Warmup (Min)</label>
+                                <input
+                                    type="number" value={warmup} onChange={(e) => setWarmup(Number(e.target.value))}
+                                    className="w-full bg-black border border-white/20 p-2 text-white rounded"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Game Length (Min)</label>
+                                <input
+                                    type="number" value={gameLength} onChange={(e) => setGameLength(Number(e.target.value))}
+                                    className="w-full bg-black border border-white/20 p-2 text-white rounded"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Concurrent Fields</label>
+                                <input
+                                    type="number" value={fields} onChange={(e) => setFields(Number(e.target.value))}
+                                    className="w-full bg-black border border-white/20 p-2 text-white rounded"
+                                />
+                            </div>
                         </div>
-                        <div>
-                            <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Warmup (Min)</label>
-                            <input
-                                type="number" value={warmup} onChange={(e) => setWarmup(Number(e.target.value))}
-                                className="w-full bg-black border border-white/20 p-2 text-white rounded"
-                            />
+                    ) : (
+                        <div className="p-4 bg-blue-900/10 border border-blue-500/20 rounded-sm mb-4">
+                            <h3 className="text-sm font-bold text-blue-400 uppercase mb-2">League Schedule Generation</h3>
+                            <p className="text-xs text-blue-200">This will generate a {totalWeeks || 4}-week round-robin playing schedule for all assigned teams. Matches will be placed sequentially round-by-round.</p>
                         </div>
-                        <div>
-                            <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Game Length (Min)</label>
-                            <input
-                                type="number" value={gameLength} onChange={(e) => setGameLength(Number(e.target.value))}
-                                className="w-full bg-black border border-white/20 p-2 text-white rounded"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Concurrent Fields</label>
-                            <input
-                                type="number" value={fields} onChange={(e) => setFields(Number(e.target.value))}
-                                className="w-full bg-black border border-white/20 p-2 text-white rounded"
-                            />
-                        </div>
-                    </div>
+                    )}
 
                     <button
                         onClick={generateSchedule}
@@ -246,9 +276,11 @@ export function ScheduleGenerator({ gameId, teams, onScheduleSaved }: ScheduleGe
                         <RefreshCw className="w-4 h-4" /> Generate Schedule
                     </button>
 
-                    <p className="text-xs text-center text-gray-500">
-                        Based on times, we can fit {Math.floor((duration - warmup) / gameLength)} rounds.
-                    </p>
+                    {!isLeague && (
+                        <p className="text-xs text-center text-gray-500">
+                            Based on times, we can fit {Math.floor((duration - warmup) / gameLength)} rounds.
+                        </p>
+                    )}
                 </div>
             ) : (
                 <div className="animate-in fade-in slide-in-from-bottom-2">
