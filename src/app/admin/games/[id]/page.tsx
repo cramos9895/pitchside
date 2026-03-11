@@ -159,7 +159,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             const { executeEscrowShortfalls } = await import('@/app/actions/execute-shortfalls');
             const result = await executeEscrowShortfalls(gameId);
             if (result.success) {
-                success(result.message);
+                success(result.message || "Shortfalls executed successfully.");
                 router.refresh(); // Refresh to catch any new native Stripe charges logged
             } else {
                 toastError(result.error || "Failed to execute shortfalls");
