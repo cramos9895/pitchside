@@ -112,7 +112,6 @@ export async function POST(request: NextRequest) {
                 payment_amount: isManualPayment ? game.price : 0,
                 checked_in: false,
                 team_assignment: teamAssignment !== undefined ? teamAssignment : null,
-                prize_split_preference: prizeSplitPreference !== undefined ? prizeSplitPreference : null,
                 note: note // Store request note
             });
 
