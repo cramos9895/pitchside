@@ -50,8 +50,6 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     const [hasPrizePool, setHasPrizePool] = useState(false);
     const [prizeSplitPreference, setPrizeSplitPreference] = useState<'pay_captain' | 'split_evenly'>('split_evenly');
     
-    // Strict Waiver State
-    const [isStrictWaiver, setIsStrictWaiver] = useState(false);
 
     const supabase = createClient();
 
@@ -68,7 +66,6 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             }
 
             // 2. Fetch Game Settings (Specific)
-            let isStrict = false;
             if (gameId) {
                 const { data: gameData } = await supabase
                     .from('games')
@@ -102,18 +99,12 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             // 3. Fetch User Waiver Status
             const { data: userData } = await supabase.auth.getUser();
             if (userData.user) {
-                let query = supabase
+                const { data: signature } = await supabase
                     .from('waiver_signatures')
                     .select('id')
-                    .eq('user_id', userData.user.id);
-
-                if (isStrict) {
-                    query = query.eq('game_id', gameId);
-                } else {
-                    query = query.is('facility_id', null).is('game_id', null);
-                }
-
-                const { data: signature } = await query.maybeSingle();
+                    .eq('user_id', userData.user.id)
+                    .is('facility_id', null)
+                    .maybeSingle();
 
                 if (signature) {
                     setWaiverSigned(true);
@@ -230,8 +221,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             await supabase
                 .from('waiver_signatures')
                 .insert({ 
-                    user_id: userData.user.id,
-                    ...(isStrictWaiver && { game_id: gameId }) 
+                    user_id: userData.user.id
                 });
 
             setWaiverSigned(true);
