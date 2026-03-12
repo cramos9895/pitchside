@@ -37,10 +37,11 @@ export async function POST(request: NextRequest) {
         // 2. Get current booking status (Handle multiple bookings if user left and rejoined)
         const { data: bookings, error: fetchError } = await supabaseAdmin
             .from('bookings')
-            .select('id, status, roster_status')
+            .select('id, status, roster_status, payment_status')
             .eq('game_id', gameId)
             .eq('user_id', user.id)
             .neq('status', 'cancelled')
+            .neq('roster_status', 'dropped')
             .order('created_at', { ascending: false })
             .limit(1);
 
@@ -52,7 +53,8 @@ export async function POST(request: NextRequest) {
         }
 
         if (!booking) {
-            return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+            console.warn(`[LEAVE] No active booking found for user ${user.id} in game ${gameId}`);
+            return NextResponse.json({ error: 'No active booking found. You may have already left this game or your booking was not confirmed.' }, { status: 404 });
         }
 
         if (booking.status === 'cancelled') {
