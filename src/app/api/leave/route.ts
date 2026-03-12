@@ -41,7 +41,6 @@ export async function POST(request: NextRequest) {
             .eq('game_id', gameId)
             .eq('user_id', user.id)
             .neq('status', 'cancelled')
-            .neq('roster_status', 'dropped')
             .order('created_at', { ascending: false })
             .limit(1);
 

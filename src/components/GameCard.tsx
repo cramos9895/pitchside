@@ -184,8 +184,9 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
             }
 
             // Check for Free Game OR Waitlist OR Manual Payment OR 100% Promo Code
-            if (finalCost === 0 || currentPlayers >= game.max_players || data.paymentMethod) {
-                const endpoint = (currentPlayers >= game.max_players && !data.paymentMethod) ? '/api/waitlist' : '/api/join';
+            const isFull = game.max_players != null && currentPlayers >= game.max_players;
+            if (finalCost === 0 || isFull || data.paymentMethod) {
+                const endpoint = (isFull && !data.paymentMethod) ? '/api/waitlist' : '/api/join';
 
                 const response = await fetch(endpoint, {
                     method: 'POST',
@@ -212,7 +213,8 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                 }
 
                 setJoined(true);
-                if (currentPlayers < game.max_players) {
+                const wasAlreadyFull = game.max_players != null && currentPlayers >= game.max_players;
+                if (!wasAlreadyFull) {
                     setStatus('paid');
                     // Optimistic update:
                     setCurrentPlayers(prev => prev + 1);
@@ -435,7 +437,7 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                 onConfirm={proceedToJoin}
                 gamePrice={game.price}
                 loading={loading}
-                isWaitlist={currentPlayers >= game.max_players}
+                isWaitlist={game.max_players != null && currentPlayers >= game.max_players}
                 gameId={game.id}
                 isLeague={game.is_league}
             />
