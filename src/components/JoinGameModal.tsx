@@ -72,21 +72,12 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             if (gameId) {
                 const { data: gameData } = await supabase
                     .from('games')
-                    .select('allowed_payment_methods, teams_config, prize_pool_percentage, strict_waiver_required')
+                    .select('allowed_payment_methods, teams_config')
                     .eq('id', gameId)
                     .single();
 
                 if (gameData && gameData.allowed_payment_methods) {
                     setAllowedMethods(gameData.allowed_payment_methods);
-                }
-
-                if (gameData?.prize_pool_percentage && gameData.prize_pool_percentage > 0) {
-                    setHasPrizePool(true);
-                }
-                
-                if (gameData?.strict_waiver_required) {
-                    setIsStrictWaiver(true);
-                    isStrict = true;
                 }
 
                 if (gameData && gameData.teams_config && Array.isArray(gameData.teams_config)) {
