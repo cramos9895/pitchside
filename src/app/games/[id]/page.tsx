@@ -234,7 +234,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
 
         try {
             const currentPlayersCount = bookings.filter(b => ['active', 'paid', 'free_agent_pending'].includes(b.status) && b.roster_status !== 'dropped').length;
-            const isWaitlist = currentPlayersCount >= game.max_players;
+            const isWaitlist = game.max_players != null && currentPlayersCount >= game.max_players;
 
             if (game.price === 0 || isWaitlist || data.paymentMethod) {
                 const endpoint = (isWaitlist && !data.paymentMethod) ? '/api/waitlist' : '/api/join';
@@ -929,15 +929,15 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                 isOpen={leaveModalOpen}
                 onClose={() => setLeaveModalOpen(false)}
                 onConfirm={async () => {
-                    if (!userBooking) return;
                     setLoading(true);
                     try {
-                        const result = await cancelPlayerRegistration(userBooking.id);
-
-                        if (!result.success) {
-                            throw new Error(result.error);
-                        }
-
+                        const response = await fetch('/api/leave', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ gameId: game.id })
+                        });
+                        const result = await response.json();
+                        if (!response.ok) throw new Error(result.error || 'Failed to leave');
                         alert(result.message || 'You have left the game.');
                         router.push('/dashboard');
                         setLeaveModalOpen(false);
@@ -979,7 +979,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                 onConfirm={proceedToJoin}
                 gamePrice={game.price}
                 loading={joinLoading}
-                isWaitlist={activeRoster.length >= game.max_players}
+                isWaitlist={game.max_players != null && activeRoster.length >= game.max_players}
                 gameId={game.id}
             />
         </div>
