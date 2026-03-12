@@ -88,7 +88,6 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                         .from('bookings')
                         .select(`
                             team_assignment,
-                            custom_invite_fee,
                             stripe_payment_method_id,
                             user:profiles!bookings_user_id_fkey (full_name)
                         `)
@@ -279,7 +278,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                         </div>
 
                         <div className="space-y-4">
-                            {teamsConfig.length > 0 && !isWaitlist && (
+                            {teamsConfig.length > 0 && !isWaitlist && isLeague && (
                                 <div className="mb-6 space-y-3">
                                     <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">How are you joining?</label>
                                     <div className="grid grid-cols-2 gap-3">
