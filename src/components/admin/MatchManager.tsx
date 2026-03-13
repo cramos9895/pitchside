@@ -16,7 +16,7 @@ const TEXT_COLOR_MAP: Record<string, string> = {
     'Grey': 'text-gray-500'
 };
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Plus, Save, Loader2, Trash2, Layers, CheckCircle2, Trophy, ArrowRight, PlayCircle, Edit, PauseCircle, Square, Clock, PlusCircle, MinusCircle, MonitorPlay } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -85,6 +85,10 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
         home_score: 0,
         away_score: 0
     });
+
+    // Ref to track active match ID across async closures (avoids stale state race conditions)
+    const activeMatchIdRef = useRef<string | null>(null);
+    const insertingRef = useRef(false);
 
     // Timer State
     const [timerStatus, setTimerStatus] = useState<'stopped' | 'running' | 'paused'>(game.timer_status || 'stopped');
@@ -197,6 +201,12 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                 }
 
                 setMatches(filteredData);
+
+                // Initialize active match ref from existing data
+                const existingActive = filteredData.find((m: any) => m.status === 'active');
+                if (existingActive) {
+                    activeMatchIdRef.current = existingActive.id;
+                }
 
                 // Determine Max Round
                 const max = data.reduce((acc: number, m: any) => Math.max(acc, m.round_number || 0), 0);
@@ -426,38 +436,48 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
         const updatedMatch: any = { ...newMatch, [field]: value };
         setNewMatch(updatedMatch);
 
-        // Instantly push this draft to the database as an active match to explicitly trip Projector Realtime listeners
-        const activeDbMatch = matches.find(m => m.status === 'active');
+        // Use ref to find active match (avoids stale closure from React state)
+        const activeId = activeMatchIdRef.current;
 
-        if (activeDbMatch) {
+        if (activeId) {
+            // Update existing active match
             const res = await fetch('/api/matches', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'update', matchId: activeDbMatch.id, matchData: { [field]: value } })
+                body: JSON.stringify({ action: 'update', matchId: activeId, matchData: { [field]: value } })
             });
             if (res.ok) {
-                setMatches(prev => prev.map(m => m.id === activeDbMatch.id ? { ...m, [field]: value } : m));
+                setMatches(prev => prev.map(m => m.id === activeId ? { ...m, [field]: value } : m));
             }
         } else {
-            const res = await fetch('/api/matches', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'insert',
-                    gameId,
-                    matchData: {
-                        home_team: updatedMatch.home_team,
-                        away_team: updatedMatch.away_team,
-                        home_score: updatedMatch.home_score || 0,
-                        away_score: updatedMatch.away_score || 0,
-                        status: 'active',
-                        round_number: 0
-                    }
-                })
-            });
-            const result = await res.json();
-            if (result.data) {
-                setMatches(prev => [...prev, result.data]);
+            // Prevent concurrent inserts (race condition from rapid onChange events)
+            if (insertingRef.current) return;
+            insertingRef.current = true;
+
+            try {
+                const res = await fetch('/api/matches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'insert',
+                        gameId,
+                        matchData: {
+                            home_team: updatedMatch.home_team,
+                            away_team: updatedMatch.away_team,
+                            home_score: updatedMatch.home_score || 0,
+                            away_score: updatedMatch.away_score || 0,
+                            status: 'active',
+                            round_number: 0
+                        }
+                    })
+                });
+                const result = await res.json();
+                if (result.data) {
+                    activeMatchIdRef.current = result.data.id;
+                    setMatches(prev => [...prev, result.data]);
+                }
+            } finally {
+                insertingRef.current = false;
             }
         }
     };
@@ -467,15 +487,15 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
         if (!newMatch.home_team || !newMatch.away_team) return alert("Select teams");
         setLoading(true);
         try {
-            const activeDbMatch = matches.find(m => m.status === 'active');
+            const activeId = activeMatchIdRef.current;
 
-            if (activeDbMatch) {
+            if (activeId) {
                 const res = await fetch('/api/matches', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         action: 'update',
-                        matchId: activeDbMatch.id,
+                        matchId: activeId,
                         matchData: {
                             home_team: newMatch.home_team,
                             away_team: newMatch.away_team,
@@ -488,8 +508,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                 });
                 const result = await res.json();
                 if (result.data) {
-                    // Update local state with the returned completed match
-                    setMatches(prev => prev.map(m => m.id === activeDbMatch.id ? result.data : m));
+                    setMatches(prev => prev.map(m => m.id === activeId ? result.data : m));
                 }
             } else {
                 const res = await fetch('/api/matches', {
@@ -514,6 +533,9 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                     setMatches(prev => [...prev, result.data]);
                 }
             }
+
+            // Clear the active match ref so the next interaction creates a fresh one
+            activeMatchIdRef.current = null;
 
             // Immediately reset scores for the next match
             setNewMatch({ ...newMatch, home_score: 0, away_score: 0 });
