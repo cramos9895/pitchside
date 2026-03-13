@@ -1101,7 +1101,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
                     {/* Simple List for Manual */}
                     <div className="space-y-2 mb-8">
-                        {matches.map(match => (
+                        {matches.filter(m => m.status === 'completed').map(match => (
                             <div key={match.id} className="flex justify-between items-center bg-white/5 p-3 rounded">
                                 <div className="text-sm text-white">
                                     <span className={match.home_score > match.away_score ? "text-green-400 font-bold" : ""}>{match.home_team} {match.home_score}</span>
@@ -1114,7 +1114,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                     </div>
 
                     {/* CONCLUDE EVENT SECTION (Manual) */}
-                    {matches.length > 0 && gameStatus !== 'completed' && (
+                    {matches.some(m => m.status === 'completed') && gameStatus !== 'completed' && (
                         <div className="border-t border-white/10 pt-6 mt-8">
                             <h4 className="text-xs font-bold uppercase text-gray-500 mb-4 flex items-center gap-2">
                                 <CheckCircle2 className="w-4 h-4" /> Conclude Event
