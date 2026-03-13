@@ -41,15 +41,15 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
     // The Unified, Uncached Refetch
     const refreshData = async () => {
         const { data: freshGame } = await supabase.from('games').select('*').eq('id', gameId).single();
-        const { data: freshMatches } = await supabase.from('matches').select('*').eq('game_id', gameId).order('round_number', { ascending: true });
+        const matchesRes = await fetch(`/api/matches?gameId=${gameId}`);
+        const matchesResult = await matchesRes.json();
+        const freshMatches = matchesResult.data || [];
 
         if (freshGame) {
             setGame(freshGame);
             calculateInitialTime(freshGame);
         }
-        if (freshMatches) {
-            setMatches(freshMatches);
-        }
+        setMatches(freshMatches);
     };
 
     // Keep function hoisted so it can be called anywhere

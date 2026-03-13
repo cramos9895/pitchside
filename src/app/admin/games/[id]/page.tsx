@@ -188,16 +188,14 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const toast = useToast();
 
     const fetchMatches = async () => {
-        const { data: matchesData } = await supabase
-            .from('matches')
-            .select('*')
-            .eq('game_id', gameId)
-            .order('created_at', { ascending: true });
+        const res = await fetch(`/api/matches?gameId=${gameId}`);
+        const result = await res.json();
+        const matchesData = result.data || [];
 
-        setMatches(matchesData || []);
+        setMatches(matchesData);
 
         // Auto-switch to king mode if matches exist and no mode set
-        if (matchesData && matchesData.length > 0 && viewMode === 'single') {
+        if (matchesData.length > 0 && viewMode === 'single') {
             setViewMode('king');
         }
     }

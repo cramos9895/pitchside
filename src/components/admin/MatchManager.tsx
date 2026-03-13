@@ -184,34 +184,31 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
     // 1. Fetch & Sort Matches on Mount
     useEffect(() => {
         const fetchMatches = async () => {
-            const { data } = await supabase
-                .from('matches')
-                .select('*')
-                .eq('game_id', gameId)
-                .order('round_number', { ascending: true })
-                .order('id', { ascending: true });
+            const res = await fetch(`/api/matches?gameId=${gameId}`);
+            const result = await res.json();
+            const data = result.data || [];
 
-            if (data) {
+            if (data.length > 0) {
                 let filteredData = data;
                 if (filterMode === 'king') {
-                    filteredData = data.filter(m => !m.round_number || m.round_number === 0);
+                    filteredData = data.filter((m: any) => !m.round_number || m.round_number === 0);
                 } else if (filterMode === 'tournament') {
-                    filteredData = data.filter(m => m.round_number && m.round_number > 0);
+                    filteredData = data.filter((m: any) => m.round_number && m.round_number > 0);
                 }
 
                 setMatches(filteredData);
 
                 // Determine Max Round
-                const max = data.reduce((acc, m) => Math.max(acc, m.round_number || 0), 0);
+                const max = data.reduce((acc: number, m: any) => Math.max(acc, m.round_number || 0), 0);
                 setMaxRound(max);
 
                 // Determine Current Round (First valid round with scheduled games)
                 // Filter for rounds > 0
-                const validMatches = data.filter(m => (m.round_number || 0) > 0);
+                const validMatches = data.filter((m: any) => (m.round_number || 0) > 0);
 
                 if (validMatches.length > 0) {
                     // Find first round that has at least one scheduled/active match
-                    const unfinishedRound = validMatches.find(m => m.status === 'scheduled' || m.status === 'active')?.round_number;
+                    const unfinishedRound = validMatches.find((m: any) => m.status === 'scheduled' || m.status === 'active')?.round_number;
 
                     if (unfinishedRound) {
                         setCurrentRound(unfinishedRound);
@@ -223,7 +220,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
             }
         };
         fetchMatches();
-    }, [gameId, supabase]);
+    }, [gameId]);
 
     // Grouping
     const isTournamentMode = matches.some(m => (m.round_number || 0) > 0);
@@ -288,12 +285,20 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
             // Upsert doesn't work easily with multiple ID updates unless we use a loop or logic
             // Supabase upsert requires primary key. We can do Promise.all
             await Promise.all(updates.map(u =>
-                supabase.from('matches').update({
-                    home_score: u.home_score,
-                    away_score: u.away_score,
-                    status: 'completed',
-                    is_final: true
-                }).eq('id', u.id)
+                fetch('/api/matches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update',
+                        matchId: u.id,
+                        matchData: {
+                            home_score: u.home_score,
+                            away_score: u.away_score,
+                            status: 'completed',
+                            is_final: true
+                        }
+                    })
+                })
             ));
 
             // Refresh Standings Logic (Triggered by DB change / Page refresh)
@@ -306,8 +311,9 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
             setRoundScores({}); // Clear buffer
 
             // Re-fetch to update local state fully
-            const { data } = await supabase.from('matches').select('*').eq('game_id', gameId).order('round_number', { ascending: true });
-            if (data) setMatches(data);
+            const refetchRes = await fetch(`/api/matches?gameId=${gameId}`);
+            const refetchResult = await refetchRes.json();
+            if (refetchResult.data) setMatches(refetchResult.data);
 
         } catch (error: any) {
             alert("Error submitting round: " + error.message);
@@ -328,10 +334,18 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
             if (updates.length > 0) {
                 await Promise.all(updates.map(u =>
-                    supabase.from('matches').update({
-                        home_score: u.home,
-                        away_score: u.away
-                    }).eq('id', u.id)
+                    fetch('/api/matches', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'update',
+                            matchId: u.id,
+                            matchData: {
+                                home_score: u.home,
+                                away_score: u.away
+                            }
+                        })
+                    })
                 ));
             }
 
@@ -416,20 +430,34 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
         const activeDbMatch = matches.find(m => m.status === 'active');
 
         if (activeDbMatch) {
-            await supabase.from('matches').update({ [field]: value }).eq('id', activeDbMatch.id);
-            setMatches(prev => prev.map(m => m.id === activeDbMatch.id ? { ...m, [field]: value } : m));
+            const res = await fetch('/api/matches', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update', matchId: activeDbMatch.id, matchData: { [field]: value } })
+            });
+            if (res.ok) {
+                setMatches(prev => prev.map(m => m.id === activeDbMatch.id ? { ...m, [field]: value } : m));
+            }
         } else {
-            const { data } = await supabase.from('matches').insert({
-                game_id: gameId,
-                home_team: updatedMatch.home_team,
-                away_team: updatedMatch.away_team,
-                home_score: updatedMatch.home_score || 0,
-                away_score: updatedMatch.away_score || 0,
-                status: 'active',
-                round_number: 0
-            }).select().single();
-            if (data) {
-                setMatches(prev => [...prev, data]);
+            const res = await fetch('/api/matches', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'insert',
+                    gameId,
+                    matchData: {
+                        home_team: updatedMatch.home_team,
+                        away_team: updatedMatch.away_team,
+                        home_score: updatedMatch.home_score || 0,
+                        away_score: updatedMatch.away_score || 0,
+                        status: 'active',
+                        round_number: 0
+                    }
+                })
+            });
+            const result = await res.json();
+            if (result.data) {
+                setMatches(prev => [...prev, result.data]);
             }
         }
     };
@@ -442,33 +470,53 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
             const activeDbMatch = matches.find(m => m.status === 'active');
 
             if (activeDbMatch) {
-                await supabase.from('matches').update({
-                    home_team: newMatch.home_team,
-                    away_team: newMatch.away_team,
-                    home_score: newMatch.home_score,
-                    away_score: newMatch.away_score,
-                    status: 'completed',
-                    is_final: true
-                }).eq('id', activeDbMatch.id);
-            } else {
-                await supabase.from('matches').insert({
-                    game_id: gameId,
-                    home_team: newMatch.home_team,
-                    away_team: newMatch.away_team,
-                    home_score: newMatch.home_score,
-                    away_score: newMatch.away_score,
-                    status: 'completed',
-                    round_number: 0,
-                    is_final: true
+                const res = await fetch('/api/matches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update',
+                        matchId: activeDbMatch.id,
+                        matchData: {
+                            home_team: newMatch.home_team,
+                            away_team: newMatch.away_team,
+                            home_score: newMatch.home_score,
+                            away_score: newMatch.away_score,
+                            status: 'completed',
+                            is_final: true
+                        }
+                    })
                 });
+                const result = await res.json();
+                if (result.data) {
+                    // Update local state with the returned completed match
+                    setMatches(prev => prev.map(m => m.id === activeDbMatch.id ? result.data : m));
+                }
+            } else {
+                const res = await fetch('/api/matches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'insert',
+                        gameId,
+                        matchData: {
+                            home_team: newMatch.home_team,
+                            away_team: newMatch.away_team,
+                            home_score: newMatch.home_score,
+                            away_score: newMatch.away_score,
+                            status: 'completed',
+                            round_number: 0,
+                            is_final: true
+                        }
+                    })
+                });
+                const result = await res.json();
+                if (result.data) {
+                    setMatches(prev => [...prev, result.data]);
+                }
             }
 
             // Immediately reset scores for the next match
             setNewMatch({ ...newMatch, home_score: 0, away_score: 0 });
-
-            // Re-fetch everything to get the full accurate list including the new completed match
-            const { data } = await supabase.from('matches').select('*').eq('game_id', gameId).order('id', { ascending: true });
-            if (data) setMatches(data);
 
             router.refresh();
             if (onUpdate) onUpdate();
@@ -481,7 +529,11 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this match?")) return;
-        await supabase.from('matches').delete().eq('id', id);
+        await fetch('/api/matches', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', matchId: id })
+        });
         setMatches(matches.filter(m => m.id !== id));
         router.refresh();
         if (onUpdate) onUpdate();
