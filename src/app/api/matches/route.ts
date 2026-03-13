@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
         const supabaseAdmin = createAdminClient();
 
         if (action === 'insert') {
+            console.log('[MATCHES API] Inserting match:', { gameId, matchData });
             const { data, error } = await supabaseAdmin
                 .from('matches')
                 .insert({
@@ -29,41 +30,46 @@ export async function POST(request: NextRequest) {
                     round_number: matchData.round_number || 0,
                     is_final: matchData.is_final || false
                 })
-                .select()
+                .select('id, game_id, home_team, away_team, home_score, away_score, is_final, created_at, round_number, status')
                 .single();
 
             if (error) {
-                console.error('[MATCHES] Insert Error:', error);
+                console.error('[MATCHES API] Insert Error:', error);
                 return NextResponse.json({ error: error.message }, { status: 500 });
             }
+            console.log('[MATCHES API] Insert Success:', data.id);
             return NextResponse.json({ data });
         }
 
         if (action === 'update') {
+            console.log('[MATCHES API] Updating match:', { matchId, matchData });
             const { data, error } = await supabaseAdmin
                 .from('matches')
                 .update(matchData)
                 .eq('id', matchId)
-                .select()
+                .select('id, game_id, home_team, away_team, home_score, away_score, is_final, created_at, round_number, status')
                 .single();
 
             if (error) {
-                console.error('[MATCHES] Update Error:', error);
+                console.error('[MATCHES API] Update Error:', error);
                 return NextResponse.json({ error: error.message }, { status: 500 });
             }
+            console.log('[MATCHES API] Update Success:', data.id);
             return NextResponse.json({ data });
         }
 
         if (action === 'delete') {
+            console.log('[MATCHES API] Deleting match:', matchId);
             const { error } = await supabaseAdmin
                 .from('matches')
                 .delete()
                 .eq('id', matchId);
 
             if (error) {
-                console.error('[MATCHES] Delete Error:', error);
+                console.error('[MATCHES API] Delete Error:', error);
                 return NextResponse.json({ error: error.message }, { status: 500 });
             }
+            console.log('[MATCHES API] Delete Success:', matchId);
             return NextResponse.json({ success: true });
         }
 
@@ -85,7 +91,7 @@ export async function GET(request: NextRequest) {
         const supabaseAdmin = createAdminClient();
         const { data, error } = await supabaseAdmin
             .from('matches')
-            .select('*')
+            .select('id, game_id, home_team, away_team, home_score, away_score, is_final, created_at, round_number, status')
             .eq('game_id', gameId)
             .order('created_at', { ascending: true });
 

@@ -441,13 +441,19 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
         if (activeId) {
             // Update existing active match
-            const res = await fetch('/api/matches', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'update', matchId: activeId, matchData: { [field]: value } })
-            });
-            if (res.ok) {
-                setMatches(prev => prev.map(m => m.id === activeId ? { ...m, [field]: value } : m));
+            try {
+                const res = await fetch('/api/matches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'update', matchId: activeId, matchData: { [field]: value } })
+                });
+                if (res.ok) {
+                    setMatches(prev => prev.map(m => m.id === activeId ? { ...m, [field]: value } : m));
+                } else {
+                    console.error('[MatchManager] Failed to update active match:', res.statusText);
+                }
+            } catch (err) {
+                console.error('[MatchManager] Error updating active match:', err);
             }
         } else {
             // Prevent concurrent inserts (race condition from rapid onChange events)
@@ -455,6 +461,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
             insertingRef.current = true;
 
             try {
+                console.log('[MatchManager] Creating new active match...');
                 const res = await fetch('/api/matches', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -475,7 +482,12 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                 if (result.data) {
                     activeMatchIdRef.current = result.data.id;
                     setMatches(prev => [...prev, result.data]);
+                    console.log('[MatchManager] Active match created:', result.data.id);
+                } else {
+                    console.error('[MatchManager] Insert failed, no data returned:', result.error);
                 }
+            } catch (err) {
+                console.error('[MatchManager] Error inserting active match:', err);
             } finally {
                 insertingRef.current = false;
             }
@@ -488,6 +500,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
         setLoading(true);
         try {
             const activeId = activeMatchIdRef.current;
+            console.log('[MatchManager] Record Match clicked. Active ID:', activeId);
 
             if (activeId) {
                 const res = await fetch('/api/matches', {
@@ -509,8 +522,13 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                 const result = await res.json();
                 if (result.data) {
                     setMatches(prev => prev.map(m => m.id === activeId ? result.data : m));
+                    console.log('[MatchManager] Active match completed and recorded.');
+                } else {
+                    console.error('[MatchManager] Record match failed:', result.error);
+                    throw new Error(result.error || "Failed to record match");
                 }
             } else {
+                console.log('[MatchManager] No active match found, inserting new completed match.');
                 const res = await fetch('/api/matches', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -531,6 +549,10 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                 const result = await res.json();
                 if (result.data) {
                     setMatches(prev => [...prev, result.data]);
+                    console.log('[MatchManager] Completed match recorded.');
+                } else {
+                    console.error('[MatchManager] Record match failed (insert):', result.error);
+                    throw new Error(result.error || "Failed to record match");
                 }
             }
 
@@ -543,7 +565,8 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
             router.refresh();
             if (onUpdate) onUpdate();
         } catch (e: any) {
-            alert(e.message);
+            console.error('[MatchManager] handleManualAdd Error:', e);
+            alert("Error recording match: " + (e.message || "Unknown error"));
         } finally {
             setLoading(false);
         }
@@ -551,14 +574,31 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this match?")) return;
-        await fetch('/api/matches', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'delete', matchId: id })
-        });
-        setMatches(matches.filter(m => m.id !== id));
-        router.refresh();
-        if (onUpdate) onUpdate();
+        setLoading(true);
+        try {
+            const res = await fetch('/api/matches', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete', matchId: id })
+            });
+
+            if (res.ok) {
+                // If the deleted match was our tracked active match, clear the ref
+                if (activeMatchIdRef.current === id) {
+                    activeMatchIdRef.current = null;
+                }
+                setMatches(prev => prev.filter(m => m.id !== id));
+                router.refresh();
+                if (onUpdate) onUpdate();
+            } else {
+                alert("Failed to delete match. Please try again.");
+            }
+        } catch (err) {
+            console.error('[MatchManager] Error deleting match:', err);
+            alert("An error occurred while deleting the match.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     // --- Finalization Logic ---
