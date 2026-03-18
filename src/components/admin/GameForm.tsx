@@ -8,7 +8,6 @@ import { useLoadScript } from '@react-google-maps/api';
 import { useRouter } from 'next/navigation';
 import { updateGame } from '@/app/actions/update-game';
 
-// Define Libraries as static constant to avoid re-renders
 const LIBRARIES: ("places")[] = ["places"];
 
 interface TeamConfig {
@@ -44,64 +43,109 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Load Google Maps Script
     const { isLoaded } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries: LIBRARIES,
     });
 
-    // Form States
+    const [activeTab, setActiveTab] = useState<'standard' | 'tournament' | 'league'>(initialData?.event_type || 'standard');
+    
+    // Legacy mapping
+    const eventType = activeTab;
+
+    // SECTION A: Match Info State
     const [title, setTitle] = useState(initialData?.title || '');
-    const [gameDate, setGameDate] = useState('');
-    const [startTime, setStartTime] = useState('');
-    const [endTime, setEndTime] = useState('');
-    const [price, setPrice] = useState<number | ''>(initialData?.price ?? 10.00);
-    const [maxPlayers, setMaxPlayers] = useState<number | ''>(initialData?.max_players ?? 22);
-    const [surfaceType, setSurfaceType] = useState(initialData?.surface_type || 'Turf');
-    const [eventType, setEventType] = useState(initialData?.event_type || 'standard');
-    const [hasMvpReward, setHasMvpReward] = useState(initialData?.has_mvp_reward || false);
-    const [isRefundable, setIsRefundable] = useState(initialData?.is_refundable || false);
-    const [allowedPaymentMethods, setAllowedPaymentMethods] = useState<string[]>(initialData?.allowed_payment_methods || ['venmo', 'zelle']);
-
-    // Capacity Constraints & Multi-Team Prices
-    const [minTeams, setMinTeams] = useState<number | ''>(initialData?.min_teams ?? '');
-    const [maxTeams, setMaxTeams] = useState<number | ''>(initialData?.max_teams ?? '');
-    const [teamPrice, setTeamPrice] = useState<number | ''>(initialData?.team_price ?? '');
-    const [freeAgentPrice, setFreeAgentPrice] = useState<number | ''>(initialData?.free_agent_price ?? '');
-    const [amountOfFields, setAmountOfFields] = useState<number | ''>(initialData?.amount_of_fields ?? '');
-
-    // League Engine States
-    const [isLeague, setIsLeague] = useState(initialData?.is_league || false);
-    const [totalWeeks, setTotalWeeks] = useState<number | ''>(initialData?.total_weeks ?? '');
-    const [isPlayoffIncluded, setIsPlayoffIncluded] = useState(initialData?.is_playoff_included || false);
-    const [teamRosterFee, setTeamRosterFee] = useState<number | ''>(initialData?.team_roster_fee ?? '');
-    const [depositAmount, setDepositAmount] = useState<number | ''>(initialData?.deposit_amount ?? '');
-    const [minPlayersPerTeam, setMinPlayersPerTeam] = useState<number | ''>(initialData?.min_players_per_team ?? '');
-
-    // Tournament Ops States
-    const [description, setDescription] = useState(initialData?.description || '');
-    const [reward, setReward] = useState(initialData?.reward || '');
-    const [prizeType, setPrizeType] = useState(initialData?.prize_type || 'none');
-    const [fixedPrizeAmount, setFixedPrizeAmount] = useState<number | ''>(initialData?.fixed_prize_amount ?? '');
-    const [prizePoolPercentage, setPrizePoolPercentage] = useState<number | ''>(initialData?.prize_pool_percentage ?? '');
-    const [refundCutoffDate, setRefundCutoffDate] = useState<string>(initialData?.refund_cutoff_date ? new Date(initialData.refund_cutoff_date).toISOString().slice(0, 16) : '');
-    const [rosterLockDate, setRosterLockDate] = useState<string>(initialData?.roster_lock_date ? new Date(initialData.roster_lock_date).toISOString().slice(0, 16) : '');
-    const [strictWaiverRequired, setStrictWaiverRequired] = useState(initialData?.strict_waiver_required || false);
-    const [mercyRuleCap, setMercyRuleCap] = useState<number | ''>(initialData?.mercy_rule_cap ?? '');
-
-    // Location State
+    const [rulesDescription, setRulesDescription] = useState(initialData?.rules_description || '');
     const [locationName, setLocationName] = useState(initialData?.location || '');
     const [coords, setCoords] = useState<{ lat: number | null, lng: number | null }>({
         lat: initialData?.latitude || null,
         lng: initialData?.longitude || null
     });
+    const [locationNickname, setLocationNickname] = useState(initialData?.location_nickname || '');
+    const [gameDate, setGameDate] = useState('');
+    const [startTime, setStartTime] = useState('');
+    const [endTime, setEndTime] = useState('');
+    const [price, setPrice] = useState<number | ''>(initialData?.price ?? 10.00);
+    const [maxPlayers, setMaxPlayers] = useState<number | ''>(initialData?.max_players ?? 22);
+    const [gameFormatType, setGameFormatType] = useState(initialData?.game_format_type || '7 v 7');
+    const [matchStyle, setMatchStyle] = useState(initialData?.match_style || 'Full Length');
+    const [allowedPaymentMethods, setAllowedPaymentMethods] = useState<string[]>(initialData?.allowed_payment_methods || ['venmo', 'zelle']);
+    const [isRefundable, setIsRefundable] = useState(initialData?.is_refundable || false);
+    const [refundCutoffHours, setRefundCutoffHours] = useState<number | ''>(initialData?.refund_cutoff_hours ?? 24);
+    const [surfaceType, setSurfaceType] = useState(initialData?.surface_type || 'Outdoor Turf');
+    const [amountOfFields, setAmountOfFields] = useState<number | ''>(initialData?.amount_of_fields ?? 1);
+    const [fieldSize, setFieldSize] = useState(initialData?.field_size || 'Standard');
+    const [shoeTypes, setShoeTypes] = useState<string[]>(initialData?.shoe_types || ['Turf Shoes', 'FG Cleats']);
 
+    // SECTION B: Team Configurator State
     const [teams, setTeams] = useState<TeamConfig[]>(initialData?.teams_config || [
         { name: 'Neon Orange', color: 'Neon Orange', limit: 11 },
         { name: 'White', color: 'White', limit: 11 }
     ]);
+    const [teamGeneratorCount, setTeamGeneratorCount] = useState<number | ''>('');
 
-    // Initialize Date/Time from initialData
+    // MICRO-TOURNAMENT State
+    const [hasRegistrationFee, setHasRegistrationFee] = useState(initialData?.team_price !== null && initialData?.team_price !== undefined);
+    const [teamPrice, setTeamPrice] = useState<number | ''>(initialData?.team_price ?? '');
+    const [depositAmount, setDepositAmount] = useState<number | ''>(initialData?.deposit_amount ?? '');
+    const [hasRegistrationFeeCredit, setHasRegistrationFeeCredit] = useState(initialData?.has_registration_fee_credit ?? false);
+    
+    const [freeAgentPrice, setFreeAgentPrice] = useState<number | ''>(initialData?.free_agent_price ?? '');
+    const [hasFreeAgentCredit, setHasFreeAgentCredit] = useState(initialData?.has_free_agent_credit ?? false);
+
+    const [refundCutoffDate, setRefundCutoffDate] = useState(initialData?.refund_cutoff_date ? new Date(initialData.refund_cutoff_date).toISOString().slice(0, 16) : '');
+    const [minTeams, setMinTeams] = useState<number | ''>(initialData?.min_teams ?? 4);
+    const [maxTourneyTeams, setMaxTourneyTeams] = useState<number | ''>(initialData?.max_teams ?? 8);
+    const [minPlayersPerTeam, setMinPlayersPerTeam] = useState<number | ''>(initialData?.min_players_per_team ?? 5);
+    const [rosterLockDate, setRosterLockDate] = useState(initialData?.roster_lock_date ? new Date(initialData.roster_lock_date).toISOString().slice(0, 16) : '');
+    const [strictWaiverRequired, setStrictWaiverRequired] = useState(initialData?.strict_waiver_required ?? false);
+
+    // Phase 3 Game Style State
+    const [gameStyle, setGameStyle] = useState<string>(initialData?.game_style || 'Group Stage/Playoffs');
+    const [halfLength, setHalfLength] = useState<number | ''>(initialData?.half_length ?? 25);
+    const [halftimeLength, setHalftimeLength] = useState<number | ''>(initialData?.halftime_length ?? 5);
+
+    const groupStageOptions = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    const bracketOptions = [4, 8, 16, 32];
+    const maxGroupStageOptions = Array.from({ length: 29 }, (_, i) => i + 4); // 4 to 32
+
+    const minTeamOptions = gameStyle === 'Bracket' ? bracketOptions : groupStageOptions;
+    const maxTeamOptions = gameStyle === 'Bracket' ? bracketOptions : maxGroupStageOptions;
+
+    const handleGameStyleChange = (style: string) => {
+        setGameStyle(style);
+        if (style === 'Bracket') {
+            setMinTeams(4);
+            setMaxTourneyTeams(8);
+        } else {
+            setMinTeams(4);
+            setMaxTourneyTeams(8);
+        }
+    };
+
+    // Phase 4 Multi-Week League State
+    const [earliestGameStartTime, setEarliestGameStartTime] = useState<string>(initialData?.earliest_game_start_time || '');
+    const [latestGameStartTime, setLatestGameStartTime] = useState<string>(initialData?.latest_game_start_time || '');
+    const [fieldNames, setFieldNames] = useState<string[]>(initialData?.field_names || ['']);
+    const [minGamesGuaranteed, setMinGamesGuaranteed] = useState<number | ''>(initialData?.min_games_guaranteed ?? 8);
+    const [teamsIntoPlayoffs, setTeamsIntoPlayoffs] = useState<number>(initialData?.teams_into_playoffs ?? 4);
+    const [hasPlayoffBye, setHasPlayoffBye] = useState<boolean>(initialData?.has_playoff_bye ?? false);
+    const [breakBetweenGames, setBreakBetweenGames] = useState<number | ''>(initialData?.break_between_games ?? 5);
+
+    // Playoff bye logic
+    const playoffOptions = hasPlayoffBye ? [5, 9] : [4, 8];
+    useEffect(() => {
+        if (!playoffOptions.includes(teamsIntoPlayoffs)) {
+            setTeamsIntoPlayoffs(playoffOptions[0]);
+        }
+    }, [hasPlayoffBye, playoffOptions, teamsIntoPlayoffs]);
+
+    // Prize Structure State
+    const [prizeType, setPrizeType] = useState<string>(initialData?.prize_type || 'No Official Prize');
+    const [prizePoolPercentage, setPrizePoolPercentage] = useState<number | ''>(initialData?.prize_pool_percentage ?? '');
+    const [fixedPrizeAmount, setFixedPrizeAmount] = useState<number | ''>(initialData?.fixed_prize_amount ?? '');
+    const [reward, setReward] = useState<string>(initialData?.reward || '');
+
     useEffect(() => {
         if (initialData?.start_time) {
             const start = new Date(initialData.start_time);
@@ -109,10 +153,6 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
             setStartTime(start.toTimeString().slice(0, 5));
         }
         if (initialData?.end_time) {
-            // End time might be full date or just time string depending on how it was saved/fetched
-            // Assuming full ISO or similar
-            const end = new Date(initialData.start_time); // Use start to get date base
-            // If end_time is HH:mm:ss, parse it
             if (initialData.end_time.includes('T')) {
                 setEndTime(new Date(initialData.end_time).toTimeString().slice(0, 5));
             } else {
@@ -121,7 +161,6 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
         }
     }, [initialData]);
 
-    // --- Places Autocomplete Logic ---
     const {
         ready,
         value,
@@ -129,41 +168,32 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
         suggestions: { status, data },
         clearSuggestions,
     } = usePlacesAutocomplete({
-        requestOptions: {
-            /* Define search scope here if needed */
-        },
+        requestOptions: {},
         defaultValue: initialData?.location || '',
         initOnMount: isLoaded
     });
 
-    // Keep local location input in sync with Places value
     useEffect(() => {
-        if (action === 'create' && !initialData) {
-            // For create, we just use the 'value' from hook
-        } else if (value === '' && locationName) {
-            // If manually editing, update hook value
+        if (action !== 'create' && value === '' && locationName) {
             setValue(locationName, false);
         }
-    }, [locationName, setValue]);
+    }, [locationName, setValue, action, value]);
 
     const handleSelectLocation = async (address: string) => {
         setValue(address, false);
         setLocationName(address);
         clearSuggestions();
-
         try {
             const results = await getGeocode({ address });
             const { lat, lng } = await getLatLng(results[0]);
             setCoords({ lat, lng });
-            console.log("📍 Coordinates:", lat, lng);
         } catch (error) {
             console.error("Error finding coordinates: ", error);
         }
     };
 
-    // --- Logic Reuse ---
     useEffect(() => {
-        if (startTime && !initialData) { // Only auto-set end time on fresh create or manual change if desired
+        if (startTime && !initialData) { 
             try {
                 const [h, m] = startTime.split(':').map(Number);
                 const d = new Date();
@@ -177,37 +207,32 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
         }
     }, [startTime, initialData]);
 
-    // Smart Sizing
     useEffect(() => {
         if (maxPlayers && teams.length > 0) {
-            // Only auto-resize if creating? Or always? Let's do always for consistency but be careful not to override custom logic too aggressively.
-            // For now, keep as is.
             const total = Number(maxPlayers);
             const count = teams.length;
             const baseSize = Math.floor(total / count);
             const remainder = total % count;
-
             setTeams(prev => prev.map((t, i) => ({
                 ...t,
                 limit: i < remainder ? baseSize + 1 : baseSize
             })));
         }
-    }, [maxPlayers, teams.length]);
+    }, [maxPlayers, teams.length]); // Intentionally auto-adjusting limits based on max capacity
 
-
-    const handleTeamChange = (index: number, field: keyof TeamConfig, value: string | number) => {
+    const handleTeamChange = (index: number, field: keyof TeamConfig, val: string | number) => {
         const newTeams = [...teams];
         const currentTeam = newTeams[index];
         if (field === 'color') {
-            const newColorLabel = String(value);
+            const newColorLabel = String(val);
             const isGenericName = currentTeam.name === currentTeam.color || currentTeam.name.startsWith('Team ');
             if (isGenericName) {
-                newTeams[index] = { ...newTeams[index], [field as string]: value, name: newColorLabel };
+                newTeams[index] = { ...newTeams[index], [field as string]: val, name: newColorLabel };
             } else {
-                newTeams[index] = { ...newTeams[index], [field as string]: value };
+                newTeams[index] = { ...newTeams[index], [field as string]: val };
             }
         } else {
-            newTeams[index] = { ...newTeams[index], [field as string]: value };
+            newTeams[index] = { ...newTeams[index], [field as string]: val };
         }
         setTeams(newTeams);
     };
@@ -221,6 +246,21 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
     const removeTeam = (index: number) => {
         if (teams.length <= 1) return;
         setTeams(teams.filter((_, i) => i !== index));
+    };
+
+    const generateTeams = () => {
+        if (!teamGeneratorCount || teamGeneratorCount <= 0) return;
+        const newTeams: TeamConfig[] = [];
+        for (let i = 0; i < teamGeneratorCount; i++) {
+            const colorOption = COLORS[i % COLORS.length];
+            newTeams.push({
+                name: colorOption.label,
+                color: colorOption.label,
+                limit: maxPlayers ? Math.floor(Number(maxPlayers) / teamGeneratorCount) : 11
+            });
+        }
+        setTeams(newTeams);
+        setTeamGeneratorCount('');
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -244,23 +284,55 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
             const startDateTime = new Date(`${gameDate}T${startTime}`);
             const endDateTime = new Date(`${gameDate}T${endTime}`);
             if (endDateTime < startDateTime) endDateTime.setDate(endDateTime.getDate() + 1);
-            const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime; // Fallback
+            const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime;
 
             const payload = {
                 title,
-                location: locationName, // Use the smart location name
+                rules_description: rulesDescription,
+                location: locationName, 
+                location_nickname: locationNickname,
                 latitude: coords.lat,
                 longitude: coords.lng,
                 start_time: startDateTime.toISOString(),
                 end_time: formattedEndTime,
-                price: (eventType === 'tournament' || eventType === 'league') ? null : (price === '' ? 0 : price),
-                max_players: (eventType === 'tournament' || eventType === 'league') ? null : (maxPlayers === '' ? 22 : maxPlayers),
-                surface_type: surfaceType,
-                event_type: eventType,
-                teams_config: (eventType === 'tournament' || eventType === 'league') ? null : teams,
-                has_mvp_reward: hasMvpReward,
-                is_refundable: isRefundable,
-                allowed_payment_methods: allowedPaymentMethods,
+                // Standard specific payload fields
+                price: activeTab === 'standard' ? (price === '' ? 0 : price) : null,
+                max_players: activeTab === 'standard' ? (maxPlayers === '' ? 22 : maxPlayers) : null,
+                teams_config: activeTab === 'standard' ? teams : null,
+                is_refundable: activeTab === 'standard' ? isRefundable : true, // Tournaments are always refundable individually (Stripe)
+                refund_cutoff_hours: activeTab === 'standard' && isRefundable ? (refundCutoffHours === '' ? null : refundCutoffHours) : null,
+                allowed_payment_methods: activeTab === 'standard' ? allowedPaymentMethods : ['stripe'], // Tournaments enforce stripe
+
+                // Tournament / League specific payload fields
+                team_price: (activeTab === 'tournament' || activeTab === 'league') ? (teamPrice === '' ? null : teamPrice) : null,
+                deposit_amount: (activeTab === 'tournament' || activeTab === 'league') && hasRegistrationFee ? (depositAmount === '' ? null : depositAmount) : null,
+                has_registration_fee_credit: (activeTab === 'tournament' || activeTab === 'league') && hasRegistrationFee ? hasRegistrationFeeCredit : false,
+                free_agent_price: (activeTab === 'tournament' || activeTab === 'league') ? (freeAgentPrice === '' ? null : freeAgentPrice) : null,
+                has_free_agent_credit: (activeTab === 'tournament' || activeTab === 'league') ? hasFreeAgentCredit : false,
+                refund_cutoff_date: (activeTab === 'tournament' || activeTab === 'league') ? (refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null) : null,
+                min_teams: (activeTab === 'tournament' || activeTab === 'league') ? (minTeams === '' ? null : minTeams) : null,
+                max_teams: (activeTab === 'tournament' || activeTab === 'league') ? (maxTourneyTeams === '' ? null : maxTourneyTeams) : null,
+                min_players_per_team: (activeTab === 'tournament' || activeTab === 'league') ? (minPlayersPerTeam === '' ? null : minPlayersPerTeam) : null,
+                roster_lock_date: (activeTab === 'tournament' || activeTab === 'league') ? (rosterLockDate ? new Date(rosterLockDate).toISOString() : null) : null,
+                strict_waiver_required: (activeTab === 'tournament' || activeTab === 'league') ? strictWaiverRequired : false,
+                game_style: activeTab === 'tournament' ? gameStyle : null,
+                half_length: (activeTab === 'tournament' || activeTab === 'league') ? (halfLength === '' ? null : halfLength) : null,
+                halftime_length: (activeTab === 'tournament' || activeTab === 'league') ? (halftimeLength === '' ? null : halftimeLength) : null,
+                
+                // League only fields
+                earliest_game_start_time: activeTab === 'league' ? earliestGameStartTime || null : null,
+                latest_game_start_time: activeTab === 'league' ? latestGameStartTime || null : null,
+                field_names: activeTab === 'league' ? fieldNames : null,
+                min_games_guaranteed: activeTab === 'league' ? (minGamesGuaranteed === '' ? null : minGamesGuaranteed) : null,
+                teams_into_playoffs: activeTab === 'league' ? teamsIntoPlayoffs : null,
+                has_playoff_bye: activeTab === 'league' ? hasPlayoffBye : false,
+                break_between_games: activeTab === 'league' ? (breakBetweenGames === '' ? null : breakBetweenGames) : null,
+
+                prize_type: (activeTab === 'tournament' || activeTab === 'league') ? prizeType : null,
+                prize_pool_percentage: (activeTab === 'tournament' || activeTab === 'league') && prizeType === 'Percentage Pool (Scaling Pot)' ? (prizePoolPercentage === '' ? null : prizePoolPercentage) : null,
+                fixed_prize_amount: (activeTab === 'tournament' || activeTab === 'league') && prizeType === 'Fixed Cash Bounty' ? (fixedPrizeAmount === '' ? null : fixedPrizeAmount) : null,
+                reward: (activeTab === 'tournament' || activeTab === 'league') && prizeType === 'Physical Item' ? reward : null,
+                has_mvp_reward: (activeTab === 'tournament' || activeTab === 'league') ? (prizeType !== 'No Official Prize') : false,
             };
 
             if (action === 'create') {
@@ -269,16 +341,14 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
 
                 const { error: insertError } = await supabase.from('games').insert([{
                     ...payload,
-                    host_ids: [user.id] // Automatically add creator as a host
+                    host_ids: [user.id] 
                 }]);
                 if (insertError) throw insertError;
 
-                // Redirect done by successful submit
                 router.push('/admin');
                 router.refresh();
 
             } else {
-                // UPDATE action
                 if (!initialData?.id) throw new Error("Missing Game ID for edit.");
                 await updateGame(initialData.id, payload);
                 if (onSuccess) onSuccess();
@@ -292,7 +362,13 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
         }
     };
 
-    if (!isLoaded) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin" /> Loading Maps...</div>;
+    if (!isLoaded) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin" /> Loading...</div>;
+
+    const tabs = [
+        { id: 'standard', label: 'Standard Pickup' },
+        { id: 'tournament', label: 'Micro-Tournament' },
+        { id: 'league', label: 'Multi-Week League' }
+    ] as const;
 
     return (
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -302,157 +378,165 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                 </div>
             )}
 
-            <div className="space-y-6">
-                <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 text-pitch-accent">
-                        Event Type
-                    </label>
-                    <select
-                        value={eventType}
-                        onChange={(e) => {
-                            setEventType(e.target.value);
-                            if (e.target.value === 'league') setIsLeague(true);
-                            else setIsLeague(false);
-                        }}
-                        className="w-full bg-white/5 border border-pitch-accent/30 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
+            <div className="flex bg-white/5 p-1 rounded-sm border border-white/10 overflow-x-auto hide-scrollbar">
+                {tabs.map((tab) => (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex-1 min-w-[150px] py-3 text-sm font-bold uppercase tracking-wider transition-all rounded-sm ${
+                            activeTab === tab.id
+                                ? 'bg-[#cbff00] text-black shadow-lg'
+                                : 'text-pitch-secondary hover:text-white hover:bg-white/5'
+                        }`}
                     >
-                        <option value="standard">Standard Pickup</option>
-                        <option value="tournament">Micro-Tournament</option>
-                        <option value="league">Multi-Week League</option>
-                    </select>
-                </div>
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
 
-                <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2 mt-8">
-                    <Save className="w-5 h-5 text-pitch-accent" /> Match Info
-                </h3>
+            {activeTab === 'standard' && (
+                <div className="space-y-10 animate-in fade-in duration-300">
+                    
+                    <div className="space-y-6">
+                        <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2">
+                            <Save className="w-5 h-5 text-[#cbff00]" /> Match Info
+                        </h3>
 
-                {/* Title */}
-                <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                        Game Title
-                    </label>
-                    <input
-                        type="text"
-                        required
-                        placeholder="e.g. Friday Night Lights"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
-                    />
-                </div>
-
-                {/* Smart Location Input */}
-                <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-2">
-                        <MapPin className="w-3 h-3" /> Location
-                    </label>
-                    <div className="relative">
-                        <input
-                            value={value}
-                            onChange={(e) => {
-                                setValue(e.target.value);
-                                setLocationName(e.target.value);
-                            }}
-                            disabled={!ready}
-                            placeholder="Search places..."
-                            className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors pl-10"
-                        />
-                        <div className="absolute left-3 top-3.5 text-gray-500">
-                            <MapPin className="w-4 h-4" />
-                        </div>
-                        {coords.lat && <div className="absolute right-3 top-3.5 text-green-500" title="Coordinates Set">✓</div>}
-
-                        {/* Auto-complete Suggestions Dropdown */}
-                        {status === "OK" && (
-                            <ul className="absolute z-50 w-full bg-gray-900 border border-white/10 shadow-xl rounded-sm mt-1 max-h-60 overflow-auto">
-                                {data.map(({ place_id, description }) => (
-                                    <li
-                                        key={place_id}
-                                        onClick={() => handleSelectLocation(description)}
-                                        className="p-3 hover:bg-white/10 cursor-pointer text-sm text-gray-300 border-b border-white/5 last:border-0"
-                                    >
-                                        {description}
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                </div>
-
-                {/* Date / Time */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="col-span-1">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
-                            <Calendar className="w-3 h-3" /> Date
-                        </label>
-                        <input
-                            type="date"
-                            required
-                            value={gameDate}
-                            onChange={(e) => setGameDate(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors [color-scheme:dark]"
-                        />
-                    </div>
-                    <div className="col-span-1">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> Start
-                        </label>
-                        <input
-                            type="time"
-                            required
-                            value={startTime}
-                            onChange={(e) => setStartTime(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors [color-scheme:dark]"
-                        />
-                    </div>
-                    <div className="col-span-1">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> End
-                        </label>
-                        <input
-                            type="time"
-                            required
-                            value={endTime}
-                            onChange={(e) => setEndTime(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors [color-scheme:dark]"
-                        />
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                    {eventType === 'standard' ? (
                         <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary">
-                                    Price ($)
-                                </label>
-                                <button
-                                    type="button"
-                                    onClick={() => setPrice(0)}
-                                    className="text-[10px] bg-pitch-accent text-pitch-black px-2 py-0.5 rounded uppercase font-black hover:bg-white transition-colors"
-                                >
-                                    Make Free
-                                </button>
-                            </div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                Game Title
+                            </label>
                             <input
-                                type="number"
+                                type="text"
                                 required
-                                min="0"
-                                step="0.01"
-                                value={price}
-                                onChange={(e) => setPrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
                             />
                         </div>
-                    ) : (
+
                         <div>
-                            {/* Empty div to preserve grid spacing or just output a quick explainer */}
-                            <p className="text-xs text-gray-500 italic mt-6">Single-day price is disabled for multi-team formats. Entry fees are managed by Capacity restrictions below.</p>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                Event Rules & Description
+                            </label>
+                            <textarea
+                                value={rulesDescription}
+                                onChange={(e) => setRulesDescription(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                rows={4}
+                            />
                         </div>
-                    )}
-                    <div>
-                        {eventType === 'standard' && (
-                            <>
+
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-2">
+                                <MapPin className="w-3 h-3" /> Location
+                            </label>
+                            <div className="relative">
+                                <input
+                                    value={value}
+                                    onChange={(e) => {
+                                        setValue(e.target.value);
+                                        setLocationName(e.target.value);
+                                    }}
+                                    disabled={!ready}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors pl-10"
+                                />
+                                <div className="absolute left-3 top-3.5 text-gray-500">
+                                    <MapPin className="w-4 h-4" />
+                                </div>
+                                {status === "OK" && (
+                                    <ul className="absolute z-50 w-full bg-gray-900 border border-white/10 shadow-xl rounded-sm mt-1 max-h-60 overflow-auto">
+                                        {data.map(({ place_id, description: desc }) => (
+                                            <li
+                                                key={place_id}
+                                                onClick={() => handleSelectLocation(desc)}
+                                                className="p-3 hover:bg-white/10 cursor-pointer text-sm text-gray-300 border-b border-white/5 last:border-0"
+                                            >
+                                                {desc}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                Location Nick Name
+                            </label>
+                            <input
+                                type="text"
+                                value={locationNickname}
+                                onChange={(e) => setLocationNickname(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" /> Date
+                                </label>
+                                <input
+                                    type="date"
+                                    required
+                                    value={gameDate}
+                                    onChange={(e) => setGameDate(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" /> Start
+                                </label>
+                                <input
+                                    type="time"
+                                    required
+                                    value={startTime}
+                                    onChange={(e) => setStartTime(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" /> End
+                                </label>
+                                <input
+                                    type="time"
+                                    required
+                                    value={endTime}
+                                    onChange={(e) => setEndTime(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6">
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary">
+                                        Price ($)
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPrice(0)}
+                                        className="text-[10px] bg-[#cbff00] text-black px-2 py-0.5 rounded uppercase font-black hover:bg-white transition-colors"
+                                    >
+                                        Make Free
+                                    </button>
+                                </div>
+                                <input
+                                    type="number"
+                                    required
+                                    min="0"
+                                    step="0.01"
+                                    value={price}
+                                    onChange={(e) => setPrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                            </div>
+                            <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
                                     Max Players
                                 </label>
@@ -462,432 +546,1440 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                                     min="2"
                                     value={maxPlayers}
                                     onChange={(e) => setMaxPlayers(e.target.value === '' ? '' : parseInt(e.target.value))}
-                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
                                 />
-                            </>
-                        )}
-                        {(isLeague || eventType === 'tournament') && (
-                            <p className="text-xs text-gray-500 italic mt-6">Global player capacity and standard single-player price are disabled for multi-team events. Subscriptions will be managed securely through team capacities.</p>
-                        )}
-                    </div>
-                </div>
+                            </div>
+                        </div>
 
-                {price !== '' && price > 0 && (
-                    <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-sm">
-                        <h3 className="font-bold uppercase text-sm text-white flex items-center gap-2">
-                            <DollarSign className="w-4 h-4 text-green-500" /> Payment Methods
-                        </h3>
-                        <div className="flex gap-4 flex-wrap">
-                            {['venmo', 'zelle', 'stripe'].map(method => (
-                                <label key={method} className="flex items-center gap-2 cursor-pointer select-none bg-black/20 px-3 py-2 rounded border border-white/5 hover:border-white/20 transition-colors">
+                        <div className="grid grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Game Format
+                                </label>
+                                <select
+                                    value={gameFormatType}
+                                    onChange={(e) => setGameFormatType(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {['1 v 1', '2 v 2', '3 v 3', '4 v 4', '5 v 5', '6 v 6', '7 v 7', '8 v 8', '9 v 9', '10 v 10', '11 v 11'].map(format => (
+                                        <option key={format} value={format}>{format}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Match Style
+                                </label>
+                                <select
+                                    value={matchStyle}
+                                    onChange={(e) => setMatchStyle(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {['Full Length', 'King', 'Tourney'].map(style => (
+                                        <option key={style} value={style}>{style}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-sm">
+                            <h3 className="font-bold uppercase text-sm text-white flex items-center gap-2">
+                                <DollarSign className="w-4 h-4 text-[#cbff00]" /> Payment Methods
+                            </h3>
+                            <div className="flex gap-4 flex-wrap">
+                                {['venmo', 'zelle', 'stripe'].map(method => (
+                                    <label key={method} className="flex items-center gap-2 cursor-pointer select-none bg-black/20 px-3 py-2 rounded border border-white/5 hover:border-white/20 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={allowedPaymentMethods.includes(method)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) setAllowedPaymentMethods([...allowedPaymentMethods, method]);
+                                                else setAllowedPaymentMethods(allowedPaymentMethods.filter(m => m !== method));
+                                            }}
+                                            className="w-4 h-4 accent-[#cbff00] rounded"
+                                        />
+                                        <span className="uppercase text-xs font-bold">
+                                            {method === 'stripe' ? 'Credit Card (Stripe)' : method}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                            {allowedPaymentMethods.length === 0 && (
+                                <p className="text-red-500 text-xs italic">At least one method is required.</p>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col md:flex-row gap-6 items-start">
+                            <div className="flex-1 w-full">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Refunds
+                                </label>
+                                <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-sm w-full">
                                     <input
                                         type="checkbox"
-                                        checked={allowedPaymentMethods.includes(method)}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setAllowedPaymentMethods([...allowedPaymentMethods, method]);
-                                            } else {
-                                                setAllowedPaymentMethods(allowedPaymentMethods.filter(m => m !== method));
-                                            }
-                                        }}
-                                        className="w-4 h-4 accent-pitch-accent rounded"
+                                        id="isRefundable"
+                                        checked={isRefundable}
+                                        onChange={(e) => setIsRefundable(e.target.checked)}
+                                        className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer"
                                     />
-                                    <span className="uppercase text-xs font-bold">
-                                        {method === 'stripe' ? 'Credit Card (Stripe)' : method}
-                                    </span>
-                                </label>
-                            ))}
+                                    <label htmlFor="isRefundable" className="flex items-center gap-2 cursor-pointer select-none">
+                                        <span className="text-xl">💳</span>
+                                        <div>
+                                            <p className="font-bold uppercase text-sm text-white">Allow Player Refunds?</p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            {isRefundable && (
+                                <div className="flex-1 w-full animate-in fade-in slide-in-from-left-2">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                        Refund Cutoff (Hours Before)
+                                    </label>
+                                    <select
+                                        value={refundCutoffHours}
+                                        onChange={(e) => setRefundCutoffHours(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                        className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                    >
+                                        {[2, 6, 12, 24, 48, 72].map(hours => (
+                                            <option key={hours} value={hours}>{hours} Hours</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                         </div>
-                        {allowedPaymentMethods.length === 0 && (
-                            <p className="text-red-500 text-xs italic">At least one method is required.</p>
-                        )}
-                    </div>
-                )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-sm">
-                        <input
-                            type="checkbox"
-                            id="mvpReward"
-                            checked={hasMvpReward}
-                            onChange={(e) => setHasMvpReward(e.target.checked)}
-                            className="w-5 h-5 accent-pitch-accent rounded cursor-pointer"
-                        />
-                        <label htmlFor="mvpReward" className="flex items-center gap-2 cursor-pointer select-none">
-                            <span className="text-xl">🏆</span>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                                <p className="font-bold uppercase text-sm text-white">Prize Game?</p>
-                                <p className="text-xs text-pitch-secondary">MVP receives a Free Game Credit</p>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Surface Type
+                                </label>
+                                <select
+                                    value={surfaceType}
+                                    onChange={(e) => setSurfaceType(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {['Outdoor Turf', 'Grass', 'Indoor Court', 'Outdoor Court', 'Sand', 'Indoor Turf', 'Indoor Carpet'].map(surface => (
+                                        <option key={surface} value={surface}>{surface}</option>
+                                    ))}
+                                </select>
                             </div>
-                        </label>
-                    </div>
-
-                    <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-sm">
-                        <input
-                            type="checkbox"
-                            id="isRefundable"
-                            checked={isRefundable}
-                            onChange={(e) => setIsRefundable(e.target.checked)}
-                            className="w-5 h-5 accent-pitch-accent rounded cursor-pointer"
-                        />
-                        <label htmlFor="isRefundable" className="flex items-center gap-2 cursor-pointer select-none">
-                            <span className="text-xl">💳</span>
                             <div>
-                                <p className="font-bold uppercase text-sm text-white">Allow Player Refunds?</p>
-                                <p className="text-xs text-pitch-secondary">Players can drop out and auto-refund</p>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Amount of Fields
+                                </label>
+                                <select
+                                    value={amountOfFields}
+                                    onChange={(e) => setAmountOfFields(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {[1, 2, 3, 4, 5, 6].map(amt => (
+                                        <option key={amt} value={amt}>{amt}</option>
+                                    ))}
+                                </select>
                             </div>
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                        Surface Type
-                    </label>
-                    <select
-                        value={surfaceType}
-                        onChange={(e) => setSurfaceType(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
-                    >
-                        <option value="Turf">Turf</option>
-                        <option value="Grass">Grass</option>
-                        <option value="Indoor">Indoor Court</option>
-                    </select>
-                </div>
-                {/* Event Type select has moved to the top of the form */}
-            </div>
-
-            {(isLeague || eventType === 'tournament') && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 bg-blue-500/5 border border-blue-500/20 p-6 rounded-sm">
-                    <h3 className="text-xl font-bold uppercase italic border-b border-blue-500/20 pb-2 flex items-center gap-2 text-blue-400">
-                        <Trophy className="w-5 h-5" /> {isLeague ? 'Multi-Week League' : 'Micro-Tournament'} Operations
-                    </h3>
-
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Event Rules & Description</label>
-                        <textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder={`Detail your ${isLeague ? 'league' : 'micro-tournament'} format, rules, and expectations here.`}
-                            className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
-                            rows={4}
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {isLeague && (
                             <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Total Schedule Length (Weeks)</label>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Field Size
+                                </label>
+                                <select
+                                    value={fieldSize}
+                                    onChange={(e) => setFieldSize(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {['Small', 'Medium', 'Standard', 'Large', 'Full Pitch'].map(size => (
+                                        <option key={size} value={size}>{size}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-sm">
+                            <h3 className="font-bold uppercase text-sm text-white flex items-center gap-2">
+                                <span className="text-xl">👟</span> Allowed Shoe Types
+                            </h3>
+                            <div className="flex gap-4 flex-wrap">
+                                {['FG Cleats', 'SG Cleats', 'AG Cleats', 'Turf Shoes', 'Court Shoes'].map(shoe => (
+                                    <label key={shoe} className="flex items-center gap-2 cursor-pointer select-none bg-black/20 px-3 py-2 rounded border border-white/5 hover:border-white/20 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={shoeTypes.includes(shoe)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) setShoeTypes([...shoeTypes, shoe]);
+                                                else setShoeTypes(shoeTypes.filter(s => s !== shoe));
+                                            }}
+                                            className="w-4 h-4 accent-[#cbff00] rounded"
+                                        />
+                                        <span className="uppercase text-xs font-bold">{shoe}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center justify-between">
+                            <span className="flex items-center gap-2"><Users className="w-5 h-5 text-[#cbff00]" /> Team Config</span>
+                            
+                            <div className="flex items-center gap-2">
+                                <input 
+                                    type="number" 
+                                    min="1"
+                                    placeholder="Qty"
+                                    value={teamGeneratorCount}
+                                    onChange={(e) => setTeamGeneratorCount(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-16 bg-black/30 border border-white/10 rounded-sm p-1 text-sm text-center text-white focus:border-[#cbff00] outline-none"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={generateTeams}
+                                    className="text-xs flex items-center gap-1 bg-white/10 px-2 py-1.5 rounded hover:bg-white/20 transition-colors border border-white/5"
+                                >
+                                    Auto-Gen
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={addTeam}
+                                    className="text-xs flex items-center gap-1 bg-[#cbff00]/10 text-[#cbff00] border border-[#cbff00]/30 px-2 py-1.5 rounded hover:bg-[#cbff00] hover:text-black transition-colors font-bold"
+                                >
+                                    <Plus className="w-3 h-3" /> Add Team
+                                </button>
+                            </div>
+                        </h3>
+
+                        {teams.map((team, index) => (
+                            <div key={index} className="p-4 bg-white/5 border border-white/10 rounded-sm relative group">
+                                {teams.length > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeTeam(index)}
+                                        className="absolute top-2 right-2 text-red-500 hover:text-red-400 p-1 opacity-50 group-hover:opacity-100 transition-opacity"
+                                        title="Remove Team"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
+
+                                <div className="grid md:grid-cols-3 gap-4">
+                                    <div className="col-span-1">
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">
+                                            Team Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={team.name}
+                                            onChange={(e) => handleTeamChange(index, 'name', e.target.value)}
+                                            className="w-full bg-black/30 border border-white/10 rounded-sm p-2 text-sm text-white"
+                                        />
+                                    </div>
+                                    <div className="col-span-1">
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">
+                                            Bib Color
+                                        </label>
+                                        <select
+                                            value={team.color}
+                                            onChange={(e) => handleTeamChange(index, 'color', e.target.value)}
+                                            className="w-full bg-black/30 border border-white/10 rounded-sm p-2 text-sm text-white"
+                                        >
+                                            {COLORS.map(c => (
+                                                <option key={c.value} value={c.label} style={{ color: c.value === '#ffffff' ? '#000' : c.value }}>
+                                                    {c.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="col-span-1">
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">
+                                            Player Limit
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={team.limit}
+                                            onChange={(e) => handleTeamChange(index, 'limit', e.target.value === '' ? '' : parseInt(e.target.value))}
+                                            className="w-full bg-black/30 border border-white/10 rounded-sm p-2 text-sm text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                </div>
+            )}
+
+            {activeTab === 'tournament' && (
+                <div className="space-y-10 animate-in fade-in duration-300">
+                    <div className="space-y-6">
+                        <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2">
+                            <Trophy className="w-5 h-5 text-[#cbff00]" /> Micro-Tournament Configurator
+                        </h3>
+
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                Game Style
+                            </label>
+                            <select
+                                value={gameStyle}
+                                onChange={(e) => handleGameStyleChange(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                            >
+                                <option value="Group Stage/Playoffs">Group Stage/Playoffs</option>
+                                <option value="Bracket">Bracket</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                Tournament Title
+                            </label>
+                            <input
+                                type="text"
+                                required
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                Event Rules & Description
+                            </label>
+                            <textarea
+                                value={rulesDescription}
+                                onChange={(e) => setRulesDescription(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                rows={4}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-2">
+                                <MapPin className="w-3 h-3" /> Location
+                            </label>
+                            <div className="relative">
+                                <input
+                                    value={value}
+                                    onChange={(e) => {
+                                        setValue(e.target.value);
+                                        setLocationName(e.target.value);
+                                    }}
+                                    disabled={!ready}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors pl-10"
+                                />
+                                <div className="absolute left-3 top-3.5 text-gray-500">
+                                    <MapPin className="w-4 h-4" />
+                                </div>
+                                {status === "OK" && (
+                                    <ul className="absolute z-50 w-full bg-gray-900 border border-white/10 shadow-xl rounded-sm mt-1 max-h-60 overflow-auto">
+                                        {data.map(({ place_id, description: desc }) => (
+                                            <li
+                                                key={place_id}
+                                                onClick={() => handleSelectLocation(desc)}
+                                                className="p-3 hover:bg-white/10 cursor-pointer text-sm text-gray-300 border-b border-white/5 last:border-0"
+                                            >
+                                                {desc}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                Location Nick Name
+                            </label>
+                            <input
+                                type="text"
+                                value={locationNickname}
+                                onChange={(e) => setLocationNickname(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" /> Date
+                                </label>
+                                <input
+                                    type="date"
+                                    required
+                                    value={gameDate}
+                                    onChange={(e) => setGameDate(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" /> Start
+                                </label>
+                                <input
+                                    type="time"
+                                    required
+                                    value={startTime}
+                                    onChange={(e) => setStartTime(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" /> End
+                                </label>
+                                <input
+                                    type="time"
+                                    required
+                                    value={endTime}
+                                    onChange={(e) => setEndTime(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                        Total Team Fee ($)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="0"
+                                        step="0.01"
+                                        value={teamPrice}
+                                        onChange={(e) => setTeamPrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                        className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                    />
+                                </div>
+                                <div className="border border-white/10 p-4 rounded-sm bg-white/5 space-y-4">
+                                    <label className="flex items-center justify-between cursor-pointer group">
+                                        <span className="text-sm font-bold uppercase tracking-wider text-white group-hover:text-[#cbff00] transition-colors">Registration Fee?</span>
+                                        <input
+                                            type="checkbox"
+                                            checked={hasRegistrationFee}
+                                            onChange={(e) => setHasRegistrationFee(e.target.checked)}
+                                            className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer"
+                                        />
+                                    </label>
+                                    
+                                    {hasRegistrationFee && (
+                                        <div className="space-y-4 pt-2 border-t border-white/10 animate-in fade-in slide-in-from-top-2">
+                                            <div>
+                                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                                    Team Registration Fee ($)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    required
+                                                    min="0"
+                                                    step="0.01"
+                                                    value={depositAmount}
+                                                    onChange={(e) => setDepositAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                                    className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                                />
+                                            </div>
+                                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={hasRegistrationFeeCredit}
+                                                    onChange={(e) => setHasRegistrationFeeCredit(e.target.checked)}
+                                                    className="w-4 h-4 accent-[#cbff00] rounded cursor-pointer"
+                                                />
+                                                <span className="text-xs font-bold uppercase text-pitch-secondary">Registration Fee Credit?</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                        Free Agent Sign Up Fee ($)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="0"
+                                        step="0.01"
+                                        value={freeAgentPrice}
+                                        onChange={(e) => setFreeAgentPrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                        className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                    />
+                                </div>
+                                <div className="border border-white/10 p-4 rounded-sm bg-white/5 pt-[22px] pb-[#22px]">
+                                    <br/>
+                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={hasFreeAgentCredit}
+                                            onChange={(e) => setHasFreeAgentCredit(e.target.checked)}
+                                            className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer"
+                                        />
+                                        <span className="text-sm font-bold uppercase tracking-wider text-white">Free Agent Credit?</span>
+                                    </label>
+                                    <br/><br/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Refund Cutoff Date
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={refundCutoffDate}
+                                    onChange={(e) => setRefundCutoffDate(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                            <div className="w-full h-full flex items-center pt-6">
+                                <label className="flex items-center gap-2 select-none opacity-50 cursor-not-allowed w-full p-3 bg-black/20 border border-white/5 rounded-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={true}
+                                        disabled
+                                        className="w-5 h-5 accent-[#cbff00] rounded"
+                                    />
+                                    <span className="text-sm text-xl mr-1">💳</span>
+                                    <span className="font-bold uppercase text-sm text-white">Allow Individual Player Refunds?</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-sm">
+                            <h3 className="font-bold uppercase text-sm text-white flex items-center gap-2">
+                                <DollarSign className="w-4 h-4 text-[#cbff00]" /> Payment Methods
+                            </h3>
+                            <div className="flex gap-4 flex-wrap">
+                                {['venmo', 'zelle', 'stripe'].map(method => (
+                                    <label key={method} className={`flex items-center gap-2 select-none bg-black/20 px-3 py-2 rounded border border-white/5 transition-colors ${method === 'stripe' ? 'opacity-50 cursor-not-allowed border-white/20' : 'opacity-30 cursor-not-allowed'}`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={method === 'stripe'}
+                                            disabled
+                                            className="w-4 h-4 accent-[#cbff00] rounded"
+                                        />
+                                        <span className="uppercase text-xs font-bold">
+                                            {method === 'stripe' ? 'Credit Card (Stripe)' : method}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Half Length (Min)
+                                </label>
                                 <input
                                     type="number"
                                     min="1"
-                                    value={totalWeeks}
-                                    onChange={(e) => setTotalWeeks(e.target.value === '' ? '' : parseInt(e.target.value))}
-                                    placeholder="e.g. 10"
-                                    className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                    required
+                                    value={halfLength}
+                                    onChange={(e) => setHalfLength(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
                                 />
                             </div>
-                        )}
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Amount of Fields</label>
-                            <input
-                                type="number"
-                                min="1"
-                                value={amountOfFields}
-                                onChange={(e) => setAmountOfFields(e.target.value === '' ? '' : parseInt(e.target.value))}
-                                placeholder="e.g. 2"
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                            />
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Halftime Length (Min)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    required
+                                    value={halftimeLength}
+                                    onChange={(e) => setHalftimeLength(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                            </div>
+                            <div className="pt-6">
+                                <label className="flex items-center gap-2 select-none opacity-50 cursor-not-allowed w-full p-3 bg-black/20 border border-white/5 rounded-sm">
+                                    <span className="text-xl">⏱️</span>
+                                    <span className="font-bold uppercase text-sm text-white flex-1 text-center">
+                                        Total: {(typeof halfLength === 'number' ? halfLength : 0) * 2 + (typeof halftimeLength === 'number' ? halftimeLength : 0)} Min
+                                    </span>
+                                </label>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-3 p-4 bg-black/20 border border-white/10 rounded-sm mt-6">
-                            <input
-                                type="checkbox"
-                                id="playoffIncluded"
-                                checked={isPlayoffIncluded}
-                                onChange={(e) => setIsPlayoffIncluded(e.target.checked)}
-                                className="w-5 h-5 accent-blue-500 rounded cursor-pointer"
-                            />
-                            <label htmlFor="playoffIncluded" className="flex items-center gap-2 cursor-pointer select-none">
-                                <div>
-                                    <p className="font-bold uppercase text-sm text-white">Includes Playoffs?</p>
-                                    <p className="text-xs text-pitch-secondary">Are the final games knockout phase?</p>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-green-400 mb-2">Total Team Fee ($)</label>
-                            <input
-                                type="number"
-                                min="0" step="0.01"
-                                value={teamRosterFee}
-                                onChange={(e) => setTeamRosterFee(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                                placeholder="e.g. 1000.00"
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-green-500 transition-colors"
-                            />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Minimum Teams
+                                </label>
+                                <select
+                                    required
+                                    value={minTeams}
+                                    onChange={(e) => setMinTeams(Number(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {minTeamOptions.map(opt => (
+                                        <option key={opt} value={opt}>{opt} Teams</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Maximum Teams
+                                </label>
+                                <select
+                                    required
+                                    value={maxTourneyTeams}
+                                    onChange={(e) => setMaxTourneyTeams(Number(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {maxTeamOptions.map(opt => (
+                                        <option 
+                                            key={opt} 
+                                            value={opt} 
+                                            disabled={opt < Number(minTeams)}
+                                        >
+                                            {opt} Teams
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Min Players (Per Team)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    required
+                                    value={minPlayersPerTeam}
+                                    onChange={(e) => setMinPlayersPerTeam(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                            </div>
                         </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-green-400 mb-2">Team Registration Fee ($)</label>
-                            <input
-                                type="number"
-                                min="0" step="0.01"
-                                value={depositAmount}
-                                onChange={(e) => setDepositAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                                placeholder="e.g. 150.00"
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-green-500 transition-colors"
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-green-400 mb-2">Free Agent Sign Up Fee ($)</label>
-                            <input
-                                type="number"
-                                min="0" step="0.01"
-                                value={freeAgentPrice}
-                                onChange={(e) => setFreeAgentPrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                                placeholder="e.g. 85.00"
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-green-500 transition-colors"
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Minimum Players (Per Team)</label>
-                            <input
-                                type="number"
-                                min="1"
-                                value={minPlayersPerTeam}
-                                onChange={(e) => setMinPlayersPerTeam(e.target.value === '' ? '' : parseInt(e.target.value))}
-                                placeholder="e.g. 11 (For Suggested Splits)"
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Minimum Teams</label>
-                            <input
-                                type="number"
-                                min="2"
-                                value={minTeams}
-                                onChange={(e) => setMinTeams(e.target.value === '' ? '' : parseInt(e.target.value))}
-                                placeholder="e.g. 6"
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Maximum Teams</label>
-                            <input
-                                type="number"
-                                min="2"
-                                value={maxTeams}
-                                onChange={(e) => setMaxTeams(e.target.value === '' ? '' : parseInt(e.target.value))}
-                                placeholder="e.g. 12"
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                            />
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Refund Cutoff Date</label>
-                            <input
-                                type="datetime-local"
-                                value={refundCutoffDate}
-                                onChange={(e) => setRefundCutoffDate(e.target.value)}
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors [color-scheme:dark]"
-                            />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Roster Lock Date
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={rosterLockDate}
+                                    onChange={(e) => setRosterLockDate(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Game Format
+                                </label>
+                                <select
+                                    value={gameFormatType}
+                                    onChange={(e) => setGameFormatType(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {['1 v 1', '2 v 2', '3 v 3', '4 v 4', '5 v 5', '6 v 6', '7 v 7', '8 v 8', '9 v 9', '10 v 10', '11 v 11'].map(format => (
+                                        <option key={format} value={format}>{format}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Roster Lock Date</label>
-                            <input
-                                type="datetime-local"
-                                value={rosterLockDate}
-                                onChange={(e) => setRosterLockDate(e.target.value)}
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors [color-scheme:dark]"
-                            />
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="flex items-center gap-3 p-4 bg-black/20 border border-white/10 rounded-sm">
+                        <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-sm w-full">
                             <input
                                 type="checkbox"
                                 id="strictWaiver"
                                 checked={strictWaiverRequired}
                                 onChange={(e) => setStrictWaiverRequired(e.target.checked)}
-                                className="w-5 h-5 accent-pitch-accent rounded cursor-pointer"
+                                className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer"
                             />
                             <label htmlFor="strictWaiver" className="flex items-center gap-2 cursor-pointer select-none">
+                                <span className="text-xl">📋</span>
                                 <div>
-                                    <p className="font-bold uppercase text-sm text-white">Strict Event Waiver</p>
-                                    <p className="text-xs text-pitch-secondary">Require localized signing</p>
+                                    <p className="font-bold uppercase text-sm text-white">Strict event waiver (No Play without signature)</p>
                                 </div>
                             </label>
                         </div>
 
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Mercy Rule Cap (GD limit)</label>
-                            <input
-                                type="number"
-                                min="1"
-                                value={mercyRuleCap}
-                                onChange={(e) => setMercyRuleCap(e.target.value === '' ? '' : parseInt(e.target.value))}
-                                placeholder="e.g. 5"
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
-                            />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Surface Type
+                                </label>
+                                <select
+                                    value={surfaceType}
+                                    onChange={(e) => setSurfaceType(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {['Outdoor Turf', 'Grass', 'Indoor Court', 'Outdoor Court', 'Sand', 'Indoor Turf', 'Indoor Carpet'].map(surface => (
+                                        <option key={surface} value={surface}>{surface}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Amount of Fields
+                                </label>
+                                <select
+                                    value={amountOfFields}
+                                    onChange={(e) => setAmountOfFields(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {[1, 2, 3, 4, 5, 6].map(amt => (
+                                        <option key={amt} value={amt}>{amt}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Field Size
+                                </label>
+                                <select
+                                    value={fieldSize}
+                                    onChange={(e) => setFieldSize(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {['Small', 'Medium', 'Standard', 'Large', 'Full Pitch'].map(size => (
+                                        <option key={size} value={size}>{size}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
+
+                        <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-sm">
+                            <h3 className="font-bold uppercase text-sm text-white flex items-center gap-2">
+                                <span className="text-xl">👟</span> Allowed Shoe Types
+                            </h3>
+                            <div className="flex gap-4 flex-wrap">
+                                {['FG Cleats', 'SG Cleats', 'AG Cleats', 'Turf Shoes', 'Court Shoes'].map(shoe => (
+                                    <label key={shoe} className="flex items-center gap-2 cursor-pointer select-none bg-black/20 px-3 py-2 rounded border border-white/5 hover:border-white/20 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={shoeTypes.includes(shoe)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) setShoeTypes([...shoeTypes, shoe]);
+                                                else setShoeTypes(shoeTypes.filter(s => s !== shoe));
+                                            }}
+                                            className="w-4 h-4 accent-[#cbff00] rounded"
+                                        />
+                                        <span className="uppercase text-xs font-bold">{shoe}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2">
+                            <Trophy className="w-5 h-5 text-[#cbff00]" /> Prize Structure
+                        </h3>
+                        
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                Prize Format Logic
+                            </label>
+                            <select
+                                value={prizeType}
+                                onChange={(e) => setPrizeType(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                            >
+                                <option value="No Official Prize">No Official Prize</option>
+                                <option value="Percentage Pool (Scaling Pot)">Percentage Pool (Scaling Pot)</option>
+                                <option value="Fixed Cash Bounty">Fixed Cash Bounty</option>
+                                <option value="Physical Item">Physical Item</option>
+                            </select>
+                        </div>
+
+                        {prizeType === 'Percentage Pool (Scaling Pot)' && (
+                            <div className="animate-in fade-in slide-in-from-top-2">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Prize Pool Percentage (%)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    required
+                                    value={prizePoolPercentage}
+                                    onChange={(e) => setPrizePoolPercentage(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                                <p className="text-xs text-pitch-secondary mt-2 italic">What percentage of the total registration pot goes to the winner?</p>
+                            </div>
+                        )}
+
+                        {prizeType === 'Fixed Cash Bounty' && (
+                            <div className="animate-in fade-in slide-in-from-top-2">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Fixed Prize Amount ($)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    required
+                                    value={fixedPrizeAmount}
+                                    onChange={(e) => setFixedPrizeAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                                <p className="text-xs text-pitch-secondary mt-2 italic">A guaranteed payout regardless of team count.</p>
+                            </div>
+                        )}
+
+                        {prizeType === 'Physical Item' && (
+                            <div className="animate-in fade-in slide-in-from-top-2">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Reward Details
+                                </label>
+                                <textarea
+                                    required
+                                    value={reward}
+                                    onChange={(e) => setReward(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                    placeholder="e.g. Free Jerseys, Trophy, Sponsor Swag Box"
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
 
-            {(eventType === 'tournament' || eventType === 'league') && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 bg-yellow-500/5 border border-yellow-500/20 p-6 rounded-sm">
-                    <h3 className="text-xl font-bold uppercase italic border-b border-yellow-500/20 pb-2 flex items-center gap-2 text-yellow-500">
-                        <Trophy className="w-5 h-5" /> Prize Structure
-                    </h3>
+            {activeTab === 'league' && (
+                <div className="space-y-10 animate-in fade-in duration-300">
+                    <div className="space-y-6">
+                        <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2">
+                            <Trophy className="w-5 h-5 text-[#cbff00]" /> Multi-Week League Configurator
+                        </h3>
 
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-yellow-400 mb-2">Prize Format</label>
-                        <select
-                            value={prizeType}
-                            onChange={(e) => {
-                                setPrizeType(e.target.value);
-                                // Clear irrelevant inputs on switch
-                                if (e.target.value !== 'pool') setPrizePoolPercentage('');
-                                if (e.target.value !== 'fixed') setFixedPrizeAmount('');
-                                if (e.target.value !== 'physical') setReward('');
-                            }}
-                            className="w-full bg-black/40 border border-yellow-500/30 rounded-sm p-3 text-white focus:outline-none focus:border-yellow-500 transition-colors"
-                        >
-                            <option value="none">No Official Prize</option>
-                            <option value="pool">Percentage Pool (Scaling Pot)</option>
-                            <option value="fixed">Fixed Cash Bounty</option>
-                            <option value="physical">Physical Item / Trophy</option>
-                        </select>
-                    </div>
-
-                    {prizeType === 'pool' && (
-                        <div className="animate-in fade-in slide-in-from-top-2">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Percentage of Total Revenue Pot (%)</label>
-                            <input
-                                type="number"
-                                min="1" max="100"
-                                value={prizePoolPercentage}
-                                onChange={(e) => setPrizePoolPercentage(e.target.value === '' ? '' : parseInt(e.target.value))}
-                                placeholder="e.g. 20 for a 20% pot"
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
-                            />
-                            <p className="text-xs text-gray-500 mt-2 italic">Automatically calculates from (Players Joined * Game Price).</p>
-                        </div>
-                    )}
-
-                    {prizeType === 'fixed' && (
-                        <div className="animate-in fade-in slide-in-from-top-2">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Fixed Cash Bounty Amount ($)</label>
-                            <input
-                                type="number"
-                                min="1" step="0.01"
-                                value={fixedPrizeAmount}
-                                onChange={(e) => setFixedPrizeAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                                placeholder="e.g. 500.00"
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
-                            />
-                        </div>
-                    )}
-
-                    {prizeType === 'physical' && (
-                        <div className="animate-in fade-in slide-in-from-top-2">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Describe the Reward</label>
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                League Title
+                            </label>
                             <input
                                 type="text"
-                                value={reward}
-                                onChange={(e) => setReward(e.target.value)}
-                                placeholder="e.g. Branded Championship Jerseys & Trophy"
-                                className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
+                                required
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
                             />
                         </div>
-                    )}
-                </div>
-            )}
 
-            {eventType !== 'league' && eventType !== 'tournament' && (
-                <div className="space-y-6">
-                    <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2 justify-between">
-                        <span className="flex items-center gap-2"><Users className="w-5 h-5 text-pitch-accent" /> Team Config</span>
-                        <button
-                            type="button"
-                            onClick={addTeam}
-                            className="text-xs flex items-center gap-1 bg-white/10 px-2 py-1 rounded hover:bg-white/20 transition-colors"
-                        >
-                            <Plus className="w-3 h-3" /> Add Team
-                        </button>
-                    </h3>
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                Event Rules & Description
+                            </label>
+                            <textarea
+                                value={rulesDescription}
+                                onChange={(e) => setRulesDescription(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                rows={4}
+                            />
+                        </div>
 
-                    {teams.map((team, index) => (
-                        <div key={index} className="p-4 bg-white/5 border border-white/10 rounded-sm relative">
-                            {teams.length > 1 && (
-                                <button
-                                    type="button"
-                                    onClick={() => removeTeam(index)}
-                                    className="absolute top-2 right-2 text-red-500 hover:text-red-400 p-1"
-                                    title="Remove Team"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            )}
-
-                            <div className="grid md:grid-cols-3 gap-4">
-                                <div className="col-span-1">
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">
-                                        Team Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={team.name}
-                                        onChange={(e) => handleTeamChange(index, 'name', e.target.value)}
-                                        className="w-full bg-black/30 border border-white/10 rounded-sm p-2 text-sm text-white"
-                                    />
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-2">
+                                <MapPin className="w-3 h-3" /> Location
+                            </label>
+                            <div className="relative">
+                                <input
+                                    value={value}
+                                    onChange={(e) => {
+                                        setValue(e.target.value);
+                                        setLocationName(e.target.value);
+                                    }}
+                                    disabled={!ready}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors pl-10"
+                                />
+                                <div className="absolute left-3 top-3.5 text-gray-500">
+                                    <MapPin className="w-4 h-4" />
                                 </div>
-                                <div className="col-span-1">
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">
-                                        Bib Color
-                                    </label>
-                                    <select
-                                        value={team.color}
-                                        onChange={(e) => handleTeamChange(index, 'color', e.target.value)}
-                                        className="w-full bg-black/30 border border-white/10 rounded-sm p-2 text-sm text-white"
-                                    >
-                                        {COLORS.map(c => (
-                                            <option key={c.value} value={c.label} style={{ color: c.value === '#ffffff' ? '#000' : c.value }}>
-                                                {c.label}
-                                            </option>
+                                {status === "OK" && (
+                                    <ul className="absolute z-50 w-full bg-gray-900 border border-white/10 shadow-xl rounded-sm mt-1 max-h-60 overflow-auto">
+                                        {data.map(({ place_id, description: desc }) => (
+                                            <li
+                                                key={place_id}
+                                                onClick={() => handleSelectLocation(desc)}
+                                                className="p-3 hover:bg-white/10 cursor-pointer text-sm text-gray-300 border-b border-white/5 last:border-0"
+                                            >
+                                                {desc}
+                                            </li>
                                         ))}
-                                    </select>
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                Location Nick Name
+                            </label>
+                            <input
+                                type="text"
+                                value={locationNickname}
+                                onChange={(e) => setLocationNickname(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" /> Start Date
+                                </label>
+                                <input
+                                    type="date"
+                                    required
+                                    value={gameDate}
+                                    onChange={(e) => setGameDate(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" /> Earliest Game Start Time
+                                </label>
+                                <input
+                                    type="time"
+                                    required
+                                    value={earliestGameStartTime}
+                                    onChange={(e) => setEarliestGameStartTime(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" /> Latest Game Start Time
+                                </label>
+                                <input
+                                    type="time"
+                                    required
+                                    value={latestGameStartTime}
+                                    onChange={(e) => setLatestGameStartTime(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Amount of Fields
+                                </label>
+                                <select
+                                    value={amountOfFields}
+                                    onChange={(e) => {
+                                        const newAmt = e.target.value === '' ? '' : parseInt(e.target.value);
+                                        setAmountOfFields(newAmt);
+                                        if (typeof newAmt === 'number') {
+                                            setFieldNames(prev => {
+                                                const next = [...prev];
+                                                while (next.length < newAmt) next.push('');
+                                                return next.slice(0, newAmt);
+                                            });
+                                        }
+                                    }}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {[1, 2, 3, 4, 5, 6].map(amt => (
+                                        <option key={amt} value={amt}>{amt}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Field Size
+                                </label>
+                                <select
+                                    value={fieldSize}
+                                    onChange={(e) => setFieldSize(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {['Small', 'Medium', 'Standard', 'Large', 'Full Pitch'].map(size => (
+                                        <option key={size} value={size}>{size}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        {fieldNames.length > 0 && typeof amountOfFields === 'number' && (
+                            <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-sm">
+                                <h3 className="font-bold uppercase text-sm text-white border-b border-white/10 pb-2">Field Names</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {fieldNames.map((name, index) => (
+                                        <div key={index}>
+                                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                                Field {index + 1}
+                                            </label>
+                                            <input
+                                                type="text"
+                                                required
+                                                placeholder={`e.g. Court ${index + 1}`}
+                                                value={name}
+                                                onChange={(e) => {
+                                                    const updatedNames = [...fieldNames];
+                                                    updatedNames[index] = e.target.value;
+                                                    setFieldNames(updatedNames);
+                                                }}
+                                                className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                            />
+                                        </div>
+                                    ))}
                                 </div>
-                                <div className="col-span-1">
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">
-                                        Limit
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                        Total Team Fee ($)
                                     </label>
                                     <input
                                         type="number"
-                                        min="1"
-                                        value={team.limit}
-                                        onChange={(e) => handleTeamChange(index, 'limit', e.target.value === '' ? '' : parseInt(e.target.value))}
-                                        className="w-full bg-black/30 border border-white/10 rounded-sm p-2 text-sm text-white"
+                                        required
+                                        min="0"
+                                        step="0.01"
+                                        value={teamPrice}
+                                        onChange={(e) => setTeamPrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                        className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
                                     />
+                                </div>
+                                <div className="border border-white/10 p-4 rounded-sm bg-white/5 space-y-4">
+                                    <label className="flex items-center justify-between cursor-pointer group">
+                                        <span className="text-sm font-bold uppercase tracking-wider text-white group-hover:text-[#cbff00] transition-colors">Registration Fee?</span>
+                                        <input
+                                            type="checkbox"
+                                            checked={hasRegistrationFee}
+                                            onChange={(e) => setHasRegistrationFee(e.target.checked)}
+                                            className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer"
+                                        />
+                                    </label>
+                                    
+                                    {hasRegistrationFee && (
+                                        <div className="space-y-4 pt-2 border-t border-white/10 animate-in fade-in slide-in-from-top-2">
+                                            <div>
+                                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                                    Team Registration Fee ($)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    required
+                                                    min="0"
+                                                    step="0.01"
+                                                    value={depositAmount}
+                                                    onChange={(e) => setDepositAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                                    className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                                />
+                                            </div>
+                                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={hasRegistrationFeeCredit}
+                                                    onChange={(e) => setHasRegistrationFeeCredit(e.target.checked)}
+                                                    className="w-4 h-4 accent-[#cbff00] rounded cursor-pointer"
+                                                />
+                                                <span className="text-xs font-bold uppercase text-pitch-secondary">Registration Fee Credit?</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                        Free Agent Sign Up Fee ($)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="0"
+                                        step="0.01"
+                                        value={freeAgentPrice}
+                                        onChange={(e) => setFreeAgentPrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                        className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                    />
+                                </div>
+                                <div className="border border-white/10 p-4 rounded-sm bg-white/5 pt-[22px] pb-[#22px]">
+                                    <br/>
+                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={hasFreeAgentCredit}
+                                            onChange={(e) => setHasFreeAgentCredit(e.target.checked)}
+                                            className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer"
+                                        />
+                                        <span className="text-sm font-bold uppercase tracking-wider text-white">Free Agent Credit?</span>
+                                    </label>
+                                    <br/><br/>
                                 </div>
                             </div>
                         </div>
-                    ))}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Refund Cutoff Date
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={refundCutoffDate}
+                                    onChange={(e) => setRefundCutoffDate(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                            <div className="w-full h-full flex items-center pt-6">
+                                <label className="flex items-center gap-2 select-none opacity-50 cursor-not-allowed w-full p-3 bg-black/20 border border-white/5 rounded-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={true}
+                                        disabled
+                                        className="w-5 h-5 accent-[#cbff00] rounded"
+                                    />
+                                    <span className="text-sm text-xl mr-1">💳</span>
+                                    <span className="font-bold uppercase text-sm text-white">Allow Individual Player Refunds?</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-sm">
+                            <h3 className="font-bold uppercase text-sm text-white flex items-center gap-2">
+                                <DollarSign className="w-4 h-4 text-[#cbff00]" /> Payment Methods
+                            </h3>
+                            <div className="flex gap-4 flex-wrap">
+                                {['venmo', 'zelle', 'stripe'].map(method => (
+                                    <label key={method} className={`flex items-center gap-2 select-none bg-black/20 px-3 py-2 rounded border border-white/5 transition-colors ${method === 'stripe' ? 'opacity-50 cursor-not-allowed border-white/20' : 'opacity-30 cursor-not-allowed'}`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={method === 'stripe'}
+                                            disabled
+                                            className="w-4 h-4 accent-[#cbff00] rounded"
+                                        />
+                                        <span className="uppercase text-xs font-bold">
+                                            {method === 'stripe' ? 'Credit Card (Stripe)' : method}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Minimum Teams
+                                </label>
+                                <select
+                                    required
+                                    value={minTeams}
+                                    onChange={(e) => setMinTeams(Number(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {groupStageOptions.map(opt => (
+                                        <option key={opt} value={opt}>{opt} Teams</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Maximum Teams
+                                </label>
+                                <select
+                                    required
+                                    value={maxTourneyTeams}
+                                    onChange={(e) => setMaxTourneyTeams(Number(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {maxGroupStageOptions.map(opt => (
+                                        <option 
+                                            key={opt} 
+                                            value={opt} 
+                                            disabled={opt < Number(minTeams)}
+                                        >
+                                            {opt} Teams
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Minimum Games Guaranteed
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    required
+                                    value={minGamesGuaranteed}
+                                    onChange={(e) => setMinGamesGuaranteed(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                            </div>
+                            <div className="border border-white/10 p-4 rounded-sm bg-white/5 space-y-4">
+                                <label className="flex items-center gap-2 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={hasPlayoffBye}
+                                        onChange={(e) => setHasPlayoffBye(e.target.checked)}
+                                        className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer"
+                                    />
+                                    <span className="text-sm font-bold uppercase tracking-wider text-white">First Place Bye</span>
+                                </label>
+                                
+                                <div className="pt-2 border-t border-white/10">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                        Teams into Playoffs
+                                    </label>
+                                    <select
+                                        required
+                                        value={teamsIntoPlayoffs}
+                                        onChange={(e) => setTeamsIntoPlayoffs(Number(e.target.value))}
+                                        className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                    >
+                                        {playoffOptions.map(opt => (
+                                            <option key={opt} value={opt}>{opt} Teams</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Half Length (Min)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    required
+                                    value={halfLength}
+                                    onChange={(e) => setHalfLength(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Halftime Length (Min)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    required
+                                    value={halftimeLength}
+                                    onChange={(e) => setHalftimeLength(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                            </div>
+                            <div className="pt-6">
+                                <label className="flex items-center gap-2 select-none opacity-50 cursor-not-allowed w-full p-3 bg-black/20 border border-white/5 rounded-sm">
+                                    <span className="text-xl">⏱️</span>
+                                    <span className="font-bold uppercase text-sm text-white flex-1 text-center">
+                                        Total: {(typeof halfLength === 'number' ? halfLength : 0) * 2 + (typeof halftimeLength === 'number' ? halftimeLength : 0)} Min
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Break Between Games (Min)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    required
+                                    value={breakBetweenGames}
+                                    onChange={(e) => setBreakBetweenGames(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Min Players (Per Team)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    required
+                                    value={minPlayersPerTeam}
+                                    onChange={(e) => setMinPlayersPerTeam(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Roster Lock Date
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={rosterLockDate}
+                                    onChange={(e) => setRosterLockDate(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Game Format
+                                </label>
+                                <select
+                                    value={gameFormatType}
+                                    onChange={(e) => setGameFormatType(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {['1 v 1', '2 v 2', '3 v 3', '4 v 4', '5 v 5', '6 v 6', '7 v 7', '8 v 8', '9 v 9', '10 v 10', '11 v 11'].map(format => (
+                                        <option key={format} value={format}>{format}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-sm w-full">
+                            <input
+                                type="checkbox"
+                                id="strictWaiverLeague"
+                                checked={strictWaiverRequired}
+                                onChange={(e) => setStrictWaiverRequired(e.target.checked)}
+                                className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer"
+                            />
+                            <label htmlFor="strictWaiverLeague" className="flex items-center gap-2 cursor-pointer select-none">
+                                <span className="text-xl">📋</span>
+                                <div>
+                                    <p className="font-bold uppercase text-sm text-white">Strict event waiver (No Play without signature)</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Surface Type
+                                </label>
+                                <select
+                                    value={surfaceType}
+                                    onChange={(e) => setSurfaceType(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                >
+                                    {['Outdoor Turf', 'Grass', 'Indoor Court', 'Outdoor Court', 'Sand', 'Indoor Turf', 'Indoor Carpet'].map(surface => (
+                                        <option key={surface} value={surface}>{surface}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <div className="space-y-4 pt-1">
+                                    <h3 className="font-bold uppercase text-sm text-white flex items-center gap-2">
+                                        <span className="text-xl">👟</span> Allowed Shoe Types
+                                    </h3>
+                                    <div className="flex gap-4 flex-wrap">
+                                        {['FG Cleats', 'SG Cleats', 'AG Cleats', 'Turf Shoes', 'Court Shoes'].map(shoe => (
+                                            <label key={shoe} className="flex items-center gap-2 cursor-pointer select-none bg-black/20 px-3 py-2 rounded border border-white/5 hover:border-white/20 transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={shoeTypes.includes(shoe)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) setShoeTypes([...shoeTypes, shoe]);
+                                                        else setShoeTypes(shoeTypes.filter(s => s !== shoe));
+                                                    }}
+                                                    className="w-4 h-4 accent-[#cbff00] rounded"
+                                                />
+                                                <span className="uppercase text-xs font-bold">{shoe}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2">
+                            <Trophy className="w-5 h-5 text-[#cbff00]" /> Prize Structure
+                        </h3>
+                        
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                Prize Format Logic
+                            </label>
+                            <select
+                                value={prizeType}
+                                onChange={(e) => setPrizeType(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                            >
+                                <option value="No Official Prize">No Official Prize</option>
+                                <option value="Percentage Pool (Scaling Pot)">Percentage Pool (Scaling Pot)</option>
+                                <option value="Fixed Cash Bounty">Fixed Cash Bounty</option>
+                                <option value="Physical Item">Physical Item</option>
+                            </select>
+                        </div>
+
+                        {prizeType === 'Percentage Pool (Scaling Pot)' && (
+                            <div className="animate-in fade-in slide-in-from-top-2">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Prize Pool Percentage (%)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    required
+                                    value={prizePoolPercentage}
+                                    onChange={(e) => setPrizePoolPercentage(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                                <p className="text-xs text-pitch-secondary mt-2 italic">What percentage of the total registration pot goes to the winner?</p>
+                            </div>
+                        )}
+
+                        {prizeType === 'Fixed Cash Bounty' && (
+                            <div className="animate-in fade-in slide-in-from-top-2">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Fixed Prize Amount ($)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    required
+                                    value={fixedPrizeAmount}
+                                    onChange={(e) => setFixedPrizeAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                                <p className="text-xs text-pitch-secondary mt-2 italic">A guaranteed payout regardless of team count.</p>
+                            </div>
+                        )}
+
+                        {prizeType === 'Physical Item' && (
+                            <div className="animate-in fade-in slide-in-from-top-2">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Reward Details
+                                </label>
+                                <textarea
+                                    required
+                                    value={reward}
+                                    onChange={(e) => setReward(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                    placeholder="e.g. Free Jerseys, Trophy, Sponsor Swag Box"
+                                />
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
             <button
                 type="submit"
                 disabled={loading || (action === 'create' && !isLoaded)}
-                className="w-full py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-wider rounded-sm hover:bg-white transition-colors flex items-center justify-center gap-2"
+                className="w-full py-4 bg-[#cbff00] text-black font-black uppercase tracking-wider rounded-sm hover:bg-white transition-colors flex items-center justify-center gap-2 mt-8"
             >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> {action === 'create' ? 'Create Match' : 'Save Changes'}</>}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin text-black" /> : <><Save className="w-5 h-5 text-black" /> {action === 'create' ? 'Create Match' : 'Save Changes'}</>}
             </button>
         </form>
     );

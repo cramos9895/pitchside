@@ -123,9 +123,12 @@ const mapOptions = {
     ]
 };
 
+const LIBRARIES: ("places")[] = ["places"];
+
 export function GameMap({ latitude, longitude, locationName }: GameMapProps) {
     const { isLoaded } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+        libraries: LIBRARIES,
     });
 
     const center = useMemo(() => ({ lat: latitude, lng: longitude }), [latitude, longitude]);

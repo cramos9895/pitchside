@@ -13,27 +13,57 @@ export async function updateGame(gameId: string, formData: any) {
         throw new Error('Unauthorized');
     }
 
-    // 2. Admin Check (Optional but recommended, relying on RLS mainly but good to have explicit check if needed)
-    // Assuming RLS handles "Authenticated users can update games" as per schema.sql
-
-    // 3. Update
+    // 3. Update with new fields included
     const { error } = await supabase
         .from('games')
         .update({
             title: formData.title,
+            rules_description: formData.rules_description,
             location: formData.location,
+            location_nickname: formData.location_nickname,
             latitude: formData.latitude,
             longitude: formData.longitude,
             start_time: formData.start_time,
             end_time: formData.end_time,
             price: (formData.event_type === 'tournament' || formData.event_type === 'league') ? null : formData.price,
             max_players: (formData.event_type === 'tournament' || formData.event_type === 'league') ? null : formData.max_players,
+            game_format_type: formData.game_format_type,
+            match_style: formData.match_style,
             surface_type: formData.surface_type,
-            teams_config: (formData.event_type === 'tournament' || formData.event_type === 'league') ? null : formData.teams_config,
-            has_mvp_reward: formData.has_mvp_reward,
-            is_refundable: formData.is_refundable,
+            amount_of_fields: formData.amount_of_fields,
+            field_size: formData.field_size,
+            shoe_types: formData.shoe_types,
             event_type: formData.event_type,
+            teams_config: (formData.event_type === 'tournament' || formData.event_type === 'league') ? null : formData.teams_config,
+            is_refundable: formData.is_refundable,
+            refund_cutoff_hours: formData.refund_cutoff_hours,
             allowed_payment_methods: formData.allowed_payment_methods,
+            team_price: formData.team_price,
+            deposit_amount: formData.deposit_amount,
+            has_registration_fee_credit: formData.has_registration_fee_credit,
+            free_agent_price: formData.free_agent_price,
+            has_free_agent_credit: formData.has_free_agent_credit,
+            refund_cutoff_date: formData.refund_cutoff_date,
+            min_teams: formData.min_teams,
+            max_teams: formData.max_teams,
+            min_players_per_team: formData.min_players_per_team,
+            roster_lock_date: formData.roster_lock_date,
+            strict_waiver_required: formData.strict_waiver_required,
+            game_style: formData.game_style,
+            half_length: formData.half_length,
+            halftime_length: formData.halftime_length,
+            earliest_game_start_time: formData.earliest_game_start_time,
+            latest_game_start_time: formData.latest_game_start_time,
+            field_names: formData.field_names,
+            min_games_guaranteed: formData.min_games_guaranteed,
+            teams_into_playoffs: formData.teams_into_playoffs,
+            has_playoff_bye: formData.has_playoff_bye,
+            break_between_games: formData.break_between_games,
+            prize_type: formData.prize_type,
+            prize_pool_percentage: formData.prize_pool_percentage,
+            fixed_prize_amount: formData.fixed_prize_amount,
+            reward: formData.reward,
+            has_mvp_reward: formData.has_mvp_reward,
         })
         .eq('id', gameId);
 
@@ -56,13 +86,9 @@ export async function updateGame(gameId: string, formData: any) {
 export async function hardDeleteGame(gameId: string) {
     const supabase = await createClient();
 
-    // 1. Auth Check
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        throw new Error('Unauthorized');
-    }
+    if (!user) throw new Error('Unauthorized');
 
-    // 2. Admin verification
     const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -73,7 +99,6 @@ export async function hardDeleteGame(gameId: string) {
         throw new Error('Forbidden. Must be an admin/host.');
     }
 
-    // 3. Delete Game (Bypass RLS to ensure complete wipe)
     const adminSupabase = createAdminClient();
     const { error } = await adminSupabase
         .from('games')
@@ -85,7 +110,6 @@ export async function hardDeleteGame(gameId: string) {
         throw new Error('Failed to permanently delete the game.');
     }
 
-    // 4. Revalidate
     revalidatePath('/admin');
     revalidatePath('/dashboard');
     revalidatePath('/schedule');

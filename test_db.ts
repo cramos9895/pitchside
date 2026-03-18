@@ -1,13 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+require('dotenv').config({ path: '.env.local' });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-async function run() {
-  const { data, error } = await supabase.from('games').select('id, timer_status, timer_started_at').limit(1);
-  console.log("SCHEMA CHECK:", { data, error });
+async function reload() {
+  console.log('Attempting to notify PostgREST to reload schema...');
+  const { error } = await supabase.rpc('pgrst_watch');
+  if (error) {
+     console.log('No pgrst_watch RPC found. Usually NOTIFY pgrst does it.');
+     // Try a manual query just to trigger activity
+     await supabase.from('games').select('amount_of_fields').limit(1);
+  }
 }
-run();
+reload();
