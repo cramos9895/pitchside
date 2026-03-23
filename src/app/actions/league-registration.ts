@@ -1,0 +1,128 @@
+'use server';
+
+import { createClient } from '@/lib/supabase/server';
+import { revalidatePath } from 'next/cache';
+
+export async function registerCaptain(formData: FormData) {
+    const supabase = await createClient();
+    
+    // 1. Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error("Unauthorized");
+
+    // 2. Extract form data
+    const leagueId = formData.get('leagueId') as string;
+    const teamName = formData.get('teamName') as string;
+    const primaryColor = formData.get('primaryColor') as string;
+    const paymentChoice = formData.get('paymentChoice') as string; // 'full' or 'split'
+    
+    if (!leagueId || !teamName) throw new Error("Missing required fields");
+
+    // 3. Validation: Check registration cutoff
+    const { data: league, error: leagueError } = await supabase
+        .from('leagues')
+        .select('registration_cutoff, status')
+        .eq('id', leagueId)
+        .single();
+
+    if (leagueError || !league) throw new Error("League not found");
+    if (league.status === 'cancelled' || league.status === 'completed') {
+        throw new Error("League is not accepting registrations");
+    }
+    
+    if (league.registration_cutoff) {
+        const cutoffDate = new Date(league.registration_cutoff);
+        if (new Date() > cutoffDate) {
+            throw new Error("Registration deadline has passed for this league.");
+        }
+    }
+
+    // 4. Create new team
+    const { data: team, error: teamError } = await supabase
+        .from('teams')
+        .insert({
+            league_id: leagueId,
+            name: teamName,
+            captain_id: user.id,
+            primary_color: primaryColor,
+            accepting_free_agents: false,
+            status: 'approved' // Auto-approve or pending based on biz logic. Let's assume approved.
+        })
+        .select()
+        .single();
+
+    if (teamError || !team) throw new Error("Failed to create team: " + teamError?.message);
+
+    // 5. Register user to tournament_registrations
+    const { error: regError } = await supabase
+        .from('tournament_registrations')
+        .insert({
+            league_id: leagueId,
+            user_id: user.id,
+            team_id: team.id,
+            status: 'registered'
+        });
+
+    if (regError) {
+        // Rollback team creation if registration fails
+        await supabase.from('teams').delete().eq('id', team.id);
+        throw new Error("Failed to create registration: " + regError.message);
+    }
+
+    revalidatePath(`/leagues/${leagueId}`);
+    return { success: true, teamId: team.id };
+}
+
+export async function registerFreeAgent(formData: FormData) {
+    const supabase = await createClient();
+    
+    // 1. Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error("Unauthorized");
+
+    // 2. Extract form data
+    const leagueId = formData.get('leagueId') as string;
+    const positions = formData.getAll('positions') as string[]; // e.g. ['Forward', 'Midfield']
+    
+    if (!leagueId || !positions || positions.length === 0) {
+        throw new Error("Missing required fields. Please select at least one position.");
+    }
+
+    // 3. Validation: Check registration cutoff
+    const { data: league, error: leagueError } = await supabase
+        .from('leagues')
+        .select('registration_cutoff, status')
+        .eq('id', leagueId)
+        .single();
+
+    if (leagueError || !league) throw new Error("League not found");
+    if (league.status === 'cancelled' || league.status === 'completed') {
+        throw new Error("League is not accepting registrations");
+    }
+
+    if (league.registration_cutoff) {
+        const cutoffDate = new Date(league.registration_cutoff);
+        if (new Date() > cutoffDate) {
+            throw new Error("Registration deadline has passed for this league.");
+        }
+    }
+
+    // 4. Register user to tournament_registrations (Global Draft Pool)
+    const { error: regError } = await supabase
+        .from('tournament_registrations')
+        .upsert({
+            league_id: leagueId,
+            user_id: user.id,
+            team_id: null, // explicitly null for free agents
+            preferred_positions: positions,
+            status: 'registered'
+        }, { onConflict: 'league_id,user_id' }); // Handle re-registration edge case softly
+
+    if (regError) {
+        console.error('Registration error:', regError);
+        return { success: false, error: regError.message };
+    }
+
+    revalidatePath(`/leagues/${leagueId}`);
+    return { success: true };
+}

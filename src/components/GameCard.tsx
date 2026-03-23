@@ -3,7 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, Loader2, Check, UserPlus, X, Clock } from 'lucide-react';
+import { MapPin, Loader2, Check, UserPlus, X, Clock, Zap, Trophy, Users, DollarSign, Calendar } from 'lucide-react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { User } from '@supabase/supabase-js';
@@ -14,6 +15,7 @@ interface Game {
     title: string;
     location_name?: string;
     location: string;
+    location_nickname?: string | null;
     game_format?: string;
     start_time: string;
     end_time: string | null;
@@ -25,6 +27,7 @@ interface Game {
     resource_id?: string | null;
     status: string; // 'scheduled', 'active', 'completed', 'cancelled'
     has_mvp_reward?: boolean;
+    match_style?: string;
     event_type?: string;
     is_league?: boolean;
 }
@@ -291,144 +294,117 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
     };
 
     const isCancelled = game.status === 'cancelled';
+    const isCompleted = game.status === 'completed';
+    const isLive = !isPastStrict && !isCancelled;
 
     return (
         <>
-            <div className={cn(
-                "group relative bg-pitch-card p-6 rounded-sm shadow-xl transition-all duration-300 flex flex-col h-full",
-                isPastStrict ? "border-l-4 border-gray-600 opacity-60" : "border-l-4 border-pitch-accent hover:shadow-pitch-accent/10",
-                isCancelled && "opacity-75 grayscale"
-            )}>
-                <div className="flex justify-between items-start mb-4">
-                    <div
-                        onClick={() => router.push(`/games/${game.id}`)}
-                        className="cursor-pointer hover:opacity-80 transition-opacity"
-                    >
-                        <h3 className="font-heading text-2xl font-bold italic text-white flex items-center gap-2">
-                            <span>
-                                {startTimeStr}
-                                <span className="text-gray-500 text-lg font-normal ml-1">- {endTimeStr}</span>
-                            </span>
+            <div className="bg-pitch-card border border-white/5 rounded-sm p-6 shadow-2xl hover:border-pitch-accent/20 transition-all group overflow-hidden relative flex flex-col h-full">
+                {/* Glossy Overlay Effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                
+                {/* Status Indicator Bar */}
+                <div className={cn(
+                    "absolute top-0 left-0 w-1 h-full transition-colors",
+                    isCancelled ? "bg-red-500" : isCompleted ? "bg-green-500" : isLive ? "bg-pitch-accent" : "bg-gray-600"
+                )} />
+
+                <div className="relative z-10 flex flex-col h-full">
+                    {/* Header */}
+                    <div className="flex justify-between items-start mb-6">
+                        <div className="flex-1 mr-4">
+                            <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white leading-[0.85] mb-4 font-sans break-words overflow-hidden">
+                                {game.title || `${game.game_format || '7v7'} Pickup`}
+                            </h2>
+                            <div className="flex flex-col gap-1 text-pitch-secondary text-[10px] font-black uppercase tracking-[0.2em] opacity-80">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="w-3 h-3 text-pitch-accent" />
+                                    {dateStr} @ {startTimeStr}
+                                </div>
+                                <div className="flex items-center gap-2 truncate">
+                                    <MapPin className="w-3 h-3 text-pitch-accent shrink-0" />
+                                    <span className="truncate">{game.location_nickname || game.location_name || game.location.split(',')[0]}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2 shrink-0">
                             {hasUnreadMessages && (
-                                <div className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.8)] relative ml-1 mb-2" title="New messages in Chat">
+                                <div className="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.8)] relative" title="New messages in Chat">
                                     <div className="absolute inset-0 bg-red-400 rounded-full animate-ping opacity-75"></div>
                                 </div>
                             )}
-                        </h3>
-                        <p className="text-pitch-secondary text-sm font-bold uppercase">{dateStr}</p>
-                        {game.title && <p className="text-pitch-accent text-xs font-bold uppercase mt-1 tracking-wider">{game.title}</p>}
-                    </div>
-
-                    <div className="flex flex-col items-end gap-2">
-                        <div className={cn(
-                            "px-2 py-1 rounded text-xs font-bold uppercase",
-                            isPastStrict ? 'bg-gray-700 text-gray-400' : 'bg-pitch-accent text-pitch-black'
-                        )}>
-                            {isPastStrict ? 'Completed' : 'Upcoming'}
+                            <div className={cn(
+                                "px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest border",
+                                isCancelled ? "bg-red-500/10 text-red-500 border-red-500/20" :
+                                isCompleted ? "bg-green-500/10 text-green-400 border-green-500/20" :
+                                "bg-pitch-accent/10 text-pitch-accent border-pitch-accent/20"
+                            )}>
+                                {isCancelled ? 'Cancelled' : isCompleted ? 'Completed' : 'Upcoming'}
+                            </div>
                         </div>
-                        {isCancelled && (
-                            <div className="bg-red-500 px-2 py-1 rounded text-xs font-bold uppercase text-white shadow-lg shadow-red-500/20">
-                                CANCELLED
-                            </div>
-                        )}
-                        {!isCancelled && game.has_mvp_reward && (
-                            <div className="bg-yellow-500/20 border border-yellow-500/50 px-2 py-1 rounded text-xs font-bold uppercase text-yellow-500 flex items-center gap-1 shadow-[0_0_10px_rgba(234,179,8,0.2)]">
-                                <span>🏆</span> Prize
-                            </div>
-                        )}
                     </div>
-                </div>
 
-                <div className="space-y-2 mb-6 flex-grow">
-                    <a
-                        href={`https://maps.google.com/?q=${encodeURIComponent(game.location)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center text-pitch-secondary hover:text-white transition-colors"
-                    >
-                        <MapPin className="w-4 h-4 mr-2 text-pitch-accent shrink-0" />
-                        <span className="text-sm truncate">{game.location_name || game.location}</span>
-                    </a>
-                    <div className="flex items-center gap-4">
-                        <span className="text-xs uppercase bg-white/5 px-2 py-0.5 rounded text-gray-400 font-bold border border-white/5">
-                            {game.game_format || 'Match'}
-                        </span>
-                        <span className="text-xs uppercase bg-white/5 px-2 py-0.5 rounded text-gray-400 font-bold border border-white/5">
-                            {game.surface_type}
-                        </span>
-                        <span className={cn(
-                            "text-xs uppercase px-2 py-0.5 rounded font-bold border border-white/5",
-                            (game.max_players - currentPlayers) === 0
-                                ? "bg-red-500/10 text-red-500"
-                                : "bg-white/5 text-gray-400"
-                        )}>
-                            {currentPlayers} / {game.max_players} Spots
-                        </span>
-                    </div>
-                    <div className="flex items-center text-gray-500 text-xs font-bold uppercase mt-1">
-                        <Clock className="w-3 h-3 mr-2 text-pitch-accent" />
-                        <span>Run Time: {durationStr}</span>
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
-                    {joined ? (
-                        status === 'waitlist' ? (
-                            <div className="flex items-center gap-2 text-yellow-500 text-xs font-bold uppercase tracking-wider">
-                                <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                                On Waitlist
+                    {/* Details Matrix */}
+                    <div className="grid grid-cols-3 gap-3 mb-8">
+                        <div className="bg-white/5 p-4 rounded-sm border border-white/5 hover:bg-white/10 transition-colors group/item">
+                            <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-pitch-accent transition-colors flex items-center gap-1">
+                                <Users className="w-3 h-3" /> Players
                             </div>
+                            <div className="text-white font-black text-xs uppercase">{currentPlayers} / {game.max_players}</div>
+                        </div>
+                        <div className="bg-white/5 p-4 rounded-sm border border-white/5 hover:bg-white/10 transition-colors group/item">
+                            <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-pitch-accent transition-colors">Format</div>
+                            <div className="text-white font-bold text-xs uppercase">{game.match_style || game.game_format || 'Match'}</div>
+                        </div>
+                        <div className="bg-white/5 p-4 rounded-sm border border-white/5 hover:bg-white/10 transition-colors group/item">
+                            <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-pitch-accent transition-colors flex items-center gap-1">
+                                <DollarSign className="w-3 h-3" /> Fee
+                            </div>
+                            <div className="text-pitch-accent font-black text-xs uppercase">
+                                {joined ? (status === 'waitlist' ? 'Waitlist' : 'Paid') : `$${game.price}`}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Action Footer */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
+                        {isCancelled ? (
+                            <div className="col-span-1 sm:col-span-2 py-4 bg-white/5 border border-white/10 text-gray-500 font-black uppercase text-center text-xs tracking-widest rounded-sm">
+                                Event Cancelled
+                            </div>
+                        ) : joined ? (
+                            <button
+                                onClick={() => router.push(`/games/${game.id}?tab=chat`)}
+                                className="col-span-1 sm:col-span-2 w-full py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm group/btn"
+                            >
+                                Match Lobby <Check className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
+                            </button>
                         ) : (
-                            <div className="flex items-center gap-2 text-green-400 text-xs font-bold uppercase tracking-wider">
-                                <span className="w-2 h-2 bg-green-400 rounded-full" />
-                                Confirmed Ticket
-                            </div>
-                        )
-                    ) : (
-                        <div className="text-lg font-bold text-white">${game.price}</div>
-                    )}
-
-                    {isCancelled ? (
-                        <button disabled className="px-4 py-2 border border-red-500/30 text-red-500 font-bold uppercase text-xs rounded-sm cursor-not-allowed flex items-center gap-2">
-                            Event Cancelled
-                        </button>
-                    ) : joined ? (
-                        <button
-                            onClick={() => router.push(`/games/${game.id}?tab=chat`)}
-                            className="px-3 py-1.5 bg-pitch-accent text-pitch-black font-bold uppercase text-xs rounded-sm hover:bg-white transition-colors text-center"
-                        >
-                            Game Lobby
-                        </button>
-                    ) : game.event_type === 'tournament' ? (
-                        <button
-                            onClick={() => router.push(`/games/${game.id}`)}
-                            className="px-4 py-2 text-sm font-bold uppercase transition-colors rounded-sm flex items-center gap-2 text-pitch-accent hover:text-white hover:bg-pitch-accent/10 border border-pitch-accent/30"
-                        >
-                            View Details &rarr;
-                        </button>
-                    ) : (
-                        <button
-                            onClick={handleJoinClick}
-                            disabled={loading} // Remove full check
-                            className={
-                                cn(
-                                    "px-4 py-2 text-sm font-bold uppercase transition-colors rounded-sm flex items-center gap-2",
-                                    currentPlayers >= game.max_players
-                                        ? "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20" // Waitlist Style
-                                        : game.price === 0
-                                            ? "bg-green-500 hover:bg-green-400 text-black"
-                                            : "text-pitch-accent hover:text-white hover:bg-pitch-accent/10"
-                                )
-                            }
-                        >
-                            {currentPlayers >= game.max_players ? "Join Waitlist" :
-                                game.price === 0 ? "Join for Free" :
-                                    <>Join &rarr;</>
-                            }
-                        </button>
-                    )}
+                            <>
+                                <button
+                                    onClick={() => router.push(`/games/${game.id}`)}
+                                    className="w-full py-4 bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-xs hover:bg-white/10 transition-all rounded-sm"
+                                >
+                                    Details
+                                </button>
+                                <button
+                                    onClick={handleJoinClick}
+                                    disabled={loading}
+                                    className={cn(
+                                        "w-full py-4 font-black uppercase tracking-widest text-xs transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm shadow-xl",
+                                        currentPlayers >= game.max_players
+                                            ? "bg-yellow-500 text-black hover:bg-white shadow-yellow-500/10"
+                                            : "bg-pitch-accent text-pitch-black hover:bg-white shadow-pitch-accent/10"
+                                    )}
+                                >
+                                    {loading ? '...' : currentPlayers >= game.max_players ? 'Waitlist' : 'Join Now'} <UserPlus className="w-4 h-4" />
+                                </button>
+                            </>
+                        )}
+                    </div>
                 </div>
-            </div >
+            </div>
 
             {/* JOIN MODAL */}
             <JoinGameModal

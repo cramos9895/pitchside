@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { User, Shuffle, Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
-import { buildHouseTeam } from '@/app/actions/house-team';
+import { createClient } from '@/lib/supabase/client';
 
 interface Player {
     id: string; // booking_id
@@ -105,19 +105,67 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
         }
     };
 
-    const handleBuildHouseTeam = async () => {
-        if (!confirm('This will create a new team and automatically draft all pending Free Agents, charging their securely vaulted cards. Continue?')) return;
-
+    const handleAutoFill = async () => {
+        if (!confirm('This will randomly assign players from the "Unassigned" column into teams that have open slots. Continue?')) return;
+        
         setLoading(true);
         try {
-            const result = await buildHouseTeam(gameId);
-
-            if (!result.success) {
-                throw new Error(result.error);
+            // Localized function: Auto-Fill Open Slots
+            const unassignedPlayers = activePlayers.filter(p => !p.team);
+            if (unassignedPlayers.length === 0) {
+                toastError("No unassigned players to move.");
+                setLoading(false);
+                return;
             }
 
-            success(result.message || 'House Team Built!');
-            onUpdate();
+            // identify teams with space
+            const teamsWithSpace = teams.map(t => {
+                const currentCount = activePlayers.filter(p => p.team === t.name).length;
+                const limit = t.limit || 11; // default limit to 11 if not set
+                return { ...t, openSlots: Math.max(0, limit - currentCount) };
+            }).filter(t => t.openSlots > 0);
+            
+            if (teamsWithSpace.length === 0) {
+                toastError("No open slots available on any team.");
+                setLoading(false);
+                return;
+            }
+
+            // shuffle unassigned
+            const shuffled = [...unassignedPlayers].sort(() => 0.5 - Math.random());
+            
+            const updates: { id: string, team_assignment: string }[] = [];
+            let currentTeamIndex = 0;
+            
+            for (const player of shuffled) {
+                let assigned = false;
+                for (let i = 0; i < teamsWithSpace.length; i++) {
+                    const idx = (currentTeamIndex + i) % teamsWithSpace.length;
+                    const team = teamsWithSpace[idx];
+                    
+                    if (team.openSlots > 0) {
+                        updates.push({ id: player.id, team_assignment: team.name });
+                        team.openSlots--;
+                        currentTeamIndex = (idx + 1) % teamsWithSpace.length;
+                        assigned = true;
+                        break;
+                    }
+                }
+                if (!assigned) break; // no space on any teams
+            }
+
+            if (updates.length > 0) {
+                const supabase = createClient();
+                const promises = updates.map(u => 
+                    supabase.from('bookings').update({ team_assignment: u.team_assignment }).eq('id', u.id)
+                );
+                await Promise.all(promises);
+                success(`Auto-filled ${updates.length} players into teams!`);
+                onUpdate();
+            } else {
+                toastError("Could not fit any players into teams.");
+            }
+
         } catch (err: any) {
             toastError(err.message);
         } finally {
@@ -133,12 +181,12 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
                 </h3>
                 <div className="flex gap-2">
                     <button
-                        onClick={handleBuildHouseTeam}
-                        disabled={loading}
+                        onClick={handleAutoFill}
+                        disabled={loading || unassigned.length === 0}
                         className="flex items-center gap-2 px-4 py-2 bg-[#ccff00]/10 border border-[#ccff00]/30 text-[#ccff00] font-bold uppercase rounded-sm hover:bg-[#ccff00] hover:text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Auto-draft all pending Free Agents into a new squad"
+                        title="Randomly assign unassigned players to open slots"
                     >
-                        <Crown className="w-4 h-4" /> Build House Team
+                        <User className="w-4 h-4" /> Auto-Fill Open Slots
                     </button>
                     <button
                         onClick={handleRandomize}

@@ -12,14 +12,14 @@ export function Navbar() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const pathname = usePathname();
 
-    // Hide Navbar entirely on Live Projector View
-    if (pathname && pathname.endsWith('/live')) {
+    // Hide Navbar entirely on Live Projector Views & Field Displays
+    if (pathname && (pathname.endsWith('/live') || pathname.includes('/display'))) {
         return null;
     }
 
     return (
         <>
-            <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-pitch-black/80 backdrop-blur-md">
+            <nav className="sticky top-0 w-full z-50 border-b border-white/5 bg-pitch-black">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     {/* Logo */}
                     <Link href="/" className="text-2xl font-heading font-bold italic tracking-tighter text-white">

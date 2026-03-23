@@ -34,7 +34,7 @@ export default async function GamesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-pitch-black text-white font-sans p-6 pt-32">
+        <div className="min-h-screen bg-pitch-black text-white font-sans p-6 pt-2">
             <div className="max-w-7xl mx-auto">
                 <Link href="/" className="flex items-center text-pitch-secondary hover:text-white mb-8 transition-colors w-fit">
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home

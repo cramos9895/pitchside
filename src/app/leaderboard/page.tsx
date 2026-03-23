@@ -172,7 +172,7 @@ export default function LeaderboardPage() {
     const rest = sortedPlayers.slice(3);
 
     return (
-        <div className="min-h-screen bg-pitch-black text-white p-6 pt-32 font-sans flex flex-col items-center">
+        <div className="min-h-screen bg-pitch-black text-white p-6 pt-2 font-sans flex flex-col items-center">
             <div className="w-full max-w-4xl mb-8 flex justify-between items-center">
                 <Link href="/" className="flex items-center text-pitch-secondary hover:text-white transition-colors">
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back to Pitch

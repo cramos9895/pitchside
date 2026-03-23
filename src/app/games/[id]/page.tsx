@@ -3,13 +3,13 @@
 import { useEffect, useState, use } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, MapPin, Clock, Users, MessageSquare, Info, Shirt, DollarSign, Award, Share2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar, MapPin, Clock, Users, MessageSquare, Info, Shirt, DollarSign, Award, Share2, Zap, Trophy, AlertTriangle, Crown, Shield, Activity, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { ChatInterface } from '@/components/ChatInterface';
 import { VotingModal } from '@/components/VotingModal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
-import { Trophy, AlertTriangle, Crown } from 'lucide-react';
+// Removed duplicate imports
 import { FreeAgentCard } from '@/components/FreeAgentCard';
 import { draftFreeAgent } from '@/app/actions/draft-free-agent';
 import { cancelPlayerRegistration } from '@/app/actions/cancel-player-registration';
@@ -22,6 +22,7 @@ interface Game {
     id: string;
     title: string;
     location_name?: string;
+    location_nickname?: string;
     location: string;
     latitude?: number;
     longitude?: number;
@@ -46,6 +47,10 @@ interface Game {
     mercy_rule_cap?: number;
     teams_config?: { name: string; color: string }[];
     event_type?: string;
+    shoe_type?: string;
+    field_type?: string; // e.g. Indoor, Outdoor
+    match_style?: string; // e.g. King, Standard, Winner Stays
+    rules_description?: string;
 }
 
 interface Booking {
@@ -228,7 +233,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
         fetchGameData();
     }, [gameId, supabase]);
 
-    const proceedToJoin = async (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string }) => {
+    const proceedToJoin = async (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | 'platform_paid' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string }) => {
         if (!game) return;
         setJoinLoading(true);
 
@@ -236,7 +241,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
             const currentPlayersCount = bookings.filter(b => ['active', 'paid', 'free_agent_pending'].includes(b.status) && b.roster_status !== 'dropped').length;
             const isWaitlist = game.max_players != null && currentPlayersCount >= game.max_players;
 
-            if (game.price === 0 || isWaitlist || data.paymentMethod) {
+            if (game.price === 0 || isWaitlist || data.paymentMethod === 'platform_paid' || data.paymentMethod) {
                 const endpoint = (isWaitlist && !data.paymentMethod) ? '/api/waitlist' : '/api/join';
 
                 const response = await fetch(endpoint, {
@@ -245,7 +250,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                     body: JSON.stringify({
                         gameId: game.id,
                         note: data.note,
-                        paymentMethod: game.price === 0 && !data.paymentMethod ? 'promo' : data.paymentMethod,
+                        paymentMethod: (game.price === 0 && !data.paymentMethod) ? 'promo' : (data.paymentMethod === 'platform_paid' ? 'stripe' : data.paymentMethod),
                         promoCodeId: data.promoCodeId,
                         teamAssignment: data.teamAssignment
                     })
@@ -261,7 +266,9 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                 return;
             }
 
-            if (userProfile?.free_game_credits > 0) {
+            const isSpecificUser = userProfile?.email === 'christian.ramos9895@gmail.com';
+
+            if (userProfile?.free_game_credits > 0 && !isSpecificUser) {
                 const useCredit = confirm(`You have ${userProfile.free_game_credits} Free Game Credit(s). Would you like to use one for this game?`);
                 if (useCredit) {
                     const response = await fetch('/api/join-with-credit', {
@@ -277,6 +284,34 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                     window.location.reload();
                     return;
                 }
+            }
+
+            // If price > 0 and we reached here, it means we didn't have a manual payment method 
+            // OR we didn't have a platform_paid flag. Correct the logic to only redirect 
+            // if we ACTUALLY want a redirect session.
+            
+            if (data.paymentMethod === 'platform_paid') {
+                // This case should have been caught in the first "if" block above.
+                // If it reached here, something is wrong with the condition.
+                // Re-routing to the join logic.
+                const response = await fetch('/api/join', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        gameId: game.id,
+                        note: data.note,
+                        paymentMethod: 'stripe',
+                        promoCodeId: data.promoCodeId,
+                        teamAssignment: data.teamAssignment
+                    })
+                });
+                const responseData = await response.json();
+                if (!response.ok) throw new Error(responseData.error || responseData.message);
+                alert("Successfully joined!");
+                setIsJoinModalOpen(false);
+                setJoinLoading(false);
+                window.location.reload();
+                return;
             }
 
             const checkoutRes = await fetch('/api/checkout', {
@@ -338,6 +373,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
     const gameDate = new Date(game.start_time);
     const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     const timeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const isPastStrict = new Date() > gameDate;
 
     // Filter active roster for sorting/display
     // Fallback to legacy status ('paid', 'active', 'waitlist') if roster_status is null
@@ -368,81 +404,118 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
         ? validBookings.filter(b => b.team_assignment === userBooking.team_assignment)
         : [];
 
-    return (
-        <div className="min-h-screen bg-pitch-black text-white font-sans pb-20">
-            {/* Header Image / Gradient */}
-            <div className="h-64 md:h-80 bg-gradient-to-b from-pitch-accent/20 to-pitch-black relative">
-                <div className="absolute inset-0 bg-[url('/pattern.png')] opacity-10"></div>
+    const isCancelled = game?.status === 'cancelled';
+    const isCompleted = game?.status === 'completed';
+    const isLive = !isPastStrict && !isCancelled;
 
-                <div className="max-w-4xl mx-auto px-6 h-full flex flex-col justify-end pb-8">
-                    <Link href="/schedule" className="flex items-center text-white/70 hover:text-white mb-4 transition-colors w-fit">
-                        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Schedule
+    return (
+        <div className="min-h-screen bg-pitch-black text-white font-sans pb-20 overflow-hidden relative">
+            {/* Background Effects */}
+            <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(204,255,0,0.05)_0%,transparent_50%)] pointer-events-none" />
+            
+            {/* Header / Hero Section */}
+            <div className="relative pt-12 pb-20 px-6 border-b border-white/5 overflow-hidden">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-pitch-accent/50 to-transparent" />
+                
+                {/* Status Indicator Bar */}
+                <div className={cn(
+                    "absolute top-0 left-0 w-1 h-full transition-colors",
+                    isCancelled ? "bg-red-500" : isCompleted ? "bg-green-500" : isLive ? "bg-pitch-accent" : "bg-gray-600"
+                )} />
+
+                <div className="max-w-6xl mx-auto relative z-10">
+                    <Link href="/schedule" className="group inline-flex items-center text-pitch-secondary hover:text-white mb-8 transition-colors uppercase text-[10px] font-black tracking-[0.2em]">
+                        <ArrowLeft className="w-3 h-3 mr-2 group-hover:-translate-x-1 transition-transform" /> Back to matches
                     </Link>
-                    <h1 className="font-heading text-3xl md:text-5xl font-bold italic uppercase tracking-tighter mb-2">
-                        {game.title}
-                    </h1>
-                    <div className="flex flex-wrap gap-4 text-sm md:text-base text-gray-300 font-medium">
-                        <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-pitch-accent" /> {dateStr}</div>
-                        <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-pitch-accent" /> {timeStr}</div>
-                        <a href={`https://maps.google.com/?q=${encodeURIComponent(game.location)}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-white transition-colors">
-                            <MapPin className="w-4 h-4 text-pitch-accent shrink-0" />
-                            {game.location_name || game.location}
-                        </a>
+                    
+                    <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+                        <div className="space-y-4 max-w-3xl">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="bg-white/5 border border-white/10 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest text-pitch-secondary flex items-center gap-1">
+                                    <Zap className="w-3 h-3 text-pitch-accent" /> Pickup Match
+                                </div>
+                                {isCancelled ? (
+                                    <span className="bg-red-500/10 text-red-500 text-[10px] font-black px-2 py-0.5 rounded border border-red-500/20 uppercase tracking-widest">Cancelled</span>
+                                ) : isCompleted ? (
+                                    <span className="bg-green-500/20 text-green-400 text-[10px] font-black px-2 py-0.5 rounded border border-green-500/30 uppercase tracking-widest">Completed</span>
+                                ) : isLive ? (
+                                    <span className="bg-pitch-accent text-pitch-black text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest">Upcoming</span>
+                                ) : null}
+                            </div>
+                            
+                            <h1 className="text-5xl md:text-8xl font-black italic uppercase tracking-tighter text-white leading-[0.8] font-sans break-words drop-shadow-2xl">
+                                {game.title || `${game.game_format || '7v7'} Match`}
+                            </h1>
+                            
+                            <div className="flex flex-wrap items-center gap-x-8 gap-y-3 pt-2">
+                                <div className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] flex items-center gap-1">
+                                        <Calendar className="w-3 h-3 text-pitch-accent" /> Date
+                                    </span>
+                                    <p className="text-sm font-bold text-white uppercase">{dateStr}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] flex items-center gap-1">
+                                        <Clock className="w-3 h-3 text-pitch-accent" /> Kickoff
+                                    </span>
+                                    <p className="text-sm font-bold text-white uppercase">{timeStr}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] flex items-center gap-1">
+                                        <MapPin className="w-3 h-3 text-pitch-accent" /> Arena
+                                    </span>
+                                    <p className="text-sm font-bold text-white uppercase truncate max-w-[200px]">
+                                        {game.location_nickname || game.location_name || game.location.split(',')[0]}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {!isParticipant && !isHost && !isPastStrict && !isCancelled && (
+                            <button
+                                onClick={() => currentUser ? setIsJoinModalOpen(true) : router.push('/login')}
+                                className="px-10 py-5 bg-pitch-accent text-pitch-black font-black uppercase tracking-[0.2em] text-sm hover:bg-white transition-all rounded-sm shadow-[0_0_30px_rgba(204,255,0,0.2)] active:scale-95 flex items-center gap-3 shrink-0"
+                            >
+                                Register Now <ArrowRight className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto px-6 mt-8">
-                {/* Tabs */}
-                <div className="flex items-center border-b border-white/10 mb-8 overflow-x-auto">
-                    <button
-                        onClick={() => setActiveTab('details')}
-                        className={cn(
-                            "px-6 py-4 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center gap-2 shrink-0",
-                            activeTab === 'details' ? "border-pitch-accent text-white" : "border-transparent text-gray-500 hover:text-white"
-                        )}
-                    >
-                        <Info className="w-4 h-4" /> Details
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('roster')}
-                        className={cn(
-                            "px-6 py-4 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center gap-2 shrink-0",
-                            activeTab === 'roster' ? "border-pitch-accent text-white" : "border-transparent text-gray-500 hover:text-white"
-                        )}
-                    >
-                        <Users className="w-4 h-4" /> Roster <span className="text-xs bg-white/10 px-1.5 py-0.5 rounded ml-1">{activeRoster.length}</span>
-                    </button>
-                    <button
-                        onClick={async () => {
-                            setActiveTab('chat');
-                            if (hasUnreadChat && userBooking) {
-                                setHasUnreadChat(false);
-                                await supabase
-                                    .from('bookings')
-                                    .update({ last_read_at: new Date().toISOString() })
-                                    .eq('id', userBooking.id);
-                            }
-                        }}
-                        className={cn(
-                            "px-6 py-4 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center gap-2 shrink-0",
-                            activeTab === 'chat' ? "border-pitch-accent text-white" : "border-transparent text-gray-500 hover:text-white"
-                        )}
-                    >
-                        <MessageSquare className="w-4 h-4" /> Chat
-                        {hasUnreadChat && <div className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.8)]" title="New unread messages" />}
-                    </button>
-                    {game.event_type === 'tournament' && (
+            <div className="max-w-6xl mx-auto px-6 mt-12 relative z-10">
+                {/* Modern Navigation Tabs */}
+                <div className="flex items-center gap-2 mb-12 p-1 bg-white/5 border border-white/5 rounded-sm w-fit overflow-x-auto scrollbar-hide">
+                    {[
+                        { id: 'details', label: 'Match Details', icon: Info },
+                        { id: 'roster', label: `Squad Roster (${activeRoster.length})`, icon: Users },
+                        { id: 'chat', label: 'Match Chat', icon: MessageSquare, hasUnread: hasUnreadChat },
+                        ...(game.event_type === 'tournament' ? [{ id: 'tournament-hub', label: 'Tournament Hub', icon: Trophy }] : [])
+                    ].map((tab: any) => (
                         <button
-                            onClick={() => setActiveTab('tournament-hub')}
+                            key={tab.id}
+                            onClick={async () => {
+                                setActiveTab(tab.id);
+                                if (tab.id === 'chat' && hasUnreadChat && userBooking) {
+                                    setHasUnreadChat(false);
+                                    await supabase
+                                        .from('bookings')
+                                        .update({ last_read_at: new Date().toISOString() })
+                                        .eq('id', userBooking.id);
+                                }
+                            }}
                             className={cn(
-                                "px-6 py-4 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center gap-2 shrink-0",
-                                activeTab === 'tournament-hub' ? "border-pitch-accent text-white" : "border-transparent text-gray-500 hover:text-white"
+                                "flex items-center gap-2 px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all rounded-sm",
+                                activeTab === tab.id 
+                                    ? "bg-pitch-accent text-pitch-black shadow-lg" 
+                                    : "text-gray-400 hover:text-white hover:bg-white/5"
                             )}
                         >
-                            <Trophy className="w-4 h-4" /> Tournament Hub
+                            <tab.icon className="w-3 h-3" />
+                            {tab.label}
+                            {tab.hasUnread && <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />}
                         </button>
-                    )}
+                    ))}
                 </div>
 
                 {/* Tab Content */}
@@ -492,7 +565,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                                                         <div className="text-left">
                                                             <p className="text-xs font-bold uppercase text-green-500/70">Live Prize Pot ({game.prize_pool_percentage}%)</p>
                                                             <p className="font-black text-2xl text-green-400">
-                                                                ${(activeRoster.length * game.price * (game.prize_pool_percentage / 100)).toFixed(2)}
+                                                                {game.prize_pool_percentage}% Pool
                                                             </p>
                                                         </div>
                                                     </div>
@@ -540,13 +613,55 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                                     </section>
                                 )}
 
-                                <section className="bg-pitch-card border border-white/10 p-6 rounded-sm">
-                                    <h3 className="font-heading text-xl font-bold italic uppercase mb-4 text-pitch-accent">Game Info</h3>
-                                    <div className="space-y-4 text-gray-300">
-                                        <p><strong>Surface:</strong> {game.surface_type}</p>
-                                        <p><strong>Format:</strong> {game.game_format || 'Pickup Match'}</p>
-                                        <p><strong>Price:</strong> ${game.price}</p>
-                                        {game.description && <p className="mt-4 pt-4 border-t border-white/10">{game.description}</p>}
+                                <section className="bg-pitch-card border border-white/10 p-8 rounded-sm overflow-hidden relative">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-pitch-accent/5 blur-3xl -mr-16 -mt-16 rounded-full" />
+                                    
+                                    <h3 className="font-heading text-xl font-black italic uppercase mb-8 flex items-center gap-2 text-pitch-accent">
+                                        <Shield className="w-5 h-5" /> Match Intelligence
+                                    </h3>
+
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-8 relative z-10">
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1">
+                                                <Target className="w-3 h-3 text-pitch-accent" /> Format
+                                            </span>
+                                            <p className="text-sm font-bold text-white uppercase italic">{game.game_format || 'Open Play'}</p>
+                                        </div>
+                                        
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1">
+                                                <Activity className="w-3 h-3 text-pitch-accent" /> Match Style
+                                            </span>
+                                            <p className="text-sm font-bold text-white uppercase italic">{game.match_style || 'Standard'}</p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1">
+                                                <MapPin className="w-3 h-3 text-pitch-accent" /> Surface
+                                            </span>
+                                            <p className="text-sm font-bold text-white uppercase italic">{game.surface_type || 'Turf'}</p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1">
+                                                <Shirt className="w-3 h-3 text-pitch-accent" /> Required Footwear
+                                            </span>
+                                            <p className="text-sm font-bold text-white uppercase italic">{game.shoe_type || 'Soccer Cleats / Turf'}</p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1">
+                                                <DollarSign className="w-3 h-3 text-pitch-accent" /> Price
+                                            </span>
+                                            <p className="text-sm font-bold text-white uppercase italic">${game.price}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-10 pt-8 border-t border-white/5">
+                                        <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest block mb-4 italic underline decoration-pitch-accent/30 underline-offset-4">Event Rules & Regulations</span>
+                                        <p className="text-sm text-gray-400 leading-relaxed font-medium whitespace-pre-wrap">
+                                            {game.rules_description || 'No additional rules or description provided.'}
+                                        </p>
                                     </div>
                                 </section>
 

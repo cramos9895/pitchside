@@ -11,6 +11,10 @@ import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { GameForm } from '@/components/admin/GameForm';
 import { hardDeleteGame } from '@/app/actions/update-game';
 
+import { AdminPickupCard } from './AdminPickupCard';
+import { AdminTournamentCard } from './AdminTournamentCard';
+import { AdminLeagueCard } from './AdminLeagueCard';
+
 // Extended Game Interface to match DB
 interface Game {
     id: string;
@@ -32,6 +36,8 @@ interface Game {
     allowed_payment_methods?: string[];
     status: string; // 'scheduled' | 'active' | 'completed' | 'cancelled'
     refund_processed: boolean;
+    event_type?: string;
+    game_format?: string;
 }
 
 interface AdminGameListProps {
@@ -253,130 +259,41 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
                     </div>
                 ) : (
                     filteredGames.map((game) => {
-                        const gameDate = new Date(game.start_time);
+                        const isTournament = game.event_type === 'tournament';
+                        const isLeague = game.event_type === 'league';
 
-                        // Safe Parse End Time & Duration
-                        let endTime: Date;
-                        if (game.end_time) {
-                            if (game.end_time.includes('T') || game.end_time.includes('-')) {
-                                endTime = new Date(game.end_time);
-                            } else {
-                                const [h, m] = game.end_time.split(':').map(Number);
-                                endTime = new Date(gameDate);
-                                endTime.setHours(h);
-                                endTime.setMinutes(m);
-                                if (endTime < gameDate) endTime.setDate(endTime.getDate() + 1);
-                            }
-                        } else {
-                            endTime = new Date(gameDate.getTime() + 90 * 60000);
+                        if (isTournament) {
+                            return (
+                                <AdminTournamentCard 
+                                    key={game.id} 
+                                    game={game as any} 
+                                    onEdit={openEditModal as any} 
+                                    onCancel={openCancelModal} 
+                                    onHardDelete={openHardDeleteModal} 
+                                />
+                            );
                         }
 
-                        // Calculate Duration
-                        const startHour = gameDate.getHours();
-                        const startMin = gameDate.getMinutes();
-                        const endHour = endTime.getHours();
-                        const endMin = endTime.getMinutes();
-
-                        let diffMins = (endHour * 60 + endMin) - (startHour * 60 + startMin);
-                        if (diffMins < 0) diffMins += 24 * 60; // Handle next day
-
-                        const hours = Math.floor(diffMins / 60);
-                        const mins = diffMins % 60;
-                        const durationStr = hours > 0 ? `${hours}h ${mins > 0 ? `${mins}m` : ''}` : `${mins}m`;
-
-                        const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                        const startTimeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-                        const endTimeStr = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-
-                        const isCancelled = game.status === 'cancelled';
-                        const isCompleted = game.status === 'completed';
-                        const isRefundPending = isCancelled && game.refund_processed === false;
-                        const isRefundComplete = isCancelled && game.refund_processed === true;
+                        if (isLeague) {
+                            return (
+                                <AdminLeagueCard 
+                                    key={game.id} 
+                                    game={game as any} 
+                                    onEdit={openEditModal as any} 
+                                    onCancel={openCancelModal} 
+                                    onHardDelete={openHardDeleteModal} 
+                                />
+                            );
+                        }
 
                         return (
-                            <div key={game.id} className={cn(
-                                "group border p-6 rounded-sm flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors",
-                                isRefundPending ? "bg-red-950/20 border-red-500/20 opacity-100" :
-                                    isRefundComplete ? "bg-pitch-card border-white/5 opacity-50 grayscale hover:grayscale-0 hover:opacity-100 transition-all" :
-                                        "bg-pitch-card border-white/5 hover:border-pitch-accent/30"
-                            )}>
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <h3 className={cn("font-heading text-2xl font-bold italic", isCancelled ? "text-red-400 line-through" : "text-white")}>
-                                            {game.title}
-                                        </h3>
-                                        {isCompleted && <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs font-bold uppercase rounded">Completed</span>}
-                                        {isRefundPending && <span className="px-2 py-0.5 bg-red-600 text-white text-xs font-bold uppercase rounded flex items-center gap-1 shadow-sm border border-red-500">Refund Needed</span>}
-                                        {isRefundComplete && <span className="px-2 py-0.5 bg-gray-700 text-gray-300 text-xs font-bold uppercase rounded flex items-center gap-1">Refunded</span>}
-                                        {game.status === 'active' && <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-500 text-xs font-bold uppercase rounded animate-pulse">Live Now</span>}
-                                    </div>
-
-                                    <div className="flex flex-wrap items-center gap-4 text-pitch-secondary text-sm font-medium">
-                                        <span className="flex items-center gap-1">
-                                            <Calendar className="w-4 h-4 text-pitch-accent" /> {dateStr} • {startTimeStr} - {endTimeStr} ({durationStr})
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                            <Users className="w-4 h-4 text-pitch-accent" /> {game.current_players} / {game.max_players}
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                            <MapPin className="w-4 h-4 text-pitch-accent" /> {game.location}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-4">
-                                    {/* Manage Roster Button */}
-                                    <Link
-                                        href={`/admin/games/${game.id}`}
-                                        className={cn(
-                                            "flex items-center gap-2 px-4 py-2 border font-bold uppercase text-sm tracking-wider transition-all rounded-sm",
-                                            isRefundPending
-                                                ? "bg-transparent border-red-500 text-red-500 hover:bg-red-500/10"
-                                                : isRefundComplete
-                                                    ? "bg-transparent border-gray-600 text-gray-500 hover:border-gray-400 hover:text-gray-300"
-                                                    : isCompleted
-                                                        ? "bg-gray-800 border-gray-700 text-gray-400 hover:bg-white/10 hover:text-white"
-                                                        : "bg-white/5 border-white/10 text-white hover:bg-pitch-accent hover:text-pitch-black hover:border-pitch-accent"
-                                        )}
-                                    >
-                                        <Users className="w-4 h-4" />
-                                        {isRefundPending ? "Process Refund" : isRefundComplete ? "View" : isCompleted ? "Summary" : "Manage"}
-                                    </Link>
-
-                                    {/* Edit Button */}
-                                    {!isCancelled && !isCompleted && (
-                                        <button
-                                            onClick={() => openEditModal(game)}
-                                            className="p-2 text-gray-500 hover:text-pitch-accent transition-colors"
-                                            title="Edit Event"
-                                        >
-                                            <Edit className="w-5 h-5" />
-                                        </button>
-                                    )}
-
-                                    {/* Cancel Button */}
-                                    {!isCancelled && !isCompleted && (
-                                        <button
-                                            onClick={() => openCancelModal(game.id)}
-                                            className="p-2 text-gray-500 hover:text-red-500 transition-colors"
-                                            title="Cancel Event"
-                                        >
-                                            <Trash2 className="w-5 h-5" />
-                                        </button>
-                                    )}
-
-                                    {/* Hard Delete Button (Past/Cancelled Only) */}
-                                    {(isCompleted || isCancelled) && (
-                                        <button
-                                            onClick={() => openHardDeleteModal(game.id)}
-                                            className="p-2 text-gray-500 hover:text-red-500 transition-colors bg-white/5 rounded"
-                                            title="Permanently Delete Game"
-                                        >
-                                            <Trash2 className="w-5 h-5" />
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
+                            <AdminPickupCard 
+                                key={game.id} 
+                                game={game as any} 
+                                onEdit={openEditModal as any} 
+                                onCancel={openCancelModal} 
+                                onHardDelete={openHardDeleteModal} 
+                            />
                         );
                     })
                 )}

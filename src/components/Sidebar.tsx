@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { X, LogOut, User, Home, LayoutDashboard, Settings, Trophy, Building, Bell, MapPin, ClipboardList } from 'lucide-react';
+import { X, LogOut, User, Home, LayoutDashboard, Settings, Trophy, Building, Bell, MapPin, ClipboardList, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -148,6 +148,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     >
                         <MapPin className="w-6 h-6 text-gray-500 group-hover:text-pitch-accent transition-colors" />
                         Locations
+                    </Link>
+
+                    <Link
+                        href="/schedule"
+                        onClick={onClose}
+                        className="flex items-center gap-4 text-3xl font-heading font-bold uppercase italic text-white hover:text-pitch-accent transition-colors group"
+                    >
+                        <Calendar className="w-6 h-6 text-gray-500 group-hover:text-pitch-accent transition-colors" />
+                        Event Hub
                     </Link>
 
                     {user && (

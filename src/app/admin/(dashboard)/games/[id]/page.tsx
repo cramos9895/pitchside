@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { MatchManager } from '@/components/admin/MatchManager';
 import { StandingsTable } from '@/components/admin/StandingsTable';
 import { ScheduleGenerator } from '@/components/admin/ScheduleGenerator';
+import { MicroTournamentManager } from '@/components/admin/MicroTournamentManager';
 import { useToast } from '@/components/ui/Toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -63,6 +64,8 @@ interface Game {
     teams_config: TeamConfig[] | null;
     status: 'scheduled' | 'active' | 'completed' | 'cancelled';
     event_type?: string;
+    end_time?: string;
+    match_style?: string;
     prize_pool_percentage?: number | null;
     home_score: number;
     away_score: number;
@@ -85,6 +88,12 @@ interface Match {
     status: 'scheduled' | 'active' | 'completed' | 'cancelled';
     is_final?: boolean;
     tournament_stage?: string;
+    timer_status?: 'stopped' | 'running' | 'paused';
+    timer_started_at?: string | null;
+    paused_elapsed_seconds?: number;
+    field_name?: string;
+    is_playoff?: boolean;
+    group_name?: string;
 }
 
 
@@ -254,18 +263,75 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             }
 
             try {
-                // Fetch Bookings
-                const { data: bookingsData, error: bookingsError } = await supabase
-                    .from('bookings')
-                    .select('*, profiles(email, full_name, id)')
-                    .eq('game_id', gameId)
-                    .order('created_at', { ascending: true });
+                let finalBookings: any[] = [];
+                
+                if (fetchedGame?.event_type === 'tournament' || fetchedGame?.event_type === 'league') {
+                    // 1. Fetch Registrations
+                    const { data: regData, error: regError } = await supabase
+                        .from('tournament_registrations')
+                        .select('*')
+                        .eq('game_id', gameId);
+                        
+                    if (regError) {
+                        console.error("[CRITICAL] Failed to fetch tournament_registrations:", regError);
+                    }
 
-                if (bookingsError) throw bookingsError;
+                    if (regData && regData.length > 0) {
+                        const userIds = regData.map(r => r.user_id);
+                        const teamIds = regData.map(r => r.team_id).filter(Boolean);
+
+                        // 2. Fetch Profiles and Teams in parallel (only if IDs exist)
+                        const [profilesRes, teamsRes] = await Promise.all([
+                            userIds.length > 0 
+                                ? supabase.from('profiles').select('email, full_name, id, avatar_url').in('id', userIds)
+                                : Promise.resolve({ data: [], error: null }),
+                            teamIds.length > 0 
+                                ? supabase.from('teams').select('id, name').in('id', teamIds)
+                                : Promise.resolve({ data: [], error: null })
+                        ]);
+
+                        if (profilesRes.error) {
+                            console.error("[CRITICAL] Failed to fetch profiles for roster:", JSON.stringify(profilesRes.error, null, 2));
+                        }
+                        if (teamsRes.error) {
+                            console.error("[CRITICAL] Failed to fetch teams for roster:", JSON.stringify(teamsRes.error, null, 2));
+                        }
+
+                        finalBookings = regData.map((r: any) => {
+                            const profile = profilesRes.data?.find(p => p.id === r.user_id);
+                            const team = teamsRes.data?.find(t => t.id === r.team_id);
+
+                            return {
+                                id: r.id || `reg_${r.user_id}`,
+                                user_id: r.user_id,
+                                team_id: r.team_id,
+                                role: r.role,
+                                team_assignment: team?.name || 'Unassigned',
+                                team_color: r.team_color, // Use the color from the registration table
+                                has_signed: r.has_signed,
+                                checked_in: r.checked_in,
+                                status: r.status === 'registered' ? 'paid' : r.status,
+                                payment_status: 'verified',
+                                payment_amount: 0,
+                                profiles: profile || null,
+                                created_at: r.created_at
+                            };
+                        });
+                    }
+                } else {
+                    const { data: bookingsData, error: bookingsError } = await supabase
+                        .from('bookings')
+                        .select('*, profiles(email, full_name, id, avatar_url)')
+                        .eq('game_id', gameId)
+                        .order('created_at', { ascending: true });
+    
+                    if (bookingsError) throw bookingsError;
+                    finalBookings = bookingsData || [];
+                }
 
                 let signedIds = new Set<string>();
-                if (fetchedGame?.facility_id && bookingsData) {
-                    const userIds = bookingsData.map((b: any) => b.user_id);
+                if (fetchedGame?.facility_id && finalBookings.length > 0) {
+                    const userIds = finalBookings.map((b: any) => b.user_id);
                     const { data: waiverData } = await supabase
                         .from('waiver_signatures')
                         .select('user_id')
@@ -274,7 +340,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     signedIds = new Set(waiverData?.map((w: any) => w.user_id) || []);
                 }
 
-                const enrichedBookings = (bookingsData || []).map((b: any) => ({
+                const enrichedBookings = finalBookings.map((b: any) => ({
                     ...b,
                     has_signed: signedIds.has(b.user_id)
                 }));
@@ -462,10 +528,24 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const isAdmin = currentUserRole === 'admin' || currentUserRole === 'master_admin';
 
     const gameDate = new Date(game.start_time);
-    const endDate = new Date(gameDate.getTime() + 90 * 60000);
     const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     const startTimeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    const endTimeStr = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+    // FIX: Time Range Bug - Parse actual end_time from database if it exists
+    let endTimeStr = 'TBD';
+    if (game.end_time) {
+        if (game.end_time.includes('T')) {
+            endTimeStr = new Date(game.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        } else {
+            const [h, m] = game.end_time.split(':');
+            const tempDate = new Date();
+            tempDate.setHours(Number(h), Number(m));
+            endTimeStr = tempDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        }
+    } else {
+        const endDate = new Date(gameDate.getTime() + 90 * 60000);
+        endTimeStr = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
 
     // Default teams if none config (fallback)
     const teams = game.teams_config || [
@@ -753,6 +833,20 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         );
     }
 
+    if (game.event_type === 'tournament') {
+        return (
+            <MicroTournamentManager 
+                game={game} 
+                bookings={bookings} 
+                matches={matches}
+                onUpdate={() => {
+                    fetchMatches();
+                    router.refresh();
+                }} 
+            />
+        );
+    }
+
     return (
         <div className="min-h-screen bg-pitch-black text-white p-6 pt-8 font-sans overflow-x-hidden pb-40">
             <div className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto">
@@ -765,7 +859,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
                             </Link>
                             <h1 className="font-heading text-3xl md:text-4xl font-bold italic uppercase tracking-tighter">
-                                Roster: <span className="text-pitch-accent">{game.title}</span>
+                                <span className="text-pitch-accent">{game.title}</span>
                             </h1>
                             <div className="flex items-center gap-3">
                                 <p className="text-pitch-secondary">{dateStr} • {startTimeStr} - {endTimeStr} • <span className={cn("uppercase font-bold", matchStatus === 'completed' ? 'text-green-500' : 'text-yellow-500')}>{matchStatus}</span></p>
@@ -788,12 +882,6 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                             Cancel Event
                                         </button>
                                     )}
-                                    <button
-                                        onClick={() => setShowDeleteModal(true)}
-                                        className="px-4 py-2 bg-red-600/20 border border-red-500/50 text-red-500 hover:bg-red-600/30 rounded uppercase font-bold text-xs tracking-wider transition-colors flex items-center gap-2"
-                                    >
-                                        <Trash2 className="w-4 h-4" /> Delete
-                                    </button>
                                 </div>
                                 {/* Mobile Dropdown View */}
                                 <div className="md:hidden">
@@ -807,9 +895,6 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                     Cancel Event <X className="w-4 h-4 ml-2" />
                                                 </DropdownMenuItem>
                                             )}
-                                            <DropdownMenuItem className="text-red-500 font-bold uppercase tracking-wider justify-between" onClick={() => setShowDeleteModal(true)}>
-                                                Delete Event <Trash2 className="w-4 h-4 ml-2" />
-                                            </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </div>
@@ -849,7 +934,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                         e.target.value = '';
                                     }}
                                 >
-                                    <option value="">+ Assign Roster Player as Host</option>
+                                    <option value="">+ Assign Host</option>
                                     {playerOptions.filter(p => !(game.host_ids || []).includes(p.id)).map(p => (
                                         <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
@@ -1088,60 +1173,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         {/* TAB 2: GAME MANAGEMENT */}
                         <TabsContent value="game-management" className="mt-0">
 
-                            {/* TOURNAMENT FINAL PAYOUT REPORT */}
-                            {matchStatus === 'completed' && game?.event_type === 'tournament' && game?.prize_pool_percentage && game.prize_pool_percentage > 0 ? (() => {
-                                const totalCollected = bookings.reduce((sum, b) => {
-                                    if (b.status !== 'cancelled' && b.payment_status === 'verified') {
-                                        return sum + (b.payment_amount || 0);
-                                    }
-                                    return sum;
-                                }, 0);
-                                const prizePot = totalCollected * (game.prize_pool_percentage / 100);
 
-                                return (
-                                    <div className="bg-gradient-to-br from-green-500/20 to-pitch-card border-2 border-green-500/50 rounded-sm p-6 mb-8 shadow-[0_0_30px_rgba(34,197,94,0.15)] animate-in fade-in slide-in-from-top-4">
-                                        <h2 className="font-heading text-2xl font-bold italic uppercase flex items-center gap-2 mb-4 text-green-400">
-                                            <Award className="w-6 h-6" /> Tournament Finalized: Payout Report
-                                        </h2>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                            <div className="bg-black/40 p-4 border border-green-500/20 rounded shadow-inner">
-                                                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Total Prize Pot</div>
-                                                <div className="text-3xl font-black text-green-500">${prizePot.toFixed(2)}</div>
-                                                <div className="text-[10px] text-gray-500 mt-1">Found from {game.prize_pool_percentage}% of ${totalCollected.toFixed(2)} collected.</div>
-                                            </div>
-                                            <div className="bg-black/40 p-4 border border-white/10 rounded md:col-span-2 shadow-inner">
-                                                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Winning Squad & Distribution</div>
-                                                {(() => {
-                                                    const finalMatch = matches.find(m => m.tournament_stage === 'final' && m.status === 'completed');
-                                                    if (!finalMatch) return <div className="text-sm italic text-pitch-secondary pt-2">Final match not completed yet. Ensure playoffs are fully resulted.</div>;
-                                                    
-                                                    const winningTeam = finalMatch.home_score > finalMatch.away_score ? finalMatch.home_team : finalMatch.home_score < finalMatch.away_score ? finalMatch.away_team : null;
-                                                    if (!winningTeam) return <div className="text-sm italic text-pitch-secondary pt-2">Final match ended in a draw. No clear winner found.</div>;
-
-                                                    const captain = bookings.find(b => b.team_assignment === winningTeam && b.prize_split_preference);
-                                                    const captainName = captain ? (Array.isArray(captain.profiles) ? captain.profiles[0]?.full_name : captain.profiles?.full_name) : 'Unknown Captain';
-                                                    
-                                                    return (
-                                                        <div className="mt-2">
-                                                            <div className="text-xl font-bold text-white mb-2 uppercase italic">{winningTeam}</div>
-                                                            <div className="text-sm text-gray-300 mb-1">
-                                                                <span className="font-bold text-pitch-accent uppercase text-[10px] tracking-wider mr-2">Captain:</span> {captainName}
-                                                            </div>
-                                                            <div className="text-sm text-gray-300">
-                                                                <span className="font-bold text-pitch-accent uppercase text-[10px] tracking-wider mr-2">Distribution Preference:</span> 
-                                                                {captain?.prize_split_preference === 'pay_captain' ? 'Pay directly to Captain' : captain?.prize_split_preference === 'split_evenly' ? 'Split evenly among roster' : 'Manual / Not specified'}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-                                        <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded text-sm text-green-200">
-                                            <span className="font-bold uppercase tracking-wider text-xs">Admin Action Required:</span> Please process the ${prizePot.toFixed(2)} payout offline via Venmo, Zelle, or Cash according to the captain's preference. Stripe automatic payouts are not supported.
-                                        </div>
-                                    </div>
-                                );
-                            })() : null}
 
                             {/* TEAM BALANCING SECTION (Moved Here) */}
                             <div className="mb-8">
@@ -1187,88 +1219,15 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 </div>
                             )}
 
-                            {/* Live Vote Tally (Moved down here) */}
-                            {(matchStatus === 'active' || matchStatus === 'completed' || Object.keys(voteTally).length > 0) && (
-                                <div className="bg-gradient-to-r from-yellow-500/10 to-transparent border border-yellow-500/20 rounded-sm p-6 mb-8">
-                                    <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2 mb-4 text-yellow-500">
-                                        <Trophy className="w-5 h-5" /> Live Player MVP Votes
-                                    </h2>
-                                    {Object.keys(voteTally).length === 0 ? (
-                                        <p className="text-sm text-gray-500 italic">No votes cast yet.</p>
-                                    ) : (
-                                        <div className="flex flex-wrap gap-4">
-                                            {Object.entries(voteTally)
-                                                .sort(([, a], [, b]) => b - a)
-                                                .map(([candidateId, count], index) => {
-                                                    // Find player name
-                                                    const player = roster.find(b => {
-                                                        const p = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
-                                                        return b.user_id === candidateId || p?.id === candidateId;
-                                                    });
-                                                    // Fallback helper
-                                                    const getPlayerName = (b: any) => {
-                                                        const p = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
-                                                        return p?.full_name || 'Unknown';
-                                                    };
-                                                    const name = player ? getPlayerName(player) : 'Unknown Player';
 
-                                                    return (
-                                                        <div key={candidateId} className="bg-black/40 border border-yellow-500/30 px-4 py-2 rounded flex items-center gap-3">
-                                                            <div className="text-xl font-black text-white">{index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}</div>
-                                                            <div>
-                                                                <div className="font-bold text-sm text-gray-200">{name}</div>
-                                                                <div className="text-xs text-yellow-500 font-bold">{count} Votes</div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
 
-                            {/* MODE TOGGLE & TABS */}
+                            {/* MODE TOGGLES REMOVED - LOCKED TO DATABASE STATE */}
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-white/10 pb-4">
                                 <div className="flex items-center gap-4 overflow-x-auto">
-                                    {game.event_type !== 'tournament' && game.event_type !== 'league' ? (
-                                        <>
-                                            <button
-                                                onClick={() => handleViewModeChange('single')}
-                                                className={cn(
-                                                    "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
-                                                    viewMode === 'single' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
-                                                )}
-                                            >
-                                                <Trophy className="w-4 h-4" /> Single Match
-                                            </button>
-                                            <div className="w-px h-4 bg-white/20"></div>
-                                            <button
-                                                onClick={() => handleViewModeChange('king')}
-                                                className={cn(
-                                                    "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
-                                                    viewMode === 'king' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
-                                                )}
-                                            >
-                                                <Swords className="w-4 h-4" /> King of the Court
-                                            </button>
-                                            <div className="w-px h-4 bg-white/20"></div>
-                                            <button
-                                                onClick={() => handleViewModeChange('tournament')}
-                                                className={cn(
-                                                    "text-sm font-bold uppercase flex items-center gap-2 transition-colors whitespace-nowrap",
-                                                    viewMode === 'tournament' ? "text-pitch-accent" : "text-gray-500 hover:text-white"
-                                                )}
-                                            >
-                                                <Calendar className="w-4 h-4" /> Tournament
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <h3 className="text-xl font-bold uppercase italic flex items-center gap-2 text-pitch-accent">
-                                            <Calendar className="w-5 h-5" /> Tournament Manager
-                                        </h3>
-                                    )}
+                                    <h3 className="text-xl font-bold uppercase italic flex items-center gap-2 text-pitch-accent">
+                                        <Trophy className="w-5 h-5" /> Game Management ({game.match_style || 'Full Length'})
+                                    </h3>
                                 </div>
-
                                 <button
                                     onClick={() => window.open(`/games/${gameId}/live`, '_blank')}
                                     className="hidden md:flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white text-sm font-bold uppercase rounded border border-white/10 transition-colors whitespace-nowrap"
@@ -1279,7 +1238,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                             </div>
 
 
-                            {viewMode === 'single' && (
+                            {(!game.match_style || game.match_style === 'Full Length') && (
                                 /* SINGLE MATCH CONTROL PANEL */
                                 <div className="bg-gray-900 border border-gray-800 rounded-sm p-6">
                                     <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2 mb-6">
@@ -1353,7 +1312,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 </div>
                             )}
 
-                            {viewMode === 'king' && (
+                            {(game.match_style === 'King' || game.match_style === 'Tourney') && (
                                 /* KING OF THE COURT (MANUAL & LIST) */
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                     <MatchManager
@@ -1371,7 +1330,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 </div>
                             )}
 
-                            {viewMode === 'tournament' && (
+                            {false && (
                                 /* TOURNAMENT (AUTO-SCHEDULER) */
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                     {!matches.some(m => m.round_number > 0) && (

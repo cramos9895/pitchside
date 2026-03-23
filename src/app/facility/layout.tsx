@@ -59,7 +59,7 @@ export default async function FacilityLayout({ children }: { children: ReactNode
     }
 
     return (
-        <div className="min-h-screen bg-pitch-black flex flex-col pt-20">
+        <div className="min-h-screen bg-pitch-black flex flex-col">
             {/* God Mode Banner */}
             {impersonatedFacilityName && (
                 <div className="w-full bg-red-600 text-white px-4 py-2 flex items-center justify-between text-sm z-40 sticky top-16 shadow-lg border-b border-red-700">
@@ -77,7 +77,7 @@ export default async function FacilityLayout({ children }: { children: ReactNode
 
             <div className="flex flex-1">
                 {/* Sidebar */}
-                <aside className="w-64 border-r border-white/10 bg-pitch-card hidden md:block border-t h-[calc(100vh-5rem)] sticky top-20 overflow-y-auto">
+                <aside className="w-64 border-r border-white/10 bg-pitch-card hidden md:block h-[calc(100vh-5rem)] sticky top-20 overflow-y-auto">
                     <div className="p-6">
                         <h2 className="text-xl font-heading font-black italic text-pitch-accent uppercase tracking-wider mb-6">
                             Facility Panel
@@ -135,7 +135,7 @@ export default async function FacilityLayout({ children }: { children: ReactNode
                 </aside>
 
                 {/* Main Content */}
-                <main className="flex-1 p-8 overflow-y-auto mt-4">
+                <main className="flex-1 p-8 overflow-y-auto pt-2">
                     {children}
                 </main>
             </div>

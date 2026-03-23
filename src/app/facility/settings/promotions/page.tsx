@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import PromotionsClient from '@/app/admin/settings/promotions/PromotionsClient';
+import PromotionsClient from '@/app/admin/(dashboard)/settings/promotions/PromotionsClient';
 import { Tag } from 'lucide-react';
 
 export const metadata = { title: 'Rental Promotions | Pitch Side Facility' };

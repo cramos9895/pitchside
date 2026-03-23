@@ -32,7 +32,7 @@ export default async function FacilitiesIndexPage() {
     }
 
     return (
-        <div className="min-h-screen bg-pitch-black pt-24 pb-20">
+        <div className="min-h-screen bg-pitch-black pt-2 pb-20">
             {/* Header / Search Hero */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="text-center md:text-left">

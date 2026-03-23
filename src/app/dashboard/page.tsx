@@ -3,10 +3,11 @@
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Calendar, Clock, MapPin, AlertCircle, Loader2, User } from 'lucide-react';
+import { Calendar, Clock, MapPin, AlertCircle, Loader2, User, Trophy, Users, ArrowRight, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/components/ui/Toast';
+import { TournamentCard } from '@/components/public/TournamentCard';
 import { createContractCheckoutSession } from '@/app/actions/stripe';
 
 export default function DashboardOverviewPage() {
@@ -16,7 +17,7 @@ export default function DashboardOverviewPage() {
 
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
-    const [nextUpContent, setNextUpContent] = useState<any>(null);
+    const [unifiedEvents, setUnifiedEvents] = useState<any[]>([]);
     const [actionRequiredRentals, setActionRequiredRentals] = useState<any[]>([]);
     const [isPayingContract, setIsPayingContract] = useState<string | null>(null);
 
@@ -33,7 +34,7 @@ export default function DashboardOverviewPage() {
 
                 const now = new Date().toISOString();
 
-                // 1. Fetch Action Required Rentals (awaiting_payment)
+                // 1. Fetch Action Required Rentals
                 const { data: pendingBookings } = await supabase
                     .from('resource_bookings')
                     .select('*, facility:facilities(name), resource:resources(title)')
@@ -42,7 +43,6 @@ export default function DashboardOverviewPage() {
                     .order('start_time', { ascending: true });
 
                 if (pendingBookings) {
-                    // Group them by recurring_group_id or single id
                     const grouped = pendingBookings.reduce((acc: any, booking: any) => {
                         const key = booking.recurring_group_id || booking.id;
                         if (!acc[key]) {
@@ -57,7 +57,6 @@ export default function DashboardOverviewPage() {
                         return acc;
                     }, {});
 
-                    // Fetch Contract Terms for these groups
                     const groupIds = Object.keys(grouped);
                     if (groupIds.length > 0) {
                         const { data: contractsData } = await supabase
@@ -71,52 +70,90 @@ export default function DashboardOverviewPage() {
                             });
                         }
                     }
-
                     setActionRequiredRentals(Object.values(grouped));
                 }
 
-                // 2. Fetch Single "Next Up" Event (Confirmed Rental OR Pick-up Game)
-                const { data: upcomingRentals } = await supabase
-                    .from('resource_bookings')
-                    .select('*, facility:facilities(name), resource:resources(title)')
-                    .eq('user_id', user.id)
-                    .eq('status', 'confirmed')
-                    .gte('start_time', now)
-                    .order('start_time', { ascending: true })
-                    .limit(1);
+                // 2. Fetch All Event Types
+                const [rentalsRes, gamesRes, tournamentsRes] = await Promise.all([
+                    supabase
+                        .from('resource_bookings')
+                        .select('*, facility:facilities(name), resource:resources(title)')
+                        .eq('user_id', user.id)
+                        .eq('status', 'confirmed')
+                        .gte('start_time', now)
+                        .order('start_time', { ascending: true }),
+                    supabase
+                        .from('bookings')
+                        .select('id, game:games(id, start_time, end_time, title, facility:facilities(name))')
+                        .eq('user_id', user.id)
+                        .in('status', ['paid', 'confirmed'])
+                        .not('roster_status', 'eq', 'dropped'),
+                    supabase
+                        .from('tournament_registrations')
+                        .select('*, games(*), teams(id, name)')
+                        .eq('user_id', user.id)
+                        .order('created_at', { ascending: false })
+                ]);
 
-                const { data: upcomingGamesData } = await supabase
-                    .from('bookings')
-                    .select('id, game:games(id, start_time, end_time, title, facility:facilities(name))')
-                    .eq('user_id', user.id)
-                    .in('status', ['paid', 'confirmed'])
-                    .not('roster_status', 'eq', 'dropped');
+                // 3. Normalize into Unified Feed
+                const events: any[] = [];
 
-                // Filter games manually to find the closest future one (since we can't deep filter inside the join easily on Supabase free tier without rpc)
-                let closestGame: any = null;
-                if (upcomingGamesData) {
-                    const futureGames = upcomingGamesData
-                        .map((b: any) => b.game)
-                        .filter((g: any) => g && new Date(g.start_time).toISOString() >= now)
-                        .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-
-                    if (futureGames.length > 0) closestGame = futureGames[0];
+                // Add Rentals
+                if (rentalsRes.data) {
+                    rentalsRes.data.forEach(r => events.push({
+                        type: 'rental',
+                        id: r.id,
+                        start_time: r.start_time,
+                        end_time: r.end_time,
+                        title: r.facility?.name || 'Rental',
+                        location: r.resource?.title,
+                        data: r
+                    }));
                 }
 
-                const nextRental = upcomingRentals?.[0];
-
-                if (nextRental && closestGame) {
-                    // Compare
-                    if (new Date(nextRental.start_time).getTime() < new Date(closestGame.start_time).getTime()) {
-                        setNextUpContent({ type: 'rental', data: nextRental });
-                    } else {
-                        setNextUpContent({ type: 'game', data: closestGame });
-                    }
-                } else if (nextRental) {
-                    setNextUpContent({ type: 'rental', data: nextRental });
-                } else if (closestGame) {
-                    setNextUpContent({ type: 'game', data: closestGame });
+                // Add Pickup Games
+                if (gamesRes.data) {
+                    (gamesRes.data as any[]).forEach(b => {
+                        const g = b.game as any;
+                        if (g && new Date(g.start_time).toISOString() >= now) {
+                            events.push({
+                                type: 'game',
+                                id: b.id,
+                                start_time: g.start_time,
+                                end_time: g.end_time,
+                                title: g.title || 'Pick-Up Game',
+                                location: g.facility?.name,
+                                data: g
+                            });
+                        }
+                    });
                 }
+
+                // Add Tournaments
+                if (tournamentsRes.data) {
+                    tournamentsRes.data.forEach(reg => {
+                        if (reg.games && new Date(reg.games.start_time).toISOString() >= now) {
+                            // Extract all registrations for this specific game if needed, 
+                            // but for now we pass the user's specific registration as the primary 
+                            // and wrap it in an array for the TournamentCard's expectation.
+                            events.push({
+                                type: 'tournament',
+                                id: reg.id,
+                                start_time: reg.games.start_time,
+                                end_time: reg.games.end_time,
+                                title: reg.games.title || 'Tournament',
+                                location: reg.games.location_nickname,
+                                data: reg.games,
+                                registration: reg,
+                                registrations: [reg] // Restoring the array for the card logic
+                            });
+                        }
+                    });
+                }
+
+                // Sort Chronologically
+                events.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+                setUnifiedEvents(events);
 
             } catch (err) {
                 console.error("Dashboard Overview Error:", err);
@@ -159,135 +196,232 @@ export default function DashboardOverviewPage() {
         );
     }
 
+    const nextUp = unifiedEvents[0];
+    const schedule = unifiedEvents; // Show ALL events in the schedule tab, including the one in Next Up
+
+    const getMatchHref = (event: any) => {
+        if (event.type === 'game') return `/games/${event.id}`;
+        if (event.type === 'tournament') {
+            const isCaptain = event.registration?.role === 'captain';
+            const teamId = event.registration?.team_id;
+            const tournamentId = event.data?.id || event.registration?.game_id;
+            
+            if (isCaptain && teamId) {
+                return `/tournaments/${tournamentId}/team/${teamId}`;
+            }
+            return `/dashboard/tournaments/${tournamentId}`;
+        }
+        return '/profile';
+    };
+
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 text-white">
-            <div className="flex justify-between items-start mb-1 border-b border-white/5 pb-4">
-                <div>
-                    <h2 className="text-2xl font-bold mb-1">Welcome back.</h2>
-                    <p className="text-pitch-secondary mt-2">Here's a snapshot of your PitchSide activity.</p>
+        <div className="space-y-12 animate-in fade-in duration-700 text-white pt-2 relative">
+            {/* Ambient Background */}
+            <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(204,255,0,0.03)_0%,transparent_50%)] pointer-events-none" />
+
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-white/5 relative z-10">
+                <div className="space-y-1">
+                    <h2 className="text-4xl md:text-6xl font-black italic uppercase italic tracking-tighter leading-none">
+                        PLAYER <span className="text-pitch-accent">HUB</span>
+                    </h2>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-pitch-secondary pl-1">
+                        Control Center / {user?.email?.split('@')[0] || 'Member'}
+                    </p>
                 </div>
-                <Link href="/profile" className="flex items-center gap-2 bg-pitch-card border border-white/10 px-4 py-2 rounded-sm hover:border-white/30 transition-all shrink-0">
-                    <User className="w-4 h-4 text-pitch-accent" />
-                    <span className="text-sm font-bold uppercase tracking-widest text-white hidden sm:inline">Player Profile</span>
+                <Link href="/profile" className="group flex items-center gap-3 bg-white/5 border border-white/10 px-6 py-3 rounded-sm hover:bg-pitch-accent hover:border-pitch-accent transition-all shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-pitch-accent/20 flex items-center justify-center group-hover:bg-pitch-black/20 transition-colors">
+                        <User className="w-4 h-4 text-pitch-accent group-hover:text-pitch-black" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white group-hover:text-pitch-black">View Profile</span>
                 </Link>
             </div>
 
-            {/* ACTION REQUIRED SECTION */}
-            {actionRequiredRentals.length > 0 && (
-                <div className="space-y-4">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                        <AlertCircle className="w-5 h-5 text-yellow-500" />
-                        Action Required
-                    </h3>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 relative z-10">
+                {/* Main Content: Next Up & Schedule */}
+                <div className="lg:col-span-8 space-y-12">
+                    
+                    {/* NEXT UP SECTION */}
+                    <section className="space-y-6">
+                        <div className="flex items-center gap-4">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-pitch-secondary shrink-0">Next Up</h3>
+                            <div className="h-px w-full bg-white/5" />
+                        </div>
 
-                    <div className="grid grid-cols-1 gap-4">
-                        {actionRequiredRentals.map((group) => (
-                            <div key={group.group_id} className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-                                <div>
-                                    <h4 className="font-bold text-yellow-400 text-lg mb-1">{group.facility}</h4>
-                                    <p className="text-yellow-500/80 text-sm mb-2 font-medium">
-                                        {group.bookings.length}x {group.resource} Reservations
-                                    </p>
+                        {nextUp ? (
+                            nextUp.type === 'tournament' ? (
+                                <TournamentCard 
+                                    tournament={nextUp.data} 
+                                    userId={user?.id}
+                                    registrations={nextUp.registrations}
+                                />
+                            ) : (
+                                <div className="group relative bg-[#111] border border-white/5 rounded-sm overflow-hidden hover:border-pitch-accent/30 transition-all duration-500 shadow-2xl">
+                                    <div className="absolute top-0 left-0 w-1 h-full bg-pitch-accent" />
+                                    <div className="flex flex-col md:flex-row">
+                                        <div className="p-8 md:p-12 space-y-6 flex-1">
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-pitch-accent text-pitch-black text-[10px] font-black px-2 py-0.5 rounded-sm uppercase tracking-widest">
+                                                    Match Day
+                                                </div>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                                    {nextUp.type === 'game' ? 'Pickup Match' : 'Field Rental'}
+                                                </span>
+                                            </div>
 
-                                    {group.contract && (
-                                        <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-yellow-300 bg-yellow-500/20 px-3 py-1 rounded-full border border-yellow-500/30">
-                                            {group.contract.payment_term === 'weekly'
-                                                ? `Weekly Auto-Pay (${formatPrice(Math.floor(group.contract.final_price / group.bookings.length))} /wk)`
-                                                : `Pay In Full (${formatPrice(group.contract.final_price)})`
-                                            }
+                                            <h4 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-[0.85] text-white">
+                                                {nextUp.title}
+                                            </h4>
+
+                                            <div className="flex flex-wrap items-center gap-x-8 gap-y-4 pt-4 border-t border-white/5">
+                                                <div className="space-y-1">
+                                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest block">Date</span>
+                                                    <p className="text-sm font-bold text-white uppercase italic">
+                                                        {new Date(nextUp.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                    </p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest block">Time</span>
+                                                    <p className="text-sm font-bold text-white uppercase italic">
+                                                        {new Date(nextUp.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                                    </p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest block">Arena</span>
+                                                    <p className="text-sm font-bold text-pitch-accent uppercase italic truncate max-w-[150px]">
+                                                        {nextUp.location}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-
-                                <button
-                                    onClick={() => handlePayContract(group.group_id)}
-                                    disabled={isPayingContract === group.group_id}
-                                    className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3 bg-pitch-accent text-black font-bold uppercase tracking-wider text-sm rounded-md shadow-sm hover:shadow-md transition-all hover:bg-yellow-400 disabled:opacity-50"
-                                >
-                                    {isPayingContract === group.group_id ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        'Review & Pay'
-                                    )}
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* NEXT UP SECTION */}
-            <div className="space-y-4">
-                <h3 className="text-lg font-bold">Next Up</h3>
-
-                {nextUpContent ? (
-                    <div className="bg-pitch-card border border-white/10 rounded-lg p-0 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex flex-col sm:flex-row">
-                            <div className="bg-black text-white p-6 sm:w-48 shrink-0 flex flex-col justify-center items-center text-center border-b sm:border-b-0 sm:border-r border-white/10">
-                                <span className="text-sm font-bold uppercase tracking-widest text-pitch-accent mb-1">
-                                    {new Date(nextUpContent.data.start_time).toLocaleDateString(undefined, { month: 'short' })}
-                                </span>
-                                <span className="text-4xl font-black italic tracking-tighter">
-                                    {new Date(nextUpContent.data.start_time).getDate()}
-                                </span>
-                                <span className="text-sm text-pitch-secondary mt-1 uppercase tracking-wider">
-                                    {new Date(nextUpContent.data.start_time).toLocaleDateString(undefined, { weekday: 'long' })}
-                                </span>
-                            </div>
-
-                            <div className="p-6 flex-1 flex flex-col justify-center">
-                                <div className={cn(
-                                    "inline-block px-2 py-1 text-xs font-bold uppercase tracking-wider rounded border mb-3 w-fit",
-                                    nextUpContent.type === 'game'
-                                        ? "bg-pitch-accent/10 text-pitch-accent border-pitch-accent/20"
-                                        : "bg-green-500/20 text-green-400 border-green-500/30"
-                                )}>
-                                    {nextUpContent.type === 'game' ? 'Joined Game' : 'Confirmed Rental'}
-                                </div>
-                                <h4 className="text-2xl font-bold mb-2">
-                                    {nextUpContent.type === 'game' ? nextUpContent.data.title || 'Pick-Up Game' : nextUpContent.data.facility}
-                                </h4>
-
-                                <div className="space-y-2 mt-2">
-                                    <div className="flex items-center text-sm text-gray-300 font-medium">
-                                        <MapPin className="w-4 h-4 mr-3 text-pitch-secondary" />
-                                        {nextUpContent.type === 'game' ? nextUpContent.data.facility?.name : nextUpContent.data.resource}
-                                    </div>
-                                    <div className="flex items-center text-sm text-gray-300 font-medium">
-                                        <Clock className="w-4 h-4 mr-3 text-pitch-secondary" />
-                                        {new Date(nextUpContent.data.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                        {nextUpContent.data.end_time && ` - ${new Date(nextUpContent.data.end_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+                                        
+                                        <div className="p-8 md:p-12 bg-white/5 flex flex-col justify-center items-center md:items-end border-t md:border-t-0 md:border-l border-white/5">
+                                            <Link
+                                                href={getMatchHref(nextUp)}
+                                                className="group/btn px-8 py-4 bg-white text-black font-black uppercase tracking-[0.2em] text-[10px] hover:bg-pitch-accent transition-all rounded-sm flex items-center gap-2"
+                                            >
+                                                ENTER MATCH <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" />
+                                            </Link>
+                                        </div>
                                     </div>
                                 </div>
+                            )
+                        ) : (
+                            <div className="bg-[#111] border border-dashed border-white/10 rounded-sm p-16 text-center">
+                                <Calendar className="w-12 h-12 text-pitch-secondary mx-auto mb-6 opacity-20" />
+                                <h4 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Clean Sheet</h4>
+                                <p className="text-xs text-pitch-secondary uppercase tracking-widest mb-8">No upcoming games scheduled</p>
+                                <div className="flex flex-wrap items-center justify-center gap-4">
+                                    <Link href="/schedule" className="px-8 py-3 bg-pitch-accent text-pitch-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-white transition-all shadow-lg">
+                                        Find Match
+                                    </Link>
+                                </div>
+                            </div>
+                        )}
+                    </section>
 
-                                {nextUpContent.type === 'game' && (
-                                    <div className="mt-4 pt-4 border-t border-white/5">
-                                        <Link
-                                            href={`/games/${nextUpContent.data.id}`}
-                                            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase tracking-widest rounded transition-colors inline-flex"
+                    {/* FULL SCHEDULE SECTION */}
+                    <section className="space-y-6">
+                        <div className="flex items-center gap-4">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-pitch-secondary shrink-0">History & Coming Up</h3>
+                            <div className="h-px w-full bg-white/5" />
+                        </div>
+
+                        {schedule.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {schedule.map((event) => (
+                                    <div key={event.id} className="group relative bg-[#111] border border-white/5 rounded-sm p-6 hover:border-pitch-accent/30 transition-all duration-300">
+                                        <div className="flex justify-between items-start mb-6">
+                                            <div className="space-y-1">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-pitch-accent block">
+                                                    {event.type === 'game' ? 'Pickup' : event.type === 'tournament' ? 'Tournament' : 'Rental'}
+                                                </span>
+                                                <h4 className="text-2xl font-black italic uppercase tracking-tight text-white leading-none group-hover:text-pitch-accent transition-colors">
+                                                    {event.title}
+                                                </h4>
+                                            </div>
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-[10px] font-black text-white">{new Date(event.start_time).getDate()}</span>
+                                                <span className="text-[8px] font-black uppercase text-gray-500 leading-none">{new Date(event.start_time).toLocaleDateString(undefined, { month: 'short' })}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2 mb-8">
+                                            <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-gray-500 gap-2">
+                                                <MapPin className="w-3 h-3 text-pitch-accent" /> {event.location}
+                                            </div>
+                                            <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-gray-500 gap-2">
+                                                <Clock className="w-3 h-3 text-pitch-accent" /> {new Date(event.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                            </div>
+                                        </div>
+
+                                        <Link 
+                                            href={getMatchHref(event)}
+                                            className="block w-full py-3 bg-white/5 hover:bg-white hover:text-black border border-white/10 text-white text-center text-[10px] font-black uppercase tracking-widest transition-all rounded-sm"
                                         >
                                             View Match Workspace
                                         </Link>
                                     </div>
-                                )}
+                                ))}
                             </div>
+                        ) : (
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-600 text-center py-12 bg-white/[0.02] border border-dashed border-white/5 rounded-sm italic">
+                                No activity recorded yet
+                            </p>
+                        )}
+                    </section>
+                </div>
+
+                {/* Sidebar: Action Required */}
+                <div className="lg:col-span-4 space-y-8">
+                    <section className="space-y-6 lg:border-l lg:border-white/5 lg:pl-12">
+                        <div className="flex items-center gap-4">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-pitch-secondary shrink-0">Action Items</h3>
+                            <div className="h-px w-full bg-white/5" />
                         </div>
-                    </div>
-                ) : (
-                    <div className="bg-pitch-card border border-dashed border-white/10 rounded-lg p-10 text-center">
-                        <Calendar className="w-10 h-10 text-pitch-secondary mx-auto mb-3 opacity-50" />
-                        <h4 className="font-bold mb-1">Your schedule is clear.</h4>
-                        <p className="text-sm text-pitch-secondary mb-4">You have no upcoming confirmed games or rentals.</p>
-                        <div className="flex items-center justify-center gap-4">
-                            <Link href="/" className="inline-flex items-center px-4 py-2 bg-pitch-accent text-black text-sm font-bold uppercase tracking-wider rounded-md hover:bg-white transition-colors shadow-sm">
-                                Find a Game
-                            </Link>
-                            <Link href="/facilities" className="inline-flex items-center px-4 py-2 bg-white/5 border border-white/10 text-white text-sm font-bold uppercase tracking-wider rounded-md hover:bg-white/10 transition-colors shadow-sm">
-                                Rent a Field
-                            </Link>
-                        </div>
-                    </div>
-                )}
+
+                        {actionRequiredRentals.length > 0 ? (
+                            <div className="space-y-4">
+                                {actionRequiredRentals.map((group) => (
+                                    <div key={group.group_id} className="relative bg-yellow-400/5 border border-yellow-400/20 rounded-sm p-6 overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-400" />
+                                        <div className="space-y-4">
+                                            <div>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-yellow-500/60 block mb-1">Payment Required</span>
+                                                <h4 className="text-xl font-black uppercase italic text-white leading-tight">{group.facility}</h4>
+                                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
+                                                    {group.bookings.length}x {group.resource} Reservations
+                                                </p>
+                                            </div>
+
+                                            {group.contract && (
+                                                <div className="text-[8px] font-black uppercase tracking-[0.2em] text-yellow-500/80 bg-yellow-400/10 px-2 py-1 inline-block border border-yellow-400/20">
+                                                    {group.contract.payment_term === 'weekly' ? 'Weekly' : 'Full Pay'} • {formatPrice(group.contract.final_price)}
+                                                </div>
+                                            )}
+
+                                            <button
+                                                onClick={() => handlePayContract(group.group_id)}
+                                                disabled={isPayingContract === group.group_id}
+                                                className="w-full py-4 bg-yellow-400 text-black font-black uppercase tracking-widest text-[10px] rounded-sm hover:bg-white transition-all shadow-xl shadow-yellow-400/10 flex items-center justify-center gap-2"
+                                            >
+                                                {isPayingContract === group.group_id ? (
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                    'Complete Secure Payment'
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="p-12 text-center bg-white/[0.02] border border-dashed border-white/5 rounded-sm">
+                                <Check className="w-8 h-8 text-green-500/20 mx-auto mb-4" />
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-600">All systems clear</p>
+                            </div>
+                        )}
+                    </section>
+                </div>
             </div>
         </div>
     );

@@ -1,0 +1,36 @@
+'use server';
+
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: '2026-01-28.clover',
+});
+
+export async function createDepositPaymentIntent(amountInCents: number) {
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountInCents,
+      currency: 'usd',
+      payment_method_types: ['card', 'cashapp'],
+    });
+
+    return { clientSecret: paymentIntent.client_secret };
+  } catch (error: any) {
+    console.error('Error creating PaymentIntent:', error);
+    throw new Error('Could not initialize payment processing.');
+  }
+}
+
+export async function createSetupIntent() {
+  try {
+    const setupIntent = await stripe.setupIntents.create({
+      payment_method_types: ['card'],
+      usage: 'off_session', // Crucial for deferred billing
+    });
+
+    return { clientSecret: setupIntent.client_secret, id: setupIntent.id };
+  } catch (error: any) {
+    console.error('Error creating SetupIntent:', error);
+    throw new Error('Could not initialize payment method setup.');
+  }
+}

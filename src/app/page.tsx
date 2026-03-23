@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { ArrowRight, Star, Quote, CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { GameCard } from '@/components/GameCard';
+import { TournamentCard } from '@/components/public/TournamentCard';
+import { LeagueCard } from '@/components/public/LeagueCard';
 
 // Define the Game interface matching the Supabase schema
 interface Game {
@@ -17,6 +19,16 @@ interface Game {
   facility_id?: string | null;
   resource_id?: string | null;
   status: string;
+  event_type?: string;
+  is_league?: boolean;
+  team_price?: number | null;
+  free_agent_price?: number | null;
+  max_teams?: number | null;
+  prize_pool_percentage?: number | null;
+  fixed_prize_amount?: number | null;
+  reward?: string | null;
+  prize_type?: string | null;
+  tournament_style?: string | null;
 }
 
 export const revalidate = 0; // Ensure fresh data on every request
@@ -44,6 +56,8 @@ export default async function Home() {
 
   let joinedGameIds: string[] = [];
   const bookingStatusMap = new Map<string, string>();
+  const userTeamRoles = new Map<string, string>();
+  const userTeamIds = new Map<string, string>();
 
   if (user) {
     const { data: bookings } = await supabase
@@ -56,6 +70,20 @@ export default async function Home() {
       bookings.forEach((b: any) => {
         joinedGameIds.push(b.game_id);
         bookingStatusMap.set(b.game_id, b.status);
+      });
+    }
+
+    const { data: regs } = await supabase
+      .from('tournament_registrations')
+      .select('game_id, role, team_id')
+      .eq('user_id', user.id);
+
+    if (regs) {
+      regs.forEach((r: any) => {
+        if (r.game_id) {
+          userTeamRoles.set(r.game_id, r.role);
+          userTeamIds.set(r.game_id, r.team_id);
+        }
       });
     }
   }
@@ -76,7 +104,7 @@ export default async function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-pitch-black text-white font-sans selection:bg-pitch-accent selection:text-pitch-black pt-32 pb-20">
+    <div className="min-h-screen bg-pitch-black text-white font-sans selection:bg-pitch-accent selection:text-pitch-black pt-2 pb-20">
 
       {/* Hero Section */}
       <section className="relative px-6 min-h-[70vh] flex flex-col items-center justify-center text-center overflow-hidden">
@@ -202,14 +230,64 @@ export default async function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {games.map((game: Game) => (
-                <GameCard
-                  key={game.id}
-                  game={game}
-                  user={user}
-                  bookingStatus={bookingStatusMap.get(game.id)}
-                />
-              ))}
+              {games.map((game: Game) => {
+                const isTournament = game.event_type === 'tournament';
+                const isLeague = game.event_type === 'league' || game.is_league === true;
+
+                if (isTournament) {
+                  // Reconstruct the registrations array for this specific tournament
+                  const thisTournamentRegs = [];
+                  const userRole = userTeamRoles.get(game.id);
+                  const userTeamId = userTeamIds.get(game.id);
+                  if (userRole && user) {
+                    thisTournamentRegs.push({
+                      user_id: user.id,
+                      role: userRole,
+                      team_id: userTeamId || null
+                    });
+                  }
+
+                  return (
+                    <TournamentCard 
+                      key={game.id} 
+                      tournament={game as any} 
+                      userId={user?.id}
+                      registrations={thisTournamentRegs}
+                    />
+                  );
+                }
+
+                if (isLeague) {
+                  const mappedLeague = {
+                    id: game.id,
+                    name: game.title,
+                    start_date: game.start_time,
+                    end_date: game.end_time || game.start_time,
+                    format: 'TBD',
+                    match_day: 'TBD',
+                    price_per_team: game.team_price || 0,
+                    price_per_free_agent: game.free_agent_price || 0,
+                    status: game.status
+                  };
+                  return (
+                    <LeagueCard 
+                      key={game.id} 
+                      league={mappedLeague} 
+                      userRole={userTeamRoles.get(game.id)}
+                      userTeamId={userTeamIds.get(game.id)}
+                    />
+                  );
+                }
+
+                return (
+                  <GameCard
+                    key={game.id}
+                    game={game}
+                    user={user}
+                    bookingStatus={bookingStatusMap.get(game.id)}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

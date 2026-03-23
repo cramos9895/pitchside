@@ -6,10 +6,11 @@ import { Loader2, CalendarRange, Clock, MapPin, RefreshCw, Trophy } from 'lucide
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { TournamentCard } from '@/components/public/TournamentCard';
 
 interface UnifiedEvent {
     id: string;
-    type: 'rental' | 'game';
+    type: 'rental' | 'game' | 'tournament';
     title: string;
     subtitle: string;
     startTime: Date;
@@ -17,12 +18,14 @@ interface UnifiedEvent {
     statusLabel: string;
     isRecurring: boolean;
     rawGameId?: string; // used for linking to game details
+    rawReg?: any; // stores tournament registration data
 }
 
 export default function DashboardSchedulePage() {
     const supabase = createClient();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState<any>(null); // Added user state
     const [events, setEvents] = useState<UnifiedEvent[]>([]);
     const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'past'>('upcoming');
 
@@ -35,15 +38,41 @@ export default function DashboardSchedulePage() {
                     router.push('/login');
                     return;
                 }
+                setUser(user); // Set user state here
 
-                // 1. Fetch confirmed RENTALS (resource_bookings)
-                const { data: rentalsData } = await supabase
-                    .from('resource_bookings')
-                    .select('*, facility:facilities(name), resource:resources(title)')
-                    .eq('user_id', user.id)
-                    .eq('status', 'confirmed');
+                // 1. Fetch all event types
+                const [rentalsRes, gamesRes, tournamentsRes] = await Promise.all([
+                    supabase
+                        .from('resource_bookings')
+                        .select('*, facility:facilities(name), resource:resources(title)')
+                        .eq('user_id', user.id)
+                        .eq('status', 'confirmed'),
+                    supabase
+                        .from('bookings')
+                        .select(`
+                            id,
+                            status,
+                            roster_status,
+                            game:games(
+                                id,
+                                facility_id,
+                                title,
+                                start_time,
+                                end_time,
+                                status,
+                                facility:facilities(name),
+                                location_nickname
+                            )
+                        `)
+                        .eq('user_id', user.id),
+                    supabase
+                        .from('tournament_registrations')
+                        .select('*, games(*), teams(id, name)')
+                        .eq('user_id', user.id)
+                ]);
 
-                const myRentals: UnifiedEvent[] = (rentalsData || []).map(r => ({
+                // 2. Normalize Rentals
+                const myRentals: UnifiedEvent[] = (rentalsRes.data || []).map(r => ({
                     id: `rental-${r.id}`,
                     type: 'rental',
                     title: r.facility?.name || 'Unknown Facility',
@@ -54,26 +83,8 @@ export default function DashboardSchedulePage() {
                     isRecurring: r.recurring_group_id !== null,
                 }));
 
-                // 2. Fetch confirmed GAMES (bookings -> games)
-                const { data: gamesData } = await supabase
-                    .from('bookings')
-                    .select(`
-                        id,
-                        status,
-                        roster_status,
-                        game:games(
-                            id,
-                            facility_id,
-                            title,
-                            start_time,
-                            end_time,
-                            status,
-                            facility:facilities(name)
-                        )
-                    `)
-                    .eq('user_id', user.id);
-
-                const validGames = (gamesData || []).filter((b: any) => {
+                // 3. Normalize Pickup Games
+                const validGames = (gamesRes.data || []).filter((b: any) => {
                     const g = Array.isArray(b.game) ? b.game[0] : b.game;
                     return g &&
                         g.status !== 'cancelled' &&
@@ -85,7 +96,6 @@ export default function DashboardSchedulePage() {
                     const g = Array.isArray(b.game) ? b.game[0] : b.game;
                     const gameDate = new Date(g.start_time);
 
-                    // Same end time calculation logic as page.tsx
                     let endTime: Date;
                     if (g.end_time) {
                         if (g.end_time.includes('T') || g.end_time.includes('-')) {
@@ -114,8 +124,28 @@ export default function DashboardSchedulePage() {
                     };
                 });
 
-                // 3. Merge and Sort
-                const merged = [...myRentals, ...myGames].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+                // 4. Normalize Tournaments
+                const myTournaments: UnifiedEvent[] = (tournamentsRes.data || []).map(reg => {
+                    const g = reg.games;
+                    if (!g) return null as any;
+                    const startTime = new Date(g.start_time);
+                    const endTime = new Date(startTime.getTime() + 120 * 60000); // 2h default
+
+                    return {
+                        id: `tournament-${reg.id}`,
+                        type: 'tournament',
+                        title: g.title || 'Tournament',
+                        subtitle: g.location_nickname || 'PitchSide Facility',
+                        startTime,
+                        endTime,
+                        statusLabel: reg.role === 'captain' ? 'Captain' : 'Joined',
+                        isRecurring: false,
+                        rawReg: reg
+                    };
+                }).filter(Boolean);
+
+                // 5. Merge and Sort
+                const merged = [...myRentals, ...myGames, ...myTournaments].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
                 setEvents(merged);
 
             } catch (err) {
@@ -193,80 +223,56 @@ export default function DashboardSchedulePage() {
                     )}
                 </div>
             ) : (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {filteredEvents.map((evt) => {
+                        if (evt.type === 'tournament') {
+                            return (
+                                <TournamentCard 
+                                    key={evt.id}
+                                    tournament={evt.rawReg.games}
+                                    userId={user?.id}
+                                    registrations={[evt.rawReg]}
+                                />
+                            );
+                        }
+
                         return (
-                            <div key={evt.id} className="group flex flex-col sm:flex-row bg-pitch-card border border-white/5 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all">
-                                {/* Date Box */}
-                                <div className="bg-black/20 border-r border-white/5 p-4 sm:w-32 shrink-0 flex flex-col justify-center items-center text-center">
-                                    <span className="text-xs font-bold uppercase tracking-widest text-pitch-accent mb-1">
-                                        {evt.startTime.toLocaleDateString(undefined, { month: 'short' })}
-                                    </span>
-                                    <span className="text-3xl font-black italic tracking-tighter">
-                                        {evt.startTime.getDate()}
-                                    </span>
-                                    <span className="text-xs text-pitch-secondary mt-1 uppercase tracking-wider font-medium">
-                                        {evt.startTime.toLocaleDateString(undefined, { weekday: 'short' })}
+                            <div key={evt.id} className="group flex flex-col bg-pitch-card border border-white/5 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all p-5">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h4 className="text-lg font-bold text-white">{evt.title}</h4>
+                                        <p className="text-pitch-secondary text-xs font-bold uppercase tracking-widest flex items-center gap-1 mt-1">
+                                            {evt.type === 'game' ? <Trophy className="w-3 h-3 text-pitch-accent" /> : <MapPin className="w-3 h-3 text-green-400" />}
+                                            {evt.subtitle}
+                                        </p>
+                                    </div>
+                                    <span className={cn(
+                                        "px-2 py-1 text-[10px] font-bold uppercase tracking-widest rounded border",
+                                        evt.type === 'game'
+                                            ? "bg-pitch-accent/10 text-pitch-accent border-pitch-accent/20"
+                                            : "bg-green-500/10 text-green-400 border-green-500/20"
+                                    )}>
+                                        {evt.statusLabel}
                                     </span>
                                 </div>
 
-                                {/* Details */}
-                                <div className="p-4 flex-1 flex flex-col justify-center">
-                                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                {evt.type === 'game' ? (
-                                                    <Trophy className="w-4 h-4 text-pitch-accent" />
-                                                ) : (
-                                                    <MapPin className="w-4 h-4 text-green-400" />
-                                                )}
-                                                <h4 className="text-lg font-bold">{evt.title}</h4>
-                                            </div>
-
-                                            <div className="flex items-center text-sm text-gray-300 font-medium mt-1">
-                                                {evt.type === 'game' ? <MapPin className="w-3.5 h-3.5 mr-2 text-pitch-secondary" /> : <Clock className="w-3.5 h-3.5 mr-2 text-pitch-secondary" />}
-                                                {evt.subtitle}
-                                            </div>
-
-                                            <div className="flex items-center text-sm text-gray-300 font-medium mt-1">
-                                                <Clock className="w-3.5 h-3.5 mr-2 text-pitch-secondary" />
-                                                {evt.startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - {evt.endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-row lg:flex-col items-center lg:items-end gap-2 shrink-0 flex-wrap">
-                                            <span className={cn(
-                                                "px-2 py-1 text-[10px] font-bold uppercase tracking-widest rounded border",
-                                                evt.type === 'game'
-                                                    ? "bg-pitch-accent/10 text-pitch-accent border-pitch-accent/20"
-                                                    : "bg-green-500/10 text-green-400 border-green-500/20"
-                                            )}>
-                                                {evt.statusLabel}
-                                            </span>
-                                            {evt.isRecurring && (
-                                                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-pitch-accent px-2 py-1 bg-pitch-accent/10 border border-pitch-accent/20 rounded">
-                                                    <RefreshCw className="w-3 h-3" />
-                                                    Series
-                                                </span>
-                                            )}
-                                            {evt.type === 'game' && evt.rawGameId ? (
-                                                <Link
-                                                    href={`/games/${evt.rawGameId}`}
-                                                    className="px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[10px] font-bold uppercase tracking-widest rounded transition-colors"
-                                                >
-                                                    View Match
-                                                </Link>
-                                            ) : (
-                                                <Link
-                                                    href={`/dashboard/schedule/${evt.id}`}
-                                                    className="px-3 py-1 bg-white/5 hover:bg-pitch-accent border border-white/10 hover:border-pitch-accent text-white hover:text-black text-[10px] font-bold uppercase tracking-widest rounded transition-colors"
-                                                >
-                                                    View Roster
-                                                </Link>
-                                            )}
-                                        </div>
+                                <div className="space-y-2 mb-6">
+                                    <div className="flex items-center text-xs text-gray-400 font-bold uppercase tracking-widest">
+                                        <CalendarRange className="w-3.5 h-3.5 mr-2 text-pitch-secondary" />
+                                        {evt.startTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                    </div>
+                                    <div className="flex items-center text-xs text-gray-400 font-bold uppercase tracking-widest">
+                                        <Clock className="w-3.5 h-3.5 mr-2 text-pitch-secondary" />
+                                        {evt.startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - {evt.endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                                     </div>
                                 </div>
+
+                                <Link
+                                    href={evt.type === 'game' ? `/games/${evt.rawGameId}` : `/dashboard/schedule`}
+                                    className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-center text-xs font-black uppercase tracking-widest rounded transition-all mt-auto"
+                                >
+                                    View Workspace
+                                </Link>
                             </div>
                         );
                     })}

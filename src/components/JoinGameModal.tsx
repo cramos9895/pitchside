@@ -7,11 +7,12 @@ import { createClient } from '@/lib/supabase/client';
 import { WaiverModal } from './WaiverModal';
 import { getPaymentSettings } from '@/app/actions/settings';
 import { validatePromoCode } from '@/app/actions/payments';
+import { StripeCheckoutModal } from './public/StripeCheckoutModal';
 
 interface JoinGameModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean }) => Promise<void>;
+    onConfirm: (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | 'platform_paid' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean }) => Promise<void>;
     gamePrice: number;
     loading: boolean;
     isWaitlist: boolean;
@@ -22,7 +23,7 @@ interface JoinGameModalProps {
 export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, isWaitlist, gameId, isLeague }: JoinGameModalProps) {
     const [step, setStep] = useState<'details' | 'payment'>('details');
     const [note, setNote] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState<'venmo' | 'zelle' | 'cash' | null>(null);
+    const [paymentMethod, setPaymentMethod] = useState<'venmo' | 'zelle' | 'cash' | 'platform_paid' | null>(null);
     const [copied, setCopied] = useState(false);
 
     const [venmoHandle, setVenmoHandle] = useState('PitchSideCF');
@@ -50,6 +51,11 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     const [hasPrizePool, setHasPrizePool] = useState(false);
     const [prizeSplitPreference, setPrizeSplitPreference] = useState<'pay_captain' | 'split_evenly'>('split_evenly');
     
+    // Stripe Elements Modal State
+    const [showStripeModal, setShowStripeModal] = useState(false);
+
+    // Disable free game credits locally for this user as requested
+    const [userProfile, setUserProfile] = useState<any>(null);
 
     const supabase = createClient();
 
@@ -97,17 +103,41 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             }
 
             // 3. Fetch User Waiver Status
-            const { data: userData } = await supabase.auth.getUser();
-            if (userData.user) {
-                const { data: signature } = await supabase
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                // Check for Platform-Wide (Global) Waiver
+                const { data: signatures, error: waiverError } = await supabase
                     .from('waiver_signatures')
                     .select('id')
-                    .eq('user_id', userData.user.id)
+                    .eq('user_id', user.id)
                     .is('facility_id', null)
-                    .maybeSingle();
+                    .limit(1);
 
-                if (signature) {
+                if (waiverError) {
+                    console.error('WAIVER_DEBUG: Error fetching signature:', waiverError);
+                }
+
+                if (signatures && signatures.length > 0) {
                     setWaiverSigned(true);
+                    console.log('WAIVER_DEBUG: Global waiver status: SIGNED');
+                } else {
+                    setWaiverSigned(false);
+                    console.log('WAIVER_DEBUG: Global waiver status: NOT SIGNED');
+                }
+
+                // Fetch profile and clear free credits for this specific user
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('email, free_game_credits')
+                    .eq('id', user.id)
+                    .single();
+                
+                if (profile) {
+                    setUserProfile(profile);
+                    if (profile.email === 'christian.ramos9895@gmail.com') {
+                        // Keep popup suppressed for the user
+                        profile.free_game_credits = 0;
+                    }
                 }
             }
         };
@@ -218,11 +248,17 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
         const { data: userData } = await supabase.auth.getUser();
 
         if (userData.user) {
-            await supabase
+            console.log('WAIVER_DEBUG: Inserting signature for user:', userData.user.id);
+            const { error: insertError } = await supabase
                 .from('waiver_signatures')
                 .insert({ 
-                    user_id: userData.user.id
+                    user_id: userData.user.id,
+                    facility_id: null // Explicitly mark as Global to match Admin Portal
                 });
+
+            if (insertError) {
+                console.error('WAIVER_DEBUG: Insert error:', insertError);
+            }
 
             setWaiverSigned(true);
             setShowWaiver(false);
@@ -231,11 +267,18 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             const finalPrizePref = hasPrizePool && isCaptain ? prizeSplitPreference : undefined;
             const isVaultingSession = isLeague && isCaptain;
 
-            // Seamlessly continue to join
-            if (step === 'payment' && paymentMethod) {
-                onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, isFreeAgent: joinMode === 'free-agent', prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession });
+            // Phase 46: Auto-open Stripe modal upon waiver return if that was the intent
+            if (joinMode === 'free-agent') {
+                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, isFreeAgent: true, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession });
+            } else if (paymentMethod === 'platform_paid') {
+                setShowStripeModal(true);
+            } else if (step === 'payment' && paymentMethod) {
+                onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession });
+            } else if (finalPrice === 0 || isWaitlist) {
+                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession });
             } else {
-                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, isFreeAgent: joinMode === 'free-agent', prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession });
+                // Default fallback - go to payment step if not there
+                setStep('payment');
             }
         }
         setAgreeingWaiver(false);
@@ -541,19 +584,27 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 )}
 
                                 {allowedMethods.includes('stripe') && (
-                                    <div className="relative group">
-                                        <button
-                                            disabled
-                                            className="w-full flex items-center justify-between p-4 rounded-sm border border-white/5 bg-white/5 text-gray-500 cursor-not-allowed opacity-60"
-                                        >
-                                            <span className="font-bold flex items-center gap-2">
-                                                <CreditCard className="w-5 h-5" /> Pay with Card
-                                            </span>
-                                        </button>
-                                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10 shadow-xl">
-                                            Online payments coming soon
-                                        </div>
-                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setPaymentMethod('platform_paid');
+                                            if (!waiverSigned) {
+                                                setShowWaiver(true);
+                                            } else {
+                                                setShowStripeModal(true);
+                                            }
+                                        }}
+                                        className={cn(
+                                            "w-full flex items-center justify-between p-4 rounded-sm border transition-all",
+                                            paymentMethod === 'platform_paid' 
+                                                ? "bg-pitch-accent/20 border-pitch-accent text-white" 
+                                                : "bg-pitch-accent/10 border-pitch-accent/30 text-white hover:bg-pitch-accent/20"
+                                        )}
+                                    >
+                                        <span className="font-bold flex items-center gap-2">
+                                            <CreditCard className="w-5 h-5 text-pitch-accent" /> Pay with Card
+                                        </span>
+                                        {paymentMethod === 'platform_paid' && <Check className="w-5 h-5 text-pitch-accent" />}
+                                    </button>
                                 )}
                             </div>
 
@@ -584,18 +635,20 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                             )}
                         </div>
 
-                        <button
-                            onClick={handlePaymentConfirm}
-                            disabled={!paymentMethod || loading}
-                            className={cn(
-                                "w-full py-4 font-black uppercase tracking-wider rounded-sm transition-colors flex items-center justify-center gap-2",
-                                !paymentMethod
-                                    ? "bg-gray-700 text-gray-500 cursor-not-allowed"
-                                    : "bg-green-500 text-black hover:bg-green-400"
-                            )}
-                        >
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "I Have Paid"}
-                        </button>
+                        {paymentMethod !== 'platform_paid' && (
+                            <button
+                                onClick={handlePaymentConfirm}
+                                disabled={!paymentMethod || loading}
+                                className={cn(
+                                    "w-full py-4 font-black uppercase tracking-wider rounded-sm transition-colors flex items-center justify-center gap-2",
+                                    !paymentMethod
+                                        ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                                        : "bg-green-500 text-black hover:bg-green-400"
+                                )}
+                            >
+                                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "I Have Paid"}
+                            </button>
+                        )}
 
                         <button
                             onClick={() => setStep('details')}
@@ -612,6 +665,29 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                 onClose={() => setShowWaiver(false)}
                 onAgree={handleWaiverAgree}
                 loading={agreeingWaiver}
+            />
+
+            <StripeCheckoutModal
+                isOpen={showStripeModal}
+                onClose={() => setShowStripeModal(false)}
+                amount={finalPrice}
+                onSuccess={() => {
+                    const isCaptain = selectedTeam !== null && rosters.filter(r => r.team_assignment === selectedTeam).length === 0;
+                    const finalPrizePref = hasPrizePool && isCaptain ? prizeSplitPreference : undefined;
+                    const isVaultingSession = isLeague && isCaptain;
+                    
+                    onConfirm({ 
+                        note, 
+                        paymentMethod: 'platform_paid', 
+                        promoCodeId: appliedPromo?.id, 
+                        teamAssignment: selectedTeam !== null ? selectedTeam : undefined, 
+                        prizeSplitPreference: finalPrizePref, 
+                        isLeagueCaptainVaulting: isVaultingSession 
+                    });
+                    setShowStripeModal(false);
+                }}
+                title={isWaitlist ? "Join Waitlist" : "Join Match"}
+                description={`Secure your spot for ${selectedTeam || 'this game'}`}
             />
         </div>
     );

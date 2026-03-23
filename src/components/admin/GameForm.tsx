@@ -97,6 +97,7 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
     const [minTeams, setMinTeams] = useState<number | ''>(initialData?.min_teams ?? 4);
     const [maxTourneyTeams, setMaxTourneyTeams] = useState<number | ''>(initialData?.max_teams ?? 8);
     const [minPlayersPerTeam, setMinPlayersPerTeam] = useState<number | ''>(initialData?.min_players_per_team ?? 5);
+    const [maxPlayersPerTeam, setMaxPlayersPerTeam] = useState<number | ''>(initialData?.max_players_per_team ?? 12);
     const [rosterLockDate, setRosterLockDate] = useState(initialData?.roster_lock_date ? new Date(initialData.roster_lock_date).toISOString().slice(0, 16) : '');
     const [strictWaiverRequired, setStrictWaiverRequired] = useState(initialData?.strict_waiver_required ?? false);
 
@@ -131,6 +132,10 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
     const [teamsIntoPlayoffs, setTeamsIntoPlayoffs] = useState<number>(initialData?.teams_into_playoffs ?? 4);
     const [hasPlayoffBye, setHasPlayoffBye] = useState<boolean>(initialData?.has_playoff_bye ?? false);
     const [breakBetweenGames, setBreakBetweenGames] = useState<number | ''>(initialData?.break_between_games ?? 5);
+
+    // Micro-Tournament Constraints
+    const [tournamentStyle, setTournamentStyle] = useState<'group_stage' | 'single_elimination' | 'double_elimination'>(initialData?.tournament_style || 'group_stage');
+    const [minimumGamesPerTeam, setMinimumGamesPerTeam] = useState<number | ''>(initialData?.minimum_games_per_team ?? 3);
 
     // Playoff bye logic
     const playoffOptions = hasPlayoffBye ? [5, 9] : [4, 8];
@@ -295,6 +300,17 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                 longitude: coords.lng,
                 start_time: startDateTime.toISOString(),
                 end_time: formattedEndTime,
+                
+                // Missed Core Fields
+                event_type: activeTab,
+                is_league: activeTab === 'tournament' || activeTab === 'league',
+                match_style: matchStyle,
+                game_format_type: gameFormatType,
+                surface_type: surfaceType,
+                amount_of_fields: amountOfFields,
+                field_size: fieldSize,
+                shoe_types: shoeTypes,
+
                 // Standard specific payload fields
                 price: activeTab === 'standard' ? (price === '' ? 0 : price) : null,
                 max_players: activeTab === 'standard' ? (maxPlayers === '' ? 22 : maxPlayers) : null,
@@ -313,8 +329,11 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                 min_teams: (activeTab === 'tournament' || activeTab === 'league') ? (minTeams === '' ? null : minTeams) : null,
                 max_teams: (activeTab === 'tournament' || activeTab === 'league') ? (maxTourneyTeams === '' ? null : maxTourneyTeams) : null,
                 min_players_per_team: (activeTab === 'tournament' || activeTab === 'league') ? (minPlayersPerTeam === '' ? null : minPlayersPerTeam) : null,
+                max_players_per_team: (activeTab === 'tournament' || activeTab === 'league') ? (maxPlayersPerTeam === '' ? null : maxPlayersPerTeam) : null,
                 roster_lock_date: (activeTab === 'tournament' || activeTab === 'league') ? (rosterLockDate ? new Date(rosterLockDate).toISOString() : null) : null,
                 strict_waiver_required: (activeTab === 'tournament' || activeTab === 'league') ? strictWaiverRequired : false,
+                tournament_style: activeTab === 'tournament' ? tournamentStyle : null,
+                minimum_games_per_team: (activeTab === 'tournament' && tournamentStyle === 'group_stage') ? (minimumGamesPerTeam === '' ? null : minimumGamesPerTeam) : null,
                 game_style: activeTab === 'tournament' ? gameStyle : null,
                 half_length: (activeTab === 'tournament' || activeTab === 'league') ? (halfLength === '' ? null : halfLength) : null,
                 halftime_length: (activeTab === 'tournament' || activeTab === 'league') ? (halftimeLength === '' ? null : halftimeLength) : null,
@@ -817,17 +836,37 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
 
                         <div>
                             <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                                Game Style
+                                Tournament Format
                             </label>
                             <select
-                                value={gameStyle}
-                                onChange={(e) => handleGameStyleChange(e.target.value)}
+                                value={tournamentStyle}
+                                onChange={(e) => setTournamentStyle(e.target.value as any)}
                                 className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
                             >
-                                <option value="Group Stage/Playoffs">Group Stage/Playoffs</option>
-                                <option value="Bracket">Bracket</option>
+                                <option value="group_stage">Group Stage + Playoffs</option>
+                                <option value="single_elimination">Single Elimination Bracket</option>
+                                <option value="double_elimination">Double Elimination Bracket</option>
                             </select>
                         </div>
+
+                        {tournamentStyle === 'group_stage' && (
+                            <div className="bg-[#cbff00]/10 border border-[#cbff00]/20 p-4 rounded-sm animate-in fade-in zoom-in-95 duration-200">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-[#cbff00] mb-2">
+                                    Minimum Guaranteed Games Per Team
+                                </label>
+                                <p className="text-[10px] text-gray-400 mb-3 uppercase tracking-wider font-medium">
+                                    How many matches will each squad natively play in the Group Stage before elimination?
+                                </p>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    required
+                                    value={minimumGamesPerTeam}
+                                    onChange={(e) => setMinimumGamesPerTeam(e.target.value === '' ? '' : Number(e.target.value))}
+                                    className="w-full bg-black/50 border border-[#cbff00]/30 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00]"
+                                />
+                            </div>
+                        )}
 
                         <div>
                             <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
@@ -1110,7 +1149,7 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
                                     Minimum Teams
@@ -1147,6 +1186,8 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                                     ))}
                                 </select>
                             </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
                                     Min Players (Per Team)
@@ -1157,6 +1198,19 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                                     required
                                     value={minPlayersPerTeam}
                                     onChange={(e) => setMinPlayersPerTeam(e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                    Max Players (Per Team)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    required
+                                    value={maxPlayersPerTeam}
+                                    onChange={(e) => setMaxPlayersPerTeam(e.target.value === '' ? '' : parseInt(e.target.value))}
                                     className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
                                 />
                             </div>

@@ -10,15 +10,31 @@ export const revalidate = 0;
 export default async function AdminDashboard() {
     const supabase = await createClient();
 
-    // Fetch all games, ordered by start time
+    // Fetch all games with their registration counts
     const { data: games, error } = await supabase
         .from('games')
-        .select('*')
+        .select(`
+            *,
+            tournament_registrations (
+                team_id
+            )
+        `)
         .order('start_time', { ascending: true });
 
     if (error) {
         console.error('Error fetching games:', error);
     }
+
+    // Process games to calculate unique team counts
+    const enrichedGames = (games || []).map(game => {
+        const registrations = game.tournament_registrations || [];
+        const uniqueTeams = new Set(registrations.map((r: any) => r.team_id).filter(Boolean));
+        return {
+            ...game,
+            current_teams: uniqueTeams.size,
+            current_players: registrations.length
+        };
+    });
 
     return (
         <div className="animate-in fade-in duration-500">
@@ -47,7 +63,7 @@ export default async function AdminDashboard() {
                 </div>
 
                 {/* Games List (Client Component with Tabs) */}
-                <AdminGameList initialGames={games || []} />
+                <AdminGameList initialGames={enrichedGames} />
             </div>
         </div>
     );

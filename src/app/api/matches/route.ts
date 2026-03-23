@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
                     round_number: matchData.round_number || 0,
                     is_final: matchData.is_final || false
                 })
-                .select('id, game_id, home_team, away_team, home_score, away_score, is_final, created_at, round_number, status')
+                .select('id, game_id, home_team, away_team, home_score, away_score, is_final, created_at, round_number, status, start_time, field_name, is_playoff, match_style, timer_status, timer_started_at, paused_elapsed_seconds')
                 .single();
 
             if (error) {
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
                 .from('matches')
                 .update(matchData)
                 .eq('id', matchId)
-                .select('id, game_id, home_team, away_team, home_score, away_score, is_final, created_at, round_number, status')
+            .select('id, game_id, home_team, away_team, home_score, away_score, is_final, created_at, round_number, status, start_time, field_name, is_playoff, match_style, timer_status, timer_started_at, paused_elapsed_seconds')
                 .single();
 
             if (error) {
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
         const supabaseAdmin = createAdminClient();
         const { data, error } = await supabaseAdmin
             .from('matches')
-            .select('id, game_id, home_team, away_team, home_score, away_score, is_final, created_at, round_number, status')
+            .select('id, game_id, home_team, away_team, home_score, away_score, is_final, created_at, round_number, status, start_time, field_name, is_playoff, match_style, timer_status, timer_started_at, paused_elapsed_seconds')
             .eq('game_id', gameId)
             .order('created_at', { ascending: true });
 
