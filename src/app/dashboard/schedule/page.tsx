@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { TournamentCard } from '@/components/public/TournamentCard';
+import { GameCard } from '@/components/GameCard';
 
 interface UnifiedEvent {
     id: string;
@@ -19,6 +20,7 @@ interface UnifiedEvent {
     isRecurring: boolean;
     rawGameId?: string; // used for linking to game details
     rawReg?: any; // stores tournament registration data
+    rawData?: any; // stores full game/rental object
 }
 
 export default function DashboardSchedulePage() {
@@ -61,7 +63,13 @@ export default function DashboardSchedulePage() {
                                 end_time,
                                 status,
                                 facility:facilities(name),
-                                location_nickname
+                                location_nickname,
+                                max_players,
+                                current_players,
+                                match_style,
+                                game_format,
+                                price,
+                                location
                             )
                         `)
                         .eq('user_id', user.id),
@@ -81,6 +89,7 @@ export default function DashboardSchedulePage() {
                     endTime: new Date(r.end_time),
                     statusLabel: 'Confirmed Rental',
                     isRecurring: r.recurring_group_id !== null,
+                    rawData: r
                 }));
 
                 // 3. Normalize Pickup Games
@@ -120,7 +129,8 @@ export default function DashboardSchedulePage() {
                         endTime: endTime,
                         statusLabel: 'Joined Game',
                         isRecurring: false,
-                        rawGameId: g.id
+                        rawGameId: g.id,
+                        rawData: g
                     };
                 });
 
@@ -237,43 +247,17 @@ export default function DashboardSchedulePage() {
                         }
 
                         return (
-                            <div key={evt.id} className="group flex flex-col bg-pitch-card border border-white/5 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all p-5">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h4 className="text-lg font-bold text-white">{evt.title}</h4>
-                                        <p className="text-pitch-secondary text-xs font-bold uppercase tracking-widest flex items-center gap-1 mt-1">
-                                            {evt.type === 'game' ? <Trophy className="w-3 h-3 text-pitch-accent" /> : <MapPin className="w-3 h-3 text-green-400" />}
-                                            {evt.subtitle}
-                                        </p>
-                                    </div>
-                                    <span className={cn(
-                                        "px-2 py-1 text-[10px] font-bold uppercase tracking-widest rounded border",
-                                        evt.type === 'game'
-                                            ? "bg-pitch-accent/10 text-pitch-accent border-pitch-accent/20"
-                                            : "bg-green-500/10 text-green-400 border-green-500/20"
-                                    )}>
-                                        {evt.statusLabel}
-                                    </span>
+                                <div key={evt.id} className="w-full">
+                                    <GameCard 
+                                        game={{
+                                            ...evt.rawData,
+                                            location_nickname: evt.rawData.location_nickname,
+                                            location_name: evt.subtitle
+                                        }}
+                                        user={user}
+                                        bookingStatus="confirmed"
+                                    />
                                 </div>
-
-                                <div className="space-y-2 mb-6">
-                                    <div className="flex items-center text-xs text-gray-400 font-bold uppercase tracking-widest">
-                                        <CalendarRange className="w-3.5 h-3.5 mr-2 text-pitch-secondary" />
-                                        {evt.startTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                                    </div>
-                                    <div className="flex items-center text-xs text-gray-400 font-bold uppercase tracking-widest">
-                                        <Clock className="w-3.5 h-3.5 mr-2 text-pitch-secondary" />
-                                        {evt.startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - {evt.endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                    </div>
-                                </div>
-
-                                <Link
-                                    href={evt.type === 'game' ? `/games/${evt.rawGameId}` : `/dashboard/schedule`}
-                                    className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-center text-xs font-black uppercase tracking-widest rounded transition-all mt-auto"
-                                >
-                                    View Workspace
-                                </Link>
-                            </div>
                         );
                     })}
                 </div>

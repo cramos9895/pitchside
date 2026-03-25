@@ -112,17 +112,24 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
             }
 
             // 2. Get Game
+            console.log('[DEBUG_GAME] Fetching ID:', gameId);
             const { data: gameData, error: gameError } = await supabase
                 .from('games')
                 .select('*')
                 .eq('id', gameId)
                 .single();
-
+ 
             if (gameError) {
-                console.error('Error fetching game:', gameError);
+                console.error('[DEBUG_GAME] Fetch Error:', {
+                    code: gameError.code,
+                    message: gameError.message,
+                    details: gameError.details,
+                    hint: gameError.hint
+                });
                 setLoading(false);
                 return;
             }
+            console.log('[DEBUG_GAME] Success:', gameData?.title);
             setGame(gameData);
 
             // Check if voting is open (Now > Start Time)

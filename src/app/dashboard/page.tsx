@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { TournamentCard } from '@/components/public/TournamentCard';
+import { GameCard } from '@/components/GameCard';
 import { createContractCheckoutSession } from '@/app/actions/stripe';
 
 export default function DashboardOverviewPage() {
@@ -84,7 +85,7 @@ export default function DashboardOverviewPage() {
                         .order('start_time', { ascending: true }),
                     supabase
                         .from('bookings')
-                        .select('id, game:games(id, start_time, end_time, title, facility:facilities(name))')
+                        .select('id, game:games(id, start_time, end_time, title, facility:facilities(name), max_players, current_players, match_style, game_format, location, location_nickname)')
                         .eq('user_id', user.id)
                         .in('status', ['paid', 'confirmed'])
                         .not('roster_status', 'eq', 'dropped'),
@@ -123,6 +124,7 @@ export default function DashboardOverviewPage() {
                                 end_time: g.end_time,
                                 title: g.title || 'Pick-Up Game',
                                 location: g.facility?.name,
+                                location_nickname: g.location_nickname,
                                 data: g
                             });
                         }
@@ -200,7 +202,7 @@ export default function DashboardOverviewPage() {
     const schedule = unifiedEvents; // Show ALL events in the schedule tab, including the one in Next Up
 
     const getMatchHref = (event: any) => {
-        if (event.type === 'game') return `/games/${event.id}`;
+        if (event.type === 'game') return `/games/${event.data.id}`;
         if (event.type === 'tournament') {
             const isCaptain = event.registration?.role === 'captain';
             const teamId = event.registration?.team_id;
@@ -255,54 +257,16 @@ export default function DashboardOverviewPage() {
                                     registrations={nextUp.registrations}
                                 />
                             ) : (
-                                <div className="group relative bg-[#111] border border-white/5 rounded-sm overflow-hidden hover:border-pitch-accent/30 transition-all duration-500 shadow-2xl">
-                                    <div className="absolute top-0 left-0 w-1 h-full bg-pitch-accent" />
-                                    <div className="flex flex-col md:flex-row">
-                                        <div className="p-8 md:p-12 space-y-6 flex-1">
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-pitch-accent text-pitch-black text-[10px] font-black px-2 py-0.5 rounded-sm uppercase tracking-widest">
-                                                    Match Day
-                                                </div>
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                                                    {nextUp.type === 'game' ? 'Pickup Match' : 'Field Rental'}
-                                                </span>
-                                            </div>
-
-                                            <h4 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-[0.85] text-white">
-                                                {nextUp.title}
-                                            </h4>
-
-                                            <div className="flex flex-wrap items-center gap-x-8 gap-y-4 pt-4 border-t border-white/5">
-                                                <div className="space-y-1">
-                                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest block">Date</span>
-                                                    <p className="text-sm font-bold text-white uppercase italic">
-                                                        {new Date(nextUp.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                                                    </p>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest block">Time</span>
-                                                    <p className="text-sm font-bold text-white uppercase italic">
-                                                        {new Date(nextUp.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                                    </p>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest block">Arena</span>
-                                                    <p className="text-sm font-bold text-pitch-accent uppercase italic truncate max-w-[150px]">
-                                                        {nextUp.location}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="p-8 md:p-12 bg-white/5 flex flex-col justify-center items-center md:items-end border-t md:border-t-0 md:border-l border-white/5">
-                                            <Link
-                                                href={getMatchHref(nextUp)}
-                                                className="group/btn px-8 py-4 bg-white text-black font-black uppercase tracking-[0.2em] text-[10px] hover:bg-pitch-accent transition-all rounded-sm flex items-center gap-2"
-                                            >
-                                                ENTER MATCH <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" />
-                                            </Link>
-                                        </div>
-                                    </div>
+                                <div className="max-w-xl">
+                                    <GameCard 
+                                        game={{
+                                            ...nextUp.data,
+                                            location_name: nextUp.location,
+                                            location_nickname: nextUp.location_nickname
+                                        }} 
+                                        user={user}
+                                        bookingStatus="confirmed"
+                                    />
                                 </div>
                             )
                         ) : (
@@ -316,57 +280,6 @@ export default function DashboardOverviewPage() {
                                     </Link>
                                 </div>
                             </div>
-                        )}
-                    </section>
-
-                    {/* FULL SCHEDULE SECTION */}
-                    <section className="space-y-6">
-                        <div className="flex items-center gap-4">
-                            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-pitch-secondary shrink-0">History & Coming Up</h3>
-                            <div className="h-px w-full bg-white/5" />
-                        </div>
-
-                        {schedule.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {schedule.map((event) => (
-                                    <div key={event.id} className="group relative bg-[#111] border border-white/5 rounded-sm p-6 hover:border-pitch-accent/30 transition-all duration-300">
-                                        <div className="flex justify-between items-start mb-6">
-                                            <div className="space-y-1">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-pitch-accent block">
-                                                    {event.type === 'game' ? 'Pickup' : event.type === 'tournament' ? 'Tournament' : 'Rental'}
-                                                </span>
-                                                <h4 className="text-2xl font-black italic uppercase tracking-tight text-white leading-none group-hover:text-pitch-accent transition-colors">
-                                                    {event.title}
-                                                </h4>
-                                            </div>
-                                            <div className="flex flex-col items-end">
-                                                <span className="text-[10px] font-black text-white">{new Date(event.start_time).getDate()}</span>
-                                                <span className="text-[8px] font-black uppercase text-gray-500 leading-none">{new Date(event.start_time).toLocaleDateString(undefined, { month: 'short' })}</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2 mb-8">
-                                            <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-gray-500 gap-2">
-                                                <MapPin className="w-3 h-3 text-pitch-accent" /> {event.location}
-                                            </div>
-                                            <div className="flex items-center text-[10px] font-bold uppercase tracking-widest text-gray-500 gap-2">
-                                                <Clock className="w-3 h-3 text-pitch-accent" /> {new Date(event.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                            </div>
-                                        </div>
-
-                                        <Link 
-                                            href={getMatchHref(event)}
-                                            className="block w-full py-3 bg-white/5 hover:bg-white hover:text-black border border-white/10 text-white text-center text-[10px] font-black uppercase tracking-widest transition-all rounded-sm"
-                                        >
-                                            View Match Workspace
-                                        </Link>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-600 text-center py-12 bg-white/[0.02] border border-dashed border-white/5 rounded-sm italic">
-                                No activity recorded yet
-                            </p>
                         )}
                     </section>
                 </div>

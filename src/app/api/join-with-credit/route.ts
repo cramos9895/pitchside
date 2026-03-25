@@ -1,8 +1,9 @@
-
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendPitchSideEmail } from '@/lib/emails/sendEmail';
-import { GameSignUpEmail } from '@/emails/GameSignUpEmail';
+import { sendNotification } from '@/lib/email';
+
+
 
 export async function POST(request: NextRequest) {
     try {
@@ -13,10 +14,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // --- ENFORCER: BAN CHECK ---
+        // --- ENFORCER: BAN CHECK & PROFILE FETCH ---
         const { data: userProfile } = await supabase
             .from('profiles')
-            .select('is_banned, banned_until')
+            .select('is_banned, banned_until, full_name')
             .eq('id', user.id)
             .single();
 
@@ -107,16 +108,19 @@ export async function POST(request: NextRequest) {
         // Trigger `on_booking_change` should handle it.
 
         try {
-            await sendPitchSideEmail({
+            await sendNotification({
                 to: user.email!,
                 subject: `Booking Confirmed: ${game.title}`,
-                react: GameSignUpEmail({
-                    playerName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Player',
+                type: 'confirmation',
+                data: {
+                    userName: userProfile?.full_name || user.email?.split('@')[0] || 'Player',
+                    gameTitle: game.title,
                     gameDate: new Date(game.start_time).toLocaleDateString(),
-                    time: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    gameTime: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     location: game.location || 'TBD',
-                    mode: game.view_mode || 'Single Match'
-                })
+                    mode: game.view_mode || 'Single Match',
+                    amountCharged: 'Redeemed Credit'
+                }
             });
         } catch (emailErr) {
             console.error('Email Dispatch Error:', emailErr);

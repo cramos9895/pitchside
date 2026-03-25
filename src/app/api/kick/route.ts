@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendPitchSideEmail } from '@/lib/emails/sendEmail';
-import { WaitlistAlertEmail } from '@/emails/WaitlistAlertEmail';
+import { sendNotification } from '@/lib/email';
+
+
 
 export async function POST(request: NextRequest) {
     try {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 1. Kick the player using Admin Client to bypass strict Booking RLS
-        const supabaseAdmin = await createAdminClient();
+        const supabaseAdmin = createAdminClient();
         const { error: kickError } = await supabaseAdmin
             .from('bookings')
             .update({
@@ -100,15 +101,18 @@ export async function POST(request: NextRequest) {
 
                     if (promotedUser?.email) {
                         try {
-                            await sendPitchSideEmail({
+                            await sendNotification({
                                 to: promotedUser.email,
                                 subject: `You're in! Spot opened for ${game.title}`,
-                                react: WaitlistAlertEmail({
+                                type: 'waitlist_promotion',
+                                data: {
+                                    userName: promotedUser?.full_name || 'Player',
+                                    gameTitle: game.title,
                                     gameDate: new Date(game.start_time).toLocaleDateString(),
-                                    time: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                    gameTime: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                                     location: game.location || 'TBD',
                                     claimUrl: `https://www.pitchsidecf.com/games/${gameId}`
-                                })
+                                }
                             });
                         } catch (emailErr) {
                             console.error('Waitlist promotion email failed:', emailErr);

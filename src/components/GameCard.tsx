@@ -323,7 +323,7 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                                 </div>
                                 <div className="flex items-center gap-2 truncate">
                                     <MapPin className="w-3 h-3 text-pitch-accent shrink-0" />
-                                    <span className="truncate">{game.location_nickname || game.location_name || game.location.split(',')[0]}</span>
+                                    <span className="truncate">{game.location_nickname || game.location_name || game.location?.split(',')[0]}</span>
                                 </div>
                             </div>
                         </div>

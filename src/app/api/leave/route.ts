@@ -1,9 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendPitchSideEmail } from '@/lib/emails/sendEmail';
-import { WaitlistAlertEmail } from '@/emails/WaitlistAlertEmail';
-import { CancellationEmail } from '@/emails/CancellationEmail';
+import { sendNotification } from '@/lib/email';
+
 
 
 export async function POST(request: NextRequest) {
@@ -98,6 +97,13 @@ export async function POST(request: NextRequest) {
             message = 'You have left the waitlist.';
         }
 
+        // Fetch profile for display name in email
+        const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+
         // 5. Update booking status to 'cancelled' and 'dropped'
         const { error: updateError } = await supabaseAdmin
             .from('bookings')
@@ -110,14 +116,16 @@ export async function POST(request: NextRequest) {
         if (booking.status === 'paid' || booking.status === 'active') {
             if (user?.email) {
                 try {
-                    await sendPitchSideEmail({
+                    await sendNotification({
                         to: user.email,
                         subject: `Cancellation Confirmed: ${game.title}`,
-                        react: CancellationEmail({
-                            playerName: user.user_metadata?.full_name || 'Player',
+                        type: 'cancellation',
+                        data: {
+                            userName: profile?.full_name || 'Player',
+                            gameTitle: game.title,
                             gameDate: new Date(game.start_time).toLocaleDateString(),
                             refundMethod: refunded ? 'Credits' : 'None (Late Cancellation)'
-                        })
+                        }
                     });
                 } catch (emailErr) {
                     console.error('Cancellation Email Error:', emailErr);
@@ -157,15 +165,18 @@ export async function POST(request: NextRequest) {
 
                     if (waitlistProfile && waitlistProfile.email) {
                         try {
-                            await sendPitchSideEmail({
+                            await sendNotification({
                                 to: waitlistProfile.email,
                                 subject: `Spot Open: You have been promoted for ${game.title}!`,
-                                react: WaitlistAlertEmail({
+                                type: 'waitlist_promotion',
+                                data: {
+                                    userName: waitlistProfile.full_name || 'Player',
+                                    gameTitle: game.title,
                                     gameDate: new Date(game.start_time).toLocaleDateString(),
-                                    time: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                    gameTime: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                                     location: game.location || 'TBD',
                                     claimUrl: `https://www.pitchsidecf.com/games/${gameId}`
-                                })
+                                }
                             });
                         } catch (emailErr) {
                             console.error('Waitlist Notification Error:', emailErr);
