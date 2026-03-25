@@ -25,7 +25,7 @@ const TEMPLATE_MAP: Record<string, string> = {
     'team_invite': 'team-invite'
 };
 
-export async function sendNotification({ to, subject, react, type, data }: SendNotificationProps) {
+export async function sendNotification({ to, subject, react, template, type, data }: SendNotificationProps) {
     // 1. Global Kill Switch
     if (process.env.ENABLE_EMAILS !== 'true') {
         console.log(`🚫 [Mock] Notification (${type}):`, { to, subject });
