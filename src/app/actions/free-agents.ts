@@ -2,7 +2,6 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { sendNotification } from '@/lib/email';
-import TeamInviteEmail from '@/lib/emails/templates/TeamInviteEmail';
 
 export async function inviteFreeAgent(formData: FormData) {
     try {
@@ -52,11 +51,14 @@ export async function inviteFreeAgent(formData: FormData) {
             to: targetProfile.email,
             subject: emailSubject,
             type: 'team_invite',
-            react: TeamInviteEmail({
-                captainName,
-                gameTitle,
-                inviteLink
-            })
+            template: {
+                id: 'team-invite', // Assuming this matches the template ID in Resend
+                variables: {
+                    userName: captainName,
+                    gameTitle: gameTitle,
+                    inviteLink: inviteLink
+                }
+            }
         });
 
         return { success: true };
