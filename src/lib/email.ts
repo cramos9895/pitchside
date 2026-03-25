@@ -6,6 +6,10 @@ interface SendNotificationProps {
     to: string;
     subject: string;
     react?: React.ReactElement;
+    template?: {
+        id: string;
+        variables: Record<string, any>;
+    };
     type: 'welcome' | 'confirmation' | 'cancellation' | 'waitlist' | 'chat_alert' | 'new_request' | 'contract_ready' | 'booking_receipt' | 'booking_cancellation' | 'team_invite' | 'waitlist_promotion' | 'password_reset' | 'captain_receipt';
     data?: Record<string, any>;
 }
@@ -17,7 +21,8 @@ const TEMPLATE_MAP: Record<string, string> = {
     'waitlist': 'waitlist-joined',
     'waitlist_promotion': 'waitlist-promoted',
     'password_reset': 'auth-password-reset',
-    'captain_receipt': 'transactional-captain-receipt'
+    'captain_receipt': 'transactional-captain-receipt',
+    'team_invite': 'team-invite'
 };
 
 export async function sendNotification({ to, subject, react, type, data }: SendNotificationProps) {
@@ -68,6 +73,8 @@ export async function sendNotification({ to, subject, react, type, data }: SendN
                 id: templateId,
                 variables: data || {}
             };
+        } else if (template) {
+            payload.template = template;
         } else if (react) {
             payload.react = react;
         } else {
