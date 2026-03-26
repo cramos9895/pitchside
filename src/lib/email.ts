@@ -31,6 +31,8 @@ const TEMPLATE_MAP: Record<string, string> = {
 };
 
 export async function sendNotification({ to, subject, react, template, type, data }: SendNotificationProps) {
+    console.log(`[DEBUG_EMAIL] Starting sendNotification for ${type} to ${to}`);
+
     // 1. Global Kill Switch
     if (process.env.ENABLE_EMAILS !== 'true') {
         console.log(`🚫 [Mock] Notification (${type}):`, { to, subject });
@@ -40,7 +42,7 @@ export async function sendNotification({ to, subject, react, template, type, dat
     // 2. Check API Key
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-        console.error("❌ Resend API Key is missing. Email skipped.");
+        console.error("❌ [DEBUG_EMAIL] Resend API Key is missing. Email skipped.");
         return { success: false, error: "Missing RESEND_API_KEY" };
     }
 
@@ -51,13 +53,20 @@ export async function sendNotification({ to, subject, react, template, type, dat
 
         // 3. Check Admin Setting
         const settingKey = `notification.${type}`;
-        const { data: setting } = await supabase
+        console.log(`[DEBUG_EMAIL] Checking system_setting: ${settingKey}`);
+        
+        const { data: setting, error: settingError } = await supabase
             .from('system_settings')
             .select('value')
             .eq('key', settingKey)
             .single();
 
+        if (settingError) {
+            console.error(`❌ [DEBUG_EMAIL] Error fetching setting ${settingKey}:`, settingError);
+        }
+
         const isEnabled = setting?.value === true || setting?.value === 'true';
+        console.log(`[DEBUG_EMAIL] Setting value for ${settingKey}:`, setting?.value, "-> isEnabled:", isEnabled);
 
         if (!isEnabled) {
             console.log(`🔕 [Blocked by Admin Setting] Notification (${type}):`, { to, subject });
@@ -72,34 +81,37 @@ export async function sendNotification({ to, subject, react, template, type, dat
             subject,
         };
 
-        // Priority Logic:
-        // 1. Explicit 'template' prop (id, variables)
-        // 2. TEMPLATE_MAP[type] with 'data'
-        // 3. React component
         if (template) {
+            console.log(`[DEBUG_EMAIL] Using explicit template: ${template.id}`);
             payload.template = template;
         } else if (TEMPLATE_MAP[type]) {
+            console.log(`[DEBUG_EMAIL] Using TEMPLATE_MAP for ${type}: ${TEMPLATE_MAP[type]}`);
             payload.template = {
                 id: TEMPLATE_MAP[type],
                 variables: data || {}
             };
         } else if (react) {
+            console.log(`[DEBUG_EMAIL] Using React component`);
             payload.react = react;
         } else {
-            console.error(`❌ No template or react component provided for ${type}`);
+            console.error(`❌ [DEBUG_EMAIL] No template or react component provided for ${type}`);
             return { success: false, error: "Missing template or react component" };
         }
+
+        console.log(`[DEBUG_EMAIL] Final Payload template ID:`, payload.template?.id);
+        console.log(`[DEBUG_EMAIL] Variables:`, JSON.stringify(payload.template?.variables));
 
         const { data: resendData, error } = await resend.emails.send(payload);
 
         if (error) {
-            console.error("Email Send Error:", JSON.stringify(error, null, 2));
+            console.error("❌ [DEBUG_EMAIL] Resend Send Error:", JSON.stringify(error, null, 2));
             return { success: false, error };
         }
 
+        console.log(`✅ [DEBUG_EMAIL] Email sent successfully! ID:`, resendData?.id);
         return { success: true, data: resendData };
     } catch (error) {
-        console.error("Email Exception:", error);
+        console.error("❌ [DEBUG_EMAIL] Email Exception:", error);
         return { success: false, error };
     }
 }
