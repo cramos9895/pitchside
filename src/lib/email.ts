@@ -34,7 +34,8 @@ export async function sendNotification({ to, subject, react, template, type, dat
     console.log(`[DEBUG_EMAIL] Starting sendNotification for ${type} to ${to}`);
 
     // 1. Global Kill Switch
-    if (process.env.ENABLE_EMAILS !== 'true') {
+    // Only block if explicitly set to 'false'. Default to true for ease of use.
+    if (process.env.ENABLE_EMAILS === 'false') {
         console.log(`🚫 [Mock] Notification (${type}):`, { to, subject });
         return { success: true, data: null };
     }
