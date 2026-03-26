@@ -2,7 +2,6 @@ import { stripe } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 import { sendNotification } from '@/lib/email';
-import { BookingConfirmedEmail } from '@/emails/BookingConfirmedEmail';
 
 export async function POST(req: Request) {
     const body = await req.text();
@@ -74,11 +73,11 @@ export async function POST(req: Request) {
                             .single();
 
                         if (bookingData) {
-                            const { data: userProfile } = await adminSupabase
-                                .from('profiles')
-                                .select('email')
-                                .eq('id', bookingData.user_id)
-                                .single();
+                             const { data: userProfile } = await adminSupabase
+                                 .from('profiles')
+                                 .select('email, full_name')
+                                 .eq('id', bookingData.user_id)
+                                 .single();
 
                             const { data: resourceData } = await adminSupabase
                                 .from('resources')
@@ -95,11 +94,12 @@ export async function POST(req: Request) {
                                     to: userProfile.email,
                                     subject: `Payment Receipt: ${resourceName}`,
                                     type: 'booking_receipt',
-                                    react: BookingConfirmedEmail({
+                                    data: {
+                                        userName: userProfile.full_name || 'Player',
                                         resourceName,
-                                        dates: [dateStr],
-                                        amountPaid
-                                    })
+                                        gameDate: dateStr,
+                                        amountCharged: amountPaid
+                                    }
                                 });
                                 console.log(`[STRIPE_WEBHOOK] Sent BookingConfirmedEmail to ${userProfile.email}`);
                             }

@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendNotification } from '@/lib/email';
-import { ChatNotification } from '@/emails/ChatNotification';
 
 export async function POST(request: NextRequest) {
     try {
@@ -95,13 +94,13 @@ export async function POST(request: NextRequest) {
                 to: email,
                 subject: emailSubject,
                 type: 'chat_alert',
-                react: ChatNotification({
-                    eventName: game.title,
+                data: {
+                    userName: 'Player', // Static or fetch recipient name if possible
                     senderName,
+                    gameTitle: game.title,
                     messageContent: content,
-                    isBroadcast: !!isBroadcast,
                     gameUrl
-                })
+                }
             })
         );
 

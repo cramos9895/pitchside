@@ -22,7 +22,12 @@ const TEMPLATE_MAP: Record<string, string> = {
     'waitlist_promotion': 'waitlist-promoted',
     'password_reset': 'auth-password-reset',
     'captain_receipt': 'transactional-captain-receipt',
-    'team_invite': 'team-invite'
+    'team_invite': 'team-invite',
+    'booking_receipt': 'transactional-booking-receipt',
+    'booking_cancellation': 'transactional-booking-cancellation',
+    'chat_alert': 'transactional-chat-notification',
+    'new_request': 'admin-new-request',
+    'contract_ready': 'rental-contract-ready'
 };
 
 export async function sendNotification({ to, subject, react, template, type, data }: SendNotificationProps) {
@@ -60,7 +65,6 @@ export async function sendNotification({ to, subject, react, template, type, dat
         }
 
         // 4. Send Email via Template or React
-        const templateId = TEMPLATE_MAP[type];
         
         const payload: any = {
             from: 'PitchSide Team <support@pitchsidecf.com>',
@@ -68,13 +72,17 @@ export async function sendNotification({ to, subject, react, template, type, dat
             subject,
         };
 
-        if (templateId) {
+        // Priority Logic:
+        // 1. Explicit 'template' prop (id, variables)
+        // 2. TEMPLATE_MAP[type] with 'data'
+        // 3. React component
+        if (template) {
+            payload.template = template;
+        } else if (TEMPLATE_MAP[type]) {
             payload.template = {
-                id: templateId,
+                id: TEMPLATE_MAP[type],
                 variables: data || {}
             };
-        } else if (template) {
-            payload.template = template;
         } else if (react) {
             payload.react = react;
         } else {
