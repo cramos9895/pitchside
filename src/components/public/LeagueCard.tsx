@@ -129,7 +129,7 @@ export function LeagueCard({ league, userId, registrations }: LeagueCardProps) {
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col">
                             <span className="text-[8px] text-gray-500 font-black uppercase tracking-widest">Roster Lock</span>
-                            <span className="text-[10px] text-white font-bold">{formatDate(league.roster_lock_date)}</span>
+                            <span className="text-[10px] text-white font-bold">{formatDate(league.roster_lock_date ?? null)}</span>
                         </div>
                         <div className="w-px h-6 bg-white/10" />
                         <div className="flex flex-col">
