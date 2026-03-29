@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         // --- ENFORCER: BAN CHECK & PROFILE FETCH ---
         const { data: profile } = await supabase
             .from('profiles')
-            .select('is_banned, banned_until, full_name')
+            .select('is_banned, banned_until, full_name, credit_balance')
             .eq('id', user.id)
             .single();
 
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         }
         // ---------------------------
 
-        const { gameId, note = '', paymentMethod, promoCodeId, teamAssignment, prizeSplitPreference } = await request.json();
+        const { gameId, note = '', paymentMethod, promoCodeId, teamAssignment, prizeSplitPreference, guestIds = [] } = await request.json();
 
         if (!gameId) {
             return NextResponse.json({ error: 'Game ID required' }, { status: 400 });
@@ -51,6 +51,11 @@ export async function POST(request: NextRequest) {
 
         if (game.price > 0 && !paymentMethod) {
             return NextResponse.json({ error: 'This game is not free. Payment required.' }, { status: 403 });
+        }
+
+        // Stripe payments must go through /api/checkout → /success (hosted checkout flow)
+        if (paymentMethod === 'stripe') {
+            return NextResponse.json({ error: 'Stripe payments must use the hosted checkout flow.' }, { status: 400 });
         }
 
         // --- ENFORCER: SQUAD CAPACITY CHECK ---
@@ -89,32 +94,66 @@ export async function POST(request: NextRequest) {
         }
 
         // 3. Determine Status based on Waitlist logic
-        const isFull = game.current_players >= game.max_players;
-        const isManualPayment = !!paymentMethod;
+        const partySize = 1 + (guestIds?.length || 0);
+        const isFull = (game.current_players + partySize) > game.max_players;
+        const isManualPayment = !!paymentMethod && paymentMethod !== 'promo';
 
-        let initialStatus = 'paid'; // Legacy status
-        let initialPaymentStatus = isManualPayment ? 'pending' : 'verified';
+        let initialStatus = isFull ? 'waitlist' : 'paid'; // Legacy status
+        let initialPaymentStatus = isFull ? 'unpaid' : (isManualPayment ? 'pending' : 'verified');
 
-        if (isFull) {
-            initialPaymentStatus = 'unpaid';
-            initialStatus = 'waitlist'; // keep legacy status in sync
+        const adminSupabase = createAdminClient();
+
+        // 4. Wallet Math Integration (Mirroring Stripe Flow)
+        let appliedCreditUnits = 0;
+        if (!isFull && game.price > 0 && isManualPayment) {
+            const subtotalUnits = game.price * partySize;
+            const walletBalanceCredits = (profile?.credit_balance || 0) / 100;
+            
+            appliedCreditUnits = Math.min(walletBalanceCredits, subtotalUnits);
+            
+            if (appliedCreditUnits > 0) {
+                const newBalanceCents = Math.round((walletBalanceCredits - appliedCreditUnits) * 100);
+                await adminSupabase.from('profiles').update({ credit_balance: newBalanceCents }).eq('id', user.id);
+            }
         }
 
-        const { error: insertError } = await supabase
-            .from('bookings')
-            .insert({
+        // 5. Generate a generic UUID to cluster this squad transaction together if it's a squad edit
+        const linkedBookingId = crypto.randomUUID();
+
+        // 6. Perform Atomic Batch Insert Using Admin Client to bypass guest RLS
+        const insertPayload: any[] = [
+            {
                 user_id: user.id,
                 game_id: gameId,
-                status: initialStatus, // Legacy
+                status: initialStatus,
                 payment_status: initialPaymentStatus,
                 payment_method: paymentMethod || 'free',
                 payment_amount: isManualPayment ? game.price : 0,
                 checked_in: false,
                 team_assignment: teamAssignment !== undefined ? teamAssignment : null,
-                note: note // Store request note
+                note: note,
+                linked_booking_id: linkedBookingId
+            }
+        ];
+
+        for (const guestId of guestIds) {
+            insertPayload.push({
+                user_id: guestId,
+                buyer_id: user.id, // Grouping relationship
+                game_id: gameId,
+                status: initialStatus,
+                payment_status: initialPaymentStatus,
+                payment_method: paymentMethod || 'free',
+                payment_amount: isManualPayment ? game.price : 0,
+                checked_in: false,
+                team_assignment: teamAssignment !== undefined ? teamAssignment : null,
+                linked_booking_id: linkedBookingId
             });
+        }
 
-
+        const { error: insertError } = await adminSupabase
+            .from('bookings')
+            .insert(insertPayload);
 
         if (insertError) {
             throw insertError;

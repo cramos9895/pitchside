@@ -386,7 +386,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
             const winnerName = winner ? winner[0] : null;
 
             if (winnerName) {
-                const { data: bookings } = await supabase.from('bookings').select('*, profiles(full_name, email)').eq('game_id', gameId);
+                const { data: bookings } = await supabase.from('bookings').select('*, profiles!bookings_user_id_fkey(full_name, email)').eq('game_id', gameId);
                 const allPlayers = (bookings || []).map((b: any) => ({
                     id: b.id,
                     userId: b.user_id,

@@ -2,7 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Loader2, Save, Users, Plus, Trash2, Clock, Calendar, DollarSign, MapPin, Trophy } from 'lucide-react';
+import { 
+    Calendar, 
+    Clock, 
+    Save, 
+    Trophy, 
+    MapPin, 
+    ChevronRight, 
+    Trash2, 
+    Plus, 
+    Copy,
+    Info,
+    AlertTriangle,
+    DollarSign,
+    Zap,
+    Users,
+    ChevronDown,
+    Loader2
+} from 'lucide-react';
 import usePlacesAutocomplete, { getGeocode, getLatLng } from 'use-places-autocomplete';
 import { useLoadScript } from '@react-google-maps/api';
 import { useRouter } from 'next/navigation';
@@ -132,6 +149,9 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
     const [teamsIntoPlayoffs, setTeamsIntoPlayoffs] = useState<number>(initialData?.teams_into_playoffs ?? 4);
     const [hasPlayoffBye, setHasPlayoffBye] = useState<boolean>(initialData?.has_playoff_bye ?? false);
     const [breakBetweenGames, setBreakBetweenGames] = useState<number | ''>(initialData?.break_between_games ?? 5);
+    const [rosterFreezeDate, setRosterFreezeDate] = useState(initialData?.roster_freeze_date ? new Date(initialData.roster_freeze_date).toISOString().slice(0, 16) : '');
+    const [regularSeasonStart, setRegularSeasonStart] = useState(initialData?.regular_season_start ? new Date(initialData.regular_season_start).toISOString().slice(0, 16) : '');
+    const [playoffStartDate, setPlayoffStartDate] = useState(initialData?.playoff_start_date ? new Date(initialData.playoff_start_date).toISOString().slice(0, 16) : '');
 
     // Micro-Tournament Constraints
     const [tournamentStyle, setTournamentStyle] = useState<'group_stage' | 'single_elimination' | 'double_elimination'>(initialData?.tournament_style || 'group_stage');
@@ -273,7 +293,8 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
         setLoading(true);
         setError(null);
 
-        if (!gameDate || !startTime || !endTime) {
+        const isLeague = activeTab === 'league';
+        if (!isLeague && (!gameDate || !startTime || !endTime)) {
             alert("Please fill in all time fields");
             setLoading(false);
             return;
@@ -286,10 +307,10 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
         }
 
         try {
-            const startDateTime = new Date(`${gameDate}T${startTime}`);
-            const endDateTime = new Date(`${gameDate}T${endTime}`);
-            if (endDateTime < startDateTime) endDateTime.setDate(endDateTime.getDate() + 1);
-            const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime;
+            const startDateTime = (!isLeague && gameDate && startTime) ? new Date(`${gameDate}T${startTime}`) : (isLeague && regularSeasonStart ? new Date(regularSeasonStart) : null);
+            const endDateTime = (!isLeague && gameDate && endTime) ? new Date(`${gameDate}T${endTime}`) : (isLeague && playoffStartDate ? new Date(playoffStartDate) : null);
+            if (endDateTime && startDateTime && endDateTime < startDateTime) endDateTime.setDate(endDateTime.getDate() + 1);
+            const formattedEndTime = (!isLeague && endTime && endTime.length >= 5) ? (endTime.length === 5 ? `${endTime}:00` : endTime) : (isLeague && endDateTime ? endDateTime.toISOString() : null);
 
             const payload = {
                 title,
@@ -298,7 +319,7 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                 location_nickname: locationNickname,
                 latitude: coords.lat,
                 longitude: coords.lng,
-                start_time: startDateTime.toISOString(),
+                start_time: startDateTime ? startDateTime.toISOString() : null,
                 end_time: formattedEndTime,
                 
                 // Missed Core Fields
@@ -325,12 +346,15 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                 has_registration_fee_credit: (activeTab === 'tournament' || activeTab === 'league') && hasRegistrationFee ? hasRegistrationFeeCredit : false,
                 free_agent_price: (activeTab === 'tournament' || activeTab === 'league') ? (freeAgentPrice === '' ? null : freeAgentPrice) : null,
                 has_free_agent_credit: (activeTab === 'tournament' || activeTab === 'league') ? hasFreeAgentCredit : false,
-                refund_cutoff_date: (activeTab === 'tournament' || activeTab === 'league') ? (refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null) : null,
+                refund_cutoff_date: (activeTab === 'tournament' || activeTab === 'league' || (activeTab === 'standard' && isRefundable)) ? (refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null) : null,
                 min_teams: (activeTab === 'tournament' || activeTab === 'league') ? (minTeams === '' ? null : minTeams) : null,
                 max_teams: (activeTab === 'tournament' || activeTab === 'league') ? (maxTourneyTeams === '' ? null : maxTourneyTeams) : null,
                 min_players_per_team: (activeTab === 'tournament' || activeTab === 'league') ? (minPlayersPerTeam === '' ? null : minPlayersPerTeam) : null,
                 max_players_per_team: (activeTab === 'tournament' || activeTab === 'league') ? (maxPlayersPerTeam === '' ? null : maxPlayersPerTeam) : null,
                 roster_lock_date: (activeTab === 'tournament' || activeTab === 'league') ? (rosterLockDate ? new Date(rosterLockDate).toISOString() : null) : null,
+                roster_freeze_date: activeTab === 'league' ? (rosterFreezeDate ? new Date(rosterFreezeDate).toISOString() : null) : null,
+                regular_season_start: activeTab === 'league' ? (regularSeasonStart ? new Date(regularSeasonStart).toISOString() : null) : null,
+                playoff_start_date: activeTab === 'league' ? (playoffStartDate ? new Date(playoffStartDate).toISOString() : null) : null,
                 strict_waiver_required: (activeTab === 'tournament' || activeTab === 'league') ? strictWaiverRequired : false,
                 tournament_style: activeTab === 'tournament' ? tournamentStyle : null,
                 minimum_games_per_team: (activeTab === 'tournament' && tournamentStyle === 'group_stage') ? (minimumGamesPerTeam === '' ? null : minimumGamesPerTeam) : null,
@@ -531,9 +555,9 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <div className="flex justify-between items-center mb-2">
+                                <div className="flex justify-between items-center mb-6">
                                     <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary">
                                         Price ($)
                                     </label>
@@ -570,7 +594,7 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
                                     Game Format
@@ -651,19 +675,40 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                             </div>
                             
                             {isRefundable && (
-                                <div className="flex-1 w-full animate-in fade-in slide-in-from-left-2">
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                                        Refund Cutoff (Hours Before)
-                                    </label>
-                                    <select
-                                        value={refundCutoffHours}
-                                        onChange={(e) => setRefundCutoffHours(e.target.value === '' ? '' : parseInt(e.target.value))}
-                                        className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
-                                    >
-                                        {[2, 6, 12, 24, 48, 72].map(hours => (
-                                            <option key={hours} value={hours}>{hours} Hours</option>
-                                        ))}
-                                    </select>
+                                <div className="flex-1 w-full flex flex-col gap-4 animate-in fade-in slide-in-from-left-2">
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                            Refund Cutoff (Hours Before)
+                                        </label>
+                                        <select
+                                            value={refundCutoffHours}
+                                            onChange={(e) => {
+                                                setRefundCutoffHours(e.target.value === '' ? '' : parseInt(e.target.value));
+                                                if (e.target.value !== '') setRefundCutoffDate('');
+                                            }}
+                                            className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                        >
+                                            <option value="">No Hourly Bound</option>
+                                            {[2, 6, 12, 24, 48, 72].map(hours => (
+                                                <option key={hours} value={hours}>{hours} Hours</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="relative">
+                                        <div className="absolute -left-3 top-[45%] w-2 h-px bg-white/20"></div>
+                                        <span className="text-[10px] font-bold text-pitch-secondary uppercase my-1 block text-center italic opacity-70">Or Explicit Date/Time</span>
+                                    </div>
+                                    <div>
+                                        <input
+                                            type="datetime-local"
+                                            value={refundCutoffDate}
+                                            onChange={(e) => {
+                                                setRefundCutoffDate(e.target.value);
+                                                if (e.target.value !== '') setRefundCutoffHours('');
+                                            }}
+                                            className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                        />
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -823,7 +868,6 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                             </div>
                         ))}
                     </div>
-
                 </div>
             )}
 
@@ -1411,7 +1455,7 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
 
                         <div>
                             <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                                League Title
+                                {activeTab === 'league' ? 'League Name' : 'Tournament Title'}
                             </label>
                             <input
                                 type="text"
@@ -1479,10 +1523,88 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                            <div className="space-y-6">
+                                <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2">
+                                    <Clock className="w-5 h-5 text-[#cbff00]" /> Season Timeline
+                                </h3>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                            Roster Lock Date
+                                        </label>
+                                        <input
+                                            type="datetime-local"
+                                            required={activeTab === 'league'}
+                                            value={rosterLockDate}
+                                            onChange={(e) => setRosterLockDate(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                        />
+                                        <p className="text-[10px] text-pitch-secondary mt-1 uppercase">Payments captured & rosters locked.</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                            Regular Season Start
+                                        </label>
+                                        <input
+                                            type="datetime-local"
+                                            required={activeTab === 'league'}
+                                            value={regularSeasonStart}
+                                            onChange={(e) => setRegularSeasonStart(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                        />
+                                        <p className="text-[10px] text-pitch-secondary mt-1 uppercase">First day of league play.</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                            Roster Freeze Date
+                                        </label>
+                                        <input
+                                            type="datetime-local"
+                                            required={activeTab === 'league'}
+                                            value={rosterFreezeDate}
+                                            onChange={(e) => setRosterFreezeDate(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                        />
+                                        <p className="text-[10px] text-pitch-secondary mt-1 uppercase">Mid-season transfer cutoff.</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
+                                            Playoff Start Date
+                                        </label>
+                                        <input
+                                            type="datetime-local"
+                                            required={activeTab === 'league'}
+                                            value={playoffStartDate}
+                                            onChange={(e) => setPlayoffStartDate(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                        />
+                                        <p className="text-[10px] text-pitch-secondary mt-1 uppercase">Delineates bracket phase.</p>
+                                    </div>
+                                </div>
+
+                                {activeTab === 'league' && (
+                                    <div className="p-4 bg-white/5 border border-white/10 rounded-sm">
+                                        <div className="text-xs font-bold text-pitch-secondary uppercase flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full ${
+                                                (rosterLockDate && regularSeasonStart && rosterFreezeDate && playoffStartDate) &&
+                                                (new Date(rosterLockDate) < new Date(regularSeasonStart)) &&
+                                                (new Date(regularSeasonStart) < new Date(rosterFreezeDate)) &&
+                                                (new Date(rosterFreezeDate) < new Date(playoffStartDate))
+                                                ? 'bg-green-500' : 'bg-red-500'
+                                            }`} />
+                                            Timeline Validation: Chronological Order Required
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="col-span-1">
                                 <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" /> Start Date
+                                    <Calendar className="w-3 h-3" /> Registration Cutoff Date
                                 </label>
                                 <input
                                     type="date"
@@ -1492,29 +1614,31 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                                     className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
                                 />
                             </div>
-                            <div className="col-span-1">
-                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
-                                    <Clock className="w-3 h-3" /> Earliest Game Start Time
-                                </label>
-                                <input
-                                    type="time"
-                                    required
-                                    value={earliestGameStartTime}
-                                    onChange={(e) => setEarliestGameStartTime(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
-                                />
-                            </div>
-                            <div className="col-span-1">
-                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
-                                    <Clock className="w-3 h-3" /> Latest Game Start Time
-                                </label>
-                                <input
-                                    type="time"
-                                    required
-                                    value={latestGameStartTime}
-                                    onChange={(e) => setLatestGameStartTime(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="col-span-1">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" /> Earliest Game
+                                    </label>
+                                    <input
+                                        type="time"
+                                        required
+                                        value={earliestGameStartTime}
+                                        onChange={(e) => setEarliestGameStartTime(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                    />
+                                </div>
+                                <div className="col-span-1">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" /> Latest Game
+                                    </label>
+                                    <input
+                                        type="time"
+                                        required
+                                        value={latestGameStartTime}
+                                        onChange={(e) => setLatestGameStartTime(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -1761,19 +1885,6 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                                    Minimum Games Guaranteed
-                                </label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    required
-                                    value={minGamesGuaranteed}
-                                    onChange={(e) => setMinGamesGuaranteed(e.target.value === '' ? '' : parseInt(e.target.value))}
-                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
-                                />
-                            </div>
                             <div className="border border-white/10 p-4 rounded-sm bg-white/5 space-y-4">
                                 <label className="flex items-center gap-2 cursor-pointer select-none">
                                     <input
@@ -1799,6 +1910,46 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                                             <option key={opt} value={opt}>{opt} Teams</option>
                                         ))}
                                     </select>
+                                </div>
+                            </div>
+                            
+                            <div className="p-4 bg-[#cbff00]/10 border border-[#cbff00]/20 rounded-sm space-y-3">
+                                <h4 className="text-xs font-black uppercase tracking-widest text-[#cbff00] border-b border-[#cbff00]/20 pb-2">Season Summary</h4>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[10px] font-bold uppercase text-pitch-secondary">Regular Season</span>
+                                        <span className="text-xs font-black text-white">
+                                            {(() => {
+                                                if (!regularSeasonStart || !playoffStartDate) return 'TBD';
+                                                const start = new Date(regularSeasonStart);
+                                                const end = new Date(playoffStartDate);
+                                                const diffWeeks = Math.ceil((end.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
+                                                return `${Math.max(0, diffWeeks)} Games / Weeks`;
+                                            })()}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[10px] font-bold uppercase text-pitch-secondary">Post-Season (Max)</span>
+                                        <span className="text-xs font-black text-white">
+                                            {(() => {
+                                                const rounds = Math.ceil(Math.log2(teamsIntoPlayoffs));
+                                                return `${rounds} Potential Games`;
+                                            })()}
+                                        </span>
+                                    </div>
+                                    <div className="pt-2 mt-2 border-t border-[#cbff00]/10 flex justify-between items-center">
+                                        <span className="text-[10px] font-black uppercase text-[#cbff00]">Total Potential Games</span>
+                                        <span className="text-sm font-black text-[#cbff00]">
+                                            {(() => {
+                                                if (!regularSeasonStart || !playoffStartDate) return 'TBD';
+                                                const start = new Date(regularSeasonStart);
+                                                const end = new Date(playoffStartDate);
+                                                const diffWeeks = Math.ceil((end.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
+                                                const rounds = Math.ceil(Math.log2(teamsIntoPlayoffs));
+                                                return Math.max(0, diffWeeks) + rounds;
+                                            })()}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2033,7 +2184,7 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                 disabled={loading || (action === 'create' && !isLoaded)}
                 className="w-full py-4 bg-[#cbff00] text-black font-black uppercase tracking-wider rounded-sm hover:bg-white transition-colors flex items-center justify-center gap-2 mt-8"
             >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin text-black" /> : <><Save className="w-5 h-5 text-black" /> {action === 'create' ? 'Create Match' : 'Save Changes'}</>}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin text-black" /> : <><Save className="w-5 h-5 text-black" /> {action === 'create' ? (activeTab === 'league' ? 'Create League' : 'Create Match') : 'Save Changes'}</>}
             </button>
         </form>
     );

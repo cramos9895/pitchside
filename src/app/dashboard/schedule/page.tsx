@@ -256,6 +256,7 @@ export default function DashboardSchedulePage() {
                                         }}
                                         user={user}
                                         bookingStatus="confirmed"
+                                        bookingId={evt.id.replace('game-', '')}
                                     />
                                 </div>
                         );

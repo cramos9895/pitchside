@@ -16,6 +16,7 @@ import { cancelPlayerRegistration } from '@/app/actions/cancel-player-registrati
 import { GameMap } from '@/components/GameMap';
 import { StandingsTable } from '@/components/admin/StandingsTable';
 import { JoinGameModal } from '@/components/JoinGameModal';
+import { EmbeddedCheckoutModal } from '@/components/EmbeddedCheckoutModal';
 
 // Reuse types/interfaces if possible, or define locally for now
 interface Game {
@@ -78,6 +79,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
     const [voteModalOpen, setVoteModalOpen] = useState(false);
     const [leaveModalOpen, setLeaveModalOpen] = useState(false);
     const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+    const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
     const [joinLoading, setJoinLoading] = useState(false);
     const [userProfile, setUserProfile] = useState<any>(null);
 
@@ -150,7 +152,7 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
             // 3. Get Roster (Active/Paid/Waitlist)
             const { data: rosterData, error: rosterError } = await supabase
                 .from('bookings')
-                .select('*, profiles(id, full_name, email)')
+                .select('*, profiles!bookings_user_id_fkey(id, full_name, email)')
                 .eq('game_id', gameId)
                 .neq('status', 'cancelled');
 
@@ -240,42 +242,21 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
         fetchGameData();
     }, [gameId, supabase]);
 
-    const proceedToJoin = async (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | 'platform_paid' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string }) => {
-        if (!game) return;
+    const proceedToJoin = async (data: { note: string; paymentMethod: 'stripe' | 'venmo' | 'zelle' | 'cash' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; guestIds?: string[] }) => {
+        if (!game || !currentUser) {
+            if (!currentUser) router.push('/login');
+            return;
+        }
+
         setJoinLoading(true);
 
         try {
             const currentPlayersCount = bookings.filter(b => ['active', 'paid', 'free_agent_pending'].includes(b.status) && b.roster_status !== 'dropped').length;
-            const isWaitlist = game.max_players != null && currentPlayersCount >= game.max_players;
+            const isWaitlist = game.max_players != null && currentPlayersCount >= game.max_players && !data.teamAssignment;
 
-            if (game.price === 0 || isWaitlist || data.paymentMethod === 'platform_paid' || data.paymentMethod) {
-                const endpoint = (isWaitlist && !data.paymentMethod) ? '/api/waitlist' : '/api/join';
-
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        gameId: game.id,
-                        note: data.note,
-                        paymentMethod: (game.price === 0 && !data.paymentMethod) ? 'promo' : (data.paymentMethod === 'platform_paid' ? 'stripe' : data.paymentMethod),
-                        promoCodeId: data.promoCodeId,
-                        teamAssignment: data.teamAssignment
-                    })
-                });
-
-                const responseData = await response.json();
-                if (!response.ok) throw new Error(responseData.error || responseData.message);
-                
-                alert("Successfully joined!");
-                setIsJoinModalOpen(false);
-                setJoinLoading(false);
-                window.location.reload();
-                return;
-            }
-
+            // Free Game Credit Handling (Legacy support)
             const isSpecificUser = userProfile?.email === 'christian.ramos9895@gmail.com';
-
-            if (userProfile?.free_game_credits > 0 && !isSpecificUser) {
+            if (userProfile?.free_game_credits > 0 && !isSpecificUser && game.price > 0 && !data.paymentMethod && !data.isFreeAgent) {
                 const useCredit = confirm(`You have ${userProfile.free_game_credits} Free Game Credit(s). Would you like to use one for this game?`);
                 if (useCredit) {
                     const response = await fetch('/api/join-with-credit', {
@@ -283,7 +264,6 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ gameId: game.id, note: data.note, teamAssignment: data.teamAssignment })
                     });
-
                     if (!response.ok) throw new Error((await response.json()).error);
                     alert("Success! Free credit redeemed.");
                     setIsJoinModalOpen(false);
@@ -293,52 +273,66 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                 }
             }
 
-            // If price > 0 and we reached here, it means we didn't have a manual payment method 
-            // OR we didn't have a platform_paid flag. Correct the logic to only redirect 
-            // if we ACTUALLY want a redirect session.
-            
-            if (data.paymentMethod === 'platform_paid') {
-                // This case should have been caught in the first "if" block above.
-                // If it reached here, something is wrong with the condition.
-                // Re-routing to the join logic.
-                const response = await fetch('/api/join', {
+            // Hosted Checkout Flow (Stripe, Vaulting, Free Agent)
+            if (data.paymentMethod === 'stripe' || data.isFreeAgent || data.isLeagueCaptainVaulting) {
+                const checkoutRes = await fetch('/api/checkout', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         gameId: game.id,
+                        userId: currentUser.id,
+                        price: game.price,
+                        title: `Join Match: ${game.title || 'Pickup Game'}`,
                         note: data.note,
-                        paymentMethod: 'stripe',
                         promoCodeId: data.promoCodeId,
-                        teamAssignment: data.teamAssignment
+                        teamAssignment: data.teamAssignment,
+                        isFreeAgent: data.isFreeAgent,
+                        isLeagueCaptainVaulting: data.isLeagueCaptainVaulting,
+                        guestIds: data.guestIds || []
                     })
                 });
-                const responseData = await response.json();
-                if (!response.ok) throw new Error(responseData.error || responseData.message);
-                alert("Successfully joined!");
+
+                const responseData = await checkoutRes.json();
+                if (!checkoutRes.ok) throw new Error(responseData.error);
+
+                if (responseData.bypassed) {
+                    // Wallet covered 100% — no Stripe session needed
+                    alert("Successfully joined!");
+                    setIsJoinModalOpen(false);
+                    setJoinLoading(false);
+                    window.location.reload();
+                    return;
+                }
+
+                // Open embedded checkout popup
+                setStripeClientSecret(responseData.clientSecret);
                 setIsJoinModalOpen(false);
                 setJoinLoading(false);
-                window.location.reload();
                 return;
             }
 
-            const checkoutRes = await fetch('/api/checkout', {
+            // Manual Payments, 100% Wallet Covers, Waitlist, or Price is $0
+            const endpoint = (isWaitlist && !data.paymentMethod) ? '/api/waitlist' : '/api/join';
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     gameId: game.id,
-                    userId: currentUser!.id,
-                    price: game.price,
-                    title: `Join Match: ${game.title || 'Pickup Game'}`,
                     note: data.note,
+                    paymentMethod: (game.price === 0 && !data.paymentMethod) ? 'promo' : data.paymentMethod,
                     promoCodeId: data.promoCodeId,
                     teamAssignment: data.teamAssignment,
-                    isFreeAgent: data.isFreeAgent
+                    guestIds: data.guestIds || []
                 })
             });
 
-            const responseData = await checkoutRes.json();
-            if (!checkoutRes.ok) throw new Error(responseData.error);
-            window.location.href = responseData.url;
+            const responseData = await response.json();
+            if (!response.ok) throw new Error(responseData.error || responseData.message);
+            
+            alert("Successfully joined!");
+            setIsJoinModalOpen(false);
+            setJoinLoading(false);
+            window.location.reload();
 
         } catch (error: any) {
             console.error('Join Error:', error);
@@ -1104,6 +1098,15 @@ export default function GameDetailsPage({ params }: { params: Promise<{ id: stri
                 isWaitlist={game.max_players != null && activeRoster.length >= game.max_players}
                 gameId={game.id}
             />
+
+            {/* Stripe Embedded Checkout */}
+            {stripeClientSecret && (
+                <EmbeddedCheckoutModal
+                    isOpen={!!stripeClientSecret}
+                    onClose={() => setStripeClientSecret(null)}
+                    clientSecret={stripeClientSecret}
+                />
+            )}
         </div>
     );
 }

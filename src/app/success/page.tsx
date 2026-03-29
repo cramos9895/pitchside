@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 
@@ -12,6 +13,38 @@ interface Props {
 
 export default async function SuccessPage({ searchParams }: Props) {
     const params = await searchParams;
+    const isBypassed = params.bypassed === 'true';
+
+    if (isBypassed) {
+        return (
+            <div className="min-h-screen bg-pitch-black flex flex-col items-center justify-center text-white px-4">
+                <div className="bg-pitch-card border border-white/10 p-8 rounded-sm max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-pitch-accent" />
+
+                    <div className="mb-6 flex justify-center">
+                        <div className="w-20 h-20 bg-pitch-accent/10 rounded-full flex items-center justify-center">
+                            <CheckCircle2 className="w-10 h-10 text-pitch-accent" />
+                        </div>
+                    </div>
+
+                    <h1 className="font-heading text-4xl font-bold italic uppercase tracking-tighter mb-2">
+                        You're In!
+                    </h1>
+                    <p className="text-pitch-secondary mb-8">
+                        Your spot on the roster is confirmed.
+                    </p>
+
+                    <Link
+                        href="/"
+                        className="inline-block w-full py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-wider rounded-sm hover:bg-white transition-colors"
+                    >
+                        Back to Pitch
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
     const sessionId = params.session_id;
 
     if (!sessionId || typeof sessionId !== 'string') {
@@ -69,6 +102,7 @@ export default async function SuccessPage({ searchParams }: Props) {
         }
 
         const supabase = await createClient();
+        const adminSupabase = createAdminClient();
 
         // If Vault Session: Extract SetupIntent to get the Payment Method ID
         let paymentMethodId = null;
@@ -94,7 +128,24 @@ export default async function SuccessPage({ searchParams }: Props) {
             }
         }
 
-        // 2. Insert Booking into Supabase
+        // 2. Fetch Staged Pending Checkout
+        const { data: pendingCheckout } = await supabase
+            .from('pending_checkouts')
+            .select('*')
+            .eq('checkout_session_id', sessionId)
+            .single();
+
+        let appliedCreditUnitsCents = 0;
+        let guestIdsToInsert: string[] = [];
+
+        if (pendingCheckout) {
+            appliedCreditUnitsCents = pendingCheckout.credit_used || pendingCheckout.applied_credit || 0;
+            if (pendingCheckout.guest_ids && Array.isArray(pendingCheckout.guest_ids)) {
+                guestIdsToInsert = pendingCheckout.guest_ids;
+            }
+        }
+
+        // 3. Insert Booking into Supabase
         const { data: existingBooking } = await supabase
             .from('bookings')
             .select('id')
@@ -103,17 +154,54 @@ export default async function SuccessPage({ searchParams }: Props) {
             .single();
 
         if (!existingBooking) {
-            const { error: insertError } = await supabase
-                .from('bookings')
-                .insert({
+            // Deduct Wallet Balance from buyer
+            if (appliedCreditUnitsCents > 0) {
+                 const { data: profile } = await adminSupabase.from('profiles').select('credit_balance').eq('id', userId).single();
+                 if (profile && profile.credit_balance !== undefined) {
+                     const newBalance = Math.max(0, profile.credit_balance - appliedCreditUnitsCents);
+                     await adminSupabase.from('profiles').update({ credit_balance: newBalance }).eq('id', userId);
+                 }
+            }
+
+            // Multi-Insertion
+            const linkedBookingId = crypto.randomUUID();
+
+            const insertPayload: any[] = [{
+                game_id: gameId,
+                user_id: userId,
+                buyer_id: null,
+                linked_booking_id: linkedBookingId,
+                status: isFreeAgent ? 'free_agent_pending' : 'paid',
+                payment_status: 'verified',
+                payment_method: 'stripe',
+                payment_amount: (session.amount_total || 0) / 100,
+                note: note, // Save note
+                stripe_payment_method_id: paymentMethodId, // Specifically Vaulted for Free Agents or League Captains
+                ...(teamAssignment && { team_assignment: teamAssignment }),
+                ...(prizeSplitPreference && { prize_split_preference: prizeSplitPreference })
+            }];
+
+            for (const gid of guestIdsToInsert) {
+                insertPayload.push({
                     game_id: gameId,
-                    user_id: userId,
-                    status: isFreeAgent ? 'free_agent_pending' : 'paid',
-                    note: note, // Save note
-                    stripe_payment_method_id: paymentMethodId, // Specifically Vaulted for Free Agents or League Captains
-                    ...(teamAssignment && { team_assignment: teamAssignment }),
-                    ...(prizeSplitPreference && { prize_split_preference: prizeSplitPreference })
+                    user_id: gid,
+                    buyer_id: userId,
+                    linked_booking_id: linkedBookingId,
+                    status: 'paid',
+                    payment_status: 'verified',
+                    payment_method: 'stripe',
+                    payment_amount: (session.amount_total || 0) / 100,
+                    stripe_payment_method_id: paymentMethodId,
+                    ...(teamAssignment && { team_assignment: teamAssignment })
                 });
+            }
+
+            const { error: insertError } = await adminSupabase.from('bookings').insert(insertPayload);
+            
+            // Cleanup pending checkout regardless if the insert passes
+            if (pendingCheckout) {
+                await adminSupabase.from('pending_checkouts').delete().eq('checkout_session_id', sessionId);
+            }
 
             if (insertError) {
                 console.error("Supabase Insert Error:", insertError);

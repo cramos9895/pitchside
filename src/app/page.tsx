@@ -7,28 +7,36 @@ import { LeagueCard } from '@/components/public/LeagueCard';
 
 // Define the Game interface matching the Supabase schema
 interface Game {
-  id: string;
-  title: string;
-  location: string;
-  start_time: string;
-  end_time: string | null;
-  price: number;
-  max_players: number;
-  current_players: number;
-  surface_type: string;
-  facility_id?: string | null;
-  resource_id?: string | null;
-  status: string;
-  event_type?: string;
-  is_league?: boolean;
-  team_price?: number | null;
-  free_agent_price?: number | null;
-  max_teams?: number | null;
-  prize_pool_percentage?: number | null;
-  fixed_prize_amount?: number | null;
-  reward?: string | null;
-  prize_type?: string | null;
-  tournament_style?: string | null;
+    id: string;
+    title: string;
+    location_name?: string;
+    location: string;
+    location_nickname?: string;
+    game_format?: string;
+    start_time: string;
+    end_time: string | null;
+    price: number;
+    max_players: number;
+    max_teams: number | null;
+    current_players: number;
+    surface_type: string;
+    facility_id?: string | null;
+    resource_id?: string | null;
+    status: string;
+    has_mvp_reward?: boolean;
+    match_style?: string;
+    event_type?: string;
+    is_league?: boolean;
+    team_price: number | null;
+    free_agent_price: number | null;
+    prize_pool_percentage: number | null;
+    fixed_prize_amount: number | null;
+    reward: string | null;
+    prize_type: string | null;
+    tournament_style: string | null;
+    roster_lock_date: string | null;
+    regular_season_start: string | null;
+    playoff_start_date: string | null;
 }
 
 export const revalidate = 0; // Ensure fresh data on every request
@@ -56,13 +64,14 @@ export default async function Home() {
 
   let joinedGameIds: string[] = [];
   const bookingStatusMap = new Map<string, string>();
+  const bookingIdMap = new Map<string, string>();
   const userTeamRoles = new Map<string, string>();
   const userTeamIds = new Map<string, string>();
 
   if (user) {
     const { data: bookings } = await supabase
       .from('bookings')
-      .select('game_id, status')
+      .select('id, game_id, status')
       .eq('user_id', user.id)
       .neq('status', 'cancelled');
 
@@ -70,6 +79,7 @@ export default async function Home() {
       bookings.forEach((b: any) => {
         joinedGameIds.push(b.game_id);
         bookingStatusMap.set(b.game_id, b.status);
+        bookingIdMap.set(b.game_id, b.id);
       });
     }
 
@@ -258,23 +268,11 @@ export default async function Home() {
                 }
 
                 if (isLeague) {
-                  const mappedLeague = {
-                    id: game.id,
-                    name: game.title,
-                    start_date: game.start_time,
-                    end_date: game.end_time || game.start_time,
-                    format: 'TBD',
-                    match_day: 'TBD',
-                    price_per_team: game.team_price || 0,
-                    price_per_free_agent: game.free_agent_price || 0,
-                    status: game.status
-                  };
                   return (
                     <LeagueCard 
                       key={game.id} 
-                      league={mappedLeague} 
-                      userRole={userTeamRoles.get(game.id)}
-                      userTeamId={userTeamIds.get(game.id)}
+                      league={game as any} 
+                      userId={user?.id}
                     />
                   );
                 }
@@ -285,6 +283,7 @@ export default async function Home() {
                     game={game}
                     user={user}
                     bookingStatus={bookingStatusMap.get(game.id)}
+                    bookingId={bookingIdMap.get(game.id)}
                   />
                 );
               })}

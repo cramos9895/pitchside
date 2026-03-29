@@ -8,9 +8,13 @@ import { registerCaptain, registerFreeAgent } from '@/app/actions/league-registr
 
 interface League {
     id: string;
-    name: string;
-    price_per_team: number;
-    price_per_free_agent: number;
+    name?: string;
+    title?: string;
+    price_per_team?: number;
+    team_price?: number;
+    price?: number;
+    price_per_free_agent?: number;
+    free_agent_price?: number;
 }
 
 interface RegistrationFormProps {
@@ -22,6 +26,11 @@ export function LeagueRegistrationForm({ league, type }: RegistrationFormProps) 
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Harmonize data
+    const leagueName = league.name || league.title || 'Untitled League';
+    const teamPrice = league.price_per_team ?? league.team_price ?? league.price ?? 0;
+    const freeAgentPrice = league.price_per_free_agent ?? league.free_agent_price ?? 0;
 
     // Team State
     const [teamName, setTeamName] = useState('');
@@ -134,7 +143,7 @@ export function LeagueRegistrationForm({ league, type }: RegistrationFormProps) 
                                         <CreditCard className={cn("w-4 h-4", paymentChoice === 'full' ? "text-pitch-accent" : "text-gray-500")} />
                                         <div className={cn("font-black uppercase tracking-widest text-xs", paymentChoice === 'full' ? "text-pitch-accent" : "text-gray-500")}>Pay Full Team Fee</div>
                                     </div>
-                                    <div className="text-2xl font-black italic text-white">${league.price_per_team}</div>
+                                    <div className="text-2xl font-black italic text-white">${teamPrice}</div>
                                 </div>
                                 
                                 <div 
@@ -212,7 +221,7 @@ export function LeagueRegistrationForm({ league, type }: RegistrationFormProps) 
                         <div className="pt-6 border-t border-white/5">
                             <div className="flex items-center justify-between p-4 bg-white/5 rounded-sm">
                                 <div className="font-black uppercase tracking-widest text-xs text-gray-400">Free Agent Fee</div>
-                                <div className="text-xl font-black italic text-white">${league.price_per_free_agent}</div>
+                                <div className="text-xl font-black italic text-white">${freeAgentPrice}</div>
                             </div>
                         </div>
                     </div>

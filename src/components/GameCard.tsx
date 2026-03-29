@@ -9,18 +9,23 @@ import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { User } from '@supabase/supabase-js';
 import { JoinGameModal } from './JoinGameModal';
+import { LeagueCard } from './public/LeagueCard';
+import { TournamentCard } from './public/TournamentCard';
+import { cancelBooking } from '@/app/actions/cancel-booking';
+import { EmbeddedCheckoutModal } from './EmbeddedCheckoutModal';
 
 interface Game {
     id: string;
     title: string;
     location_name?: string;
     location: string;
-    location_nickname?: string | null;
+    location_nickname?: string;
     game_format?: string;
     start_time: string;
     end_time: string | null;
     price: number;
     max_players: number;
+    max_teams: number | null;
     current_players: number;
     surface_type: string;
     facility_id?: string | null;
@@ -30,6 +35,16 @@ interface Game {
     match_style?: string;
     event_type?: string;
     is_league?: boolean;
+    team_price: number | null;
+    free_agent_price: number | null;
+    prize_pool_percentage: number | null;
+    fixed_prize_amount: number | null;
+    reward: string | null;
+    prize_type: string | null;
+    tournament_style: string | null;
+    roster_lock_date: string | null;
+    regular_season_start: string | null;
+    playoff_start_date: string | null;
 }
 
 interface GameCardProps {
@@ -37,15 +52,17 @@ interface GameCardProps {
     user: User | null;
     bookingStatus?: string; // 'paid', 'waitlist', 'active'
     hasUnreadMessages?: boolean;
+    bookingId?: string; // Add bookingId here
 }
 
-export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameCardProps) {
+export function GameCard({ game, user, bookingStatus, hasUnreadMessages, bookingId }: GameCardProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [joined, setJoined] = useState(!!bookingStatus);
     const [status, setStatus] = useState<string | undefined>(bookingStatus);
     const [currentPlayers, setCurrentPlayers] = useState(game.current_players);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
     const supabase = createClient();
 
     const gameDate = new Date(game.start_time);
@@ -126,29 +143,57 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
     };
 
     const handleLeave = async () => {
+        if (!bookingId && status !== 'waitlist') {
+            alert('Cannot cancel: missing booking ID.');
+            return;
+        }
+
+        const refundAmount = game.price || 0;
+        const confirmMsg = status === 'waitlist' 
+            ? 'Are you sure you want to leave the waitlist?' 
+            : `Are you sure you want to cancel your spot?`;
+
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+
         setLoading(true);
         try {
-            const response = await fetch('/api/leave', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gameId: game.id })
-            });
+            if (status === 'waitlist') {
+                const response = await fetch('/api/leave', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gameId: game.id })
+                });
 
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error);
+                
+                setJoined(false);
+                setStatus(undefined);
+                alert('You have left the waitlist.');
+            } else {
+                // Execute standard wallet cancellation via Server Action
+                const result = await cancelBooking(bookingId!);
+                if (!result.success) throw new Error(result.error);
 
-            setJoined(false);
-            setStatus(undefined);
-            if (currentPlayers > 0 && status !== 'waitlist') {
-                // Only decrement if we weren't on waitlist... 
-                // Optimistic update:
-                setCurrentPlayers(prev => Math.max(0, prev - 1));
+                setJoined(false);
+                setStatus(undefined);
+                // Optimistic decrement
+                if (currentPlayers > 0) {
+                    setCurrentPlayers(prev => Math.max(0, prev - 1));
+                }
+                if (result.refunded) {
+                    alert(`Your spot was cancelled. $${refundAmount.toFixed(2)} has been credited to your Pitchside Wallet.`);
+                } else {
+                    alert('Your spot was cancelled.');
+                }
             }
-            alert(status === 'waitlist' ? 'You have left the waitlist.' : 'You have left the game.');
+
             router.refresh();
         } catch (error: any) {
-            console.error('Leave Error:', error);
-            alert('Failed to leave: ' + error.message);
+            console.error('Cancel Error:', error);
+            alert('Failed to cancel: ' + error.message);
         } finally {
             setLoading(false);
         }
@@ -164,7 +209,7 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
         }
     }, [user, supabase]);
 
-    const proceedToJoin = async (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | 'platform_paid' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean }) => {
+    const proceedToJoin = async (data: { note: string; paymentMethod: 'stripe' | 'venmo' | 'zelle' | 'cash' | 'platform_paid' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; guestIds?: string[] }) => {
         setLoading(true);
 
         try {
@@ -178,15 +223,54 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
             const currentPrice = latestGame?.price || game.price;
 
             // Placeholder for discountAmount, assuming it would be calculated or passed
-            // For this specific change, we'll assume discountAmount is 0 if not provided
-            const discountAmount = 0; // This would typically come from promo code validation
+            const discountAmount = 0;
 
             let finalCost = currentPrice;
             if (discountAmount > 0) {
                 finalCost = Math.max(0, currentPrice - discountAmount);
             }
 
-            // Check for Free Game OR Waitlist OR Manual Payment OR 100% Promo Code
+            // Stripe payments must go through hosted checkout (not /api/join)
+            if (data.paymentMethod === 'stripe' || data.isFreeAgent || data.isLeagueCaptainVaulting) {
+                const checkoutRes = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        gameId: game.id,
+                        userId: user!.id,
+                        price: finalCost,
+                        title: `Join Match: ${game.title || 'Pickup Game'}`,
+                        note: data.note,
+                        promoCodeId: data.promoCodeId,
+                        teamAssignment: data.teamAssignment,
+                        isFreeAgent: data.isFreeAgent,
+                        isLeagueCaptainVaulting: data.isLeagueCaptainVaulting,
+                        guestIds: data.guestIds || []
+                    })
+                });
+
+                const responseData = await checkoutRes.json();
+                if (!checkoutRes.ok) throw new Error(responseData.error);
+
+                if (responseData.bypassed) {
+                    // Wallet covered 100% — no Stripe session needed
+                    setJoined(true);
+                    setStatus('paid');
+                    setCurrentPlayers(prev => prev + 1);
+                    setIsModalOpen(false);
+                    setLoading(false);
+                    window.location.reload();
+                    return;
+                }
+
+                // Open embedded checkout popup
+                setStripeClientSecret(responseData.clientSecret);
+                setIsModalOpen(false);
+                setLoading(false);
+                return;
+            }
+
+            // Check for Free Game OR Waitlist OR Manual Payment (venmo/zelle/cash)
             const isFull = game.max_players != null && currentPlayers >= game.max_players;
             if (finalCost === 0 || isFull || data.paymentMethod) {
                 const endpoint = (isFull && !data.paymentMethod) ? '/api/waitlist' : '/api/join';
@@ -200,7 +284,8 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                         paymentMethod: finalCost === 0 && !data.paymentMethod ? 'promo' : data.paymentMethod,
                         promoCodeId: data.promoCodeId,
                         teamAssignment: data.teamAssignment,
-                        prizeSplitPreference: data.prizeSplitPreference
+                        prizeSplitPreference: data.prizeSplitPreference,
+                        guestIds: data.guestIds || []
                     })
                 });
 
@@ -263,13 +348,13 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                 }
             }
 
-            // Paid Game (Active Roster) - Stripe
+            // Paid Game (Active Roster) - Stripe fallback
             const checkoutRes = await fetch('/api/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     gameId: game.id,
-                    userId: user!.id, // Assuming 'user' is available from props
+                    userId: user!.id,
                     price: finalCost,
                     title: `Join Match: ${game.title || 'Pickup Game'}`,
                     note: data.note,
@@ -277,14 +362,28 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                     teamAssignment: data.teamAssignment,
                     isFreeAgent: data.isFreeAgent,
                     prizeSplitPreference: data.prizeSplitPreference,
-                    isLeagueCaptainVaulting: data.isLeagueCaptainVaulting
+                    isLeagueCaptainVaulting: data.isLeagueCaptainVaulting,
+                    guestIds: data.guestIds || []
                 })
             });
 
             const responseData = await checkoutRes.json();
             if (!checkoutRes.ok) throw new Error(responseData.error);
 
-            window.location.href = responseData.url;
+            if (responseData.bypassed) {
+                setJoined(true);
+                setStatus('paid');
+                setCurrentPlayers(prev => prev + 1);
+                setIsModalOpen(false);
+                setLoading(false);
+                window.location.reload();
+                return;
+            }
+
+            // Open embedded checkout popup
+            setStripeClientSecret(responseData.clientSecret);
+            setIsModalOpen(false);
+            setLoading(false);
 
         } catch (error: any) {
             console.error('Join Error:', error);
@@ -296,6 +395,16 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
     const isCancelled = game.status === 'cancelled';
     const isCompleted = game.status === 'completed';
     const isLive = !isPastStrict && !isCancelled;
+
+    if (game.event_type === 'league') {
+        // We'll need to fetch registrations if we want precise role detection on the card
+        // For now, let's pass a basic version
+        return <LeagueCard league={game} userId={user?.id} />;
+    }
+
+    if (game.event_type === 'tournament') {
+        return <TournamentCard tournament={game} userId={user?.id} />;
+    }
 
     return (
         <>
@@ -374,12 +483,21 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                                 Event Cancelled
                             </div>
                         ) : joined ? (
-                            <button
-                                onClick={() => router.push(`/games/${game.id}?tab=chat`)}
-                                className="col-span-1 sm:col-span-2 w-full py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm group/btn"
-                            >
-                                Match Lobby <Check className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
-                            </button>
+                            <div className="col-span-1 sm:col-span-2 grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => router.push(`/games/${game.id}?tab=chat`)}
+                                    className="w-full py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm group/btn"
+                                >
+                                    Match Lobby <Check className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
+                                </button>
+                                <button
+                                    onClick={handleLeave}
+                                    disabled={loading}
+                                    className="w-full py-4 bg-transparent border border-red-500/30 text-red-500 font-black uppercase tracking-widest text-xs hover:bg-red-500/10 transition-all rounded-sm flex items-center justify-center"
+                                >
+                                    {loading ? 'Processing...' : 'Cancel Spot'}
+                                </button>
+                            </div>
                         ) : (
                             <>
                                 <button
@@ -417,6 +535,15 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages }: GameC
                 gameId={game.id}
                 isLeague={game.is_league}
             />
+
+            {/* STRIPE EMBEDDED CHECKOUT */}
+            {stripeClientSecret && (
+                <EmbeddedCheckoutModal
+                    isOpen={!!stripeClientSecret}
+                    onClose={() => setStripeClientSecret(null)}
+                    clientSecret={stripeClientSecret}
+                />
+            )}
         </>
     );
 }

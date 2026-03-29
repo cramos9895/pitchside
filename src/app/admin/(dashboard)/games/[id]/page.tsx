@@ -16,6 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AdminLeagueControl } from '@/components/admin/AdminLeagueControl';
 
 interface Booking {
     id: string;
@@ -47,6 +48,7 @@ import { TeamManager } from '@/components/admin/TeamManager';
 import { generatePlayoffs } from '@/app/actions/tournament';
 
 interface TeamConfig {
+    id?: string;
     name: string;
     color: string;
 }
@@ -64,6 +66,7 @@ interface Game {
     teams_config: TeamConfig[] | null;
     status: 'scheduled' | 'active' | 'completed' | 'cancelled';
     event_type?: string;
+    roster_freeze_date?: string | null;
     end_time?: string;
     match_style?: string;
     prize_pool_percentage?: number | null;
@@ -286,7 +289,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 ? supabase.from('profiles').select('email, full_name, id, avatar_url').in('id', userIds)
                                 : Promise.resolve({ data: [], error: null }),
                             teamIds.length > 0 
-                                ? supabase.from('teams').select('id, name').in('id', teamIds)
+                                ? supabase.from('teams').select('id, name, captain_id').in('id', teamIds)
                                 : Promise.resolve({ data: [], error: null })
                         ]);
 
@@ -311,9 +314,11 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 has_signed: r.has_signed,
                                 checked_in: r.checked_in,
                                 status: r.status === 'registered' ? 'paid' : r.status,
-                                payment_status: 'verified',
+                                payment_status: r.payment_status || 'verified',
                                 payment_amount: 0,
+                                payment_error: r.payment_error,
                                 profiles: profile || null,
+                                teams: team ? { name: team.name } : null,
                                 created_at: r.created_at
                             };
                         });
@@ -321,7 +326,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                 } else {
                     const { data: bookingsData, error: bookingsError } = await supabase
                         .from('bookings')
-                        .select('*, profiles(email, full_name, id, avatar_url)')
+                        .select('*, profiles!bookings_user_id_fkey(email, full_name, id, avatar_url)')
                         .eq('game_id', gameId)
                         .order('created_at', { ascending: true });
     
@@ -830,6 +835,41 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                 </div>
             </div>
 
+        );
+    }
+
+    if (game.event_type === 'league') {
+        return (
+            <div className="min-h-screen bg-pitch-black text-white p-6 pt-8 font-sans overflow-x-hidden pb-40">
+                <div className="max-w-7xl mx-auto">
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <Link href="/admin" className="flex items-center text-pitch-secondary hover:text-white mb-2 transition-colors">
+                                <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+                            </Link>
+                            <h1 className="font-heading text-3xl md:text-4xl font-bold italic uppercase tracking-tighter">
+                                <span className="text-pitch-accent">{game.title}</span> <span className="text-white/20">League Control</span>
+                            </h1>
+                        </div>
+                    </div>
+
+                    <AdminLeagueControl 
+                        leagueId={gameId}
+                        leagueTitle={game.title}
+                        rosterFreezeDate={game.roster_freeze_date || null}
+                        registrations={bookings as any}
+                        matches={matches}
+                        teams={teams as any}
+                        facilityId={game.facility_id || ''}
+                        startDate={game.start_time}
+                        isLeagueCompleted={game.status === 'completed'}
+                        onRefresh={() => {
+                            fetchMatches();
+                            router.refresh();
+                        }}
+                    />
+                </div>
+            </div>
         );
     }
 

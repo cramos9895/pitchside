@@ -10,28 +10,53 @@ import { TournamentCard } from '@/components/public/TournamentCard';
 interface Game {
     id: string;
     title: string;
+    location_name?: string;
     location: string;
+    location_nickname?: string;
+    game_format?: string;
     start_time: string;
     end_time: string | null;
     price: number;
     max_players: number;
+    max_teams: number | null;
     current_players: number;
     surface_type: string;
     facility_id?: string | null;
     resource_id?: string | null;
     status: string;
+    has_mvp_reward?: boolean;
+    match_style?: string;
+    event_type?: string;
+    is_league?: boolean;
+    team_price: number | null;
+    free_agent_price: number | null;
+    prize_pool_percentage: number | null;
+    fixed_prize_amount: number | null;
+    reward: string | null;
+    prize_type: string | null;
+    tournament_style: string | null;
+    roster_lock_date: string | null;
+    regular_season_start: string | null;
+    playoff_start_date: string | null;
 }
 
 interface League {
     id: string;
-    name: string;
-    start_date: string;
-    end_date: string;
-    format: string;
-    match_day: string;
-    price_per_free_agent: number;
-    status: string;
-    event_type: string;
+    title: string;
+    location: string;
+    location_nickname?: string;
+    start_time: string | null;
+    end_time: string | null;
+    team_price: number | null;
+    free_agent_price: number | null;
+    max_teams: number | null;
+    prize_type: string | null;
+    prize_pool_percentage: number | null;
+    fixed_prize_amount: number | null;
+    reward: string | null;
+    roster_lock_date: string | null;
+    regular_season_start: string | null;
+    playoff_start_date: string | null;
 }
 
 export const revalidate = 0; // Ensure fresh data
@@ -53,17 +78,19 @@ export default async function SchedulePage({
     // Fetch user bookings to check status
     const { data: { user } } = await supabase.auth.getUser();
     const bookingStatusMap = new Map<string, string>();
+    const bookingIdMap = new Map<string, string>();
 
     if (user) {
         const { data: bookings } = await supabase
             .from('bookings')
-            .select('game_id, status')
+            .select('id, game_id, status')
             .eq('user_id', user.id)
             .neq('status', 'cancelled');
 
         if (bookings) {
             bookings.forEach((b: any) => {
                 bookingStatusMap.set(b.game_id, b.status);
+                bookingIdMap.set(b.game_id, b.id);
             });
         }
     }
@@ -87,14 +114,28 @@ export default async function SchedulePage({
     let leagues: any[] | null = null;
     let leaguesError = null;
     if (activeView === 'all' || activeView === 'leagues') {
-        const res = await supabase
-            .from('leagues')
-            .select('*')
-            .neq('status', 'cancelled')
-            .or('event_type.eq.league,event_type.is.null')
-            .order('start_date', { ascending: true });
-        leagues = res.data;
-        leaguesError = res.error;
+        const [leaguesRes, leagueGamesRes] = await Promise.all([
+            supabase
+                .from('leagues')
+                .select('*')
+                .neq('status', 'cancelled')
+                .or('event_type.eq.league,event_type.is.null')
+                .order('start_date', { ascending: true }),
+            supabase
+                .from('games')
+                .select('*')
+                .eq('event_type', 'league')
+                .neq('status', 'cancelled')
+                .gt('start_time', new Date().toISOString())
+                .order('start_time', { ascending: true })
+        ]);
+
+        // Merge results
+        const leaguesTable = leaguesRes.data || [];
+        const gamesLeaguesTable = leagueGamesRes.data || [];
+        
+        leagues = [...gamesLeaguesTable, ...leaguesTable];
+        leaguesError = leaguesRes.error || leagueGamesRes.error;
     }
 
     // Fetch all upcoming tournaments if needed
@@ -190,7 +231,7 @@ export default async function SchedulePage({
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {leagues?.map((league: any) => (
-                                    <LeagueCard key={league.id} league={league} />
+                                    <LeagueCard key={league.id} league={league} userId={user?.id} />
                                 ))}
                             </div>
                             {(!leagues || leagues.length === 0) && activeView === 'leagues' && (
@@ -251,6 +292,7 @@ export default async function SchedulePage({
                                                     game={game}
                                                     user={user}
                                                     bookingStatus={bookingStatusMap.get(game.id)}
+                                                    bookingId={bookingIdMap.get(game.id)}
                                                 />
                                             ))}
                                         </div>

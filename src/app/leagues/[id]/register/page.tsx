@@ -20,14 +20,27 @@ export default async function LeagueRegistrationPage({
 
     const type = searchParams?.type === 'free_agent' ? 'free_agent' : 'team';
 
-    // Fetch league info
-    const { data: league, error } = await supabase
+    // Fetch league info from 'leagues' table
+    const { data: leagueData, error: leagueError } = await supabase
         .from('leagues')
         .select('*')
         .eq('id', params.id)
         .single();
 
-    if (error || !league) {
+    let league = leagueData;
+
+    // If not found in 'leagues', check 'games'
+    if (!league) {
+        const { data: gameData } = await supabase
+            .from('games')
+            .select('*')
+            .eq('id', params.id)
+            .eq('event_type', 'league')
+            .single();
+        league = gameData as any;
+    }
+
+    if (!league) {
         return (
             <div className="min-h-screen bg-pitch-black text-white flex items-center justify-center p-4">
                 <div className="text-center">

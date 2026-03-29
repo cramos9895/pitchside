@@ -1,0 +1,17 @@
+import { createClient } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+    const supabase = await createClient();
+    
+    // Check 'leagues' table
+    const { data: leagues } = await supabase.from('leagues').select('*').limit(3);
+    
+    // Check 'games' table
+    const { data: games } = await supabase.from('games').select('*').eq('event_type', 'league').limit(3);
+
+    return NextResponse.json({ 
+        leagues: leagues?.map(l => ({ id: l.id, name: l.name, price: l.price, price_per_free_agent: l.price_per_free_agent })),
+        games: games?.map(g => ({ id: g.id, title: g.title, team_price: g.team_price, free_agent_price: g.free_agent_price }))
+    });
+}

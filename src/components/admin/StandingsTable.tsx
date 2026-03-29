@@ -9,6 +9,8 @@ interface Match {
     id: string;
     home_team: string;
     away_team: string;
+    home_team_id?: string;
+    away_team_id?: string;
     home_score: number;
     away_score: number;
     status: 'scheduled' | 'active' | 'completed' | 'cancelled';
@@ -16,6 +18,7 @@ interface Match {
 }
 
 interface TeamConfig {
+    id?: string;
     name: string;
     color: string;
 }
@@ -26,9 +29,17 @@ interface StandingsTableProps {
     matches: Match[];
     viewOnly?: boolean;
     teamsIntoPlayoffs?: number;
+    highlightTeamId?: string;
 }
 
-export function StandingsTable({ gameId, teams, matches, viewOnly = false, teamsIntoPlayoffs = 0 }: StandingsTableProps) {
+export function StandingsTable({ 
+    gameId, 
+    teams, 
+    matches, 
+    viewOnly = false, 
+    teamsIntoPlayoffs = 0,
+    highlightTeamId
+}: StandingsTableProps) {
     // 1. Determine Groups
     const groupStats = useMemo(() => {
         const groups: Record<string, any[]> = {};
@@ -47,14 +58,14 @@ export function StandingsTable({ gameId, teams, matches, viewOnly = false, teams
                 groupTeams.push(...teams);
             }
 
-            const stats: Record<string, { gp: number, w: number, d: number, l: number, gf: number, ga: number, pts: number }> = {};
+            const stats: Record<string, { id: string, gp: number, w: number, d: number, l: number, gf: number, ga: number, pts: number }> = {};
             groupTeams.forEach(t => {
-                stats[t.name] = { gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+                stats[t.name] = { id: t.id || '', gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
             });
 
             groupMatches.filter(m => m.status === 'completed').forEach(m => {
-                if (!stats[m.home_team]) stats[m.home_team] = { gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
-                if (!stats[m.away_team]) stats[m.away_team] = { gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+                if (!stats[m.home_team]) stats[m.home_team] = { id: m.home_team_id || '', gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+                if (!stats[m.away_team]) stats[m.away_team] = { id: m.away_team_id || '', gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
 
                 const home = stats[m.home_team];
                 const away = stats[m.away_team];
@@ -113,9 +124,12 @@ export function StandingsTable({ gameId, teams, matches, viewOnly = false, teams
                                     // OR if we have a simple way to know the master ranking.
                                     // NOTE: The user's request for "Unified Master Ranking" was for SEEDING, 
                                     // but for DISPLAY they want separate tables.
+                                    const isHighlighted = highlightTeamId && team.id === highlightTeamId;
+
                                     return (
                                         <tr key={team.name} className={cn(
-                                            "border-b border-white/5 transition-colors relative hover:bg-white/5"
+                                            "border-b border-white/5 transition-colors relative hover:bg-white/5",
+                                            isHighlighted && "bg-pitch-accent/10 border-l-2 border-l-pitch-accent"
                                         )}>
                                             <td className={cn("font-bold uppercase flex items-center gap-2 text-white", viewOnly ? "px-2 py-1.5 text-xs lg:text-sm" : "px-4 py-3")}>
                                                 <span className={cn("font-mono font-normal mr-1", viewOnly ? "text-[10px] text-gray-500" : "text-gray-600")}>{index + 1}.</span> {team.name}

@@ -1,0 +1,366 @@
+'use client';
+
+import { useEffect, useState, use } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { 
+    ArrowLeft, 
+    Calendar, 
+    Trophy, 
+    Users, 
+    MapPin, 
+    Clock, 
+    Shield, 
+    Zap, 
+    AlertCircle, 
+    Loader2,
+    Filter,
+    ChevronRight,
+    Ban
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { StandingsTable } from '@/components/admin/StandingsTable';
+
+export default function PlayerLeagueDashboard({ params }: { params: Promise<{ id: string }> }) {
+    const resolvedParams = use(params);
+    const leagueId = resolvedParams.id;
+    
+    const [loading, setLoading] = useState(true);
+    const [league, setLeague] = useState<any>(null);
+    const [matches, setMatches] = useState<any[]>([]);
+    const [teams, setTeams] = useState<any[]>([]);
+    const [userTeamId, setUserTeamId] = useState<string | null>(null);
+    const [userTeamName, setUserTeamName] = useState<string | null>(null);
+    const [scheduleFilter, setScheduleFilter] = useState<'my' | 'all'>('my');
+    const [currentUser, setCurrentUser] = useState<any>(null);
+
+    const supabase = createClient();
+    const router = useRouter();
+
+    useEffect(() => {
+        const fetchLeagueData = async () => {
+            setLoading(true);
+            try {
+                // 1. Get User
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    router.push('/login');
+                    return;
+                }
+                setCurrentUser(user);
+
+                // 2. Get League & Matches & Teams
+                const [leagueRes, matchesRes, teamsRes, bookingRes] = await Promise.all([
+                    supabase.from('games').select('*, facility:facilities(name)').eq('id', leagueId).single(),
+                    supabase.from('matches').select('*').eq('game_id', leagueId).order('start_time', { ascending: true }),
+                    supabase.from('teams').select('*').eq('game_id', leagueId),
+                    supabase.from('bookings')
+                        .select('team_id, teams(name)')
+                        .eq('game_id', leagueId)
+                        .eq('user_id', user.id)
+                        .single()
+                ]);
+
+                if (leagueRes.error) throw leagueRes.error;
+
+                setLeague(leagueRes.data);
+                setMatches(matchesRes.data || []);
+                setTeams(teamsRes.data || []);
+                
+                if (bookingRes.data) {
+                    setUserTeamId(bookingRes.data.team_id);
+                    setUserTeamName((bookingRes.data.teams as any)?.name || null);
+                }
+
+            } catch (err) {
+                console.error("Error fetching league dashboard:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchLeagueData();
+    }, [leagueId, supabase, router]);
+
+    if (loading) return (
+        <div className="min-h-screen bg-pitch-black flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-pitch-accent" />
+        </div>
+    );
+
+    if (!league) return <div className="min-h-screen bg-pitch-black p-12 text-center text-white">League not found.</div>;
+
+    // Logic: My Schedule vs All
+    const filteredMatches = scheduleFilter === 'my' 
+        ? matches.filter(m => m.home_team_id === userTeamId || m.away_team_id === userTeamId)
+        : matches;
+
+    // Next Up: First scheduled/active match for MY team
+    const nextMatch = matches.find(m => 
+        (m.status === 'scheduled' || m.status === 'active') && 
+        (m.home_team_id === userTeamId || m.away_team_id === userTeamId)
+    );
+
+    // Playoff Logic
+    const playoffMatches = matches.filter(m => m.tournament_stage && m.tournament_stage !== 'regular_season');
+    const isEliminated = playoffMatches.length > 0 && !playoffMatches.some(m => m.home_team_id === userTeamId || m.away_team_id === userTeamId);
+
+    return (
+        <div className="min-h-screen bg-pitch-black text-white font-sans pb-20">
+            {/* Ambient background */}
+            <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(204,255,0,0.03)_0%,transparent_50%)] pointer-events-none" />
+
+            <div className="max-w-7xl mx-auto px-6 pt-12 relative z-10">
+                {/* Back Link */}
+                <Link href="/dashboard" className="inline-flex items-center text-pitch-secondary hover:text-white mb-8 transition-colors uppercase text-[10px] font-black tracking-widest">
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Back to Hub
+                </Link>
+
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12 border-b border-white/5 pb-12">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3 mb-2">
+                            <span className="bg-pitch-accent text-pitch-black text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest">
+                                {league.event_type}
+                            </span>
+                            <span className="text-pitch-secondary text-[10px] font-black uppercase tracking-widest">
+                                {league.facility?.name}
+                            </span>
+                        </div>
+                        <h1 className="text-4xl md:text-7xl font-black italic uppercase tracking-tighter leading-none">
+                            {league.title}
+                        </h1>
+                        {userTeamName && (
+                            <p className="text-lg font-bold text-pitch-accent italic uppercase tracking-tight">
+                                Playing for: <span className="text-white underline decoration-pitch-accent decoration-2 underline-offset-4">{userTeamName}</span>
+                            </p>
+                        )}
+                    </div>
+
+                    {/* HERO: Next Match */}
+                    {nextMatch ? (
+                        <div className="bg-white/5 border border-pitch-accent/20 p-6 rounded-sm max-w-sm w-full relative overflow-hidden group hover:border-pitch-accent/50 transition-all shadow-2xl">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-pitch-accent/5 blur-2xl rounded-full -mr-8 -mt-8" />
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-pitch-secondary mb-4 flex items-center gap-2">
+                                <Zap className="w-3 h-3 text-pitch-accent" /> Next Matchup
+                            </h4>
+                            <div className="flex items-center justify-between font-black text-xl italic uppercase mb-4">
+                                <span className={cn(nextMatch.home_team_id === userTeamId ? "text-pitch-accent" : "text-white")}>
+                                    {nextMatch.home_team}
+                                </span>
+                                <span className="text-pitch-secondary text-xs mx-3">VS</span>
+                                <span className={cn(nextMatch.away_team_id === userTeamId ? "text-pitch-accent" : "text-white")}>
+                                    {nextMatch.away_team}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                <div className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" /> {new Date(nextMatch.start_time).toLocaleDateString()}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" /> {new Date(nextMatch.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-white/5 border border-white/10 p-6 rounded-sm max-w-sm w-full text-center">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">No upcoming matches</p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                    {/* Left Column: Schedule */}
+                    <div className="lg:col-span-8 space-y-12">
+                        
+                        {/* Playoff Alert / Bracket */}
+                        {playoffMatches.length > 0 && (
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-4">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-pitch-accent shrink-0 flex items-center gap-2">
+                                        <Trophy className="w-4 h-4" /> Knockout Stage
+                                    </h3>
+                                    <div className="h-px w-full bg-pitch-accent/10" />
+                                </div>
+
+                                {isEliminated && (
+                                    <div className="bg-red-500/10 border border-red-500/20 p-8 rounded flex items-center gap-6 animate-in fade-in slide-in-from-left-4">
+                                        <Shield className="w-12 h-12 text-red-500 opacity-50" />
+                                        <div className="space-y-1">
+                                            <h4 className="text-xl font-black italic uppercase text-white">Season Concluded</h4>
+                                            <p className="text-sm text-gray-400 font-medium">
+                                                Your team didn't qualify for the playoffs this season. You can still spectate the final matches below.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {playoffMatches.map(m => (
+                                        <div key={m.id} className="bg-pitch-card border border-white/5 p-6 rounded group hover:border-pitch-accent/30 transition-all">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <span className="text-[8px] font-black uppercase tracking-tightest bg-white/5 px-2 py-1 rounded text-gray-400">
+                                                    {m.tournament_stage?.replace('_', ' ')}
+                                                </span>
+                                                <span className={cn(
+                                                    "text-[10px] font-black uppercase px-2 py-0.5 rounded",
+                                                    m.status === 'completed' ? "bg-pitch-accent/20 text-pitch-accent" : "bg-blue-500/10 text-blue-400"
+                                                )}>
+                                                    {m.status}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between font-black italic uppercase text-lg">
+                                                <span className={cn(m.home_team_id === userTeamId ? "text-pitch-accent" : "text-white")}>{m.home_team}</span>
+                                                <div className="bg-black/60 px-3 py-1 rounded text-pitch-accent border border-pitch-accent/10 min-w-[60px] text-center">
+                                                    {m.status === 'completed' ? `${m.home_score} - ${m.away_score}` : 'VS'}
+                                                </div>
+                                                <span className={cn(m.away_team_id === userTeamId ? "text-pitch-accent" : "text-white")}>{m.away_team}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Regular Schedule */}
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-pitch-secondary shrink-0">Match Schedule</h3>
+                                <div className="flex bg-white/5 p-1 rounded-sm border border-white/5">
+                                    <button 
+                                        onClick={() => setScheduleFilter('my')}
+                                        className={cn(
+                                            "px-4 py-1.5 text-[8px] font-black uppercase tracking-widest rounded transition-all",
+                                            scheduleFilter === 'my' ? "bg-pitch-accent text-pitch-black shadow-lg" : "text-gray-500 hover:text-white"
+                                        )}
+                                    >
+                                        My Team
+                                    </button>
+                                    <button 
+                                        onClick={() => setScheduleFilter('all')}
+                                        className={cn(
+                                            "px-4 py-1.5 text-[8px] font-black uppercase tracking-widest rounded transition-all",
+                                            scheduleFilter === 'all' ? "bg-pitch-accent text-pitch-black shadow-lg" : "text-gray-500 hover:text-white"
+                                        )}
+                                    >
+                                        League Wide
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                {filteredMatches.length > 0 ? (
+                                    filteredMatches.map(m => (
+                                        <div key={m.id} className="bg-white/5 border border-white/10 p-6 rounded flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-white/[0.08] transition-all group overflow-hidden relative">
+                                            {m.home_team_id === userTeamId || m.away_team_id === userTeamId ? (
+                                                <div className="absolute top-0 left-0 w-1 h-full bg-pitch-accent" />
+                                            ) : null}
+
+                                            <div className="flex items-center gap-6 md:flex-1">
+                                                <div className="w-12 h-12 bg-black/40 rounded-full flex flex-col items-center justify-center border border-white/5 group-hover:border-pitch-accent/30 transition-colors">
+                                                    <span className="text-[10px] font-black text-pitch-accent uppercase leading-none">
+                                                        {new Date(m.start_time).toLocaleDateString('en-US', { month: 'short' })}
+                                                    </span>
+                                                    <span className="text-xl font-black text-white leading-none">
+                                                        {new Date(m.start_time).getDate()}
+                                                    </span>
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-1">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                                            {new Date(m.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {m.field_name || 'Field 1'}
+                                                        </span>
+                                                        {m.status === 'canceled' && (
+                                                            <span className="bg-red-500 font-black text-pitch-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse flex items-center gap-1">
+                                                                <Ban className="w-2 h-2" /> Weather Canceled
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-3 font-black text-lg italic uppercase tracking-tighter">
+                                                        <span className={cn(m.home_team_id === userTeamId ? "text-pitch-accent" : "text-white")}>{m.home_team}</span>
+                                                        {m.status === 'completed' ? (
+                                                            <div className="bg-black/60 px-3 py-0.5 rounded text-sm text-pitch-accent border border-pitch-accent/10">
+                                                                {m.home_score} - {m.away_score}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-pitch-secondary text-xs">VS</span>
+                                                        )}
+                                                        <span className={cn(m.away_team_id === userTeamId ? "text-pitch-accent" : "text-white")}>{m.away_team}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center justify-between md:justify-end gap-6 border-t border-white/5 pt-4 md:border-none md:pt-0">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={cn(
+                                                        "w-2 h-2 rounded-full",
+                                                        m.status === 'completed' ? "bg-green-500" :
+                                                        m.status === 'canceled' ? "bg-red-500" : "bg-pitch-accent animate-pulse"
+                                                    )} />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{m.status}</span>
+                                                </div>
+                                                <ChevronRight className="w-4 h-4 text-gray-700 group-hover:text-pitch-accent transition-colors" />
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="p-12 text-center bg-white/5 border border-dashed border-white/10 rounded">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">No matches found for this view</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Column: Standings */}
+                    <div className="lg:col-span-4 space-y-12">
+                        <section className="space-y-6">
+                            <div className="flex items-center gap-4">
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-pitch-secondary shrink-0">Live Standings</h3>
+                                <div className="h-px w-full bg-white/5" />
+                            </div>
+                            
+                            <StandingsTable 
+                                gameId={leagueId}
+                                teams={teams.map(t => ({ id: t.id, name: t.name, color: t.color || '#fff' }))}
+                                matches={matches}
+                                viewOnly={true}
+                                highlightTeamId={userTeamId as any}
+                            />
+                        </section>
+
+                        {/* Quick Stats/Info */}
+                        <div className="bg-pitch-card border border-white/10 p-8 rounded-sm space-y-8 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-pitch-accent/5 blur-3xl -mr-16 -mt-16 rounded-full" />
+                            
+                            <div className="space-y-1 relative z-10">
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-pitch-accent mb-4">League Info</h4>
+                                <div className="space-y-4">
+                                    <div className="flex items-start gap-3">
+                                        <MapPin className="w-4 h-4 text-pitch-accent shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-gray-500">Arena</p>
+                                            <p className="text-xs font-bold text-white uppercase">{league.location_nickname || league.location_name}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                        <Users className="w-4 h-4 text-pitch-accent shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-gray-500">Teams</p>
+                                            <p className="text-xs font-bold text-white uppercase">{teams.length} Squads Active</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button className="w-full py-4 bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white hover:text-pitch-black transition-all relative z-10">
+                                View Full Rules
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

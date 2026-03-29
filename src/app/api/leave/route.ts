@@ -22,10 +22,10 @@ export async function POST(request: NextRequest) {
 
         const supabaseAdmin = createAdminClient();
 
-        // 1. Fetch Game Details for Time Check
+        // 1. Fetch Game Details for Time Check and Cutoff Engine
         const { data: game, error: gameError } = await supabase
             .from('games')
-            .select('start_time, price, title, location')
+            .select('start_time, price, title, location, is_refundable, refund_cutoff_date, refund_cutoff_hours')
             .eq('id', gameId)
             .single();
 
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         // 2. Get current booking status (Handle multiple bookings if user left and rejoined)
         const { data: bookings, error: fetchError } = await supabaseAdmin
             .from('bookings')
-            .select('id, status, roster_status, payment_status')
+            .select('id, status, roster_status, payment_status, buyer_id')
             .eq('game_id', gameId)
             .eq('user_id', user.id)
             .neq('status', 'cancelled')
@@ -59,39 +59,65 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ message: 'Already cancelled', success: true });
         }
 
-        // 3. Check Time Window (6 Hours)
+        // 3. Cutoff Engine Hierarchy Check
         const startTime = new Date(game.start_time).getTime();
         const now = new Date().getTime();
         const hoursRemaining = (startTime - now) / (1000 * 60 * 60);
 
+        let isRefundEligible = false;
+        if (game.is_refundable) {
+            if (game.refund_cutoff_date) {
+                // Priority 1: Explicit Date
+                const cutoffTime = new Date(game.refund_cutoff_date).getTime();
+                if (now < cutoffTime) isRefundEligible = true;
+            } else if (game.refund_cutoff_hours !== null && game.refund_cutoff_hours !== undefined) {
+                // Priority 2: Rolling Hours Cutoff
+                if (hoursRemaining > game.refund_cutoff_hours) isRefundEligible = true;
+            } else {
+                 isRefundEligible = true; // Refundable but no limits set natively
+            }
+        }
+
         let refunded = false;
         let message = 'You have left the game.';
 
-        // 4. Refund Logic (Credit Only) based on 6 Hour Window AND Paid Status
+        // 4. Refund Logic (Monetary Credit Injection)
         // Only refund if they were 'paid' or active. Waitlist users leaving don't need refund logic usually but safe to check.
-        // Assuming 'paid' means they used a credit or paid cash.
         if (booking.status === 'paid' || booking.status === 'active') {
-            if (hoursRemaining > 6) {
-                // Fetch current credits to increment using Admin Client to bypass RLS
-                const { data: profile, error: profileError } = await supabaseAdmin
-                    .from('profiles')
-                    .select('free_game_credits')
-                    .eq('id', user.id)
-                    .single();
+            if (isRefundEligible) {
+                // Squad Refund Routing: Map injection back to the buyer
+                const targetUserId = booking.buyer_id ? booking.buyer_id : user.id;
+                const refundAmountCents = Math.round((game.price || 0) * 100);
 
-                if (profile && !profileError) {
-                    const newCredits = (profile.free_game_credits || 0) + 1;
-                    await supabaseAdmin
+                if (refundAmountCents > 0) {
+                    const { data: targetProfile, error: profileError } = await supabaseAdmin
                         .from('profiles')
-                        .update({ free_game_credits: newCredits })
-                        .eq('id', user.id);
+                        .select('credit_balance')
+                        .eq('id', targetUserId)
+                        .single();
+
+                    if (targetProfile && !profileError) {
+                        const newBalance = (targetProfile.credit_balance || 0) + refundAmountCents;
+                        await supabaseAdmin
+                            .from('profiles')
+                            .update({ credit_balance: newBalance })
+                            .eq('id', targetUserId);
+                        
+                        refunded = true;
+                        if (booking.buyer_id) {
+                            message = 'Booking cancelled. The purchase price has been refunded back to the buyer\'s Pitchside Wallet.';
+                        } else {
+                            message = 'Booking cancelled. The purchase price has been refunded to your Pitchside Wallet.';
+                        }
+                    } else if (profileError) {
+                        console.error("Failed to refund credit balance:", profileError);
+                    }
+                } else {
                     refunded = true;
-                    message = 'Booking cancelled. A game credit has been refunded to your account.';
-                } else if (profileError) {
-                    console.error("Failed to refund credit:", profileError)
+                    message = 'Booking cancelled. (Game was free, no funds exchanged).';
                 }
             } else {
-                message = 'Booking cancelled. No refund issued (less than 6 hours to start).';
+                message = 'Booking cancelled. No refund issued (Past cutoff window).';
             }
         } else if (booking.status === 'waitlist') {
             message = 'You have left the waitlist.';

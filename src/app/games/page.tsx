@@ -11,15 +11,19 @@ export default async function GamesPage() {
     const { data: { user } } = await supabase.auth.getUser();
 
     const bookingStatusMap = new Map<string, string>();
+    const bookingIdMap = new Map<string, string>();
     if (user) {
         const { data: bookings } = await supabase
             .from('bookings')
-            .select('game_id, status')
+            .select('id, game_id, status')
             .eq('user_id', user.id)
             .neq('status', 'cancelled');
 
         if (bookings) {
-            bookings.forEach((b: any) => bookingStatusMap.set(b.game_id, b.status));
+            bookings.forEach((b: any) => {
+                bookingStatusMap.set(b.game_id, b.status);
+                bookingIdMap.set(b.game_id, b.id);
+            });
         }
     }
 
@@ -57,6 +61,7 @@ export default async function GamesPage() {
                                 game={game}
                                 user={user}
                                 bookingStatus={bookingStatusMap.get(game.id)}
+                                bookingId={bookingIdMap.get(game.id)}
                             />
                         ))}
                     </div>

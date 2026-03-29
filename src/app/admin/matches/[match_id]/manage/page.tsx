@@ -66,7 +66,7 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
                 // Fetch bookings for rosters
                 const { data: bookingData } = await supabase
                     .from('bookings')
-                    .select('*, profiles(full_name, avatar_url)')
+                    .select('*, profiles!bookings_user_id_fkey(full_name, avatar_url)')
                     .eq('game_id', matchData.game_id)
                     .in('status', ['active', 'paid']);
                 

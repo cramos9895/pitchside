@@ -5,37 +5,52 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
     try {
-        const { gameId, userId, price = 10.00, title = 'Pickup Soccer Game', note = '', promoCodeId, teamAssignment, isFreeAgent, isLeagueCaptainVaulting } = await request.json();
+        const { gameId, userId, price = 10.00, title = 'Pickup Soccer Game', note = '', promoCodeId, teamAssignment, isFreeAgent, isLeagueCaptainVaulting, guestIds = [] } = await request.json();
 
         const origin = request.headers.get('origin') || 'http://localhost:3000';
+        const adminSupabase = createAdminClient();
+
+        // 0. GLOBAL CAPACITY CHECK
+        const partySize = 1 + (guestIds?.length || 0);
+
+        // Fetch Global Game Config
+        const { data: gameConfig } = await adminSupabase
+            .from('games')
+            .select('max_players, teams_config, price')
+            .eq('id', gameId)
+            .single();
+
+        if (gameConfig && gameConfig.max_players !== null) {
+            const { count: currentRosterSize } = await adminSupabase
+                .from('bookings')
+                .select('*', { count: 'exact', head: true })
+                .eq('game_id', gameId)
+                .in('status', ['paid', 'active'])
+                .neq('roster_status', 'dropped');
+
+            if (currentRosterSize !== null && (currentRosterSize + partySize > gameConfig.max_players)) {
+                return NextResponse.json({ error: `Not enough capacity! Only ${gameConfig.max_players - currentRosterSize} spots remain.` }, { status: 400 });
+            }
+        }
 
         // --- ENFORCER: SQUAD CAPACITY CHECK ---
         if (teamAssignment !== undefined && teamAssignment !== null) {
-            const adminSupabase = createAdminClient();
-
-            // 1. Get Game Limits
-            const { data: game } = await adminSupabase
-                .from('games')
-                .select('teams_config')
-                .eq('id', gameId)
-                .single();
-
-            if (game && game.teams_config && Array.isArray(game.teams_config)) {
-                const teamConfig = game.teams_config.find((t: any) => t.name === teamAssignment);
+            if (gameConfig && gameConfig.teams_config && Array.isArray(gameConfig.teams_config)) {
+                const teamConfig = gameConfig.teams_config.find((t: any) => t.name === teamAssignment);
 
                 if (teamConfig && teamConfig.limit && teamConfig.limit > 0) {
                     const maxPerTeam = teamConfig.limit;
 
                     // 2. Get Current Team Roster Size
-                    const { count } = await adminSupabase
+                    const { count: teamCount } = await adminSupabase
                         .from('bookings')
                         .select('*', { count: 'exact', head: true })
                         .eq('game_id', gameId)
                         .neq('status', 'cancelled')
                         .eq('team_assignment', teamAssignment);
 
-                    if (count !== null && count >= maxPerTeam) {
-                        return NextResponse.json({ error: 'This team just filled up! Please select another squad.' }, { status: 400 });
+                    if (teamCount !== null && (teamCount + partySize > maxPerTeam)) {
+                        return NextResponse.json({ error: 'This team does not have enough space for your squad! Please select another.' }, { status: 400 });
                     }
                 }
             }
@@ -43,13 +58,50 @@ export async function POST(request: Request) {
         // --------------------------------------
 
         // --- VAULTING / SETUP SESSION ---
-        const adminSupabase = createAdminClient();
+        // --- WALLET MATH & BYPASS LOGIC ---
         const { data: userProfile } = await adminSupabase
             .from('profiles')
-            .select('stripe_customer_id, email')
+            .select('stripe_customer_id, email, credit_balance')
             .eq('id', userId)
             .single();
 
+        const basePrice = gameConfig?.price ?? price;
+        const subtotalUnits = basePrice * partySize;
+        const walletBalanceCredits = (userProfile?.credit_balance || 0) / 100;
+
+        let appliedCreditUnits = 0;
+        let totalDueUnits = subtotalUnits;
+
+        if (!isFreeAgent && !isLeagueCaptainVaulting && subtotalUnits > 0) {
+            appliedCreditUnits = Math.min(walletBalanceCredits, subtotalUnits);
+            totalDueUnits = Math.max(0, subtotalUnits - appliedCreditUnits);
+        }
+
+        // 100% BYPASS (Free or strictly covered by Wallet)
+        if (!isFreeAgent && !isLeagueCaptainVaulting && totalDueUnits === 0) {
+            // Deduct from wallet if applicable
+            if (appliedCreditUnits > 0) {
+                const newBalanceCents = Math.round((walletBalanceCredits - appliedCreditUnits) * 100);
+                await adminSupabase.from('profiles').update({ credit_balance: newBalanceCents }).eq('id', userId);
+            }
+
+            // Perform Multi-Insert Atomically
+            const linkedBookingId = crypto.randomUUID();
+            const insertPayload = [
+                { game_id: gameId, user_id: userId, status: 'paid', payment_status: 'verified', linked_booking_id: linkedBookingId, note, ...(teamAssignment && { team_assignment: teamAssignment }) }
+            ];
+            for (const gid of guestIds) {
+                insertPayload.push({
+                    game_id: gameId, user_id: gid, status: 'paid', payment_status: 'verified', linked_booking_id: linkedBookingId, buyer_id: userId, ...(teamAssignment && { team_assignment: teamAssignment })
+                });
+            }
+            const { error: insertError } = await adminSupabase.from('bookings').insert(insertPayload);
+            if (insertError) throw new Error(`Atomic bypass insert failed: ${insertError.message}`);
+
+            return NextResponse.json({ bypassed: true });
+        }
+
+        // --- STRIPE SESSION SETUP ---
         const customerParams: any = {};
         if (userProfile?.stripe_customer_id) {
             customerParams.customer = userProfile.stripe_customer_id;
@@ -63,6 +115,7 @@ export async function POST(request: Request) {
         if (isFreeAgent) {
             const session = await stripe.checkout.sessions.create({
                 mode: 'setup',
+                ui_mode: 'embedded',
                 payment_method_types: ['card'],
                 ...customerParams,
                 metadata: {
@@ -72,10 +125,9 @@ export async function POST(request: Request) {
                     is_free_agent: 'true',
                     ...(promoCodeId && { promo_code_id: promoCodeId })
                 },
-                success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-                cancel_url: `${origin}/`,
+                return_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
             });
-            return NextResponse.json({ url: session.url });
+            return NextResponse.json({ clientSecret: session.client_secret });
         }
 
         if (isLeagueCaptainVaulting) {
@@ -90,6 +142,7 @@ export async function POST(request: Request) {
 
             const session = await stripe.checkout.sessions.create({
                 mode: 'payment',
+                ui_mode: 'embedded',
                 payment_intent_data: {
                     setup_future_usage: 'off_session',
                 },
@@ -113,26 +166,26 @@ export async function POST(request: Request) {
                     is_league_captain: 'true',
                     ...(teamAssignment !== undefined && teamAssignment !== null && { team_assignment: teamAssignment.toString() })
                 },
-                success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-                cancel_url: `${origin}/`,
+                return_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
             });
-            return NextResponse.json({ url: session.url });
+            return NextResponse.json({ clientSecret: session.client_secret });
         }
 
         // --- STANDARD PAYMENT SESSION ---
         const session = await stripe.checkout.sessions.create({
             mode: 'payment',
+            ui_mode: 'embedded',
             ...customerParams,
             line_items: [
                 {
                     price_data: {
                         currency: 'usd',
                         product_data: {
-                            name: title,
+                            name: title + (partySize > 1 ? ` (x${partySize} Tickets)` : ''),
                         },
-                        unit_amount: Math.round(price * 100), // Convert to cents
+                        unit_amount: Math.round(totalDueUnits * 100), // Adjusted for Wallet math
                     },
-                    quantity: 1,
+                    quantity: 1, // Quantity is 1 because the unit_amount represents the whole squad
                 },
             ],
             metadata: {
@@ -140,13 +193,22 @@ export async function POST(request: Request) {
                 user_id: userId,
                 note: note, // Store request note in metadata
                 ...(promoCodeId && { promo_code_id: promoCodeId }),
-                ...(teamAssignment !== undefined && teamAssignment !== null && { team_assignment: teamAssignment.toString() })
+                ...(teamAssignment && { team_assignment: teamAssignment.toString() })
             },
-            success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${origin}/`,
+            return_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
         });
 
-        return NextResponse.json({ url: session.url });
+        // STAGE IN PENDING CHECKOUTS
+        await adminSupabase.from('pending_checkouts').insert({
+            checkout_session_id: session.id,
+            buyer_id: userId,
+            game_id: gameId,
+            guest_ids: guestIds,
+            credit_used: Math.round(appliedCreditUnits * 100),
+            ...(teamAssignment && { team_assignment: teamAssignment.toString() })
+        });
+
+        return NextResponse.json({ clientSecret: session.client_secret });
     } catch (error: any) {
         console.error('Stripe Checkout Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

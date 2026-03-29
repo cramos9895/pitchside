@@ -3,10 +3,11 @@
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Calendar, Clock, MapPin, AlertCircle, Loader2, User, Trophy, Users, ArrowRight, Check } from 'lucide-react';
+import { Calendar, Clock, MapPin, AlertCircle, Loader2, User, Trophy, Users, ArrowRight, Check, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/components/ui/Toast';
+import { LeagueCard } from '@/components/public/LeagueCard';
 import { TournamentCard } from '@/components/public/TournamentCard';
 import { GameCard } from '@/components/GameCard';
 import { createContractCheckoutSession } from '@/app/actions/stripe';
@@ -21,6 +22,7 @@ export default function DashboardOverviewPage() {
     const [unifiedEvents, setUnifiedEvents] = useState<any[]>([]);
     const [actionRequiredRentals, setActionRequiredRentals] = useState<any[]>([]);
     const [isPayingContract, setIsPayingContract] = useState<string | null>(null);
+    const [creditBalance, setCreditBalance] = useState<number>(0);
 
     useEffect(() => {
         const fetchOverviewData = async () => {
@@ -32,6 +34,11 @@ export default function DashboardOverviewPage() {
                     return;
                 }
                 setUser(user);
+
+                const { data: profile } = await supabase.from('profiles').select('credit_balance').eq('id', user.id).single();
+                if (profile) {
+                    setCreditBalance(profile.credit_balance || 0);
+                }
 
                 const now = new Date().toISOString();
 
@@ -119,7 +126,8 @@ export default function DashboardOverviewPage() {
                         if (g && new Date(g.start_time).toISOString() >= now) {
                             events.push({
                                 type: 'game',
-                                id: b.id,
+                                id: b.id, // This is the bookingId
+                                rawGameId: g.id,
                                 start_time: g.start_time,
                                 end_time: g.end_time,
                                 title: g.title || 'Pick-Up Game',
@@ -131,23 +139,21 @@ export default function DashboardOverviewPage() {
                     });
                 }
 
-                // Add Tournaments
+                // Add Tournaments & Leagues
                 if (tournamentsRes.data) {
                     tournamentsRes.data.forEach(reg => {
+                        const isLeague = reg.games?.event_type === 'league';
                         if (reg.games && new Date(reg.games.start_time).toISOString() >= now) {
-                            // Extract all registrations for this specific game if needed, 
-                            // but for now we pass the user's specific registration as the primary 
-                            // and wrap it in an array for the TournamentCard's expectation.
                             events.push({
-                                type: 'tournament',
+                                type: isLeague ? 'league' : 'tournament',
                                 id: reg.id,
                                 start_time: reg.games.start_time,
                                 end_time: reg.games.end_time,
-                                title: reg.games.title || 'Tournament',
+                                title: reg.games.title || (isLeague ? 'League' : 'Tournament'),
                                 location: reg.games.location_nickname,
                                 data: reg.games,
                                 registration: reg,
-                                registrations: [reg] // Restoring the array for the card logic
+                                registrations: [reg] 
                             });
                         }
                     });
@@ -207,11 +213,12 @@ export default function DashboardOverviewPage() {
             const isCaptain = event.registration?.role === 'captain';
             const teamId = event.registration?.team_id;
             const tournamentId = event.data?.id || event.registration?.game_id;
+            const isLeague = event.type === 'league';
             
             if (isCaptain && teamId) {
                 return `/tournaments/${tournamentId}/team/${teamId}`;
             }
-            return `/dashboard/tournaments/${tournamentId}`;
+            return isLeague ? `/dashboard/leagues/${tournamentId}` : `/dashboard/tournaments/${tournamentId}`;
         }
         return '/profile';
     };
@@ -230,12 +237,25 @@ export default function DashboardOverviewPage() {
                         Control Center / {user?.email?.split('@')[0] || 'Member'}
                     </p>
                 </div>
-                <Link href="/profile" className="group flex items-center gap-3 bg-white/5 border border-white/10 px-6 py-3 rounded-sm hover:bg-pitch-accent hover:border-pitch-accent transition-all shrink-0">
-                    <div className="w-8 h-8 rounded-full bg-pitch-accent/20 flex items-center justify-center group-hover:bg-pitch-black/20 transition-colors">
-                        <User className="w-4 h-4 text-pitch-accent group-hover:text-pitch-black" />
+                <div className="flex items-center gap-4">
+                    <div className="bg-white/5 border border-white/10 px-4 py-3 rounded-sm flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-pitch-accent/10 flex items-center justify-center">
+                            <DollarSign className="w-4 h-4 text-pitch-accent" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-pitch-secondary">Wallet Balance</span>
+                            <span className="text-lg font-black uppercase tracking-widest text-white leading-none mt-1">
+                                {(creditBalance / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                            </span>
+                        </div>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white group-hover:text-pitch-black">View Profile</span>
-                </Link>
+                    <Link href="/profile" className="group flex items-center gap-3 bg-white/5 border border-white/10 px-6 py-3 rounded-sm hover:bg-pitch-accent hover:border-pitch-accent transition-all shrink-0 h-[56px]">
+                        <div className="w-8 h-8 rounded-full bg-pitch-accent/20 flex items-center justify-center group-hover:bg-pitch-black/20 transition-colors">
+                            <User className="w-4 h-4 text-pitch-accent group-hover:text-pitch-black" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-white group-hover:text-pitch-black">View Profile</span>
+                    </Link>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 relative z-10">
@@ -250,12 +270,20 @@ export default function DashboardOverviewPage() {
                         </div>
 
                         {nextUp ? (
-                            nextUp.type === 'tournament' ? (
-                                <TournamentCard 
-                                    tournament={nextUp.data} 
-                                    userId={user?.id}
-                                    registrations={nextUp.registrations}
-                                />
+                            nextUp.type === 'league' || nextUp.type === 'tournament' ? (
+                                nextUp.type === 'league' ? (
+                                    <LeagueCard 
+                                        league={nextUp.data}
+                                        userId={user?.id}
+                                        registrations={nextUp.registrations}
+                                    />
+                                ) : (
+                                    <TournamentCard 
+                                        tournament={nextUp.data} 
+                                        userId={user?.id}
+                                        registrations={nextUp.registrations}
+                                    />
+                                )
                             ) : (
                                 <div className="max-w-xl">
                                     <GameCard 
@@ -266,6 +294,7 @@ export default function DashboardOverviewPage() {
                                         }} 
                                         user={user}
                                         bookingStatus="confirmed"
+                                        bookingId={nextUp.id}
                                     />
                                 </div>
                             )

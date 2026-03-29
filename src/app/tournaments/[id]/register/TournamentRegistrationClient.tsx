@@ -6,7 +6,19 @@ import { ArrowRight, AlertTriangle, CheckCircle2, Trophy, CreditCard } from 'luc
 import { registerTournamentTeam, registerTournamentFreeAgent } from '@/app/actions/tournament-registration';
 import { StripeCheckoutModal } from '@/components/public/StripeCheckoutModal';
 
-export function TournamentRegistrationClient({ tournamentId, tournamentName, teamPrice, faPrice }: { tournamentId: string, tournamentName: string, teamPrice: number | null, faPrice: number | null }) {
+export function TournamentRegistrationClient({ 
+    tournamentId, 
+    tournamentName, 
+    teamPrice, 
+    faPrice,
+    dbDepositAmount 
+}: { 
+    tournamentId: string, 
+    tournamentName: string, 
+    teamPrice: number | null, 
+    faPrice: number | null,
+    dbDepositAmount: number | null
+}) {
     const searchParams = useSearchParams();
     const router = useRouter();
     const type = searchParams.get('type');
@@ -20,7 +32,9 @@ export function TournamentRegistrationClient({ tournamentId, tournamentName, tea
     const [savedFormData, setSavedFormData] = useState<any>(null);
     const [paymentIntentType, setPaymentIntentType] = useState<'team' | 'free_agent'>('team');
 
-    const depositAmount = teamPrice ? Math.min(50, teamPrice) : 0;
+    const depositAmount = dbDepositAmount !== null 
+        ? dbDepositAmount 
+        : (teamPrice ? Math.min(50, teamPrice) : 0);
 
     const finalizeTeamRegistration = async (payload: any) => {
         setIsSubmitting(true);
