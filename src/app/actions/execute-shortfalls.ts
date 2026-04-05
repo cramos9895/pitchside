@@ -2,12 +2,17 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { stripe } from '@/lib/stripe';
+import { getAuthenticatedProfile, validateGameAuthority } from '@/lib/auth-guards';
 
 export async function executeEscrowShortfalls(gameId: string) {
     try {
+        // 1. Mandatory Security Handshake
+        const profile = await getAuthenticatedProfile();
+        await validateGameAuthority(profile, gameId);
+
         const supabase = createAdminClient();
 
-        // 1. Validate Game is a League and has a Team Roster Fee
+        // 2. Validate Game is a League and has a Team Roster Fee
         const { data: game, error: gameError } = await supabase
             .from('games')
             .select('id, title, is_league, team_roster_fee, deposit_amount')

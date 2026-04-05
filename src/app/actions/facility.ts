@@ -8,6 +8,7 @@ import { sendNotification } from '@/lib/email';
 import { ContractApprovedEmail } from '@/emails/ContractApprovedEmail';
 import { BookingCancelledEmail } from '@/emails/BookingCancelledEmail';
 import { refundPayment } from '@/lib/stripe';
+import { getAuthenticatedProfile, validateFacilityAuthority } from '@/lib/auth-guards';
 
 export async function createResource(formData: FormData) {
     console.log('[createResource] INCOMING FORMDATA:', Array.from(formData.entries()));
@@ -558,28 +559,18 @@ export async function createBooking(formData: FormData) {
 }
 
 export async function updateBooking(bookingId: string, formData: FormData) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const profile = await getAuthenticatedProfile();
+    const adminSupabase = createAdminClient();
 
-    if (!user) return { error: 'Unauthorized' };
-
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('facility_id, system_role, role')
-        .eq('id', user.id)
+    // 1. Verify Ownership of the specific Booking
+    const { data: booking } = await adminSupabase
+        .from('resource_bookings')
+        .select('facility_id')
+        .eq('id', bookingId)
         .single();
 
-    if (!profile) return { error: 'Profile not found' };
-
-    const isSuperAdmin = profile.system_role === 'super_admin' || profile.role === 'master_admin';
-    if (profile.system_role !== 'facility_admin' && !isSuperAdmin) {
-        return { error: 'Forbidden. Facility Admin rights required to update bookings.' };
-    }
-
-    const facilityId = profile.facility_id;
-    if (!isSuperAdmin && !facilityId) {
-        return { error: 'No facility assigned to this profile.' };
-    }
+    if (!booking) return { error: 'Booking not found' };
+    validateFacilityAuthority(profile, booking.facility_id);
 
     const resource_id = formData.get('resource_id') as string;
     const title = formData.get('title') as string;
@@ -597,8 +588,6 @@ export async function updateBooking(bookingId: string, formData: FormData) {
     if (endTimeObj <= startTimeObj) {
         return { error: 'End time must be after start time.' };
     }
-
-    const adminSupabase = createAdminClient();
 
     // Collision Check Exclusing Current Booking
     const { data: conflicts, error: conflictError } = await adminSupabase
@@ -641,23 +630,18 @@ export async function updateBooking(bookingId: string, formData: FormData) {
 }
 
 export async function deleteBooking(bookingId: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const profile = await getAuthenticatedProfile();
+    const adminSupabase = createAdminClient();
 
-    if (!user) return { error: 'Unauthorized' };
-
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('facility_id, system_role, role')
-        .eq('id', user.id)
+    // 1. Verify Ownership
+    const { data: booking } = await adminSupabase
+        .from('resource_bookings')
+        .select('facility_id')
+        .eq('id', bookingId)
         .single();
 
-    const isSuperAdmin = profile?.system_role === 'super_admin' || profile?.role === 'master_admin';
-    if (profile?.system_role !== 'facility_admin' && !isSuperAdmin) {
-        return { error: 'Forbidden.' };
-    }
-
-    const adminSupabase = createAdminClient();
+    if (!booking) return { error: 'Booking not found' };
+    validateFacilityAuthority(profile, booking.facility_id);
 
     // Patch for Phase 31: Clean up ghost rosters on hard delete
     await adminSupabase.from('booking_rosters').delete().eq('booking_group_id', bookingId);

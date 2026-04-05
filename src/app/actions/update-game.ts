@@ -3,15 +3,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { getAuthenticatedProfile, validateGameAuthority } from '@/lib/auth-guards';
 
 export async function updateGame(gameId: string, formData: any) {
-    const supabase = await createClient();
+    const profile = await getAuthenticatedProfile();
+    await validateGameAuthority(profile, gameId);
 
-    // 1. Auth Check
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        throw new Error('Unauthorized');
-    }
+    const supabase = await createClient();
 
     // 3. Update with new fields included
     const { error } = await supabase
@@ -91,20 +89,8 @@ export async function updateGame(gameId: string, formData: any) {
 }
 
 export async function hardDeleteGame(gameId: string) {
-    const supabase = await createClient();
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Unauthorized');
-
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'master_admin' && profile.role !== 'host')) {
-        throw new Error('Forbidden. Must be an admin/host.');
-    }
+    const profile = await getAuthenticatedProfile();
+    await validateGameAuthority(profile, gameId);
 
     const adminSupabase = createAdminClient();
     const { error } = await adminSupabase

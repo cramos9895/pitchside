@@ -5,17 +5,19 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Calendar, Clock, MapPin, AlertCircle, Loader2, User, Trophy, Users, ArrowRight, Check, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useToast } from '@/components/ui/Toast';
+import { useSearchParams } from 'next/navigation';
 import { LeagueCard } from '@/components/public/LeagueCard';
 import { TournamentCard } from '@/components/public/TournamentCard';
 import { GameCard } from '@/components/GameCard';
 import { createContractCheckoutSession } from '@/app/actions/stripe';
 
-export default function DashboardOverviewPage() {
+function DashboardContent() {
     const supabase = createClient();
     const router = useRouter();
-    const { success, error: toastError } = useToast();
+    const searchParams = useSearchParams();
+    const { success: toastSuccess, error: toastError } = useToast();
 
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
@@ -23,6 +25,17 @@ export default function DashboardOverviewPage() {
     const [actionRequiredRentals, setActionRequiredRentals] = useState<any[]>([]);
     const [isPayingContract, setIsPayingContract] = useState<string | null>(null);
     const [creditBalance, setCreditBalance] = useState<number>(0);
+
+    // Handle Success Toasts
+    useEffect(() => {
+        const successParam = searchParams.get('success');
+        if (successParam === 'team-joined') {
+            toastSuccess("Welcome to the squad! You've successfully joined the team.");
+            // Clean up the URL
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+        }
+    }, [searchParams, toastSuccess]);
 
     useEffect(() => {
         const fetchOverviewData = async () => {
@@ -205,23 +218,6 @@ export default function DashboardOverviewPage() {
     }
 
     const nextUp = unifiedEvents[0];
-    const schedule = unifiedEvents; // Show ALL events in the schedule tab, including the one in Next Up
-
-    const getMatchHref = (event: any) => {
-        if (event.type === 'game') return `/games/${event.data.id}`;
-        if (event.type === 'tournament') {
-            const isCaptain = event.registration?.role === 'captain';
-            const teamId = event.registration?.team_id;
-            const tournamentId = event.data?.id || event.registration?.game_id;
-            const isLeague = event.type === 'league';
-            
-            if (isCaptain && teamId) {
-                return `/tournaments/${tournamentId}/team/${teamId}`;
-            }
-            return isLeague ? `/dashboard/leagues/${tournamentId}` : `/dashboard/tournaments/${tournamentId}`;
-        }
-        return '/profile';
-    };
 
     return (
         <div className="space-y-12 animate-in fade-in duration-700 text-white pt-2 relative">
@@ -366,5 +362,17 @@ export default function DashboardOverviewPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function DashboardOverviewPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center p-24">
+                <Loader2 className="w-8 h-8 animate-spin text-pitch-accent" />
+            </div>
+        }>
+            <DashboardContent />
+        </Suspense>
     );
 }

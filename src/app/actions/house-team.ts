@@ -3,30 +3,16 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { stripe } from '@/lib/stripe';
+import { getAuthenticatedProfile, validateGameAuthority } from '@/lib/auth-guards';
 
 export async function buildHouseTeam(gameId: string) {
     try {
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-        if (authError || !user) {
-            throw new Error('You must be logged in to build a house team.');
-        }
+        const profile = await getAuthenticatedProfile();
+        await validateGameAuthority(profile, gameId);
 
         const adminSupabase = createAdminClient();
 
-        // 1. Verify Master Admin / Admin
-        const { data: profile } = await adminSupabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-
-        if (!profile || !['admin', 'master_admin'].includes(profile.role)) {
-            throw new Error('Only administrators can build House Teams.');
-        }
-
-        // 2. Fetch the Game
+        // 1. Fetch the Game
         const { data: game, error: gameError } = await adminSupabase
             .from('games')
             .select('*')

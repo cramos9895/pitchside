@@ -17,6 +17,10 @@ export default async function AdminDashboard() {
             *,
             tournament_registrations (
                 team_id
+            ),
+            bookings (
+                id,
+                status
             )
         `)
         .order('start_time', { ascending: true });
@@ -29,10 +33,20 @@ export default async function AdminDashboard() {
     const enrichedGames = (games || []).map(game => {
         const registrations = game.tournament_registrations || [];
         const uniqueTeams = new Set(registrations.map((r: any) => r.team_id).filter(Boolean));
+        
+        // Accurate count from bookings (used for pickup games)
+        const activeBookings = (game.bookings || []).filter((b: any) => 
+            ['active', 'paid'].includes(b.status)
+        );
+
+        // Result: Prefer the active bookings count for pickup games, 
+        // fall back to tournament_registrations for structured events.
+        const currentPlayers = Math.max(registrations.length, activeBookings.length);
+
         return {
             ...game,
             current_teams: uniqueTeams.size,
-            current_players: registrations.length
+            current_players: currentPlayers
         };
     });
 

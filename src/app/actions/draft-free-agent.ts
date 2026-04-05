@@ -3,19 +3,15 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { stripe } from '@/lib/stripe';
+import { getAuthenticatedProfile, validateCaptaincy } from '@/lib/auth-guards';
 
 export async function draftFreeAgent(bookingId: string, teamAssignment: string) {
     try {
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-        if (authError || !user) {
-            throw new Error('You must be logged in to draft a player.');
-        }
-
+        const profile = await getAuthenticatedProfile();
+        
         const adminSupabase = createAdminClient();
 
-        // 1. Fetch the Booking & The Game
+        // 1. Fetch the Booking & The Game early to find the team_id
         const { data: booking, error: bookingError } = await adminSupabase
             .from('bookings')
             .select('*, game_id, user_id, status, stripe_payment_method_id, profiles:user_id(stripe_customer_id, full_name, email)')
@@ -25,6 +21,21 @@ export async function draftFreeAgent(bookingId: string, teamAssignment: string) 
         if (bookingError || !booking) {
             throw new Error('Free Agent booking not found.');
         }
+
+        // 2. Identify the Team Context for Captaincy Verification
+        // Note: teamAssignment in PitchSide is usually a string (team name). 
+        // We need the team_id to verify captaincy.
+        const { data: team } = await adminSupabase
+            .from('teams')
+            .select('id')
+            .eq('game_id', booking.game_id)
+            .eq('name', teamAssignment)
+            .single();
+
+        if (!team) throw new Error('Target team not found.');
+
+        // 3. Mandatory Security Guard
+        await validateCaptaincy(profile.id, team.id);
 
         if (booking.status !== 'free_agent_pending') {
             throw new Error('This player is no longer available in the Free Agent pool.');
@@ -114,6 +125,10 @@ export async function draftFreeAgent(bookingId: string, teamAssignment: string) 
             }
 
             // 5. Success! Return true so the UI can update
+            const { revalidatePath } = require('next/cache');
+            revalidatePath('/free-agents');
+            revalidatePath('/dashboard');
+            
             return { success: true, message: 'Draft Successful and Card Charged!' };
         } else {
             throw new Error(`Payment failed with status: ${paymentIntent.status}`);

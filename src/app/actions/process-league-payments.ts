@@ -3,11 +3,15 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { stripe } from '@/lib/stripe';
 import { revalidatePath } from 'next/cache';
+import { getAuthenticatedProfile, validateGameAuthority } from '@/lib/auth-guards';
 
 export async function processLeaguePayments(leagueId: string) {
-    const supabase = createAdminClient();
-
     try {
+        const profile = await getAuthenticatedProfile();
+        await validateGameAuthority(profile, leagueId);
+
+        const supabase = createAdminClient();
+
         // 1. Fetch League details to get price and verification
         const { data: league, error: leagueError } = await supabase
             .from('games')
