@@ -174,9 +174,10 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                 }
             }
 
-            const matchObjects = matchesForSlot.map(pair => ({
+            const matchObjects = matchesForSlot.map((pair, idx) => ({
                 home: teams[pair.home].name,
-                away: teams[pair.away].name
+                away: teams[pair.away].name,
+                field: `Field ${idx + 1}`
             }));
 
             const timeLabel = isLeague ? `Week ${r + 1}` : `+${warmup + (r * gameLength)} mins`;
@@ -203,9 +204,18 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                     home_score: 0,
                     away_score: 0,
                     round_number: r.round,
+                    field_name: (m as any).field,
                     status: 'scheduled'
                 }))
             );
+
+            // Update Game Timer and Duration to match the Generate UI
+            await supabase.from('games').update({
+                half_length: gameLength,
+                timer_duration: gameLength * 60,
+                timer_status: 'stopped',
+                timer_started_at: null
+            }).eq('id', gameId);
 
             const { error } = await supabase.from('matches').insert(matchesToInsert);
             if (error) throw error;
@@ -299,10 +309,13 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
 
                                 <div className="space-y-1">
                                     {round.matches.map((m, i) => (
-                                        <div key={i} className="text-sm text-white flex justify-between items-center bg-white/5 p-2 rounded-sm mb-1">
-                                            <span className="w-1/3 text-right font-bold">{m.home}</span>
-                                            <span className="text-gray-600 text-[10px] uppercase px-2">VS</span>
-                                            <span className="w-1/3 text-left font-bold">{m.away}</span>
+                                        <div key={i} className="text-[10px] text-white flex justify-between items-center bg-white/5 p-2 rounded-sm mb-1 border border-white/5">
+                                            <div className="w-[60px] font-black text-pitch-secondary uppercase tracking-tighter opacity-50">{(m as any).field}</div>
+                                            <div className="flex-1 flex justify-between px-4">
+                                                <span className="w-1/3 text-right font-bold truncate">{m.home}</span>
+                                                <span className="text-gray-600 text-[10px] uppercase px-2 shrink-0">VS</span>
+                                                <span className="w-1/3 text-left font-bold truncate">{m.away}</span>
+                                            </div>
                                         </div>
                                     ))}
                                     {round.matches.length === 0 && <span className="text-xs text-gray-600 italic">No matches fit constraints.</span>}

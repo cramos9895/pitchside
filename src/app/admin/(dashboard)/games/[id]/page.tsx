@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { MatchManager } from '@/components/admin/MatchManager';
 import { StandingsTable } from '@/components/admin/StandingsTable';
 import { ScheduleGenerator } from '@/components/admin/ScheduleGenerator';
+import { MatchResultsLog } from '@/components/admin/MatchResultsLog';
 import { MicroTournamentManager } from '@/components/admin/MicroTournamentManager';
 import { useToast } from '@/components/ui/Toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
@@ -45,7 +46,7 @@ interface Booking {
 }
 
 import { TeamManager } from '@/components/admin/TeamManager';
-import { generatePlayoffs } from '@/app/actions/tournament';
+import { generateFinalRound } from '@/app/actions/tournament';
 
 interface TeamConfig {
     id?: string;
@@ -78,6 +79,10 @@ interface Game {
     score_team_a?: number | null;
     score_team_b?: number | null;
     host_ids?: string[];
+    half_length?: number;
+    timer_duration?: number;
+    timer_status?: 'stopped' | 'running' | 'paused';
+    timer_started_at?: string | null;
 }
 
 interface Match {
@@ -183,10 +188,10 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         }
     };
 
-    const handleGeneratePlayoffs = async () => {
-        if (!confirm('Are you sure you want to lock the Standings and produce the Knockout Phase Matches?')) return;
+    const handleGenerateFinalRound = async () => {
+        if (!confirm('Are you sure you want to lock the Standings and produce the Final Round Matches?')) return;
         try {
-            const res = await generatePlayoffs(gameId);
+            const res = await generateFinalRound(gameId);
             toast.success(res.message);
             fetchMatches();
             setRefreshKey(prev => prev + 1);
@@ -1352,7 +1357,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 </div>
                             )}
 
-                            {(game.match_style === 'King' || game.match_style === 'Tourney') && (
+                            {game.match_style === 'King' && (
                                 /* KING OF THE COURT (MANUAL & LIST) */
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                     <MatchManager
@@ -1370,8 +1375,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 </div>
                             )}
 
-                            {false && (
-                                /* TOURNAMENT (AUTO-SCHEDULER) */
+                            {game.match_style === 'Tourney' && (
+                                /* TOURNAMENT (AUTO-SCHEDULER / ROUNDS) */
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                     {!matches.some(m => m.round_number > 0) && (
                                         <ScheduleGenerator
@@ -1401,13 +1406,20 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                 matches={matches}
                                             />
 
-                                            {/* PLAYOFF GENERATOR TRIGGER */}
+                                            <MatchResultsLog 
+                                                key={`resultslog-${refreshKey}`}
+                                                matches={matches} 
+                                                teams={teams as TeamConfig[]} 
+                                                onUpdate={handleMatchUpdate} 
+                                            />
+
+                                            {/* FINAL ROUND GENERATOR TRIGGER */}
                                             <div className="flex justify-end pt-4 border-t border-white/10 mt-6">
                                                 <button
-                                                    onClick={handleGeneratePlayoffs}
+                                                    onClick={handleGenerateFinalRound}
                                                     className="px-6 py-3 bg-pitch-accent hover:bg-white text-black font-bold uppercase rounded-sm flex items-center gap-2 transition-colors"
                                                 >
-                                                    <Trophy className="w-5 h-5" /> Generate Playoffs
+                                                    <Trophy className="w-5 h-5" /> Generate Final Round
                                                 </button>
                                             </div>
                                         </>

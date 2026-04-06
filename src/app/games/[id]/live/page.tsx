@@ -11,12 +11,14 @@ interface Game {
     title: string;
     status: string;
     view_mode: string;
+    match_style?: string;
     facility_id?: string | null;
     resource_id?: string | null;
     timer_status: 'stopped' | 'running' | 'paused';
     timer_duration: number;
     timer_started_at: string | null;
     teams_config: any[];
+    half_length?: number;
 }
 
 interface Match {
@@ -27,6 +29,7 @@ interface Match {
     away_score: number;
     round_number: number;
     status: 'scheduled' | 'active' | 'completed' | 'cancelled';
+    field_name?: string;
 }
 
 export default function LiveProjectorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -53,13 +56,17 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
     };
 
     // Keep function hoisted so it can be called anywhere
-    function calculateInitialTime(g: Game) {
-        if (g.timer_status === 'stopped' || g.timer_status === 'paused') {
-            setTimeRemaining(g.timer_duration);
-        } else if (g.timer_status === 'running' && g.timer_started_at) {
+    function calculateInitialTime(g: Game | any) {
+        const hLen = g?.half_length || 0;
+        const standardDuration = hLen > 0 ? hLen * 60 : (g?.timer_duration || 0);
+        
+        if (g?.timer_status === 'stopped' || g?.timer_status === 'paused') {
+            setTimeRemaining(standardDuration);
+        } else if (g?.timer_status === 'running' && g?.timer_started_at) {
             const startTime = new Date(g.timer_started_at).getTime();
             const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-            setTimeRemaining(Math.max(0, g.timer_duration - elapsedSeconds));
+            const duration = (g?.timer_duration || 0) > 0 ? g.timer_duration : standardDuration;
+            setTimeRemaining(Math.max(0, duration - elapsedSeconds));
         }
     }
 
@@ -105,9 +112,14 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
 
             if (g.timer_status === 'running' && g.timer_started_at) {
                 const elapsed = Math.floor((Date.now() - new Date(g.timer_started_at).getTime()) / 1000);
-                setTimeRemaining(Math.max(0, g.timer_duration - elapsed));
+                const hLen = g.half_length || 0;
+                const duration = g.timer_duration > 0 ? g.timer_duration : (hLen * 60);
+                setTimeRemaining(Math.max(0, duration - elapsed));
             } else {
-                setTimeRemaining(g.timer_duration || 0);
+                // Stopped/Paused: Force Sync to Half Length if available
+                const hLen = g.half_length || 0;
+                const standard = hLen > 0 ? (hLen * 60) : (g.timer_duration || 0);
+                setTimeRemaining(standard);
             }
         }, 1000); // Ticks every second, reading fresh data directly from the ref
 
@@ -130,6 +142,15 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
         );
     }
 
+    // Normalize View Mode based on match_style and fallback to view_mode
+    const effectiveMode = (() => {
+        const style = game.match_style;
+        if (style === 'King') return 'king';
+        if (style === 'Tourney') return 'tournament';
+        if (style === 'Full Length') return 'single';
+        return game.view_mode || 'single';
+    })();
+
     // Format Time
     const minutes = Math.floor(timeRemaining / 60);
     const seconds = timeRemaining % 60;
@@ -145,22 +166,26 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
     let currentRound = 0;
 
     if (validMatches.length > 0) {
-        // Find first round that has at least one match not completed/cancelled
-        const unfinishedRound = validMatches.find(m => m.status !== 'completed' && m.status !== 'cancelled')?.round_number;
-        if (unfinishedRound) {
-            currentRound = unfinishedRound;
+        const sortedMatches = [...validMatches].sort((a, b) => (a.round_number || 0) - (b.round_number || 0));
+        const activeMatch = sortedMatches.find(m => m.status === 'active');
+        const firstScheduled = sortedMatches.find(m => m.status === 'scheduled');
+        
+        if (activeMatch) {
+            currentRound = activeMatch.round_number || 0;
+        } else if (firstScheduled) {
+            currentRound = firstScheduled.round_number || 0;
         } else {
-            // All finished? Set to max round + 1 to show "Done" conceptually, or just max.
-            const max = validMatches.reduce((acc, m) => Math.max(acc, m.round_number || 0), 0);
-            currentRound = max + 1;
+            const max = sortedMatches.reduce((acc, m) => Math.max(acc, m.round_number || 0), 0);
+            currentRound = max;
         }
     }
 
     const matchesInCurrentRound = matches.filter(m => m.round_number === currentRound);
 
     // Up Next Queue
-    const nextRound = currentRound + 1;
-    const upcomingMatches = matches.filter(m => m.status === 'scheduled' && m.round_number === nextRound);
+    const roundsWithScheduledMatches = Array.from(new Set(matches.filter(m => m.status === 'scheduled').map(m => m.round_number))).sort((a, b) => a - b);
+    const nextAvailableRound = roundsWithScheduledMatches.find(r => r > currentRound) || 0;
+    const upcomingMatches = matches.filter(m => m.status === 'scheduled' && m.round_number === nextAvailableRound);
 
     // Sitting Out Logic
     const activeTeamsCurrentRound = matchesInCurrentRound.flatMap(m => [m.home_team, m.away_team]);
@@ -172,17 +197,20 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
     // --- VIEW RENDERERS ---
 
     const renderTimer = () => {
-        const isTournament = game.view_mode === 'tournament' || game.view_mode === 'king';
+        const isTournament = effectiveMode === 'tournament' || effectiveMode === 'king';
         return (
-            <div className={cn("text-center w-full shrink-0", isTournament ? "mb-2 lg:mb-4" : "mb-8")}>
+            <div className={cn("text-center w-full shrink-0", isTournament ? "mb-0" : "mb-8")}>
                 <div className={cn(
-                    "font-mono font-black tracking-tighter tabular-nums transition-colors duration-500",
-                    game.timer_status === 'paused' && "animate-pulse text-gray-500",
+                    isTournament ? "font-black tracking-tighter tabular-nums text-white drop-shadow-2xl" : "font-mono font-black tracking-tighter tabular-nums transition-colors duration-500",
+                    !isTournament && (game.timer_status === 'paused' ? "animate-pulse text-gray-500" :
                     timeRemaining === 0 && game.timer_status !== 'stopped' ? "text-red-600 animate-pulse" :
-                        isLowTime ? "text-yellow-500" : "text-white drop-shadow-2xl",
-                    isTournament ? "text-[5rem] lg:text-[7rem] leading-none" : "text-[10rem] lg:text-[15rem] leading-none"
+                        isLowTime ? "text-yellow-500" : "text-white drop-shadow-2xl")
                 )}
-                    style={!isTournament ? { fontSize: 'clamp(8rem, 18vw, 15rem)' } : undefined}
+                    style={{ 
+                        fontSize: isTournament ? 'clamp(4rem, 13vh, 8.5rem)' : 'clamp(8rem, 18vw, 15rem)',
+                        lineHeight: '1.1',
+                        marginBlock: '0'
+                    }}
                 >
                     {timeDisplay}
                 </div>
@@ -259,30 +287,36 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
 
     // TOURNAMENT VIEW
     const renderTournamentMode = () => (
-        <div className="flex-1 grid grid-cols-12 gap-4 lg:gap-6 min-h-0 p-4 lg:p-6 relative z-10 w-full overflow-hidden">
-            {/* Left Column (Timer, Active, Next - Span 4/12) */}
-            <div className="col-span-12 lg:col-span-4 flex flex-col h-full min-h-0 gap-3 lg:gap-4">
-                <div className="shrink-0 flex items-center justify-center">
+        <div className="flex-1 grid grid-cols-12 gap-4 lg:gap-6 h-full p-4 lg:p-4 relative z-10 w-full overflow-hidden">
+            {/* Left Column (Timer, Active, Next - Span 5/12) */}
+            <div className="col-span-12 lg:col-span-5 flex flex-col h-full justify-between gap-2 lg:gap-3 overflow-hidden">
+                <div className="flex-1 min-h-0 flex items-center justify-center">
                     {renderTimer()}
                 </div>
 
-                <div className="flex-1 min-h-0 w-full bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-md flex flex-col overflow-hidden relative">
-                    <h2 className="text-sm lg:text-base font-bold text-gray-400 uppercase tracking-widest mb-3 text-center flex items-center justify-center gap-2 shrink-0">
-                        <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-                        Active Match {currentRound > 0 ? `(Round ${currentRound})` : ''}
+                <div className="shrink-0 w-full bg-white/5 border border-white/10 rounded-3xl p-4 lg:p-5 backdrop-blur-md flex flex-col relative shadow-2xl">
+                    <h2 className="text-[10px] lg:text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-3 text-center flex items-center justify-center gap-2 shrink-0">
+                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                        Active Match (Round {currentRound})
                     </h2>
                     {matchesInCurrentRound.length > 0 ? (
-                        <div className="flex-1 overflow-y-auto hide-scrollbar space-y-1.5">
+                        <div className="flex flex-col space-y-2 lg:space-y-3">
                             {matchesInCurrentRound.map(match => (
-                                <div key={match.id} className="flex flex-row gap-2 items-center justify-between px-3 py-1.5 bg-black/40 rounded-lg border border-white/5 relative z-20">
-                                    <div className="text-sm lg:text-base font-black uppercase tracking-tighter flex-1 text-right text-gray-200 truncate">
-                                        {match.home_team}
+                                <div key={match.id} className="flex flex-col gap-0.5 px-6 py-2.5 lg:py-3 bg-black/40 rounded-xl border border-white/10 relative z-20 shadow-lg shrink-0">
+                                    <div className="flex flex-row items-center justify-between">
+                                        <div className="text-base lg:text-2xl font-black uppercase tracking-tighter flex-1 text-right text-gray-200 truncate pr-3">
+                                            {match.home_team}
+                                        </div>
+                                        <div className="text-xs lg:text-sm font-bold text-pitch-accent italic text-center shrink-0 px-4">
+                                            VS
+                                        </div>
+                                        <div className="text-base lg:text-2xl font-black uppercase tracking-tighter flex-1 text-left text-gray-200 truncate pl-3">
+                                            {match.away_team}
+                                        </div>
                                     </div>
-                                    <div className="text-[10px] font-bold text-pitch-accent italic text-center shrink-0 px-2">
-                                        VS
-                                    </div>
-                                    <div className="text-sm lg:text-base font-black uppercase tracking-tighter flex-1 text-left text-gray-200 truncate">
-                                        {match.away_team}
+                                    <div className="text-center text-[10px] lg:text-xs font-black text-gray-500 uppercase tracking-widest mt-1">
+                                        {/* Fallback to Field Index if no name persists */}
+                                        {match.field_name || (matchesInCurrentRound.length > 1 ? `Field ${matchesInCurrentRound.indexOf(match) + 1}` : "Field 1")}
                                     </div>
                                 </div>
                             ))}
@@ -301,53 +335,60 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
                         </div>
                     )}
                     {sittingOutCurrentRound.length > 0 && (
-                        <div className="mt-3 text-center text-xs lg:text-sm font-bold text-gray-500 uppercase tracking-widest border-t border-white/10 pt-2 shrink-0">
-                            Sitting Out: <span className="text-white text-[10px] lg:text-xs">{sittingOutCurrentRound.map(t => t.name).join(', ')}</span>
+                        <div className="mt-2 text-center p-2 bg-black/20 rounded-xl border border-white/5 opacity-80 shrink-0">
+                            <div className="text-[8px] font-black text-gray-600 uppercase tracking-widest mb-1">Bench (Sitting Out)</div>
+                            <div className="text-white text-[9px] lg:text-[10px] font-bold flex flex-wrap justify-center gap-1.5">
+                                {sittingOutCurrentRound.map((t, idx) => (
+                                    <span key={idx} className="px-2 py-0.5 bg-white/5 rounded-full border border-white/5 shadow-inner">{t.name}</span>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
 
                 {upcomingMatches.length > 0 && (
-                    <div className="flex-1 min-h-0 w-full bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-md flex flex-col overflow-hidden relative z-30 shadow-lg">
-                        <h2 className="text-sm lg:text-base font-bold text-white uppercase tracking-widest mb-3 border-b border-white/10 pb-2 text-center shrink-0">Up Next</h2>
-                        <div className="flex-1 overflow-y-auto hide-scrollbar space-y-1.5">
-                            {upcomingMatches.map(match => (
-                                <div key={match.id} className="flex flex-row gap-2 items-center justify-between px-3 py-1.5 bg-black/40 rounded-lg border border-white/5 relative z-20">
-                                    <div className="text-sm lg:text-base font-black uppercase tracking-tighter flex-1 text-right text-gray-200 truncate">
+                <div className="shrink-0 w-full bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-md flex flex-col relative shadow-xl">
+                    <h2 className="text-[10px] lg:text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 text-center border-b border-white/10 pb-2 shrink-0">Up Next (Round {nextAvailableRound})</h2>
+                    <div className="grid grid-cols-2 gap-2">
+                        {upcomingMatches.map(match => (
+                            <div key={match.id} className="flex flex-col gap-0.5 px-3 py-2 bg-black/40 rounded-lg border border-white/5 relative z-20">
+                                <div className="flex flex-row items-center justify-center gap-2">
+                                    <div className="text-[9px] lg:text-sm font-black uppercase tracking-tighter flex-1 text-right text-gray-200 truncate">
                                         {match.home_team}
                                     </div>
-                                    <div className="text-[10px] font-bold text-gray-400 uppercase text-center shrink-0 px-2">
+                                    <div className="text-[7px] lg:text-[10px] font-bold text-gray-500 uppercase text-center shrink-0">
                                         VS
                                     </div>
-                                    <div className="text-sm lg:text-base font-black uppercase tracking-tighter flex-1 text-left text-gray-200 truncate">
+                                    <div className="text-[9px] lg:text-sm font-black uppercase tracking-tighter flex-1 text-left text-gray-200 truncate">
                                         {match.away_team}
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                        {sittingOutNextRound.length > 0 && (
-                            <div className="mt-2 text-center text-[10px] lg:text-xs font-bold text-gray-500 uppercase tracking-widest border-t border-white/10 pt-1.5">
-                                Sitting Out Next: <span className="text-white text-[10px]">{sittingOutNextRound.map(t => t.name).join(', ')}</span>
+                                <div className="text-center text-[7px] lg:text-[9px] font-bold text-pitch-secondary uppercase tracking-[0.2em] opacity-70">
+                                    {match.field_name || (upcomingMatches.length > 1 ? `Field ${upcomingMatches.indexOf(match) + 1}` : "Field 1")}
+                                </div>
                             </div>
-                        )}
+                        ))}
                     </div>
+                    {sittingOutNextRound.length > 0 && (
+                        <div className="mt-2 text-center text-[8px] lg:text-[9px] font-bold text-gray-600 uppercase tracking-widest">
+                            Bench Next: <span className="text-white/60">{sittingOutNextRound.map(t => t.name).join(', ')}</span>
+                        </div>
+                    )}
+                </div>
                 )}
             </div>
 
-            {/* Right Column (Standings - Span 8/12) */}
-            <div className="col-span-12 lg:col-span-8 flex flex-col h-full overflow-hidden">
-                <div className="flex-1 overflow-hidden flex flex-col bg-white/5 border border-white/10 rounded-3xl p-4 lg:p-6 backdrop-blur-md relative z-20 shadow-2xl">
-                    <h2 className="text-xl lg:text-2xl font-bold text-gray-400 uppercase tracking-widest mb-3 shrink-0 flex items-center justify-between">
-                        <span>Tournament Leaderboard</span>
-                        <span className="text-xs lg:text-sm text-gray-500 font-normal">Auto-Updates Live</span>
-                    </h2>
-                    <div className="flex-1 min-h-0 bg-black/80 rounded-2xl border-2 border-white/20 shadow-inner drop-shadow-xl overflow-hidden flex flex-col">
+            {/* Right Column (Standings - Span 7/12) */}
+            <div className="col-span-12 lg:col-span-7 flex flex-col h-full overflow-visible">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3 lg:p-4 backdrop-blur-md relative z-20 shadow-xl h-full flex flex-col">
+                    <div className="bg-black/80 rounded-2xl border border-white/10 shadow-2xl flex flex-col flex-1">
                         <StandingsTable gameId={gameId} teams={game.teams_config} matches={matches} viewOnly={true} />
                     </div>
                 </div>
             </div>
         </div>
     );
+
 
     return (
         <div className="fixed inset-0 overflow-hidden box-border flex flex-col bg-slate-900 text-white font-sans">
@@ -357,7 +398,7 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
                     PITCH<span className="text-white">SIDE</span>
                 </h1>
                 <div className="text-lg lg:text-xl font-bold text-gray-400 capitalize">
-                    {game.view_mode} Mode
+                    {effectiveMode === 'tournament' ? 'Tourney' : effectiveMode} Mode
                 </div>
             </div>
 
@@ -369,9 +410,9 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
             </div>
 
             {/* MAIN CONTENT AREA */}
-            {game.view_mode === 'single' && renderSingleMode()}
-            {game.view_mode === 'king' && renderKingMode()}
-            {game.view_mode === 'tournament' && renderTournamentMode()}
+            {effectiveMode === 'single' && renderSingleMode()}
+            {effectiveMode === 'king' && renderKingMode()}
+            {effectiveMode === 'tournament' && renderTournamentMode()}
         </div>
     );
 }

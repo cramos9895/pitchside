@@ -34,3 +34,10 @@ This document outlines the strict operational and coding standards for the Pitch
     - **DO NOT Use Gradients:** Avoid gradients as they can feel overdone or "too AI."
     - **Clean & Flat:** Focus on a clean, premium, high-contrast look using solid brand colors.
     - **Polished Details:** Use subtle borders, consistent spacing, and high-quality typography to achieve a "premium" feel without relying on visual gimmicks.
+
+## 5. The Architecture Protocol
+    Our system architecture is documented in the /architecture directory using Obsidian Markdown formatting.
+
+    Context Gathering: Before proposing architectural changes or bug fixes, you MUST search the /architecture folder for the relevant [[Component]] or [[API]] to understand the existing routing and state.
+
+    Auto-Updating: If you execute a change that alters a database schema, adds a new component, or changes a route, you MUST update the corresponding .md file in the /architecture directory to reflect the new architecture. Maintain the existing template formatting and [[Wikilink]] syntax.

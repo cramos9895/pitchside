@@ -69,3 +69,34 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
+
+/* 📍 GOOGLE PLACES FIX: Multi-Layer Z-Index & Dark Theme for Modals */
+.pac-container {
+  z-index: 9999 !important;
+  background-color: #171717 !important; /* matches --color-pitch-card */
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-top: none !important;
+  font-family: var(--font-inter) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important;
+  margin-top: 4px !important;
+}
+
+.pac-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  padding: 8px 12px !important;
+  color: #a3a3a3 !important; /* matches --color-pitch-secondary */
+  cursor: pointer;
+}
+
+.pac-item:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.pac-item-query {
+  color: #ffffff !important;
+  font-size: 14px !important;
+}
+
+.pac-matched {
+  color: #ccff00 !important; /* matches --color-pitch-accent */
+}

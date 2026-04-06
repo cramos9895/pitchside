@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-export async function generatePlayoffs(gameId: string) {
+export async function generateFinalRound(gameId: string) {
     const supabase = await createClient();
 
     // 1. Auth & Admin Check (Basic verification)
@@ -21,9 +21,10 @@ export async function generatePlayoffs(gameId: string) {
     }
 
     // 2. Fetch game capabilities (mercy rule) and completed group stage matches
-    const { data: gameData } = await supabase.from('games').select('mercy_rule_cap, is_league').eq('id', gameId).single();
+    const { data: gameData } = await supabase.from('games').select('mercy_rule_cap, is_league, amount_of_fields').eq('id', gameId).single();
     const mercyCap = gameData?.mercy_rule_cap;
     const isLeague = gameData?.is_league;
+    const amountOfFields = gameData?.amount_of_fields || 1;
 
     let matchesQuery = supabase
         .from('matches')
@@ -100,7 +101,7 @@ export async function generatePlayoffs(gameId: string) {
 
     Object.values(stats).forEach(t => t.gd = t.gf - t.ga);
 
-    // 4. Sort to find Top 4
+    // 4. Sort to find rank order
     const standings = Object.values(stats).sort((a, b) => {
         if (b.points !== a.points) return b.points - a.points;
         if (b.gd !== a.gd) return b.gd - a.gd;
@@ -108,61 +109,45 @@ export async function generatePlayoffs(gameId: string) {
     });
 
     if (standings.length < 2) {
-        throw new Error('Not enough teams found to generate playoffs. At least 2 required.');
+        throw new Error('Not enough teams found to generate a final round. At least 2 required.');
     }
 
-    // Identify participants
-    const hasFourTeams = standings.length >= 4;
-
-    // We can either do straight to Final (if < 4 teams) or Semi-Finals
+    // 5. Generate Matchups Based on Available Fields
+    // E.g. Field 1 = Rank 1 vs 2, Field 2 = Rank 3 vs 4
     const knockoutMatches = [];
+    const maxMatches = Math.min(amountOfFields, Math.floor(standings.length / 2));
 
-    if (hasFourTeams) {
+    for (let i = 0; i < maxMatches; i++) {
+        const homeTeam = standings[i * 2].name;
+        const awayTeam = standings[(i * 2) + 1].name;
+
         knockoutMatches.push({
             game_id: gameId,
-            home_team: standings[0].name,
-            away_team: standings[3].name,
+            home_team: homeTeam,
+            away_team: awayTeam,
             home_score: 0,
             away_score: 0,
-            round_number: 99,
+            round_number: 100, // Very high round number makes it the final stage natively
             status: 'scheduled',
-            tournament_stage: 'semi_final'
-        });
-        knockoutMatches.push({
-            game_id: gameId,
-            home_team: standings[1].name,
-            away_team: standings[2].name,
-            home_score: 0,
-            away_score: 0,
-            round_number: 99,
-            status: 'scheduled',
-            tournament_stage: 'semi_final'
-        });
-        knockoutMatches.push({
-            game_id: gameId,
-            home_team: 'TBD Semi 1 Winner',
-            away_team: 'TBD Semi 2 Winner',
-            home_score: 0,
-            away_score: 0,
-            round_number: 100,
-            status: 'scheduled',
-            tournament_stage: 'final'
-        });
-    } else {
-        // Less than 4 teams, go straight to Final
-        knockoutMatches.push({
-            game_id: gameId,
-            home_team: standings[0].name,
-            away_team: standings[1].name,
-            home_score: 0,
-            away_score: 0,
-            round_number: 100,
-            status: 'scheduled',
-            tournament_stage: 'final'
+            tournament_stage: 'final',
+            field_name: `Field ${i + 1}`
         });
     }
 
-    // 5. Insert Matches
+    // 5. Cancel any remaining unplayed group stage matches so the UI advances
+    const { error: cancelError } = await supabase
+        .from('matches')
+        .update({ status: 'cancelled' })
+        .eq('game_id', gameId)
+        .eq('status', 'scheduled')
+        .lt('round_number', 99); // Don't cancel any previously generated finals, just group stages
+
+    if (cancelError) {
+        console.error('Error cancelling remaining group matches:', cancelError);
+        // non-blocking fallback
+    }
+
+    // 6. Insert Matches
     const { error: insertError } = await supabase
         .from('matches')
         .insert(knockoutMatches);
@@ -176,5 +161,5 @@ export async function generatePlayoffs(gameId: string) {
     revalidatePath(`/admin/games/${gameId}`);
     revalidatePath(`/games/${gameId}`);
 
-    return { success: true, message: `Generated ${knockoutMatches.length} Playoff Matches.` };
+    return { success: true, message: `Generated ${knockoutMatches.length} Final Round Matches on ${amountOfFields} fields.` };
 }

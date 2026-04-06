@@ -192,11 +192,19 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
         setValue,
         suggestions: { status, data },
         clearSuggestions,
+        init,
     } = usePlacesAutocomplete({
         requestOptions: {},
         defaultValue: initialData?.location || '',
-        initOnMount: isLoaded
+        initOnMount: false // We will initialize manually when script is loaded
     });
+
+    // Manually initialize when script is loaded
+    useEffect(() => {
+        if (isLoaded) {
+            init();
+        }
+    }, [isLoaded, init]);
 
     useEffect(() => {
         if (action !== 'create' && value === '' && locationName) {
@@ -484,12 +492,13 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                                     }}
                                     disabled={!ready}
                                     className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors pl-10"
+                                    autoComplete="off"
                                 />
                                 <div className="absolute left-3 top-3.5 text-gray-500">
                                     <MapPin className="w-4 h-4" />
                                 </div>
                                 {status === "OK" && (
-                                    <ul className="absolute z-50 w-full bg-gray-900 border border-white/10 shadow-xl rounded-sm mt-1 max-h-60 overflow-auto">
+                                    <ul className="absolute z-[100] w-full bg-gray-900 border border-white/10 shadow-xl rounded-sm mt-1 max-h-60 overflow-auto">
                                         {data.map(({ place_id, description: desc }) => (
                                             <li
                                                 key={place_id}
@@ -950,12 +959,13 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                                     }}
                                     disabled={!ready}
                                     className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors pl-10"
+                                    autoComplete="off"
                                 />
                                 <div className="absolute left-3 top-3.5 text-gray-500">
                                     <MapPin className="w-4 h-4" />
                                 </div>
                                 {status === "OK" && (
-                                    <ul className="absolute z-50 w-full bg-gray-900 border border-white/10 shadow-xl rounded-sm mt-1 max-h-60 overflow-auto">
+                                    <ul className="absolute z-[100] w-full bg-gray-900 border border-white/10 shadow-xl rounded-sm mt-1 max-h-60 overflow-auto">
                                         {data.map(({ place_id, description: desc }) => (
                                             <li
                                                 key={place_id}
@@ -1491,12 +1501,13 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                                     }}
                                     disabled={!ready}
                                     className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors pl-10"
+                                    autoComplete="off"
                                 />
                                 <div className="absolute left-3 top-3.5 text-gray-500">
                                     <MapPin className="w-4 h-4" />
                                 </div>
                                 {status === "OK" && (
-                                    <ul className="absolute z-50 w-full bg-gray-900 border border-white/10 shadow-xl rounded-sm mt-1 max-h-60 overflow-auto">
+                                    <ul className="absolute z-[100] w-full bg-gray-900 border border-white/10 shadow-xl rounded-sm mt-1 max-h-60 overflow-auto">
                                         {data.map(({ place_id, description: desc }) => (
                                             <li
                                                 key={place_id}

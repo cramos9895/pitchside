@@ -32,6 +32,7 @@ interface Match {
     round_number: number;
     status: 'scheduled' | 'active' | 'completed' | 'cancelled';
     is_final?: boolean;
+    field_name?: string;
 }
 
 interface TeamConfig {
@@ -90,11 +91,23 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
     const activeMatchIdRef = useRef<string | null>(null);
     const insertingRef = useRef(false);
 
+    // Standard Duration Calculation (Priority: DB Saved > Game Half Length > Default 7m)
+    const standardDuration = game.half_length ? game.half_length * 60 : 420;
+
     // Timer State
     const [timerStatus, setTimerStatus] = useState<'stopped' | 'running' | 'paused'>(game.timer_status || 'stopped');
-    const [timerDuration, setTimerDuration] = useState<number>(game.timer_duration || 420);
+    const [timerDuration, setTimerDuration] = useState<number>(game.timer_duration || standardDuration);
     const [timerStartedAt, setTimerStartedAt] = useState<string | null>(game.timer_started_at || null);
-    const [timeRemaining, setTimeRemaining] = useState<number>(game.timer_duration || 420);
+    const [timeRemaining, setTimeRemaining] = useState<number>(game.timer_duration || standardDuration);
+
+    // FIX: Force sync timer to match length if currently stopped and duration doesn't match
+    useEffect(() => {
+        const correctDuration = game.half_length ? game.half_length * 60 : 420;
+        if (timerStatus === 'stopped' && timerDuration !== correctDuration) {
+            setTimerDuration(correctDuration);
+            setTimeRemaining(correctDuration);
+        }
+    }, [game.half_length, timerStatus]);
     const [timerLoading, setTimerLoading] = useState(false);
 
     // Realtime Hook for Timer Sync
@@ -166,7 +179,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                 payload.timer_duration = currentDuration;
                 payload.timer_started_at = null;
             } else if (status === 'stopped') {
-                payload.timer_duration = newDurationOverride !== undefined ? newDurationOverride : 420;
+                payload.timer_duration = newDurationOverride !== undefined ? newDurationOverride : standardDuration;
                 payload.timer_started_at = null;
                 currentDuration = payload.timer_duration;
             }
@@ -209,22 +222,23 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                 }
 
                 // Determine Max Round
-                const max = data.reduce((acc: number, m: any) => Math.max(acc, m.round_number || 0), 0);
+                const roundNumbers = data.map((m: any) => m.round_number || 0).filter((r: number) => r > 0);
+                const max = roundNumbers.length > 0 ? Math.max(...roundNumbers) : 0;
                 setMaxRound(max);
 
-                // Determine Current Round (First valid round with scheduled games)
-                // Filter for rounds > 0
+                // Determine Current Round (Earliest round with unfinished matches)
                 const validMatches = data.filter((m: any) => (m.round_number || 0) > 0);
 
                 if (validMatches.length > 0) {
-                    // Find first round that has at least one scheduled/active match
-                    const unfinishedRound = validMatches.find((m: any) => m.status === 'scheduled' || m.status === 'active')?.round_number;
-
-                    if (unfinishedRound) {
-                        setCurrentRound(unfinishedRound);
+                    const unfinishedMatches = validMatches.filter((m: any) => m.status === 'scheduled' || m.status === 'active');
+                    
+                    if (unfinishedMatches.length > 0) {
+                        // Find the MINIMUM round number among all unfinished matches
+                        const minUnfinishedRound = Math.min(...unfinishedMatches.map((m: any) => m.round_number));
+                        setCurrentRound(minUnfinishedRound);
                     } else {
-                        // All finished? Set to max round + 1 or just max to show "Done"
-                        setCurrentRound(max + 1);
+                        // All matches are completed/cancelled
+                        setCurrentRound(max > 0 ? max + 1 : 1);
                     }
                 }
             }
@@ -235,6 +249,14 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
     // Grouping
     const isTournamentMode = matches.some(m => (m.round_number || 0) > 0);
     const matchesInCurrentRound = matches.filter(m => m.round_number === currentRound);
+
+    // Teams Sitting Out
+    const teamsInActiveRound = new Set(matchesInCurrentRound.flatMap(m => [m.home_team, m.away_team]));
+    const sittingOutActive = teams.filter((t: any) => !teamsInActiveRound.has(t.name));
+
+    const matchesInNextRound = matches.filter(m => m.round_number === currentRound + 1);
+    const teamsInNextRound = new Set(matchesInNextRound.flatMap(m => [m.home_team, m.away_team]));
+    const sittingOutNext = teams.filter((t: any) => !teamsInNextRound.has(t.name));
 
     // If gameStatus is completed, force view to completed state unless editing
     const effectiveComplete = (isTournamentMode && currentRound > maxRound && maxRound > 0) || gameStatus === 'completed';
@@ -324,6 +346,9 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
             const refetchRes = await fetch(`/api/matches?gameId=${gameId}`);
             const refetchResult = await refetchRes.json();
             if (refetchResult.data) setMatches(refetchResult.data);
+
+            // AUTO-RESET TIMER FOR NEXT ROUND
+            await updateTimerDB('stopped', standardDuration);
 
         } catch (error: any) {
             alert("Error submitting round: " + error.message);
@@ -564,6 +589,9 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
             router.refresh();
             if (onUpdate) onUpdate();
+
+            // AUTO-RESET TIMER FOR NEXT MATCH
+            await updateTimerDB('stopped', standardDuration);
         } catch (e: any) {
             console.error('[MatchManager] handleManualAdd Error:', e);
             alert("Error recording match: " + (e.message || "Unknown error"));
@@ -596,6 +624,30 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
         } catch (err) {
             console.error('[MatchManager] Error deleting match:', err);
             alert("An error occurred while deleting the match.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResetTournament = async () => {
+        if (!confirm("Are you sure you want to PERMANENTLY delete the current tournament schedule? This will wipe all tournament matches and scores for this session. This cannot be undone.")) return;
+
+        setLoading(true);
+        try {
+            const { error } = await supabase
+                .from('matches')
+                .delete()
+                .eq('game_id', gameId)
+                .gt('round_number', 0); // Only delete tournament matches
+
+            if (error) throw error;
+
+            alert("Tournament schedule cleared.");
+            router.refresh();
+            if (onUpdate) onUpdate();
+        } catch (err: any) {
+            console.error('[MatchManager] Error resetting tournament:', err);
+            alert("An error occurred while resetting the tournament: " + err.message);
         } finally {
             setLoading(false);
         }
@@ -664,6 +716,40 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
     // Helper used in UI
     const calculatedWinner = calculateWinnerName();
 
+    const handleConcludeEarly = async () => {
+        const winnerName = calculateWinnerName();
+        if (!winnerName) return alert("Could not determine a winner. Record some matches first.");
+
+        if (!confirm(`Conclude Event Early?\n\nWinner: ${winnerName}\n\nThis will lock the event, update team stats, and cancel any unplayed matches.`)) return;
+
+        setLoading(true);
+        try {
+            // Cancel unplayed scheduled matches
+            const { error: cancelError } = await supabase
+                .from('matches')
+                .update({ status: 'cancelled' })
+                .eq('game_id', gameId)
+                .eq('status', 'scheduled');
+
+            if (cancelError) throw cancelError;
+
+            // Finalize Game via existing flow
+            const result = await finalizeGame(gameId, winnerName, editMvpId || null);
+
+            if (!result.success) {
+                throw new Error(result.error);
+            }
+
+            alert("Event Concluded (Early) Successfully!");
+            router.refresh();
+            if (onUpdate) onUpdate();
+        } catch (e: any) {
+            alert("Error finalizing early: " + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="bg-gray-900 border border-gray-800 rounded-sm p-6 mb-6">
 
@@ -676,9 +762,18 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
                 <div className="flex items-center gap-4">
                     {isTournamentMode && !isTournamentComplete && (
-                        <div className="text-xs font-mono text-pitch-secondary border border-pitch-secondary/30 px-2 py-1 rounded shrink-0">
-                            ROUND {currentRound} / {maxRound}
-                        </div>
+                        <>
+                            <div className="text-xs font-mono text-pitch-secondary border border-pitch-secondary/30 px-3 py-1 rounded shrink-0">
+                                ROUND {currentRound} / {maxRound}
+                            </div>
+                            <button
+                                onClick={handleResetTournament}
+                                disabled={loading}
+                                className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-white hover:bg-red-500/20 border border-red-500/30 px-3 py-1 rounded transition-all"
+                            >
+                                Reset Schedule
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -759,8 +854,8 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                         )}
                         <button
                             onClick={() => {
-                                if (confirm("Reset Timer to 7:00?")) {
-                                    updateTimerDB('stopped', 420);
+                                if (confirm(`Reset Timer to ${Math.floor(standardDuration / 60)}:00?`)) {
+                                    updateTimerDB('stopped', standardDuration);
                                 }
                             }}
                             disabled={timerLoading}
@@ -775,10 +870,10 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
             {/* --- TOURNAMENT MODE UI --- */}
             {isTournamentMode ? (
-                <div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                     {isTournamentComplete && !isEditing ? (
                         /* VIEW MODE (Completed) */
-                        <div className="animate-in fade-in">
+                        <div className="animate-in fade-in lg:col-span-3">
 
                             {/* IF GAME IS NOT COMPLETED YET, SHOW FINALIZE VIEW */}
                             {gameStatus !== 'completed' ? (
@@ -874,85 +969,90 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                             )}
                         </div>
                     ) : (
-                        /* ACTIVE OR EDIT MODE */
-                        <div className="space-y-6">
-                            <div className="bg-black/30 p-4 rounded border border-pitch-accent/20">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-sm font-bold uppercase text-white flex items-center gap-2">
-                                        {isEditing ? <Edit className="w-4 h-4 text-orange-500" /> : <PlayCircle className="w-4 h-4 text-pitch-accent" />}
-                                        {isEditing ? `Editing Results (Round ${maxRound})` : `Active Round: ${currentRound}`}
-                                    </h3>
-                                    {isEditing && (
-                                        <button onClick={() => setIsEditing(false)} className="text-xs text-gray-500 hover:text-white underline">Cancel Edit</button>
-                                    )}
-                                </div>
+                        <>
+                            {/* ACTIVE OR EDIT MODE */}
+                            <div className="lg:col-span-2 space-y-6 animate-in fade-in slide-in-from-left-4 duration-500 h-full">
+                                <div className="bg-black/30 p-4 rounded border border-pitch-accent/20 h-full flex flex-col">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-4">
+                                            <h3 className="text-sm font-bold uppercase text-white flex items-center gap-4">
+                                                {isEditing ? <Edit className="w-4 h-4 text-orange-500" /> : <PlayCircle className="w-4 h-4 text-pitch-accent" />}
+                                                {isEditing ? `Editing Results (Round ${maxRound})` : `Active Round: ${currentRound}`}
+                                            </h3>
+                                        </div>
+                                        {isEditing && (
+                                            <button onClick={() => setIsEditing(false)} className="text-xs text-gray-500 hover:text-white underline">Cancel Edit</button>
+                                        )}
+                                    </div>
 
-                                <div className="grid gap-4">
-                                    {(isEditing ? matches : matchesInCurrentRound).map(match => {
-                                        const isDone = match.status === 'completed' && !isEditing;
-                                        // Use entered score OR saved score
-                                        const hScore = roundScores[match.id]?.home ?? match.home_score;
-                                        const aScore = roundScores[match.id]?.away ?? match.away_score;
-
-                                        if (match.status === 'scheduled' && isEditing) return null; // Only edit completed in edit mode usually, but showing all for flexibility
-
-                                        return (
-                                            <div key={match.id} className="grid grid-cols-12 gap-2 items-center bg-white/5 p-3 rounded">
-                                                {/* Home */}
-                                                <div className="col-span-4 text-right">
-                                                    <span className="text-sm font-bold text-white">{match.home_team}</span>
-                                                </div>
-                                                {/* Score Input */}
-                                                <div className="col-span-4 flex items-center justify-center gap-2">
-                                                    <input
-                                                        type="number"
-                                                        disabled={isDone}
-                                                        value={hScore}
-                                                        onChange={(e) => handleScoreChange(match.id, 'home', Number(e.target.value))}
-                                                        className={cn("w-12 bg-black border p-2 text-center text-white rounded font-mono text-lg", isDone ? "border-transparent text-gray-400" : "border-pitch-accent")}
-                                                    />
-                                                    <span className="text-gray-600">-</span>
-                                                    <input
-                                                        type="number"
-                                                        disabled={isDone}
-                                                        value={aScore}
-                                                        onChange={(e) => handleScoreChange(match.id, 'away', Number(e.target.value))}
-                                                        className={cn("w-12 bg-black border p-2 text-center text-white rounded font-mono text-lg", isDone ? "border-transparent text-gray-400" : "border-pitch-accent")}
-                                                    />
-                                                </div>
-                                                {/* Away */}
-                                                <div className="col-span-4 text-left">
-                                                    <span className="text-sm font-bold text-white">{match.away_team}</span>
-                                                </div>
+                                    {!isEditing && sittingOutActive.length > 0 && (
+                                        <div className="mb-4 p-2 bg-yellow-500/5 border border-yellow-500/10 rounded animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div className="text-[8px] font-black text-yellow-600 uppercase tracking-widest mb-1.5 px-1">Sitting Out This Round</div>
+                                            <div className="flex flex-wrap gap-1">
+                                                {sittingOutActive.map((t) => (
+                                                    <span key={t.name} className="text-[9px] font-bold text-gray-300 uppercase bg-black/30 px-2 py-0.5 rounded border border-white/5">
+                                                        {t.name}
+                                                    </span>
+                                                ))}
                                             </div>
-                                        );
-                                    })
-                                    }
-                                    {matchesInCurrentRound.length === 0 && !isEditing && (
-                                        <p className="text-sm text-gray-500 italic">No matches scheduled for this round.</p>
+                                        </div>
                                     )}
-                                </div>
 
-                                {/* Controls */}
-                                <div className="mt-6">
-                                    {isEditing ? (
-                                        <div className="border-t border-white/10 pt-4">
-                                            {false && (
-                                                <>
-                                                    <label className="text-xs font-bold text-pitch-secondary uppercase mb-2 block">Confirm MVP (Optional Swap)</label>
-                                                    <select
-                                                        value={editMvpId}
-                                                        onChange={(e) => setEditMvpId(e.target.value)}
-                                                        className="w-full bg-black border border-pitch-accent/50 p-2 rounded text-white mb-4"
-                                                    >
-                                                        <option value="">-- Select MVP --</option>
-                                                        {players.map(p => (
-                                                            <option key={p.id} value={p.id}>{p.name} ({p.team})</option>
-                                                        ))}
-                                                    </select>
-                                                </>
-                                            )}
+                                    <div className="grid gap-2">
+                                        {(isEditing ? matches : matchesInCurrentRound).map(match => {
+                                            const isDone = match.status === 'completed' && !isEditing;
+                                            const hScore = roundScores[match.id]?.home ?? match.home_score;
+                                            const aScore = roundScores[match.id]?.away ?? match.away_score;
 
+                                            if (match.status === 'scheduled' && isEditing) return null;
+
+                                            return (
+                                                <div key={match.id} className="relative group flex items-center bg-white/5 py-5 px-6 rounded-xl border border-white/5 hover:bg-white/[0.07] transition-all min-h-[88px]">
+                                                    {/* Left: Home */}
+                                                    <div className="flex-1 text-right flex justify-end items-center px-4">
+                                                        <span className="text-base font-black uppercase tracking-tight text-white">{match.home_team}</span>
+                                                    </div>
+
+                                                    {/* Center: Score & Field */}
+                                                    <div className="flex items-center justify-center gap-6 px-6 border-x border-white/10 min-w-[280px]">
+                                                        <div className="text-[10px] font-black text-pitch-secondary bg-pitch-secondary/10 px-3 py-1 rounded border border-pitch-secondary/10 uppercase tracking-widest shrink-0">
+                                                            {match.field_name || 'FIELD TBD'}
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <input
+                                                                type="number"
+                                                                disabled={isDone}
+                                                                value={hScore}
+                                                                onChange={(e) => handleScoreChange(match.id, 'home', Number(e.target.value))}
+                                                                className={cn("w-14 bg-black border py-2 text-center text-white rounded font-mono text-xl font-bold focus:ring-1 focus:ring-pitch-accent transition-all", isDone ? "border-transparent text-gray-400" : "border-pitch-accent/50")}
+                                                            />
+                                                            <span className="text-gray-600 font-black text-xl">:</span>
+                                                            <input
+                                                                type="number"
+                                                                disabled={isDone}
+                                                                value={aScore}
+                                                                onChange={(e) => handleScoreChange(match.id, 'away', Number(e.target.value))}
+                                                                className={cn("w-14 bg-black border py-2 text-center text-white rounded font-mono text-xl font-bold focus:ring-1 focus:ring-pitch-accent transition-all", isDone ? "border-transparent text-gray-400" : "border-pitch-accent/50")}
+                                                            />
+                                                        </div>
+                                                        {isDone && <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />}
+                                                    </div>
+
+                                                    {/* Right: Away */}
+                                                    <div className="flex-1 text-left flex justify-start items-center px-4">
+                                                        <span className="text-base font-black uppercase tracking-tight text-white">{match.away_team}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {matchesInCurrentRound.length === 0 && !isEditing && (
+                                            <p className="text-[10px] text-gray-500 italic py-4 text-center">No matches scheduled for this round.</p>
+                                        )}
+                                    </div>
+
+                                    {/* Controls */}
+                                    <div className="mt-6">
+                                        {isEditing ? (
                                             <div className="flex justify-end gap-3">
                                                 <button
                                                     onClick={() => setIsEditing(false)}
@@ -969,78 +1069,78 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                                     Update & Re-Finalize
                                                 </button>
                                             </div>
-                                        </div>
-                                    ) : (
-                                        (!isTournamentComplete && (
-                                            <div className="flex justify-end">
-                                                <button
-                                                    onClick={submitRound}
-                                                    disabled={loading || matchesInCurrentRound.length === 0}
-                                                    className="bg-pitch-accent hover:bg-white text-black font-bold uppercase px-6 py-3 rounded-sm flex items-center gap-2 transition-colors disabled:opacity-50"
-                                                >
-                                                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-                                                    Submit Round & Next
-                                                    <ArrowRight className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        ))
-                                    )}
-
-                                    {/* Initial Winner/Finalize Screen for Active Mode (Last Round) */}
-                                    {isTournamentComplete && !isEditing && matches.some(m => !m.is_final) && (
-                                        <div className="mt-8 pt-8 border-t border-white/10 text-center">
-                                            <p className="text-gray-400 mb-4">All rounds complete. Ready to finalize?</p>
-                                            {/* MVP Select for Initial Finalize */}
-                                            {false && (
-                                                <div className="max-w-xs mx-auto mb-4 text-left">
-                                                    <label className="text-xs font-bold text-pitch-secondary uppercase mb-2 block">Select MVP</label>
-                                                    <select
-                                                        id="mvp-select"
-                                                        className="w-full bg-black border border-pitch-accent/50 p-3 rounded text-white"
+                                        ) : (
+                                            !isTournamentComplete && (
+                                                <div className="flex justify-between items-center w-full">
+                                                    <button
+                                                        onClick={handleConcludeEarly}
+                                                        disabled={loading || matches.filter((m) => m.status === 'completed').length === 0}
+                                                        className="px-4 py-3 bg-red-900/40 hover:bg-red-900/60 text-red-500 font-bold uppercase rounded-sm flex items-center gap-2 transition-colors border border-red-500/20 disabled:opacity-50 text-xs tracking-wider"
                                                     >
-                                                        <option value="">-- Select MVP --</option>
-                                                        {players.map(p => (
-                                                            <option key={p.id} value={p.id}>{p.name} ({p.team || 'No Team'})</option>
-                                                        ))}
-                                                    </select>
+                                                        Conclude Event (Early)
+                                                    </button>
+                                                    <div className="flex justify-end gap-3 flex-1">
+                                                        <button
+                                                            onClick={submitRound}
+                                                            disabled={loading || matchesInCurrentRound.length === 0}
+                                                            className="bg-pitch-accent hover:bg-white text-black font-bold uppercase px-6 py-3 rounded-sm flex items-center gap-2 transition-colors disabled:opacity-50"
+                                                        >
+                                                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                                                            Submit Round & Next
+                                                            <ArrowRight className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            )}
-                                            <button
-                                                onClick={async () => {
-                                                    // ... same finalize logic as before ...
-                                                    // To avoid duplication, could extract, but keeping inline for now or relying on the 'View Mode' block which handles this after state update
-                                                    // Actually, if isTournamentComplete is true effectively, it renders View Mode block above.
-                                                    // This block is reachable only if effectiveComplete=true but we are in the 'active' block?
-                                                    // Ah, effectiveComplete forces View Mode unless isEditing. 
-                                                    // So this block is unreachable unless I messed up the boolean logic.
-                                                    // Let's re-read:
-                                                    // isTournamentComplete = effectiveComplete.
-                                                    // Top level: isTournamentMode ? ( isTournamentComplete && !isEditing ? VIEW : ACTIVE )
-                                                    // So if isTournamentComplete is true, we are in VIEW block.
-                                                    // So this else block (ACTIVE) is only when !isTournamentComplete.
-                                                    // So this footer is unnecessary here unless we want to show it BEFORE effective completion?
-                                                    // Wait, 'isTournamentComplete' logic was: currentRound > maxRound.
-                                                    // If I am on the last round, currentRound == maxRound.
-                                                    // Finisher logic is handled by 'Submit Round' pushing currentRound > maxRound.
-                                                    // So yes, this block is likely dead code or unnecessary.
-                                                }}
-                                                className="hidden"
-                                            >Finalize</button>
-                                        </div>
-                                    )}
+                                            )
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Future Rounds Preview (Optional, small list) */}
-                            {maxRound > currentRound && (
-                                <div className="opacity-50">
-                                    <h4 className="text-xs font-bold uppercase text-gray-500 mb-2">Up Next: Round {currentRound + 1}</h4>
-                                    <div className="text-xs text-gray-600">
-                                        {matches.filter(m => m.round_number === currentRound + 1).length} matches waiting...
+                            {/* UP NEXT SECTION: SIDE COLUMN */}
+                            {maxRound >= currentRound && matches.filter((m: any) => m.round_number === currentRound + 1).length > 0 && (
+                                <div className="lg:col-span-1 space-y-4 animate-in fade-in slide-in-from-right-4 duration-500 h-full">
+                                    <div className="bg-black/30 p-4 rounded border border-white/5 h-full flex flex-col">
+                                        <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
+                                            <h4 className="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] flex items-center gap-2">
+                                                <Clock className="w-3 h-3 text-pitch-secondary" /> Up Next (Round {currentRound + 1})
+                                            </h4>
+                                            <span className="text-[10px] font-bold text-pitch-secondary bg-pitch-secondary/10 px-2 py-0.5 rounded">
+                                                {matches.filter((m: any) => m.round_number === currentRound + 1).length} Games
+                                            </span>
+                                        </div>
+
+                                        {sittingOutNext.length > 0 && (
+                                            <div className="mb-4 p-2 bg-yellow-500/5 border border-yellow-500/10 rounded">
+                                                <div className="text-[8px] font-black text-yellow-600 uppercase tracking-widest mb-1.5 px-1 text-pitch-accent">Sitting Out Next</div>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {sittingOutNext.map((t: any) => (
+                                                        <span key={t.name} className="text-[9px] font-bold text-gray-400 uppercase bg-black/30 px-2 py-0.5 rounded border border-white/5">
+                                                            {t.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="grid grid-cols-1 gap-2 flex-1">
+                                            {matches.filter((m: any) => m.round_number === currentRound + 1).map((m: any) => (
+                                                <div key={m.id} className="bg-white/[0.02] border border-white/5 py-4 px-4 rounded-xl group hover:bg-white/5 transition-colors flex items-center gap-4 min-h-[88px]">
+                                                    <div className="text-[9px] font-black text-pitch-accent bg-pitch-accent/5 px-2 py-1 rounded border border-pitch-accent/10 uppercase tracking-widest shrink-0 min-w-[65px] text-center">
+                                                        {m.field_name || 'TBD'}
+                                                    </div>
+                                                    <div className="flex-1 flex items-center justify-center gap-3 text-[12px] font-black uppercase tracking-tight text-gray-300">
+                                                        <span className="truncate max-w-[80px]">{m.home_team}</span>
+                                                        <span className="text-gray-600 text-[9px] font-black shrink-0">VS</span>
+                                                        <span className="truncate max-w-[80px]">{m.away_team}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             )}
-                        </div>
+                        </>
                     )}
                 </div>
             ) : (

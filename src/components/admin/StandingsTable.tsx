@@ -101,20 +101,20 @@ export function StandingsTable({
             {groupNames.map((groupName) => (
                 <div key={groupName} className="bg-gray-900 border border-gray-800 rounded-sm p-6">
                     <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2 mb-4 text-yellow-500">
-                        <Trophy className="w-5 h-5" /> {groupName} Standings
+                        <Trophy className="w-5 h-5" /> {groupNames.length > 1 ? `${groupName} Standings` : 'Tournament Standings'}
                     </h2>
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left whitespace-nowrap">
-                            <thead className={cn("uppercase bg-black/50 border-b border-white/10", viewOnly ? "text-[10px] text-gray-400" : "text-xs text-gray-400")}>
+                            <thead className={cn("uppercase bg-black/50 border-b border-white/10 px-4", viewOnly ? "text-xs lg:text-sm text-gray-400" : "text-xs text-gray-400")}>
                                 <tr>
-                                    <th className={cn(viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>Team</th>
-                                    <th className={cn("text-center", viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>GP</th>
-                                    <th className={cn("text-center", viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>W</th>
-                                    <th className={cn("text-center", viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>D</th>
-                                    <th className={cn("text-center", viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>L</th>
-                                    <th className={cn("text-center text-gray-300", viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>GD</th>
-                                    <th className={cn("text-center font-bold text-white", viewOnly ? "px-2 py-1.5" : "px-4 py-3")}>PTS</th>
+                                    <th className={cn(viewOnly ? "px-4 py-3 lg:py-4" : "px-4 py-3")}>Team</th>
+                                    <th className={cn("text-center", viewOnly ? "px-4 py-3 lg:py-4" : "px-4 py-3")}>GP</th>
+                                    <th className={cn("text-center", viewOnly ? "px-4 py-3 lg:py-4" : "px-4 py-3")}>W</th>
+                                    <th className={cn("text-center", viewOnly ? "px-4 py-3 lg:py-4" : "px-4 py-3")}>D</th>
+                                    <th className={cn("text-center", viewOnly ? "px-4 py-3 lg:py-4" : "px-4 py-3")}>L</th>
+                                    <th className={cn("text-center text-gray-300", viewOnly ? "px-4 py-3 lg:py-4" : "px-4 py-3")}>GD</th>
+                                    <th className={cn("text-center font-bold text-white", viewOnly ? "px-4 py-3 lg:py-4" : "px-4 py-3")}>PTS</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -131,15 +131,15 @@ export function StandingsTable({
                                             "border-b border-white/5 transition-colors relative hover:bg-white/5",
                                             isHighlighted && "bg-pitch-accent/10 border-l-2 border-l-pitch-accent"
                                         )}>
-                                            <td className={cn("font-bold uppercase flex items-center gap-2 text-white", viewOnly ? "px-2 py-1.5 text-xs lg:text-sm" : "px-4 py-3")}>
-                                                <span className={cn("font-mono font-normal mr-1", viewOnly ? "text-[10px] text-gray-500" : "text-gray-600")}>{index + 1}.</span> {team.name}
+                                            <td className={cn("font-bold uppercase flex items-center gap-2 text-white", viewOnly ? "px-4 py-2 lg:py-2.5 text-base lg:text-lg" : "px-4 py-3")}>
+                                                <span className={cn("font-mono font-normal mr-1", viewOnly ? "text-xs text-gray-500" : "text-gray-600")}>{index + 1}.</span> {team.name}
                                             </td>
-                                            <td className={cn("text-center text-gray-400", viewOnly ? "px-2 py-1.5 text-xs" : "px-4 py-3")}>{team.gp}</td>
-                                            <td className={cn("text-center font-mono", viewOnly ? "px-2 py-1.5 text-[10px]" : "px-4 py-3 text-xs")}>{team.w}</td>
-                                            <td className={cn("text-center font-mono", viewOnly ? "px-2 py-1.5 text-[10px]" : "px-4 py-3 text-xs")}>{team.d}</td>
-                                            <td className={cn("text-center font-mono", viewOnly ? "px-2 py-1.5 text-[10px]" : "px-4 py-3 text-xs")}>{team.l}</td>
-                                            <td className={cn("text-center font-mono text-gray-300", viewOnly ? "px-2 py-1.5 text-[10px]" : "px-4 py-3 text-xs")}>{team.gd > 0 ? `+${team.gd}` : team.gd}</td>
-                                            <td className={cn("text-center font-black", viewOnly ? "px-2 py-1.5 text-base" : "px-4 py-3 text-lg")}>{team.pts}</td>
+                                            <td className={cn("text-center text-gray-400", viewOnly ? "px-2 py-2 lg:py-2.5 text-base" : "px-4 py-3")}>{team.gp}</td>
+                                            <td className={cn("text-center font-mono", viewOnly ? "px-2 py-2 lg:py-2.5 text-sm" : "px-4 py-3 text-xs")}>{team.w}</td>
+                                            <td className={cn("text-center font-mono", viewOnly ? "px-2 py-2 lg:py-2.5 text-sm" : "px-4 py-3 text-xs")}>{team.d}</td>
+                                            <td className={cn("text-center font-mono", viewOnly ? "px-2 py-2 lg:py-2.5 text-sm" : "px-4 py-3 text-xs")}>{team.l}</td>
+                                            <td className={cn("text-center font-mono text-gray-300", viewOnly ? "px-2 py-2 lg:py-2.5 text-sm" : "px-4 py-3 text-xs")}>{team.gd > 0 ? `+${team.gd}` : team.gd}</td>
+                                            <td className={cn("text-center font-black", viewOnly ? "px-4 py-2 lg:py-2.5 text-xl lg:text-2xl text-pitch-accent" : "px-4 py-3 text-lg")}>{team.pts}</td>
                                         </tr>
                                     );
                                 })}
@@ -148,7 +148,9 @@ export function StandingsTable({
                     </div>
                 </div>
             ))}
-            <p className="text-[10px] text-gray-600 mt-2 italic text-center">Grouped by Pool. Top teams advance to Playoffs based on Unified Master Ranking.</p>
+            {groupNames.length > 1 && (
+                <p className="text-[10px] text-gray-600 mt-2 italic text-center">Grouped by Pool. Top teams advance to Playoffs based on Unified Master Ranking.</p>
+            )}
         </div>
     );
 }
