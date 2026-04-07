@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "03 - Components/LiveProjectorPage.md",
+                "file": "03 - Components/ManualAddPlayerModal.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "LiveProjectorPage"
+              "title": "ManualAddPlayerModal"
             }
           },
           {
@@ -192,6 +192,8 @@
   },
   "active": "0bc8c5d81feadbe9",
   "lastOpenFiles": [
+    "03 - Components/LiveProjectorPage.md",
+    "03 - Components/ManualAddPlayerModal.md",
     "03 - Components/MatchResultsLog.md",
     "03 - Components/MatchManager.md",
     "02 - Routing & Pages/Game Details Page.md",
@@ -216,8 +218,6 @@
     "02 - Routing & Pages/Signup Page.md",
     "02 - Routing & Pages/Schedule Page.md",
     "02 - Routing & Pages/Revenue Engine & Financials.md",
-    "02 - Routing & Pages/Profile Page.md",
-    "02 - Routing & Pages/Pending Page.md",
     "auth",
     "04 - Database & API/lib",
     "04 - Database & API/Tables",

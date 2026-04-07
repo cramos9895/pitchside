@@ -85,18 +85,51 @@ export async function POST(request: Request) {
                 await adminSupabase.from('profiles').update({ credit_balance: newBalanceCents }).eq('id', userId);
             }
 
-            // Perform Multi-Insert Atomically
+            // Process Bookings (Check-Then-Update Pattern)
             const linkedBookingId = crypto.randomUUID();
-            const insertPayload = [
+            const passengersToProcess: any[] = [
                 { game_id: gameId, user_id: userId, status: 'paid', payment_status: 'verified', linked_booking_id: linkedBookingId, note, ...(teamAssignment && { team_assignment: teamAssignment }) }
             ];
             for (const gid of guestIds) {
-                insertPayload.push({
+                passengersToProcess.push({
                     game_id: gameId, user_id: gid, status: 'paid', payment_status: 'verified', linked_booking_id: linkedBookingId, buyer_id: userId, ...(teamAssignment && { team_assignment: teamAssignment })
                 });
             }
-            const { error: insertError } = await adminSupabase.from('bookings').insert(insertPayload);
-            if (insertError) throw new Error(`Atomic bypass insert failed: ${insertError.message}`);
+
+            for (const passenger of passengersToProcess) {
+                try {
+                    const { data: existingBooking } = await adminSupabase
+                        .from('bookings')
+                        .select('id')
+                        .eq('game_id', passenger.game_id)
+                        .eq('user_id', passenger.user_id)
+                        .single();
+
+                    if (existingBooking) {
+                        const { error: updateError } = await adminSupabase
+                            .from('bookings')
+                            .update({
+                                status: passenger.status,
+                                payment_status: passenger.payment_status,
+                                team_assignment: passenger.team_assignment || null,
+                                note: passenger.note || null
+                            })
+                            .eq('id', existingBooking.id);
+                        if (updateError) {
+                            console.error(`[BYPASS_FAIL] Update failed for user ${passenger.user_id}:`, updateError);
+                        }
+                    } else {
+                        const { error: insertError } = await adminSupabase
+                            .from('bookings')
+                            .insert([passenger]);
+                        if (insertError) {
+                            console.error(`[BYPASS_FAIL] Insert failed for user ${passenger.user_id}:`, insertError);
+                        }
+                    }
+                } catch (err: any) {
+                    console.error(`[BYPASS_FAIL] Exception while processing user ${passenger.user_id}:`, err);
+                }
+            }
 
             return NextResponse.json({ bypassed: true });
         }

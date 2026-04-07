@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminLeagueControl } from '@/components/admin/AdminLeagueControl';
+import { ManualAddPlayerModal } from '@/components/admin/ManualAddPlayerModal';
 
 interface Booking {
     id: string;
@@ -1031,6 +1032,12 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                             {/* Roster & Waitlist Container */}
                             <div className="space-y-8 mb-8">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h2 className="font-heading text-2xl font-bold italic uppercase flex items-center gap-2 mb-0">
+                                        <Users className="w-6 h-6 text-pitch-accent" /> Active Roster
+                                    </h2>
+                                    <ManualAddPlayerModal gameId={gameId} basePrice={game.price || 0} onSuccess={() => { fetchMatches(); router.refresh(); handleMatchUpdate(); }} />
+                                </div>
 
                                 {/* ACTIVE ROSTER */}
                                 <div className="bg-pitch-card border border-white/10 rounded-sm shadow-xl overflow-hidden">

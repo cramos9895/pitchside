@@ -145,28 +145,12 @@ export default async function SuccessPage({ searchParams }: Props) {
             }
         }
 
-        // 3. Insert Booking into Supabase
-        const { data: existingBooking } = await supabase
-            .from('bookings')
-            .select('id')
-            .eq('game_id', gameId)
-            .eq('user_id', userId)
-            .single();
-
-        if (!existingBooking) {
-            // Deduct Wallet Balance from buyer
-            if (appliedCreditUnitsCents > 0) {
-                 const { data: profile } = await adminSupabase.from('profiles').select('credit_balance').eq('id', userId).single();
-                 if (profile && profile.credit_balance !== undefined) {
-                     const newBalance = Math.max(0, profile.credit_balance - appliedCreditUnitsCents);
-                     await adminSupabase.from('profiles').update({ credit_balance: newBalance }).eq('id', userId);
-                 }
-            }
-
-            // Multi-Insertion
-            const linkedBookingId = crypto.randomUUID();
-
-            const insertPayload: any[] = [{
+        // 3. Process Bookings for all Users involved (Check-Then-Update Pattern)
+        const linkedBookingId = crypto.randomUUID();
+        const baseAmount = (session.amount_total || 0) / 100;
+        
+        const passengersToProcess: any[] = [
+            {
                 game_id: gameId,
                 user_id: userId,
                 buyer_id: null,
@@ -174,38 +158,92 @@ export default async function SuccessPage({ searchParams }: Props) {
                 status: isFreeAgent ? 'free_agent_pending' : 'paid',
                 payment_status: 'verified',
                 payment_method: 'stripe',
-                payment_amount: (session.amount_total || 0) / 100,
-                note: note, // Save note
-                stripe_payment_method_id: paymentMethodId, // Specifically Vaulted for Free Agents or League Captains
+                payment_amount: baseAmount,
+                note: note,
+                stripe_payment_method_id: paymentMethodId,
                 ...(teamAssignment && { team_assignment: teamAssignment }),
                 ...(prizeSplitPreference && { prize_split_preference: prizeSplitPreference })
-            }];
-
-            for (const gid of guestIdsToInsert) {
-                insertPayload.push({
-                    game_id: gameId,
-                    user_id: gid,
-                    buyer_id: userId,
-                    linked_booking_id: linkedBookingId,
-                    status: 'paid',
-                    payment_status: 'verified',
-                    payment_method: 'stripe',
-                    payment_amount: (session.amount_total || 0) / 100,
-                    stripe_payment_method_id: paymentMethodId,
-                    ...(teamAssignment && { team_assignment: teamAssignment })
-                });
             }
+        ];
 
-            const { error: insertError } = await adminSupabase.from('bookings').insert(insertPayload);
-            
-            // Cleanup pending checkout regardless if the insert passes
-            if (pendingCheckout) {
-                await adminSupabase.from('pending_checkouts').delete().eq('checkout_session_id', sessionId);
+        for (const gid of guestIdsToInsert) {
+            passengersToProcess.push({
+                game_id: gameId,
+                user_id: gid,
+                buyer_id: userId,
+                linked_booking_id: linkedBookingId,
+                status: 'paid',
+                payment_status: 'verified',
+                payment_method: 'stripe',
+                payment_amount: baseAmount,
+                stripe_payment_method_id: paymentMethodId,
+                ...(teamAssignment && { team_assignment: teamAssignment })
+            });
+        }
+
+        let atLeastOneSuccess = false;
+
+        for (const passenger of passengersToProcess) {
+            try {
+                // Check if passenger already has a booking row that was possibly cancelled
+                const { data: existingBooking } = await adminSupabase
+                    .from('bookings')
+                    .select('id')
+                    .eq('game_id', passenger.game_id)
+                    .eq('user_id', passenger.user_id)
+                    .single();
+
+                if (existingBooking) {
+                    // UPSERT: Update their cancelled row back to active
+                    const { error: updateError } = await adminSupabase
+                        .from('bookings')
+                        .update({
+                            status: passenger.status,
+                            payment_status: passenger.payment_status,
+                            stripe_payment_method_id: passenger.stripe_payment_method_id || null,
+                            team_assignment: passenger.team_assignment || null,
+                            note: passenger.note || null,
+                            payment_amount: passenger.payment_amount
+                        })
+                        .eq('id', existingBooking.id);
+
+                    if (updateError) {
+                        console.error(`[SUCCESS_FAIL] Update failed for user ${passenger.user_id}:`, updateError);
+                    } else {
+                        atLeastOneSuccess = true;
+                    }
+                } else {
+                    // INSERT new row
+                    const { error: insertError } = await adminSupabase
+                        .from('bookings')
+                        .insert([passenger]);
+
+                    if (insertError) {
+                        console.error(`[SUCCESS_FAIL] Insert failed for user ${passenger.user_id}:`, insertError);
+                    } else {
+                        atLeastOneSuccess = true;
+                    }
+                }
+            } catch (err) {
+                console.error(`[SUCCESS_FAIL] Exception while processing user ${passenger.user_id}:`, err);
             }
+        }
 
-            if (insertError) {
-                console.error("Supabase Insert Error:", insertError);
-            } else if (teamAssignment && session.payment_intent && typeof session.payment_intent === 'string') {
+        // Deduct Wallet Balance from buyer only if we actually processed the transaction from pending_checkouts
+        if (pendingCheckout && appliedCreditUnitsCents > 0) {
+             const { data: profile } = await adminSupabase.from('profiles').select('credit_balance').eq('id', userId).single();
+             if (profile && profile.credit_balance !== undefined) {
+                 const newBalance = Math.max(0, profile.credit_balance - appliedCreditUnitsCents);
+                 await adminSupabase.from('profiles').update({ credit_balance: newBalance }).eq('id', userId);
+             }
+        }
+
+        // Cleanup pending checkout regardless
+        if (pendingCheckout) {
+            await adminSupabase.from('pending_checkouts').delete().eq('checkout_session_id', sessionId);
+        }
+
+        if (atLeastOneSuccess && teamAssignment && session.payment_intent && typeof session.payment_intent === 'string') {
                 // Phase 43: Split Payments Auto-Refund Overage
                 const { data: gameData } = await supabase
                     .from('games')
@@ -274,7 +312,6 @@ export default async function SuccessPage({ searchParams }: Props) {
                     }
                 }
             }
-        }
 
         return (
             <div className="min-h-screen bg-pitch-black flex flex-col items-center justify-center text-white px-4">
