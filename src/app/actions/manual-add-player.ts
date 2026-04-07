@@ -35,6 +35,7 @@ export async function manualAddPlayerAction(gameId: string, userId: string, paym
                     payment_status: 'verified',
                     payment_method: paymentMethod,
                     payment_amount: basePrice,
+                    roster_status: 'confirmed'
                 })
                 .eq('id', existingBooking.id);
             
@@ -49,7 +50,8 @@ export async function manualAddPlayerAction(gameId: string, userId: string, paym
                     status: 'paid',
                     payment_status: 'verified',
                     payment_method: paymentMethod,
-                    payment_amount: basePrice
+                    payment_amount: basePrice,
+                    roster_status: 'confirmed'
                 }]);
             
             if (insertError) throw insertError;

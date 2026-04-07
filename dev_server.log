@@ -620,3 +620,5 @@ Import traces:
  GET /api/matches?gameId=13866429-981e-437d-8e83-44ff18f6253f 200 in 583ms (compile: 5ms, proxy.ts: 219ms, render: 359ms)
 [SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
  GET /api/matches?gameId=13866429-981e-437d-8e83-44ff18f6253f 200 in 357ms (compile: 4ms, proxy.ts: 208ms, render: 146ms)
+✓ Compiled in 162ms
+ GET /admin/games/13866429-981e-437d-8e83-44ff18f6253f 200 in 1190ms (compile: 111ms, proxy.ts: 1042ms, render: 37ms)
