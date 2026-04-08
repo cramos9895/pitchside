@@ -8,7 +8,16 @@ export async function seedPlayoffBracket(leagueId: string, topTeamsCount: number
 
     // 1. Fetch League and matches
     const { data: league } = await supabase.from('games').select('playoff_start_date, facility_id, resource_id').eq('id', leagueId).single();
-    if (!league?.playoff_start_date) throw new Error('Playoff start date not configured.');
+    
+    let playoffStart = league?.playoff_start_date ? new Date(league.playoff_start_date) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    // Close the Season by cancelling any unplayed regular season matches
+    await supabase
+        .from('matches')
+        .update({ status: 'canceled' })
+        .eq('game_id', leagueId)
+        .eq('status', 'scheduled')
+        .is('is_playoff', null);
 
     const { data: matches, error: fetchError } = await supabase
         .from('matches')
@@ -57,7 +66,6 @@ export async function seedPlayoffBracket(leagueId: string, topTeamsCount: number
 
     // 3. Generate Knockout Matches
     const knockoutMatches = [];
-    const playoffStart = new Date(league.playoff_start_date);
 
     if (topTeamsCount === 4 && standings.length >= 4) {
         // Semi-Finals (1v4, 2v3)

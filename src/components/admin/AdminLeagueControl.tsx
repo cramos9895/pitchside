@@ -87,6 +87,28 @@ export function AdminLeagueControl({
         }
     };
 
+    const handleScheduleNextRound = async () => {
+        if (!confirm('Calculate pairings and schedule the next rolling round?')) return;
+        setScheduling(true);
+        try {
+            const { scheduleNextRound } = await import('@/app/actions/league-actions');
+            const teamNames = teams.map(t => t.name);
+            const res = await scheduleNextRound(leagueId, teamNames, facilityId);
+            if (res.success) {
+                if (res.byeTeam) {
+                    success(`Scheduled ${res.count} matches. (BYE week for: ${res.byeTeam})`);
+                } else {
+                    success(`Scheduled ${res.count} matches successfully.`);
+                }
+                onRefresh();
+            }
+        } catch (err: any) {
+            error(err.message);
+        } finally {
+            setScheduling(false);
+        }
+    };
+
     const handleCancelMatch = async (matchId: string) => {
         if (!confirm('Are you sure you want to cancel this match? It will be removed from standings math.')) return;
         try {
@@ -172,6 +194,20 @@ export function AdminLeagueControl({
         }
     };
 
+    const handleToggleRegistration = async () => {
+        setProcessing(true);
+        try {
+            const { toggleLeagueRegistration } = await import('@/app/actions/league-actions');
+            await toggleLeagueRegistration(leagueId, !isRosterFrozen);
+            success(!isRosterFrozen ? "Registration frozen." : "Registration opened.");
+            onRefresh();
+        } catch (err: any) {
+            error(err.message);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header / Stats */}
@@ -187,13 +223,27 @@ export function AdminLeagueControl({
                     </div>
                 </div>
                 <div className="bg-white/5 border border-white/10 p-6 rounded-lg">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Roster Status</div>
-                    <div className={cn(
-                        "text-xl font-black uppercase italic flex items-center gap-2",
-                        isRosterFrozen ? "text-red-500" : "text-green-500"
-                    )}>
-                        {isRosterFrozen ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
-                        {isRosterFrozen ? 'Frozen' : 'Open'}
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Roster Status</div>
+                            <div className={cn(
+                                "text-xl font-black uppercase italic flex items-center gap-2",
+                                isRosterFrozen ? "text-red-500" : "text-green-500"
+                            )}>
+                                {isRosterFrozen ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+                                {isRosterFrozen ? 'Frozen' : 'Open'}
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleToggleRegistration}
+                            disabled={processing}
+                            className={cn(
+                                "px-4 py-2 font-black uppercase tracking-widest text-[9px] rounded-sm transition-all border",
+                                isRosterFrozen ? "bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500 hover:text-black" : "bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white"
+                            )}
+                        >
+                            {isRosterFrozen ? 'Unlock' : 'Freeze'}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -324,12 +374,12 @@ export function AdminLeagueControl({
                         </span>
                         <button
                             onClick={handleSeedPlayoffs}
-                            disabled={!canSeedPlayoffs || processing}
-                            title={!canSeedPlayoffs ? "All matches must be completed or canceled to seed playoffs." : ""}
+                            disabled={processing}
+                            title="Cancels unplayed scheduled matches and generates the final knockout bracket."
                             className="px-6 py-2 bg-pitch-accent text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all disabled:opacity-30 disabled:hover:bg-pitch-accent flex items-center gap-2"
                         >
                             {processing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trophy className="w-3 h-3" />}
-                            Seed Playoffs
+                            Close Season & Playoffs
                         </button>
                     </div>
                 </div>
@@ -346,17 +396,25 @@ export function AdminLeagueControl({
                     <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-pitch-accent" /> League Schedule
                     </h3>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         {matches.length === 0 && (
                             <button
                                 onClick={handleGenerateSchedule}
                                 disabled={scheduling}
-                                className="px-6 py-2 bg-pitch-accent text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2"
+                                className="px-6 py-2 bg-pitch-accent text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2 rounded-sm"
                             >
                                 {scheduling ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                                Generate Schedule
+                                Full Season
                             </button>
                         )}
+                        <button
+                            onClick={handleScheduleNextRound}
+                            disabled={scheduling}
+                            className="px-6 py-2 bg-pitch-accent text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2 rounded-sm"
+                        >
+                            {scheduling ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                            Next Round
+                        </button>
                         <button
                             onClick={() => setCreatingManualMatch(true)}
                             className="px-6 py-2 border border-white/20 text-white font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all flex items-center gap-2 rounded-sm"
