@@ -622,3 +622,9 @@ Import traces:
  GET /api/matches?gameId=13866429-981e-437d-8e83-44ff18f6253f 200 in 357ms (compile: 4ms, proxy.ts: 208ms, render: 146ms)
 ✓ Compiled in 162ms
  GET /admin/games/13866429-981e-437d-8e83-44ff18f6253f 200 in 1190ms (compile: 111ms, proxy.ts: 1042ms, render: 37ms)
+✓ Compiled in 79ms
+ GET /admin/games/13866429-981e-437d-8e83-44ff18f6253f 200 in 1544ms (compile: 106ms, proxy.ts: 1021ms, render: 416ms)
+✓ Compiled in 61ms
+✓ Compiled in 123ms
+ GET /admin/games/13866429-981e-437d-8e83-44ff18f6253f 200 in 695ms (compile: 79ms, proxy.ts: 586ms, render: 30ms)
+✓ Compiled in 121ms

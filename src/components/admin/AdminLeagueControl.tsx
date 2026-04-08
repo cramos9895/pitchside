@@ -56,6 +56,14 @@ export function AdminLeagueControl({
     const [scheduling, setScheduling] = useState(false);
     const [reschedulingMatch, setReschedulingMatch] = useState<any>(null);
     const [newTime, setNewTime] = useState('');
+    
+    // Manual Match State
+    const [creatingManualMatch, setCreatingManualMatch] = useState(false);
+    const [manualHomeTeam, setManualHomeTeam] = useState('');
+    const [manualAwayTeam, setManualAwayTeam] = useState('');
+    const [manualDate, setManualDate] = useState('');
+    const [manualField, setManualField] = useState('Field 1');
+    
     const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
     const { success, error } = useToast();
 
@@ -97,6 +105,29 @@ export function AdminLeagueControl({
             await rescheduleMatch(reschedulingMatch.id, leagueId, newTime, reschedulingMatch.field_name || 'Field 1');
             success('Match rescheduled.');
             setReschedulingMatch(null);
+            onRefresh();
+        } catch (err: any) {
+            error(err.message);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleCreateManualMatch = async () => {
+        if (!manualHomeTeam || !manualAwayTeam || !manualDate) return;
+        if (manualHomeTeam === manualAwayTeam) {
+            error("A team cannot play itself.");
+            return;
+        }
+        setProcessing(true);
+        try {
+            const { createManualMatch } = await import('@/app/actions/league-actions');
+            await createManualMatch(leagueId, manualHomeTeam, manualAwayTeam, manualDate, manualField);
+            success('Manual match created successfully.');
+            setCreatingManualMatch(false);
+            setManualHomeTeam('');
+            setManualAwayTeam('');
+            setManualDate('');
             onRefresh();
         } catch (err: any) {
             error(err.message);
@@ -232,6 +263,55 @@ export function AdminLeagueControl({
                 </div>
             )}
 
+            {/* Manual Match Modal */}
+            {creatingManualMatch && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-pitch-card border border-white/10 p-8 rounded-lg max-w-md w-full space-y-6 shadow-2xl">
+                        <h3 className="text-xl font-bold uppercase italic text-white">+ Manual Match</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Home Team</label>
+                                <select className="w-full bg-black border border-white/20 p-3 rounded text-white outline-none focus:border-pitch-accent transition-colors" value={manualHomeTeam} onChange={(e) => setManualHomeTeam(e.target.value)}>
+                                    <option value="">Select Home Team</option>
+                                    {teams.map(t => <option key={`home-${t.id || t.name}`} value={t.name}>{t.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Away Team</label>
+                                <select className="w-full bg-black border border-white/20 p-3 rounded text-white outline-none focus:border-pitch-accent transition-colors" value={manualAwayTeam} onChange={(e) => setManualAwayTeam(e.target.value)}>
+                                    <option value="">Select Away Team</option>
+                                    {teams.map(t => <option key={`away-${t.id || t.name}`} value={t.name}>{t.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Start Time</label>
+                                <input 
+                                    type="datetime-local" 
+                                    className="w-full bg-black border border-white/20 p-3 rounded text-white outline-none focus:border-pitch-accent transition-colors"
+                                    value={manualDate}
+                                    onChange={(e) => setManualDate(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-4">
+                            <button 
+                                onClick={() => setCreatingManualMatch(false)}
+                                className="flex-1 px-6 py-3 border border-white/10 text-white font-bold uppercase tracking-widest text-[10px] hover:bg-white/5 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleCreateManualMatch}
+                                disabled={processing || !manualHomeTeam || !manualAwayTeam || !manualDate}
+                                className="flex-1 px-6 py-3 bg-pitch-accent text-black font-bold uppercase tracking-widest text-[10px] hover:bg-white transition-all disabled:opacity-50"
+                            >
+                                {processing ? 'Creating...' : 'Create Match'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Standings / Leaderboard Section */}
             <div className="space-y-6">
                 <div className="flex items-center justify-between border-b border-white/10 pb-4">
@@ -266,16 +346,24 @@ export function AdminLeagueControl({
                     <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-pitch-accent" /> League Schedule
                     </h3>
-                    {matches.length === 0 && (
+                    <div className="flex gap-2">
+                        {matches.length === 0 && (
+                            <button
+                                onClick={handleGenerateSchedule}
+                                disabled={scheduling}
+                                className="px-6 py-2 bg-pitch-accent text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {scheduling ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                                Generate Schedule
+                            </button>
+                        )}
                         <button
-                            onClick={handleGenerateSchedule}
-                            disabled={scheduling}
-                            className="px-6 py-2 bg-pitch-accent text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2"
+                            onClick={() => setCreatingManualMatch(true)}
+                            className="px-6 py-2 border border-white/20 text-white font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all flex items-center gap-2 rounded-sm"
                         >
-                            {scheduling ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                            Generate Schedule
+                            + Manual Match
                         </button>
-                    )}
+                    </div>
                 </div>
 
                 <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden">

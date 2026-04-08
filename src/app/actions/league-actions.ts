@@ -170,3 +170,30 @@ export async function generateLeagueSchedule(leagueId: string, teams: string[], 
     revalidatePath(`/admin/games/${leagueId}`);
     return { success: true, count: matchesToInsert.length };
 }
+
+export async function createManualMatch(leagueId: string, homeTeam: string, awayTeam: string, startTime: string, fieldName: string) {
+    const supabase = await createClient();
+    
+    const { data: league, error: fetchError } = await supabase.from('games').select('facility_id').eq('id', leagueId).single();
+    if (fetchError || !league) throw new Error('League not found.');
+
+    if (league.facility_id) {
+        const overlap = await checkOverlap(supabase, league.facility_id, null, startTime, 60);
+        if (overlap.overlap) {
+            throw new Error(`Facility conflict detected at ${new Date(startTime).toLocaleString()}. Slot is already occupied.`);
+        }
+    }
+
+    const { error } = await supabase.from('matches').insert([{
+        game_id: leagueId,
+        home_team: homeTeam,
+        away_team: awayTeam,
+        start_time: startTime,
+        status: 'scheduled',
+        field_name: fieldName
+    }]);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(`/admin/games/${leagueId}`);
+    return { success: true };
+}
