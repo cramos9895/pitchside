@@ -1,5 +1,6 @@
 'use server';
 
+import { createClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
 
 // Fallback prevents Vercel from crashing the entire route at module load time if env var is missing
@@ -8,6 +9,13 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_fallback', {
 });
 
 export async function createDepositPaymentIntent(amountInCents: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Unauthorized');
+  }
+
   try {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountInCents,
@@ -23,6 +31,13 @@ export async function createDepositPaymentIntent(amountInCents: number) {
 }
 
 export async function createSetupIntent() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Unauthorized');
+  }
+
   try {
     const setupIntent = await stripe.setupIntents.create({
       payment_method_types: ['card'],
