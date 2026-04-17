@@ -4,13 +4,8 @@ import { TournamentLobbyClient } from './TournamentLobbyClient';
 
 export const revalidate = 0; // Dynamic data
 
-interface PageProps {
-    params: {
-        id: string; // The tournament/game id
-    };
-}
-
-export default async function TournamentHub({ params }: PageProps) {
+// Next.js 15 requires params to be a Promise
+export default async function TournamentHub({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient();
     const { id } = await params;
 

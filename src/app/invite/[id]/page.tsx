@@ -4,13 +4,8 @@ import { InviteClient } from './InviteClient';
 
 export const revalidate = 0;
 
-interface PageProps {
-    params: {
-        id: string;
-    }
-}
-
-export default async function InvitePage({ params }: PageProps) {
+// Next.js 15 requires params to be a Promise
+export default async function InvitePage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient();
     const { id: teamId } = await params;
     

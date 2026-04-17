@@ -5,14 +5,8 @@ import { headers } from 'next/headers';
 
 export const revalidate = 0; // Dynamic data
 
-interface PageProps {
-    params: {
-        id: string; // The tournament/league id
-        team_id: string;
-    };
-}
-
-export default async function CaptainCommandCenter({ params }: PageProps) {
+// Next.js 15 requires params to be a Promise
+export default async function CaptainCommandCenter({ params }: { params: Promise<{ id: string; team_id: string }> }) {
     const supabase = await createClient();
     const { id, team_id } = await params;
 

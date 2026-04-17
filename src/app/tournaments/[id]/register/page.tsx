@@ -4,16 +4,11 @@ import { TournamentRegistrationClient } from './TournamentRegistrationClient';
 
 export const revalidate = 0; // Dynamic data
 
-interface PageProps {
-    params: {
-        id: string; 
-    };
-    searchParams: {
-        type?: string;
-    };
-}
-
-export default async function TournamentRegistrationPage({ params, searchParams }: PageProps) {
+// Next.js 15 requires params to be a Promise
+export default async function TournamentRegistrationPage({ params, searchParams }: { 
+    params: Promise<{ id: string }>,
+    searchParams: Promise<{ type?: string }>
+}) {
     const supabase = await createClient();
     const { id } = await params;
     

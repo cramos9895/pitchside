@@ -89,12 +89,6 @@ export function GameDayTab({ registrations, teams, gameId, game, onRefresh }: an
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            {/* DIAGNOSTIC DEBUG RENDER */}
-            <div className="bg-red-500 text-white font-mono text-[10px] uppercase p-1 flex justify-between rounded items-center">
-                <span>[Debug] Type: {game?.payment_collection_type || "UNDEFINED"}</span>
-                <span>T-Cash: {seasonTotalCash} • Regs: {safeRegistrations.length}</span>
-            </div>
-
             {isCashMode ? (
                 <>
                     {/* ESTIMATED REVENUE LEDGER */}
