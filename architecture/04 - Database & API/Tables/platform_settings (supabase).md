@@ -1,28 +1,22 @@
 # 🗄️ Table: platform_settings
 
-**Domain:** #database #financial #governance **Primary Key:** `id` (Integer)
+**Domain:** #database #cms  **Primary Key:** `id` (Int)
 
 ## 📄 Column Definitions
 
-|Column|Type|Description|
-|---|---|---|
-|**id**|`int4`|Primary identity, strictly enforced to `1` (check constraint) to ensure a singleton configuration.|
-|**fee_type**|`text`|The active financial model: `percent`, `fixed`, or `both`.|
-|**fee_percent**|`numeric`|The platform percentage commission (e.g., `5.0` for 5%).|
-|**fee_fixed**|`int4`|Fixed transaction fee stored in **cents** (e.g., `100` for $1.00) for Stripe compatibility.|
-|**updated_at**|`timestamp`|Auto-generated audit trail for the last policy modification.|
-
-## 🔗 Relationships
-
-- **Singleton Logic**: This table has no external foreign key relationships. It acts as a standalone "Switchboard" for global platform policy, consumed by the `[[checkout]]`, `[[processLeaguePayments]]`, and `[[admin-financials]]` actions.
+| Column | Type | Default | Foreign Key | Description |
+|---|---|---|---|---|
+| **id** | `int4` | - | - | Singleton identifier (must be 1). |
+| **fee_type** | `text` | `percent` | - | Calculation: `percent`, `fixed`, `both`. |
+| **fee_percent** | `numeric` | `5.0` | - | Percentage-based service fee. |
+| **fee_fixed** | `integer` | `100` | - | Fixed dollar surcharge (in cents). |
+| **updated_at** | `timestamp` | `now()` | - | Last modification audit. |
 
 ## 🛡️ RLS & Governance
 
-- **Select**: Publicly readable. This is critical for the `[[checkout]]` engine to accurately calculate and display total costs (including platform fees) to participants and captains in real-time.
-- **Update**: Strictly restricted to **Super Admins** or **Master Admins** via `[[admin-financials]]`.
-- **Insert/Delete**: Hard-denied via RLS policies and table constraints. The platform relies on the existence of the unique `id = 1` row; adding rows or removing the singleton would break the global pricing calculations.
-- **Security Bypass**: The `[[admin-financials]]` action uses a `createAdminClient()` to perform updates, ensuring that even if RLS were accidentally modified, only server-side-verified admins could alter the platform's revenue model.
+- **Select**: Publicly readable (unauthenticated).
+- **Update**: Restricted to `master_admin` roles.
 
 ---
 
-**The `platform_settings` table is the platform's "Economic Heart," serving as the high-authority singleton that dictates the global financial ruleset for every transaction across the PitchSide network.**
+**The `platform_settings` table stores global financial constants and operational toggles.**

@@ -1,4 +1,5 @@
 
+// 🏗️ Architecture: [[GameCard.md]]
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { User } from '@supabase/supabase-js';
 import { JoinGameModal } from './JoinGameModal';
 import { LeagueCard } from './public/LeagueCard';
+import { RollingLeagueCard } from './public/RollingLeagueCard';
 import { TournamentCard } from './public/TournamentCard';
 import { cancelBooking } from '@/app/actions/cancel-booking';
 import { EmbeddedCheckoutModal } from './EmbeddedCheckoutModal';
@@ -45,6 +47,22 @@ interface Game {
     roster_lock_date: string | null;
     regular_season_start: string | null;
     playoff_start_date: string | null;
+    
+    // NEW Architecture Columns (Rolling Leagues & Registration)
+    league_format?: 'structured' | 'rolling';
+    payment_collection_type?: 'stripe' | 'cash';
+    shoe_types?: string[];
+    team_registration_fee?: number | null;
+    player_registration_fee?: number | null;
+    cash_fee_structure?: 'per_match' | 'upfront' | null;
+    cash_amount?: number | null;
+    strict_waiver_required?: boolean;
+    waiver_details?: string | null;
+    field_size?: string | null;
+    total_game_time?: string | null;
+    allow_free_agents?: boolean;
+    team_signup_cutoff?: string | null;
+    league_end_date?: string | null;
 }
 
 interface GameCardProps {
@@ -53,9 +71,10 @@ interface GameCardProps {
     bookingStatus?: string; // 'paid', 'waitlist', 'active'
     hasUnreadMessages?: boolean;
     bookingId?: string; // Add bookingId here
+    tournamentRegistrations?: any[];
 }
 
-export function GameCard({ game, user, bookingStatus, hasUnreadMessages, bookingId }: GameCardProps) {
+export function GameCard({ game, user, bookingStatus, hasUnreadMessages, bookingId, tournamentRegistrations }: GameCardProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [joined, setJoined] = useState(!!bookingStatus);
@@ -397,13 +416,26 @@ export function GameCard({ game, user, bookingStatus, hasUnreadMessages, booking
     const isLive = !isPastStrict && !isCancelled;
 
     if (game.event_type === 'league') {
-        // We'll need to fetch registrations if we want precise role detection on the card
-        // For now, let's pass a basic version
-        return <LeagueCard league={game} userId={user?.id} />;
+        if ((game as any).league_format === 'rolling') {
+            return <RollingLeagueCard 
+                league={game as any} 
+                userId={user?.id} 
+                registrations={tournamentRegistrations} 
+            />;
+        }
+        return <LeagueCard 
+            league={game} 
+            userId={user?.id} 
+            registrations={tournamentRegistrations} 
+        />;
     }
 
     if (game.event_type === 'tournament') {
-        return <TournamentCard tournament={game} userId={user?.id} />;
+        return <TournamentCard 
+            tournament={game as any} 
+            userId={user?.id} 
+            registrations={tournamentRegistrations} 
+        />;
     }
 
     return (

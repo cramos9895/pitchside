@@ -1,3 +1,4 @@
+// 🏗️ Architecture: [[SignUpForm.md]]
 'use client';
 
 import { useState, Suspense } from 'react';

@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminLeagueControl } from '@/components/admin/AdminLeagueControl';
+import { AdminRollingManager } from '@/components/admin/rolling/AdminRollingManager';
 import { ManualAddPlayerModal } from '@/components/admin/ManualAddPlayerModal';
 
 interface Booking {
@@ -44,6 +45,8 @@ interface Booking {
     }[] | null;
     status: string; // Add status explicitly to interface
     has_signed?: boolean;
+    total_cash_collected?: number;
+    cash_paid_current_round?: boolean;
 }
 
 import { TeamManager } from '@/components/admin/TeamManager';
@@ -84,6 +87,13 @@ interface Game {
     timer_duration?: number;
     timer_status?: 'stopped' | 'running' | 'paused';
     timer_started_at?: string | null;
+    league_format?: string;
+    team_registration_fee?: number | null;
+    player_registration_fee?: number | null;
+    payment_collection_type?: string | null;
+    cash_amount?: number | null;
+    ref_fee_per_game?: number | null;
+    weekly_field_rental_cost?: number | null;
 }
 
 interface Match {
@@ -139,6 +149,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [game, setGame] = useState<Game | null>(null);
     const [matches, setMatches] = useState<Match[]>([]);
+    const [rollingTeams, setRollingTeams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [finalizing, setFinalizing] = useState(false);
 
@@ -218,6 +229,102 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         }
     }
 
+    // Standalone re-fetch for bookings, registrations, teams, AND the game object
+    // Called by onRefresh so all tabs (Game Day, Squads, Financials) show live data
+    const fetchRegistrations = async () => {
+        try {
+            // Re-fetch the game object to pick up settings changes (ref fees, field rental, etc.)
+            const { data: freshGame } = await supabase
+                .from('games')
+                .select('*, teams_config, payment_collection_type, player_registration_fee, team_registration_fee, cash_amount, ref_fee_per_game, weekly_field_rental_cost')
+                .eq('id', gameId)
+                .single();
+            if (freshGame) setGame(freshGame);
+
+            const currentGame = freshGame || game;
+            if (!currentGame) return;
+
+            if (currentGame.event_type === 'tournament' || currentGame.event_type === 'league') {
+                // Re-fetch rolling teams
+                const { data: dbTeams } = await supabase
+                    .from('teams')
+                    .select('*')
+                    .eq('game_id', gameId);
+                if (dbTeams) setRollingTeams(dbTeams);
+
+                // Re-fetch registrations
+                const { data: regData } = await supabase
+                    .from('tournament_registrations')
+                    .select('*')
+                    .eq('game_id', gameId);
+
+                if (regData && regData.length > 0) {
+                    const userIds = regData.map((r: any) => r.user_id);
+                    const teamIds = regData.map((r: any) => r.team_id).filter(Boolean);
+
+                    const [profilesRes, teamsRes] = await Promise.all([
+                        userIds.length > 0
+                            ? supabase.from('profiles').select('email, full_name, id, avatar_url').in('id', userIds)
+                            : Promise.resolve({ data: [] as any[], error: null }),
+                        teamIds.length > 0
+                            ? supabase.from('teams').select('id, name, captain_id').in('id', teamIds)
+                            : Promise.resolve({ data: [] as any[], error: null })
+                    ]);
+
+                    const finalBookings = regData.map((r: any) => {
+                        const profile = profilesRes.data?.find((p: any) => p.id === r.user_id);
+                        const team = teamsRes.data?.find((t: any) => t.id === r.team_id);
+                        return {
+                            id: r.id || `reg_${r.user_id}`,
+                            user_id: r.user_id,
+                            team_id: r.team_id,
+                            role: r.role,
+                            team_assignment: team?.name || 'Unassigned',
+                            team_color: r.team_color,
+                            has_signed: r.has_signed,
+                            checked_in: r.checked_in,
+                            status: r.status === 'registered' ? 'paid' : r.status,
+                            payment_status: r.payment_status || 'verified',
+                            payment_amount: 0,
+                            payment_error: r.payment_error,
+                            total_cash_collected: r.total_cash_collected,
+                            cash_paid_current_round: r.cash_paid_current_round,
+                            profiles: profile || null,
+                            teams: team ? { name: team.name } : null,
+                            created_at: r.created_at
+                        };
+                    });
+
+                    // Waiver enrichment
+                    let signedIds = new Set<string>();
+                    if (currentGame.facility_id && finalBookings.length > 0) {
+                        const waiverUserIds = finalBookings.map((b: any) => b.user_id);
+                        const { data: waiverData } = await supabase
+                            .from('waiver_signatures')
+                            .select('user_id')
+                            .eq('facility_id', currentGame.facility_id)
+                            .in('user_id', waiverUserIds);
+                        signedIds = new Set(waiverData?.map((w: any) => w.user_id) || []);
+                    }
+
+                    setBookings(finalBookings.map((b: any) => ({ ...b, has_signed: signedIds.has(b.user_id) })) as any);
+                } else {
+                    setBookings([]);
+                }
+            } else {
+                // Standard pickup bookings re-fetch
+                const { data: bookingsData } = await supabase
+                    .from('bookings')
+                    .select('*, profiles!bookings_user_id_fkey(email, full_name, id, avatar_url)')
+                    .eq('game_id', gameId)
+                    .order('created_at', { ascending: true });
+                setBookings((bookingsData || []) as any);
+            }
+        } catch (err) {
+            console.error('Error refreshing registrations:', err);
+        }
+    };
+
     const [voteTally, setVoteTally] = useState<Record<string, number>>({});
 
     const handleViewModeChange = async (mode: 'single' | 'king' | 'tournament') => {
@@ -233,7 +340,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                 // Fetch Game
                 const { data: gameData, error: gameError } = await supabase
                     .from('games')
-                    .select('*, teams_config')
+                    .select('*, teams_config, payment_collection_type, player_registration_fee, team_registration_fee, cash_amount, ref_fee_per_game, weekly_field_rental_cost')
                     .eq('id', gameId)
                     .single();
 
@@ -275,6 +382,16 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                 let finalBookings: any[] = [];
                 
                 if (fetchedGame?.event_type === 'tournament' || fetchedGame?.event_type === 'league') {
+                    // Fetch relational teams for rolling leagues natively
+                    const { data: dbTeams, error: dbTeamsErr } = await supabase
+                        .from('teams')
+                        .select('*')
+                        .eq('game_id', gameId);
+                    
+                    if (!dbTeamsErr && dbTeams) {
+                        setRollingTeams(dbTeams);
+                    }
+
                     // 1. Fetch Registrations
                     const { data: regData, error: regError } = await supabase
                         .from('tournament_registrations')
@@ -282,7 +399,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         .eq('game_id', gameId);
                         
                     if (regError) {
-                        console.error("[CRITICAL] Failed to fetch tournament_registrations:", regError);
+                        console.error("[CRITICAL] Failed to fetch tournament_registrations:", regError.message || regError);
                     }
 
                     if (regData && regData.length > 0) {
@@ -323,6 +440,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 payment_status: r.payment_status || 'verified',
                                 payment_amount: 0,
                                 payment_error: r.payment_error,
+                                total_cash_collected: r.total_cash_collected,
+                                cash_paid_current_round: r.cash_paid_current_round,
                                 profiles: profile || null,
                                 teams: team ? { name: team.name } : null,
                                 created_at: r.created_at
@@ -560,8 +679,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
     // Default teams if none config (fallback)
     const teams = game.teams_config || [
-        { name: 'Team A', color: 'Neon Orange' },
-        { name: 'Team B', color: 'White' }
+        { id: 'team-a', name: 'Team A', color: 'Neon Orange' },
+        { id: 'team-b', name: 'Team B', color: 'White' }
     ];
 
     // Split Bookings Strict
@@ -844,7 +963,29 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         );
     }
 
-    if (game.event_type === 'league') {
+    if (game.event_type === 'league' && game.league_format === 'rolling') {
+        return (
+            <div className="min-h-screen bg-pitch-black text-white font-sans overflow-x-hidden pb-40">
+                <AdminRollingManager 
+                    gameId={gameId}
+                    leagueTitle={game.title}
+                    rosterFreezeDate={game.roster_freeze_date || null}
+                    registrations={bookings}
+                    matches={matches}
+                    teams={rollingTeams}
+                    facilityId={game.facility_id || ''}
+                    game={game}
+                    startDate={game.start_time}
+                    isLeagueCompleted={game.status === 'completed'}
+                    onRefresh={async () => {
+                        await Promise.all([fetchMatches(), fetchRegistrations()]);
+                    }}
+                />
+            </div>
+        );
+    }
+
+    if (game.event_type === 'league' && game.league_format !== 'rolling') {
         return (
             <div className="min-h-screen bg-pitch-black text-white p-6 pt-8 font-sans overflow-x-hidden pb-40">
                 <div className="max-w-7xl mx-auto">

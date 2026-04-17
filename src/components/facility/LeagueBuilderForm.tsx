@@ -35,6 +35,7 @@ export function LeagueBuilderForm({ activityTypes, resources, action, initialDat
 
     const [hasPlayoffs, setHasPlayoffs] = useState<boolean>(initialData?.has_playoffs || false);
     const [playoffSpots, setPlayoffSpots] = useState<string>(initialData?.playoff_spots?.toString() || '4');
+    const [leagueFormat, setLeagueFormat] = useState<'structured' | 'rolling'>(initialData?.league_format || 'structured');
 
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -156,6 +157,34 @@ export function LeagueBuilderForm({ activityTypes, resources, action, initialDat
                         <Trophy className="w-5 h-5 text-pitch-accent" />
                         Core Information
                     </h2>
+
+                    <input type="hidden" name="league_format" value={leagueFormat} />
+                    <div className="flex flex-col md:flex-row gap-4 mb-4">
+                        <button
+                            type="button"
+                            onClick={() => setLeagueFormat('structured')}
+                            className={`flex-1 p-4 rounded-sm border transition-all text-left ${
+                                leagueFormat === 'structured' 
+                                ? 'bg-pitch-accent/10 border-pitch-accent text-pitch-accent' 
+                                : 'bg-black/50 border-white/10 text-gray-400 hover:text-white'
+                            }`}
+                        >
+                            <div className="font-bold uppercase tracking-wider text-sm mb-1">Structured Season</div>
+                            <div className="text-xs opacity-70">Fixed schedule with defined end dates and playoffs.</div>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setLeagueFormat('rolling')}
+                            className={`flex-1 p-4 rounded-sm border transition-all text-left ${
+                                leagueFormat === 'rolling' 
+                                ? 'bg-[#cbff00]/10 border-[#cbff00] text-[#cbff00]' 
+                                : 'bg-black/50 border-white/10 text-gray-400 hover:text-white'
+                            }`}
+                        >
+                            <div className="font-bold uppercase tracking-wider text-sm mb-1">Rolling / Flexible</div>
+                            <div className="text-xs opacity-70">Open-ended schedule with ongoing matchmaking.</div>
+                        </button>
+                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
@@ -325,7 +354,7 @@ export function LeagueBuilderForm({ activityTypes, resources, action, initialDat
                                 name="max_teams"
                                 min="2"
                                 defaultValue={initialData?.max_teams}
-                                placeholder="e.g. 8"
+                                placeholder={leagueFormat === 'rolling' ? "Infinite (Optional)" : "e.g. 8"}
                                 className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
                             />
                         </div>
@@ -404,17 +433,19 @@ export function LeagueBuilderForm({ activityTypes, resources, action, initialDat
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold uppercase tracking-wider text-gray-400">Target End Date</label>
-                                <input
-                                    type="date"
-                                    id="end_date"
-                                    name="end_date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent transition-colors cursor-pointer"
-                                />
-                            </div>
+                            {leagueFormat === 'structured' && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold uppercase tracking-wider text-gray-400">Target End Date</label>
+                                    <input
+                                        type="date"
+                                        id="end_date"
+                                        name="end_date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent transition-colors cursor-pointer"
+                                    />
+                                </div>
+                            )}
 
                             {/* Time Boundary Configuration */}
                             <div className="pt-4 border-t border-white/5 grid grid-cols-2 gap-4">
@@ -443,16 +474,17 @@ export function LeagueBuilderForm({ activityTypes, resources, action, initialDat
                             </div>
 
                             {/* Playoff Configuration */}
-                            <div className="pt-4 border-t border-white/5 space-y-4">
-                                <label className="flex items-center gap-3 cursor-pointer group w-max">
-                                    <div className="relative flex items-center justify-center">
-                                        <input
-                                            type="checkbox"
-                                            name="has_playoffs"
-                                            checked={hasPlayoffs}
-                                            onChange={(e) => setHasPlayoffs(e.target.checked)}
-                                            className="sr-only"
-                                        />
+                            {leagueFormat === 'structured' && (
+                                <div className="pt-4 border-t border-white/5 space-y-4">
+                                    <label className="flex items-center gap-3 cursor-pointer group w-max">
+                                        <div className="relative flex items-center justify-center">
+                                            <input
+                                                type="checkbox"
+                                                name="has_playoffs"
+                                                checked={hasPlayoffs}
+                                                onChange={(e) => setHasPlayoffs(e.target.checked)}
+                                                className="sr-only"
+                                            />
                                         <div className={`w-6 h-6 border-2 rounded-sm transition-all flex items-center justify-center ${hasPlayoffs ? 'bg-pitch-accent border-pitch-accent' : 'bg-black/50 border-white/20 group-hover:border-white/40'}`}>
                                             {hasPlayoffs && (
                                                 <svg className="w-4 h-4 text-pitch-black font-bold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -481,9 +513,19 @@ export function LeagueBuilderForm({ activityTypes, resources, action, initialDat
                                     </div>
                                 )}
                             </div>
+                        )}
                         </div>
 
                         {/* MOCK SCHEDULE RENDERER */}
+                        {leagueFormat === 'rolling' ? (
+                            <div className="bg-[#cbff00]/5 border border-[#cbff00]/20 rounded-lg p-6 flex flex-col h-full items-center justify-center text-center space-y-4">
+                                <CalendarCheck2 className="w-12 h-12 text-[#cbff00] opacity-50" />
+                                <h3 className="text-lg font-bold uppercase tracking-widest text-[#cbff00]">Rolling Schedule</h3>
+                                <p className="text-sm text-gray-400 max-w-xs">
+                                    Matches will be generated logically without a strict end date. Admins trigger new rounds weekly.
+                                </p>
+                            </div>
+                        ) : (
                         <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-6 flex flex-col h-full">
                             <h3 className="text-sm font-bold uppercase tracking-widest text-blue-400 mb-6 border-b border-blue-500/20 pb-2 flex items-center gap-2">
                                 <CalendarCheck2 className="w-4 h-4" />
@@ -549,6 +591,7 @@ export function LeagueBuilderForm({ activityTypes, resources, action, initialDat
                                 </div>
                             )}
                         </div>
+                        )}
                     </div>
                 </div>
 

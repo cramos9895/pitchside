@@ -1,5 +1,7 @@
 'use server';
 
+import { isLeagueLocked } from '@/lib/league-utils';
+
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -31,16 +33,30 @@ export async function acceptTeamInvite({
         throw new Error("You must accept the liability waiver.");
     }
 
-    // 1. Dual-Role Check (Same as registerTournamentTeam)
-    const { data: existingReg } = await supabase
+    // 0. System Lock Check (MUST occur before any action)
+    const { data: gameInfo } = await supabase
+        .from('games')
+        .select('accepting_registrations, registration_cutoff, roster_lock_date')
+        .eq('id', tournamentId)
+        .single();
+    
+    if (gameInfo && isLeagueLocked(gameInfo)) {
+        throw new Error("This league is locked. Registration and team joins are closed.");
+    }
+
+    // 1. Dual-Participation Check (Improved for Re-joining)
+    // We only block if they have an ACTIVE registration. 
+    // If they were 'cancelled', we allow the UPSERT to overwrite it.
+    const { data: activeReg } = await supabase
         .from('tournament_registrations')
-        .select('id')
+        .select('id, status')
         .eq('user_id', user.id)
         .or(`game_id.eq.${tournamentId},league_id.eq.${tournamentId}`)
-        .single();
+        .neq('status', 'cancelled')
+        .maybeSingle();
 
-    if (existingReg) {
-        throw new Error("You are already registered for this tournament/league.");
+    if (activeReg) {
+        throw new Error("You are already an active participant in this tournament/league.");
     }
 
     // 2. Stripe Validation (if split-pay)
@@ -59,10 +75,10 @@ export async function acceptTeamInvite({
     }
 
     // 3. Determine if Game or League
-    const { data: gameCheck } = await supabase.from('games').select('id').eq('id', tournamentId).single();
+    const { data: gameCheck } = await supabase.from('games').select('id').eq('id', tournamentId).maybeSingle();
     const isGame = !!gameCheck;
 
-    // 4. Register Player
+    // 4. Register Player (Strict UPSERT logic)
     const regPayload: any = {
         user_id: user.id,
         team_id: teamId,
@@ -78,9 +94,18 @@ export async function acceptTeamInvite({
         regPayload.league_id = tournamentId;
     }
 
+    // Use Upsert with onConflict to handle re-registrations gracefully
     const { error: regError } = await supabase
         .from('tournament_registrations')
-        .insert([regPayload]);
+        .upsert(regPayload, { 
+            onConflict: isGame ? 'game_id,user_id' : 'league_id,user_id',
+            ignoreDuplicates: false 
+        });
+
+    if (regError) {
+        console.error("Invite Registration Error:", regError);
+        throw new Error("Failed to join team roster. You may already be registered.");
+    }
 
     if (regError) {
         console.error("Invite Registration Error:", regError);

@@ -1,40 +1,43 @@
 # 🗄️ Table: profiles
 
-**Domain:** #database #identity #financial **Primary Key:** `id` (UUID) - 🔗 Linked to `auth.users.id`
+**Domain:** #database #identity  **Primary Key:** `id` (UUID)
 
 ## 📄 Column Definitions
 
-|Column|Type|Description|
-|---|---|---|
-|**id**|`uuid`|Primary unique identifier (Auth-synced).|
-|**full_name**|`text`|The player's legal name used for rosters and waivers.|
-|**username**|`text`|Public handle for leaderboards and social feeds.|
-|**email**|`text`|Primary transactional contact (Sync with Auth).|
-|**phone**|`text`|Contact number for SMS notifications and verify.|
-|**role**|`text`|Local platform role: `user`, `host`, `admin`, `master_admin`.|
-|**system_role**|`text`|Elevated systemic access: `super_admin`, `facility_admin`.|
-|**facility_id**|`uuid`|(FK) Operational link for `host` or `facility_admin` accounts.|
-|**credit_balance**|`int4`|Player's "Pitchside Wallet" balance (expressed in cents).|
-|**free_game_credits**|`int4`|Bucket for MVP rewards redeemable via `[[/api/join-with-credit]]`.|
-|**mvp_awards**|`int4`|Lifetime counter incremented via `[[src/app/actions/finalize-game.ts]]`.|
-|**stripe_customer_id**|`text`|Reference to the Stripe customer profile.|
-|**skill_level**|`text`|Player classification: `Beginner`, `Intermediate`, `Advanced`.|
-|**is_banned**|`boolean`|Platform suspension flag.|
-|**banned_until**|`timestamp`|Expiration date for temporary platform suspensions.|
-|**avatar_url**|`text`|Public link to the player's profile image.|
+| Column | Type | Default | Foreign Key | Description |
+|---|---|---|---|---|
+| **id** | `uuid` | - | `auth.users.id` | Link to the internal Supabase Auth record. |
+| **email** | `text` | - | - | User's login email address. |
+| **full_name** | `text` | - | - | Public display name. |
+| **avatar_url** | `text` | - | - | Managed asset link for profile photos. |
+| **role** | `text` | `player` | - | Player role: `player`, `admin`, `master_admin`. |
+| **system_role** | `text` | `player` | - | Backend role: `player`, `facility_admin`, `super_admin`. |
+| **verification_status** | `text` | `verified` | - | Status: `verified`, `pending`, `rejected`. |
+| **credit_balance** | `int4` | `0` | - | User's internal wallet balance (cents). |
+| **free_game_credits** | `int4` | `0` | - | Available free-play MVP rewards. |
+| **is_free_agent** | `boolean` | `false` | - | Visible to captains for recruitment. |
+| **facility_id** | `uuid` | - | `facilities.id` | The venue managed by this profile (Staff only). |
+| **stripe_customer_id** | `text` | - | - | Secure reference for external payments. |
+| **zip_code** | `text` | - | - | Location context for local match discovery. |
+| **is_banned** | `boolean` | `false` | - | Global platform exclusion flag. |
+| **ban_reason** | `text` | - | - | Administrative justification for ban. |
+| **updated_at** | `timestamp` | - | - | Last modification audit. |
 
 ## 🔗 Relationships
 
-- **belongs_to** facilities (`facility_id`) - For administrative context.
-- **has_many** bookings (via `user_id`)
-- **has_many** bookings (via `buyer_id`) - Linking purchases.
+| Relation | Table | Key | Description |
+|---|---|---|---|
+| **belongs_to** | `auth.users` | `id` | Core identity provider. |
+| **belongs_to** | [[facilities (supabase).md]] | `facility_id` | Managing venue (Admin only). |
+| **has_many** | [[bookings (supabase).md]] | `user_id` | Player registration history. |
+| **has_many** | [[teams (supabase).md]] | `captain_id` | Teams led by this user. |
 
 ## 🛡️ RLS & Governance
 
-- **Select**: Publicly readable for identification; sensitive fields (`credit_balance`) restricted to the profile owner or a Super Admin.
-- **Update**: Restricted to the profile owner (`auth.uid() = id`) for personal PII; restricted to Super Admins for roles and balances.
-- **Triggered logic**: `mvp_awards` and `free_game_credits` are atomically updated by the platform's game lifecycle engine.
+- **Select**: Publicly readable for identification; sensitive balance fields restricted to owner or `master_admin`.
+- **Update**: Restricted to the specific user (`id = auth.uid()`) or an administrative bypass.
+- **Triggers**: Credits are automatically managed by the finalization engine.
 
 ---
 
-**The `profiles` table is the "Identity Hub" of PitchSide, mathematically linking user authentication to financial wallets, competitive stats, and administrative permissions.**
+**The `profiles` table is the "Identity Hub" of PitchSide, linking authentication to financial wallets, competitive stats, and permissions.**

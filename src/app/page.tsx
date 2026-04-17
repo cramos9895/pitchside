@@ -1,3 +1,4 @@
+// 🏗️ Architecture: [[Home Page.md]]
 import Link from 'next/link';
 import { ArrowRight, Star, Quote, CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -37,6 +38,10 @@ interface Game {
     roster_lock_date: string | null;
     regular_season_start: string | null;
     playoff_start_date: string | null;
+
+    // Architecture Columns
+    league_format?: 'structured' | 'rolling';
+    payment_collection_type?: 'stripe' | 'cash';
 }
 
 export const revalidate = 0; // Ensure fresh data on every request
@@ -65,34 +70,35 @@ export default async function Home() {
   let joinedGameIds: string[] = [];
   const bookingStatusMap = new Map<string, string>();
   const bookingIdMap = new Map<string, string>();
-  const userTeamRoles = new Map<string, string>();
-  const userTeamIds = new Map<string, string>();
+  const userRegistrationsMap = new Map<string, any[]>();
 
   if (user) {
-    const { data: bookings } = await supabase
-      .from('bookings')
-      .select('id, game_id, status')
-      .eq('user_id', user.id)
-      .neq('status', 'cancelled');
+    const [bookingsRes, regsRes] = await Promise.all([
+      supabase
+        .from('bookings')
+        .select('id, game_id, status')
+        .eq('user_id', user.id)
+        .neq('status', 'cancelled'),
+      supabase
+        .from('tournament_registrations')
+        .select('game_id, role, team_id, user_id')
+        .eq('user_id', user.id)
+    ]);
 
-    if (bookings) {
-      bookings.forEach((b: any) => {
-        joinedGameIds.push(b.game_id);
+    if (bookingsRes.data) {
+      bookingsRes.data.forEach((b: any) => {
         bookingStatusMap.set(b.game_id, b.status);
         bookingIdMap.set(b.game_id, b.id);
       });
     }
 
-    const { data: regs } = await supabase
-      .from('tournament_registrations')
-      .select('game_id, role, team_id')
-      .eq('user_id', user.id);
-
-    if (regs) {
-      regs.forEach((r: any) => {
+    if (regsRes.data) {
+      regsRes.data.forEach((r: any) => {
         if (r.game_id) {
-          userTeamRoles.set(r.game_id, r.role);
-          userTeamIds.set(r.game_id, r.team_id);
+          if (!userRegistrationsMap.has(r.game_id)) {
+            userRegistrationsMap.set(r.game_id, []);
+          }
+          userRegistrationsMap.get(r.game_id)!.push(r);
         }
       });
     }
@@ -240,42 +246,9 @@ export default async function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {games.map((game: Game) => {
-                const isTournament = game.event_type === 'tournament';
-                const isLeague = game.event_type === 'league' || game.is_league === true;
-
-                if (isTournament) {
-                  // Reconstruct the registrations array for this specific tournament
-                  const thisTournamentRegs = [];
-                  const userRole = userTeamRoles.get(game.id);
-                  const userTeamId = userTeamIds.get(game.id);
-                  if (userRole && user) {
-                    thisTournamentRegs.push({
-                      user_id: user.id,
-                      role: userRole,
-                      team_id: userTeamId || null
-                    });
-                  }
-
-                  return (
-                    <TournamentCard 
-                      key={game.id} 
-                      tournament={game as any} 
-                      userId={user?.id}
-                      registrations={thisTournamentRegs}
-                    />
-                  );
-                }
-
-                if (isLeague) {
-                  return (
-                    <LeagueCard 
-                      key={game.id} 
-                      league={game as any} 
-                      userId={user?.id}
-                    />
-                  );
-                }
+              {games.map((game: any) => {
+                // Fetch the registrations for this specific game
+                const registrations = userRegistrationsMap.get(game.id) || [];
 
                 return (
                   <GameCard
@@ -284,6 +257,7 @@ export default async function Home() {
                     user={user}
                     bookingStatus={bookingStatusMap.get(game.id)}
                     bookingId={bookingIdMap.get(game.id)}
+                    tournamentRegistrations={registrations}
                   />
                 );
               })}

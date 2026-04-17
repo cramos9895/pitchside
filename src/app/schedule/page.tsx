@@ -38,25 +38,14 @@ interface Game {
     roster_lock_date: string | null;
     regular_season_start: string | null;
     playoff_start_date: string | null;
+    
+    // Architecture Columns
+    league_format?: 'structured' | 'rolling';
+    payment_collection_type?: 'stripe' | 'cash';
 }
 
-interface League {
-    id: string;
-    title: string;
-    location: string;
-    location_nickname?: string;
-    start_time: string | null;
-    end_time: string | null;
-    team_price: number | null;
-    free_agent_price: number | null;
-    max_teams: number | null;
-    prize_type: string | null;
-    prize_pool_percentage: number | null;
-    fixed_prize_amount: number | null;
-    reward: string | null;
-    roster_lock_date: string | null;
-    regular_season_start: string | null;
-    playoff_start_date: string | null;
+interface League extends Game {
+    start_date?: string; // Legacy leagues use start_date
 }
 
 export const revalidate = 0; // Ensure fresh data
@@ -79,18 +68,36 @@ export default async function SchedulePage({
     const { data: { user } } = await supabase.auth.getUser();
     const bookingStatusMap = new Map<string, string>();
     const bookingIdMap = new Map<string, string>();
+    const userRegistrationsMap = new Map<string, any[]>();
 
     if (user) {
-        const { data: bookings } = await supabase
-            .from('bookings')
-            .select('id, game_id, status')
-            .eq('user_id', user.id)
-            .neq('status', 'cancelled');
+        const [bookingsRes, regsRes] = await Promise.all([
+            supabase
+                .from('bookings')
+                .select('id, game_id, status')
+                .eq('user_id', user.id)
+                .neq('status', 'cancelled'),
+            supabase
+                .from('tournament_registrations')
+                .select('game_id, role, team_id, user_id')
+                .eq('user_id', user.id)
+        ]);
 
-        if (bookings) {
-            bookings.forEach((b: any) => {
+        if (bookingsRes.data) {
+            bookingsRes.data.forEach((b: any) => {
                 bookingStatusMap.set(b.game_id, b.status);
                 bookingIdMap.set(b.game_id, b.id);
+            });
+        }
+
+        if (regsRes.data) {
+            regsRes.data.forEach((r: any) => {
+                if (r.game_id) {
+                    if (!userRegistrationsMap.has(r.game_id)) {
+                        userRegistrationsMap.set(r.game_id, []);
+                    }
+                    userRegistrationsMap.get(r.game_id)!.push(r);
+                }
             });
         }
     }
@@ -231,7 +238,19 @@ export default async function SchedulePage({
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {leagues?.map((league: any) => (
-                                    <LeagueCard key={league.id} league={league} userId={user?.id} />
+                                    <GameCard 
+                                        key={league.id} 
+                                        game={{
+                                            ...league,
+                                            // Ensure legacy leagues are identified as leagues
+                                            event_type: league.event_type || 'league',
+                                            start_time: league.start_time || league.start_date
+                                        }} 
+                                        user={user}
+                                        bookingStatus={bookingStatusMap.get(league.id)}
+                                        bookingId={bookingIdMap.get(league.id)}
+                                        tournamentRegistrations={userRegistrationsMap.get(league.id) || league.tournament_registrations}
+                                    />
                                 ))}
                             </div>
                             {(!leagues || leagues.length === 0) && activeView === 'leagues' && (
@@ -252,11 +271,11 @@ export default async function SchedulePage({
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {tournaments?.map((tournament: any) => (
-                                    <TournamentCard 
+                                    <GameCard 
                                         key={tournament.id} 
-                                        tournament={tournament} 
-                                        userId={user?.id}
-                                        registrations={tournament.tournament_registrations} 
+                                        game={tournament} 
+                                        user={user}
+                                        tournamentRegistrations={userRegistrationsMap.get(tournament.id) || tournament.tournament_registrations} 
                                     />
                                 ))}
                             </div>
@@ -293,6 +312,7 @@ export default async function SchedulePage({
                                                     user={user}
                                                     bookingStatus={bookingStatusMap.get(game.id)}
                                                     bookingId={bookingIdMap.get(game.id)}
+                                                    tournamentRegistrations={userRegistrationsMap.get(game.id)}
                                                 />
                                             ))}
                                         </div>

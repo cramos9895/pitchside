@@ -4,18 +4,24 @@ import Link from 'next/link';
 import { ArrowLeft, Trophy, Users, AlertTriangle } from 'lucide-react';
 import { LeagueRegistrationForm } from '@/components/public/LeagueRegistrationForm';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function LeagueRegistrationPage({
     params,
     searchParams
 }: {
     params: { id: string },
-    searchParams: { type?: string }
+    searchParams: { type?: string; role?: string }
 }) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
+    // Map role to type if type is missing
+    const registrationType = searchParams?.type || (searchParams?.role === 'free_agent' ? 'free_agent' : 'team');
+
     if (!user) {
-        redirect(`/login?redirect=/leagues/${params.id}/register?type=${searchParams?.type || 'team'}`);
+        redirect(`/login?redirect=/leagues/${params.id}/register?type=${registrationType}`);
     }
 
     const type = searchParams?.type === 'free_agent' ? 'free_agent' : 'team';
@@ -23,7 +29,26 @@ export default async function LeagueRegistrationPage({
     // Fetch league info from 'leagues' table
     const { data: leagueData, error: leagueError } = await supabase
         .from('leagues')
-        .select('*')
+        .select(`
+            id, 
+            name, 
+            description,
+            format, 
+            match_day, 
+            registration_cutoff, 
+            status,
+            price_per_team,
+            team_price,
+            price,
+            price_per_free_agent,
+            free_agent_price,
+            player_registration_fee,
+            payment_collection_type,
+            cash_fee_structure,
+            cash_amount,
+            strict_waiver_required,
+            waiver_details
+        `)
         .eq('id', params.id)
         .single();
 
@@ -33,7 +58,23 @@ export default async function LeagueRegistrationPage({
     if (!league) {
         const { data: gameData } = await supabase
             .from('games')
-            .select('*')
+            .select(`
+                id, 
+                title, 
+                description,
+                game_format, 
+                match_style, 
+                registration_cutoff:roster_lock_date, 
+                status,
+                team_price,
+                free_agent_price,
+                player_registration_fee,
+                payment_collection_type,
+                cash_fee_structure,
+                cash_amount,
+                strict_waiver_required,
+                waiver_details
+            `)
             .eq('id', params.id)
             .eq('event_type', 'league')
             .single();

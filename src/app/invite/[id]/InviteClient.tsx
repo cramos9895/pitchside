@@ -21,9 +21,28 @@ interface InviteClientProps {
     captainName: string;
     minPlayers: number;
     maxPlayers: number;
+    paymentCollectionType: string;
+    playerRegistrationFee: number;
+    perGameFee: number;
+    waiverDetails?: string;
 }
 
-export function InviteClient({ teamId, teamName, tournamentId, tournamentName, totalFee, rosterCount, isFullPay, captainName, minPlayers, maxPlayers }: InviteClientProps) {
+export function InviteClient({ 
+    teamId, 
+    teamName, 
+    tournamentId, 
+    tournamentName, 
+    totalFee, 
+    rosterCount, 
+    isFullPay, 
+    captainName, 
+    minPlayers, 
+    maxPlayers,
+    paymentCollectionType,
+    playerRegistrationFee,
+    perGameFee,
+    waiverDetails
+}: InviteClientProps) {
     const router = useRouter();
     const [waiverAccepted, setWaiverAccepted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,7 +87,7 @@ export function InviteClient({ teamId, teamName, tournamentId, tournamentName, t
                 <div className="mb-8 border-b border-white/10 pb-6 uppercase">
                     <div className="flex items-center gap-3 text-pitch-accent mb-2">
                         <Trophy className="w-5 h-5" />
-                        <span className="text-[10px] font-black tracking-[0.2em]">Official Invitation</span>
+                        <span className="text-[10px] font-black tracking-[0.2em]">Official Team Invitation</span>
                     </div>
                     <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter text-white leading-[0.85] mb-4">
                         Join {teamName}
@@ -87,37 +106,69 @@ export function InviteClient({ teamId, teamName, tournamentId, tournamentName, t
 
                 <div className="space-y-8">
                     {/* The Notice */}
-                    <div className="p-6 bg-white/5 rounded-xl border border-white/5 space-y-4">
+                     <div className="p-6 bg-white/5 rounded-xl border border-white/5 space-y-4">
                         <div className="flex items-center gap-3 text-white">
                             <Info className="w-5 h-5 text-pitch-accent" />
                             <span className="font-black uppercase tracking-widest text-sm">Team Roster Guidelines</span>
                         </div>
-                        <p className="text-gray-400 text-sm font-medium leading-relaxed">
-                            {isFullPay 
-                                ? "Your captain has covered the team entry fee in full. You can join the roster immediately after accepting the liability waiver."
-                                : `This team is using Split-Pay. Each rostered player will cover an equal portion of the team fee of $${totalFee}.`}
-                        </p>
                         
-                        {!isFullPay && totalFee > 0 && (
-                            <div className="mt-4 p-4 bg-pitch-accent/10 border border-pitch-accent/30 rounded-lg">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-xs font-black uppercase text-pitch-accent tracking-widest">Est. Split Range</span>
-                                    <span className="text-xl font-black text-white">${minSplit} - ${maxSplit}</span>
+                        {paymentCollectionType === 'cash' ? (
+                            <div className="space-y-4">
+                                <p className="text-gray-400 text-sm font-medium leading-relaxed">
+                                    Registration and session fees for this league are collected <strong className="text-white uppercase italic">In Person (Cash)</strong>. 
+                                </p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white/5 p-4 rounded-lg border border-white/5">
+                                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Due at First Game</p>
+                                        <p className="text-2xl font-black text-white italic">${playerRegistrationFee}</p>
+                                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tight">Player Registration</p>
+                                    </div>
+                                    <div className="bg-white/5 p-4 rounded-lg border border-white/5">
+                                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Paid Per Session</p>
+                                        <p className="text-2xl font-black text-white italic">${perGameFee}</p>
+                                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tight">Per Match Fee</p>
+                                    </div>
                                 </div>
-                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.1em] mt-1">
-                                    Based on a roster of {minPlayers}-{maxPlayers} players.
-                                </p>
-                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.1em] mt-2 italic">
-                                    This is an estimate. Your final cost will be determined by the final roster size. Please check with your captain {captainName} for more details.
-                                </p>
                             </div>
+                        ) : (
+                            <>
+                                <p className="text-gray-400 text-sm font-medium leading-relaxed">
+                                    {isFullPay 
+                                        ? "Your captain has covered the team entry fee in full. You can join the roster immediately after accepting the liability waiver."
+                                        : `This team is using Split-Pay. Each rostered player will cover an equal portion of the team fee of $${totalFee}.`}
+                                </p>
+                                
+                                {!isFullPay && totalFee > 0 && (
+                                    <div className="mt-4 p-4 bg-pitch-accent/10 border border-pitch-accent/30 rounded-lg">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-xs font-black uppercase text-pitch-accent tracking-widest">Est. Split Range</span>
+                                            <span className="text-xl font-black text-white">${minSplit} - ${maxSplit}</span>
+                                        </div>
+                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.1em] mt-1">
+                                            Based on a roster of {minPlayers}-{maxPlayers} players.
+                                        </p>
+                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.1em] mt-2 italic">
+                                            This is an estimate. Your final cost will be determined by the final roster size. Please check with your captain {captainName} for more details.
+                                        </p>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
 
                     {/* The Liability Trap */}
-                    <div className="p-4 bg-orange-500/5 border border-orange-500/20 rounded-lg">
-                        <label className="flex items-start gap-4 cursor-pointer group">
-                            <div className="relative flex items-center justify-center mt-1">
+                     <div className="p-4 bg-orange-500/5 border border-orange-500/20 rounded-lg space-y-4">
+                        <div className="flex items-center gap-2 text-orange-400">
+                            <ShieldCheck className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Legal Consent</span>
+                        </div>
+                        
+                        <div className="max-h-32 overflow-y-auto text-xs text-gray-400 bg-black/40 border border-white/5 p-4 rounded-sm leading-relaxed custom-scrollbar font-medium whitespace-pre-wrap italic italic">
+                            {waiverDetails || "Players must adhere to the facility rules. No dangerous play allowed. Respect the referee decision. All registrations are final once the season begins."}
+                        </div>
+
+                        <label className="flex items-center gap-4 cursor-pointer group pt-2">
+                            <div className="relative flex items-center justify-center">
                                 <input 
                                     type="checkbox" 
                                     checked={waiverAccepted}
@@ -130,16 +181,11 @@ export function InviteClient({ teamId, teamName, tournamentId, tournamentName, t
                                     </svg>
                                 </div>
                             </div>
-                            <div className="flex-1">
-                                <span className="block text-sm font-bold uppercase tracking-wider text-orange-400 mb-1">Liability Waiver</span>
-                                <p className="text-xs text-orange-400/70 font-medium leading-relaxed">
-                                    I agree to the Pitchside liability waiver and understand my participation requires full compliance with event rules.
-                                </p>
-                            </div>
+                            <span className="text-sm font-bold uppercase tracking-wider text-orange-400 mb-0">I have read and agree to the liability waiver.</span>
                         </label>
                     </div>
 
-                    {isFullPay || totalFee === 0 ? (
+                    {isFullPay || totalFee === 0 || paymentCollectionType === 'cash' ? (
                         <button 
                             onClick={handleFreeJoin}
                             disabled={!waiverAccepted || isSubmitting}

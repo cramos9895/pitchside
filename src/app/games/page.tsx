@@ -4,6 +4,43 @@ import { GameCard } from '@/components/GameCard';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
+interface Game {
+    id: string;
+    title: string;
+    location_name?: string;
+    location: string;
+    location_nickname?: string;
+    game_format?: string;
+    start_time: string;
+    end_time: string | null;
+    price: number;
+    max_players: number;
+    max_teams: number | null;
+    current_players: number;
+    surface_type: string;
+    facility_id?: string | null;
+    resource_id?: string | null;
+    status: string;
+    has_mvp_reward?: boolean;
+    match_style?: string;
+    event_type?: string;
+    is_league?: boolean;
+    team_price: number | null;
+    free_agent_price: number | null;
+    prize_pool_percentage: number | null;
+    fixed_prize_amount: number | null;
+    reward: string | null;
+    prize_type: string | null;
+    tournament_style: string | null;
+    roster_lock_date: string | null;
+    regular_season_start: string | null;
+    playoff_start_date: string | null;
+
+    // Architecture Columns
+    league_format?: 'structured' | 'rolling';
+    payment_collection_type?: 'stripe' | 'cash';
+}
+
 export const revalidate = 0;
 
 export default async function GamesPage() {

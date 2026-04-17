@@ -22,14 +22,17 @@ export default async function InvitePage({ params }: PageProps) {
         redirect(`/login?callbackUrl=/invite/${teamId}`);
     }
 
-    // 2. Fetch Team and Tournament Data
+    // 2. Fetch Team and Tournament Data (Join Profile for Captain Name)
     const { data: team, error: teamError } = await supabase
         .from('teams')
         .select(`
             id,
             name,
             game_id,
-            league_id
+            league_id,
+            profiles:captain_id (
+                full_name
+            )
         `)
         .eq('id', teamId)
         .single();
@@ -44,23 +47,34 @@ export default async function InvitePage({ params }: PageProps) {
         return <div className="p-20 text-center text-red-500 font-bold uppercase">Invalid Invite Configuration</div>;
     }
 
-    // 3. Fetch Tournament Details & Current Roster Count
+    // 3. Fetch Tournament Details & Roster Metrics
     let tournamentName = '';
     let totalFee = 0;
     
+    // Detailed game fetch for financial logic
     const { data: gameData } = await supabase
         .from('games')
-        .select('title, team_price, min_players_per_team, max_players_per_team')
+        .select(`
+            title, 
+            team_registration_fee, 
+            min_players_per_team, 
+            max_players_per_team,
+            payment_collection_type,
+            player_registration_fee,
+            cash_amount,
+            price,
+            waiver_details
+        `)
         .eq('id', tournamentId)
         .single();
 
     if (gameData) {
         tournamentName = gameData.title;
-        totalFee = gameData.team_price || 0;
+        totalFee = gameData.team_registration_fee || 0;
     } else {
         const { data: leagueData } = await supabase
             .from('leagues')
-            .select('name, price_per_team')
+            .select('name, price_per_team, waiver_details')
             .eq('id', tournamentId)
             .single();
         
@@ -74,24 +88,20 @@ export default async function InvitePage({ params }: PageProps) {
     const { count: rosterCount } = await supabase
         .from('tournament_registrations')
         .select('*', { count: 'exact', head: true })
-        .eq('team_id', teamId);
+        .eq('team_id', teamId)
+        .neq('status', 'cancelled');
 
-    // 4.5 Fetch Captain Name
+    // 4.5 Authoritative Captain Name from joined profile
+    const captainName = (team.profiles as any)?.full_name || 'Your Captain';
+
+    // 5. Check if Team is Full Pay (Captain's payment status)
     const { data: captainReg } = await supabase
         .from('tournament_registrations')
-        .select('payment_status, profiles(full_name)')
+        .select('payment_status')
         .eq('team_id', teamId)
         .eq('role', 'captain')
-        .single();
+        .maybeSingle();
 
-    const captainName = (captainReg?.profiles as any)?.full_name || 'Your Captain';
-
-    // 5. Check if Team is Full Pay
-    // Note: In this architecture, payment splitting is usually determined by the existence of a deposit or the choice of the captain.
-    // For now, we check tournament_registrations to see if ANYONE has paid. 
-    // Simplified: If team_price > 0 and no 'full_pay' mark on teams yet, we treat as split.
-    // BUT the prompt says "Graceful fallback if captain covered whole fee".
-    // We'll check the captain's registration status.
     const isFullPay = captainReg?.payment_status === 'full_pay';
 
     const minPlayers = gameData?.min_players_per_team || (gameData as any)?.min_roster || 5;
@@ -111,6 +121,10 @@ export default async function InvitePage({ params }: PageProps) {
                     captainName={captainName}
                     minPlayers={minPlayers}
                     maxPlayers={maxPlayers}
+                    paymentCollectionType={gameData?.payment_collection_type || 'stripe'}
+                    playerRegistrationFee={gameData?.player_registration_fee || 0}
+                    perGameFee={gameData?.cash_amount || gameData?.price || 0}
+                    waiverDetails={gameData?.waiver_details || (gameData as any)?.waiver_details}
                 />
             </div>
         </main>

@@ -1,26 +1,17 @@
 # 🗄️ Table: system_settings
 
-**Domain:** #database #governance **Primary Key:** `key` (TEXT)
+**Domain:** #database #cms  **Primary Key:** `key` (Text)
 
 ## 📄 Column Definitions
 
-|Column|Type|Description|
-|---|---|---|
-|**key**|`text`|Primary unique identifier for the setting (e.g., `payment.venmo_handle`).|
-|**value**|`jsonb`|Polymorphic field for the setting data (supports booleans, numbers, or strings).|
-|**description**|`text`|Internal administrative note for support and developers.|
-|**updated_at**|`timestamp`|Auto-generated tracking for configuration changes.|
-
-## 🔗 Relationships
-
-- **None**. This is a standalone configuration store used by several high-level services.
-
-## 🛡️ RLS & Governance
-
-- **Select**: Publicly readable for certain namespaces (`payment.*`), restricted to Super Admins for internal platform flags.
-- **Update**: Strictly restricted to **Super-Admins** and **Master-Admins**.
-- **Real-Time Usage**: Used by `[[src/lib/email.ts]]` to check if a specific notification type is currently enabled before the platform dispatches a Resend API call.
+| Column | Type | Default | Foreign Key | Description |
+|---|---|---|---|---|
+| **key** | `text` | - | - | Unique configuration key (e.g. `maintenance_mode`). |
+| **value** | `jsonb` | `true` | - | The value stored in JSON format. |
+| **label** | `text` | - | - | Human-readable name (Admin UI). |
+| **category** | `text` | `general` | - | Grouping: `general`, `auth`, `experimental`. |
+| **description** | `text` | - | - | Support text for administrators. |
 
 ---
 
-**The `system_settings` table is the platform's "Configuration Switchboard," providing a low-latency, non-code-deploy mechanism for toggling features and updating global payment instructions.**
+**The `system_settings` table stores persistent application-wide configurations and feature flags.**

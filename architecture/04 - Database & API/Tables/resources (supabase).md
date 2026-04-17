@@ -1,34 +1,27 @@
 # 🗄️ Table: resources
 
-**Domain:** #database #infrastructure  
-**Primary Key:** `id` (UUID)
+**Domain:** #database #facility  **Primary Key:** `id` (UUID)
 
 ## 📄 Column Definitions
 
-|Column|Type|Description|
-|---|---|---|
-|**id**|`uuid`|Primary unique identifier for the physical field or court.|
-|**facility_id**|`uuid`|(FK) Reference to the parent venue (`facilities` table).|
-|**name**|`text`|The display name of the resource (e.g., "Full Pitch A", "Court 3").|
-|**resource_type_id**|`uuid`|(FK) Taxonomy link to the global `resource_types` (e.g., "Soccer Pitch").|
-|**default_hourly_rate**|`int4`|The base rental price in cents, used for public reservation requests.|
-|**is_active**|`boolean`|Flag used to toggle visibility and bookability in the marketplace.|
-|**created_at**|`timestamp`|Auto-generated record tracking.|
+| Column | Type | Default | Foreign Key | Description |
+|---|---|---|---|---|
+| **id** | `uuid` | `gen_random_uuid()` | - | Unique physical resource identifier. |
+| **facility_id** | `uuid` | - | `facilities.id` | The parent venue. |
+| **resource_type_id** | `uuid` | - | `resource_types.id` | Classification (e.g. `Indoor`, `Turf`). |
+| **name** | `text` | - | - | Public name (e.g. `Court 1`). |
+| **default_hourly_rate** | `int4` | `0` | - | Base price for rental. |
+| **created_at** | `timestamp` | `now()` | - | Audit timestamp. |
 
 ## 🔗 Relationships
 
-- **belongs_to** facilities (`facility_id`)
-- **belongs_to** resource_types (`resource_type_id`)
-- **has_many** resource_activities - Junction table linking fields to allowed sports.
-- **has_many** resource_bookings - The primary calendar entries for this resource.
-- **has_many** league_resources - Link to leagues that utilize this specific field.
-
-## 🛡️ RLS & Governance
-
-- **Select**: Publicly readable to show availability and resource names on venue pages.
-- **Insert/Update**: Strictly restricted to the facility admin (`auth.uid()` verified via `profiles.facility_id`) or a Super Admin.
-- **Logic**: Resources are the "Physical Anchor" for all scheduling; deleting a resource is typically blocked if active `resource_bookings` exist.
+| Relation | Table | Key | Description |
+|---|---|---|---|
+| **belongs_to** | [[facilities (supabase).md]] | `facility_id` | The owning venue. |
+| **belongs_to** | [[resource_types (supabase).md]] | `resource_type_id` | The type classification. |
+| **has_many** | [[resource_bookings (supabase).md]] | `resource_id` | Individual rentals. |
+| **has_many** | [[games (supabase).md]] | `resource_id` | Scheduled matches. |
 
 ---
 
-**The `resources` table is the platform's "Physical Inventory," mathematically representing the actual rentable space and its relationship to global sport taxonomies.**
+**The `resources` table represents the physical courts, fields, or spaces available for booking within a facility.**

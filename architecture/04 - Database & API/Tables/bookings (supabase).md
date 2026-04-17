@@ -1,42 +1,41 @@
 # 🗄️ Table: bookings
 
-**Domain:** #database #financial #competition **Primary Key:** `id` (UUID)
+**Domain:** #database #finance  **Primary Key:** `id` (UUID)
 
 ## 📄 Column Definitions
 
-|Column|Type|Description|
-|---|---|---|
-|**id**|`uuid`|Primary unique identifier for the booking entry.|
-|**game_id**|`uuid`|(FK) Reference to the parent event (`games` table).|
-|**user_id**|`uuid`|(FK) Reference to the player's identity (`profiles` table).|
-|**buyer_id**|`uuid`|(FK) The identity of the individual who paid for this spot.|
-|**status**|`text`|Lifecycle state: `paid`, `active`, `cancelled`, `waitlist`, `free_agent_pending`.|
-|**roster_status**|`text`|Meta-status for capacity: `confirmed`, `waitlisted`, `dropped`.|
-|**payment_status**|`text`|Financial state: `pending`, `verified`, `refunded`.|
-|**payment_method**|`text`|Transaction mode: `stripe`, `credit`, `manual`, `free`.|
-|**payment_amount**|`numeric`|The actual amount paid (expressed in dollars in UI, cents in table logic).|
-|**stripe_payment_intent_id**|`text`|Reference to the Stripe transaction for refund processing.|
-|**stripe_payment_method_id**|`text`|Reference to the vaulted card for off-session "Team Manager" charges.|
-|**team_assignment**|`text/int`|The squad name (or index) assigned to the player.|
-|**is_captain**|`boolean`|Flag for specialized squad leadership permissions.|
-|**is_winner**|`boolean`|Competitive flag assigned after `finalizeGame`.|
-|**checked_in**|`boolean`|Physical verification status (sideline compliance).|
-|**has_signed**|`boolean`|Flag indicating digital waiver completion.|
-|**has_physical_waiver**|`boolean`|Administrative override flag for paper waivers.|
+| Column | Type | Default | Foreign Key | Description |
+|---|---|---|---|---|
+| **id** | `uuid` | `gen_random_uuid()` | - | Unique registration identifier. |
+| **user_id** | `uuid` | - | `profiles.id` | The participant player. |
+| **buyer_id** | `uuid` | - | `profiles.id` | The user who paid (may differ for gift registrations). |
+| **game_id** | `uuid` | - | `games.id` | The match being joined. |
+| **status** | `text` | `pending` | - | Status: `pending`, `paid`, `active`, `waitlist`, `cancelled`. |
+| **payment_status** | `text` | `unpaid` | - | Status: `unpaid`, `pending`, `verified`, `refunded`. |
+| **payment_amount** | `numeric` | `0` | - | Price paid in dollars. |
+| **payment_method** | `text` | - | - | e.g., `stripe`, `credits`. |
+| **team_assignment** | `text` | - | - | Numeric squad index for B2C rosters. |
+| **checked_in** | `boolean` | `false` | - | Attendance flag. |
+| **is_winner** | `boolean` | `false` | - | Match result flag. |
+| **is_captain** | `boolean` | `false` | - | Flag for squad leadership status. |
+| **roster_status** | `text` | `confirmed` | - | State: `confirmed`, `waitlisted`, `dropped`. |
+| **created_at** | `timestamp` | `now()` | - | Audit timestamp. |
+| **updated_at** | `timestamp` | `now()` | - | Audit timestamp. |
 
 ## 🔗 Relationships
 
-- **belongs_to** games (`game_id`)
-- **belongs_to** profiles (`user_id`)
-- **belongs_to** profiles (`buyer_id`) - For squad/group payment routing.
+| Relation | Table | Key | Description |
+|---|---|---|---|
+| **belongs_to** | [[profiles (supabase).md]] | `user_id` | The participant player. |
+| **belongs_to** | [[profiles (supabase).md]] | `buyer_id` | The paying user. |
+| **belongs_to** | [[games (supabase).md]] | `game_id` | The target match. |
 
 ## 🛡️ RLS & Governance
 
-- **Select**: Users can read their own bookings; Host/Admins can read all bookings for their assigned facility.
-- **Insert**: Publicly accessible via the `[[/api/join]]` gatekeeper (subject to capacity checks).
-- **Update**: Restricted to the Host or Admin via `[[/api/kick]]` and `[[src/app/actions/compliance.ts]]`.
-- **Transitions**: State changes to `cancelled` trigger the waitlist promotion engine in `[[/api/leave]]`.
+- **Select**: Visible to the player, the buyer, or the venue owner.
+- **Insert**: Allowed for authenticated users; balance check enforced in action.
+- **Verification**: `checked_in` flag is only modifiable by facility staff.
 
 ---
 
-**The `bookings` table is the platform's "Transactional Hub," mathematically linking player identities to financial settlements, roster spots, and competitive achievements.**
+**The `bookings` table manages individual player participation and financial status for all matches.**

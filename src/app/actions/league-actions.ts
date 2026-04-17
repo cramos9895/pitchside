@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 /**
  * Checks for facility/field overlap for a given timeframe.
  */
-async function checkOverlap(supabase: any, facilityId: string, resourceId: string | null, startTime: string, durationMinutes: number, excludeMatchId?: string) {
+export async function checkOverlap(supabase: any, facilityId: string, resourceId: string | null, startTime: string, durationMinutes: number, excludeMatchId?: string) {
     const start = new Date(startTime);
     const end = new Date(start.getTime() + durationMinutes * 60000);
 
@@ -215,118 +215,4 @@ export async function toggleLeagueRegistration(leagueId: string, freeze: boolean
     return { success: true, freezeDate };
 }
 
-export async function scheduleNextRound(leagueId: string, teams: string[], facilityId: string) {
-    const supabase = await createClient();
 
-    const { data: matches } = await supabase.from('matches').select('start_time, home_team, away_team').eq('game_id', leagueId);
-    
-    let nextStartTime = new Date();
-    nextStartTime.setDate(nextStartTime.getDate() + 7);
-    
-    if (matches && matches.length > 0) {
-        const lastMatchTime = matches.reduce((latest, m) => {
-            const mTime = new Date(m.start_time).getTime();
-            return mTime > latest ? mTime : latest;
-        }, 0);
-        
-        let lastDate = new Date(lastMatchTime);
-        const lastDateString = lastDate.toISOString().split('T')[0];
-        const matchesOnLastDay = matches.filter(m => m.start_time.startsWith(lastDateString));
-        
-        if (matchesOnLastDay.length > 0) {
-            const earliestOnLastDay = matchesOnLastDay.reduce((earliest, m) => {
-                const mTime = new Date(m.start_time).getTime();
-                return mTime < earliest ? mTime : earliest;
-            }, Number.MAX_SAFE_INTEGER);
-            lastDate = new Date(earliestOnLastDay);
-        }
-        
-        // Advance 7 days exactly
-        nextStartTime = new Date(lastDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-    }
-    
-    const playedCounts: Record<string, number> = {};
-    const playedAgainst: Record<string, Set<string>> = {};
-    teams.forEach(t => {
-        playedCounts[t] = 0;
-        playedAgainst[t] = new Set();
-    });
-
-    if (matches) {
-        matches.forEach(m => {
-            if (playedCounts[m.home_team] !== undefined) playedCounts[m.home_team]++;
-            if (playedCounts[m.away_team] !== undefined) playedCounts[m.away_team]++;
-            if (playedAgainst[m.home_team]) playedAgainst[m.home_team].add(m.away_team);
-            if (playedAgainst[m.away_team]) playedAgainst[m.away_team].add(m.home_team);
-        });
-    }
-
-    // Sort ascending so fewest matches played are paired first
-    const sortedTeams = [...teams].sort((a, b) => playedCounts[a] - playedCounts[b]);
-
-    let byeTeam = null;
-    let teamsToPair = [...sortedTeams];
-
-    if (teamsToPair.length % 2 !== 0) {
-        byeTeam = teamsToPair.pop()!;
-    }
-
-    const pairings: [string, string][] = [];
-    const unavailable = new Set<string>();
-
-    for (let i = 0; i < teamsToPair.length; i++) {
-        const teamA = teamsToPair[i];
-        if (unavailable.has(teamA)) continue;
-
-        let bestOpponent = null;
-        for (let j = i + 1; j < teamsToPair.length; j++) {
-            const teamB = teamsToPair[j];
-            if (unavailable.has(teamB)) continue;
-
-            if (!playedAgainst[teamA].has(teamB)) {
-                bestOpponent = teamB;
-                break;
-            }
-        }
-
-        if (!bestOpponent) {
-            for (let j = i + 1; j < teamsToPair.length; j++) {
-                const teamB = teamsToPair[j];
-                if (!unavailable.has(teamB)) {
-                    bestOpponent = teamB;
-                    break;
-                }
-            }
-        }
-
-        if (bestOpponent) {
-            pairings.push([teamA, bestOpponent]);
-            unavailable.add(teamA);
-            unavailable.add(bestOpponent);
-        }
-    }
-
-    const matchesToInsert = [];
-    const roundDate = new Date(nextStartTime);
-
-    for (let i = 0; i < pairings.length; i++) {
-        const matchTime = new Date(roundDate.getTime() + i * 60 * 60 * 1000); 
-
-        matchesToInsert.push({
-            game_id: leagueId,
-            home_team: pairings[i][0],
-            away_team: pairings[i][1],
-            start_time: matchTime.toISOString(),
-            status: 'scheduled',
-            field_name: 'Field 1' // Defaulting to Field 1, admin can edit
-        });
-    }
-
-    if (matchesToInsert.length > 0) {
-        const { error } = await supabase.from('matches').insert(matchesToInsert);
-        if (error) throw new Error(error.message);
-    }
-
-    revalidatePath(`/admin/games/${leagueId}`);
-    return { success: true, count: matchesToInsert.length, byeTeam };
-}

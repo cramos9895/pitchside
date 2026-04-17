@@ -1,9 +1,26 @@
+// 🏗️ Architecture: [[SignUpForm.md]]
+
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isRateLimited } from '@/lib/security/rate-limit';
+import { headers } from 'next/headers';
 
 export async function registerAccount(formData: FormData) {
+    // --- SECURITY: RATE LIMITING ---
+    // Registration is unauthenticated, so we limit by IP
+    const headerList = await headers();
+    const forwarded = headerList.get('x-forwarded-for');
+    const ip = forwarded ? forwarded.split(',')[0].trim() : '127.0.0.1';
+
+    // 5 account creations per 5 minutes per IP
+    const isLimited = await isRateLimited(ip, 'action:auth:register', 5, 300);
+    if (isLimited) {
+        return { error: 'Too many registration attempts. Please wait 5 minutes.' };
+    }
+    // -------------------------------
+
     const supabase = await createClient();
     const supabaseAdmin = createAdminClient();
 
@@ -89,4 +106,48 @@ export async function registerAccount(formData: FormData) {
     }
 
     return { success: true };
+}
+
+export async function loginUser(formData: FormData) {
+    // --- SECURITY: RATE LIMITING ---
+    const headerList = await headers();
+    const forwarded = headerList.get('x-forwarded-for');
+    const ip = forwarded ? forwarded.split(',')[0].trim() : '127.0.0.1';
+
+    // 5 login attempts per 5 minutes per IP
+    const isLimited = await isRateLimited(ip, 'action:auth:login', 5, 300);
+    if (isLimited) {
+        return { error: 'Too many login attempts. Please wait 5 minutes.' };
+    }
+    // -------------------------------
+
+    const supabase = await createClient();
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+    });
+
+    if (authError) {
+        return { error: authError.message };
+    }
+
+    // Role Fetching for redirection
+    if (authData?.user) {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('system_role')
+            .eq('id', authData.user.id)
+            .single();
+
+        return { 
+            success: true, 
+            userId: authData.user.id,
+            systemRole: profile?.system_role || 'user'
+        };
+    }
+
+    return { error: 'Unexpected login error.' };
 }

@@ -1,41 +1,41 @@
 # 🗄️ Table: facilities
 
-**Domain:** #database #infrastructure #financial **Primary Key:** `id` (UUID)
+**Domain:** #database #facility  **Primary Key:** `id` (UUID)
 
 ## 📄 Column Definitions
 
-|Column|Type|Description|
-|---|---|---|
-|**id**|`uuid`|Primary unique identifier for the venue.|
-|**name**|`text`|The public-facing name of the sports center.|
-|**slug**|`text`|URL-safe identifier for public venue routing (e.g., `pitchside-east`).|
-|**address**|`text`|Full street address of the physical venue.|
-|**city**|`text`|City or locality.|
-|**state**|`text`|Region or state.|
-|**zip_code**|`text`|Postal code for spatial filtering.|
-|**public_description**|`text`|Markdown-supported field for the facility's CMS page.|
-|**hero_image_url**|`text`|Public link to the venue's primary aesthetic background.|
-|**contact_email**|`text`|Primary host contact for participants.|
-|**contact_phone**|`text`|Primary host contact number.|
-|**amenities**|`jsonb`|Array of facility features: `["Showers", "Parking", "WiFi"]`.|
-|**operating_hours**|`jsonb`|Weekly schedule: `{ "monday": { "open": "08:00", "close": "22:00" } }`.|
-|**waiver_text**|`text`|The unique legal Terms & Conditions managed via `[[src/app/actions/facility.ts]]`.|
-|**stripe_account_id**|`text`|The unique link to the **Stripe Connect Express** account for payouts.|
-|**is_active**|`boolean`|Global visibility flag for the public marketplace index.|
+| Column | Type | Default | Foreign Key | Description |
+|---|---|---|---|---|
+| **id** | `uuid` | `gen_random_uuid()` | - | Unique venue identifier. |
+| **name** | `text` | - | - | Public business name. |
+| **slug** | `text` | - | - | URL identifier (e.g. `pitch-one-nyc`). |
+| **address** | `text` | - | - | Physical location. |
+| **city** | `text` | - | - | City location. |
+| **state** | `text` | - | - | Geographic state. |
+| **zip_code** | `text` | - | - | Postal code. |
+| **contact_email** | `text` | - | - | Primary support contact. |
+| **contact_phone** | `text` | - | - | Primary support phone. |
+| **stripe_account_id** | `text` | - | - | Connected Stripe account for payments. |
+| **charges_enabled** | `boolean` | `false` | - | Stripe status flag. |
+| **waiver_text** | `text` | - | - | Custom legal disclaimer for this venue. |
+| **operating_hours** | `jsonb` | `{}` | - | Weekly schedule mapping. |
+| **amenities** | `_text` | `{}` | - | Array of features (e.g. `Parking`, `Showers`). |
+| **created_at** | `timestamp` | `now()` | - | Audit timestamp. |
 
 ## 🔗 Relationships
 
-- **has_many** profiles (via `facility_id`) - Link to administrative hosts.
-- **has_many** resources (via `facility_id`) - Link to physical fields/courts.
-- **has_many** games (via `facility_id`) - Link to hosted events.
-- **has_many** leagues (via `facility_id`) - Link to hosted competitions.
+| Relation | Table | Key | Description |
+|---|---|---|---|
+| **has_many** | [[resources (supabase).md]] | `facility_id` | Fields and courts. |
+| **has_many** | [[games (supabase).md]] | `facility_id` | Match events. |
+| **has_many** | [[profiles (supabase).md]] | `facility_id` | Managing staff. |
+| **has_many** | [[leagues (supabase).md]] | `facility_id` | Competition events. |
 
 ## 🛡️ RLS & Governance
 
-- **Select**: Publicly readable for marketplace browsing.
-- **Update**: Strictly restricted to the facility admin (`auth.uid()` checked via `profiles.facility_id`) or a Super Admin.
-- **Stripe Bridge**: The `stripe_account_id` is only editable through the **Connect OAuth** loop in `[[/api/stripe/connect]]`.
+- **Select**: Publicly readable (unauthenticated).
+- **Update**: Restricted to the owner of the `stripe_account_id` or a `super_admin`.
 
 ---
 
-**The `facilities` table is the platform's "Tenant Authority," serving as the high-level container for all resources, schedules, and financial settlement destinations.**
+**The `facilities` table represents the physical venues that host PitchSide games and manage resources.**

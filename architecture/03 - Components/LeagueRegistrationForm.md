@@ -1,36 +1,61 @@
 # 🧩 LeagueRegistrationForm
+**Type:** #component 
+**Location:** `src/components/public/LeagueRegistrationForm.tsx`
+**Last Audited:** 2026-04-12
+**Architecture:** [[TournamentRegistrationClient.md]]
 
-**Type:** #component **Location:** `src/components/public/LeagueRegistrationForm.tsx`
+> [!WARNING]
+> **DEPRECATED FOR ROLLING LEAGUES:** As of Phase-Split Architecture, this component is restricted to **Standard Leagues** and **Tournaments**. For match-based Rolling Leagues, use [[RollingRegistrationClient.md]] to avoid pricing collisions.
 
 ## 📥 Props Received
+- `league`: `League` - The data row from the `leagues` table.
+- `type`: `'team' | 'free_agent'` - Determines which form section to render.
+- `isRolling`: `boolean` - Flag (Legacy/To be removed).
 
-- **league** (object): The parent league metadata, including `team_price` and `free_agent_price`.
-- **type** ('team' | 'free_agent'): Determines the operational mode and rendered input set for the registration.
+## 📝 Data Schema / Types
+- [[04 - Database & API/Games.md]]
+- [[04 - Database & API/Leagues.md]]
+
+## 🎨 Visual DNA (Layout & UI) - Line-by-Line Copy
+Use this section to quickly identify and modify text across different league types.
+
+### 🏠 Section 1: Team / Player Identity
+| Variable | Context | Current Text |
+| :--- | :--- | :--- |
+| Label | Team Name | `Team Name` |
+| Placeholder | Team Input | `ENTER TEAM NAME` |
+| Label | Primary Color | `Primary Color` |
+| Label | Free Agent | `Preferred Positions` |
+
+### 💳 Section 2: Payment Structure (Captain Flow)
+| Variable | Context | Current Text |
+| :--- | :--- | :--- |
+| Header | Options Header | `Payment Structure` |
+| Label | Full (Stripe) | `Pay Full Team Fee` |
+| Label | Full (Cash) | `Register Full Team` |
+| Helper | Cash Notice | `Paid At Field` |
+| Label | Split | `Split Payment` |
+| Description | Split Help | `Invite players to pay their share. Captain secures the spot.` |
+
+### ✅ Section 3: Acknowledgements
+| Variable | Context | Current Text |
+| :--- | :--- | :--- |
+| Checkbox | Cash Only | `I understand that all league fees must be paid in cash at the door.` |
+| Checkbox | Stripe Split | `I understand I am financially responsible for the remaining balance...` |
+| Checkbox | Waiver | `I have read and agree to the event rules.` |
+
+### 🚀 Section 4: Submission
+| Variable | Context | Current Text |
+| :--- | :--- | :--- |
+| Header | Waiver Section | `Event Waiver & Rules` |
+| Button | Captain | `Register Team` |
+| Button | FA (Cash) | `Confirm Registration` |
+| Button | FA (Stripe) | `Pay & Enter Draft Pool` |
 
 ## 🎛️ Local State & UI Logic
-
-- **Bimodal Registration Engine**:
-    - **Captain Mode**: Collects `teamName`, `primaryColor` (via native hex picker), and **Payment Choice**.
-    - **Free Agent Mode**: Provides a multi-select grid for position preferences (Forward, Midfield, Defense, Goalie) to populate the global draft pool.
-- **Financial Liability Guard**:
-    - Dynamically injects a **"Financial Liability Acceptance"** checkbox when the Team Captain selects "Split Payment".
-    - This is a mandatory validation gate that ensures the captain understands they will be auto-charged any remaining roster balance at the registration cutoff.
-- **Harmonized Pricing Logic**:
-    - Normalizes various database naming conventions (`price_per_team`, `team_price`, `price`) into a unified local constant to ensure consistent price display regardless of the underlying schema version.
-- **Visual Feedback**:
-    - Employs `ShieldAlert` for high-priority validation errors and a `loading` state that disables the "Register" button to prevent double-charging or duplicate team creation.
-
-## 🔗 Used In (Parent Pages)
-
-- `src/app/leagues/[id]/register/page.tsx`
-- `src/app/tournaments/[id]/register/page.tsx`
+- **`isCashLeague`**: Derived from `league.payment_collection_type === 'cash'`. Swaps labels from "Pay" to "Register" and shows the Cash Acknowledgement.
+- **`paymentChoice`**: `full` vs `split`. Only Stripe leagues support the "Automatic charge for remaining balance" logic.
 
 ## ⚡ Actions & API Triggers
-
-- **[[registerCaptain]]**: A server action that handles the atomic creation of a team record and the initial captain membership.
-- **[[registerFreeAgent]]**: Dispatches the user's positional metadata to the `registrations` table as an unassigned entity.
-- **`router.push` / `router.refresh`**: Manages the post-registration transition, forcing the browser to revalidate server-side props for the tournament workspace.
-
----
-
-**LeagueRegistrationForm is the primary intake point for structured competition, managing the complex intersection of team branding, financial liability, and player skill-mapping.**
+- [[actions/league-registration.ts]] (Legacy Structured Leagues)
+- [[actions/rolling-league-registration.ts]] (New Rolling Leagues / Match-based)

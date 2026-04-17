@@ -1,41 +1,85 @@
 # 🗄️ Table: resource_bookings
 
-**Domain:** #database #infrastructure  
-**Primary Key:** `id` (UUID)
+**Domain:** #database #facility  **Primary Key:** `id` (UUID)
 
 ## 📄 Column Definitions
 
-|Column|Type|Description|
-|---|---|---|
-|**id**|`uuid`|Primary unique identifier for the specific physical field or court reservation.|
-|**facility_id**|`uuid`|(FK) Reference to the parent venue record (`facilities` table).|
-|**resource_id**|`uuid`|(FK) Link to the specific pitch or court (`resources` table).|
-|**title**|`text`|The display title for the calendar block (e.g., "Men's 5v5 Soccer", "Private Rental").|
-|**start_time**|`timestamp`|The exact commencement of the reservation window.|
-|**end_time**|`timestamp`|The exact expiration of the reservation window.|
-|**renter_name**|`text`|The display name for the individual or group responsible for the block.|
-|**contact_email**|`text`|Primary transactional contact for verification and scheduling notifications.|
-|**user_id**|`uuid`|(FK) Optional link to a `profiles` record for the primary renter.|
-|**status**|`text`|Booking state: `confirmed`, `pending_facility_review`, `pending_contract`, `cancelled`.|
-|**payment_status**|`text`|Financial resolution: `paid`, `unpaid`, `free`, `refunded`.|
-|**listing_price**|`int4`|The total amount billed for the reservation (expressed in cents).|
-|**color**|`text`|Hexadecimal color code used for UI representation on the host's calendar.|
-|**recurring_group_id**|`uuid`|(FK) Link to a `recurring_booking_groups` record for bulk management of contract series.|
-|**created_at**|`timestamp`|Auto-generated record audit trail.|
-
-## 🔗 Relationships
-
-- **belongs_to** facilities (`facility_id`)
-- **belongs_to** resources (`resource_id`)
-- **belongs_to** profiles (`user_id`)
-- **belongs_to** recurring_booking_groups (`recurring_group_id`)
-
-## 🛡️ RLS & Governance
-
-- **Select**: Publicly readable while `status` is not `cancelled` (used for the venue's public availability map).
-- **Update**: Restricted to the facility host (`auth.uid()` via `profiles.facility_id`) or a Super Admin.
-- **The "Collision Logic" Anchor**: This table serves as the definitive source of truth for the platform's scheduling engine. All `join`, `league`, and `facility` actions execute a high-speed boundary check against this table before committing new dates to prevent overbooking physical resources.
+| Column | Type | Default | Foreign Key | Description |
+|---|---|---|---|---|
+| **id** | `uuid` | `gen_random_uuid()` | - | Unique booking record identifier. |
+| **facility_id** | `uuid` | - | `facilities.id` | The venue hosting the rental. |
+| **resource_id** | `uuid` | - | `resources.id` | The specific field/court. |
+| **user_id** | `uuid` | - | `profiles.id` | The renter/owner. |
+| **title** | `text` | - | - | Private label for the reservation. |
+| **start_time** | `timestamp` | - | - | Start of rental period. |
+| **end_time** | `timestamp` | - | - | End of rental period. |
+| **status** | `text` | `confirmed` | - | State: `confirmed`, `pending`, `cancelled`. |
+| **is_listed** | `boolean` | `false` | - | Marketplace visibility flag. |
+| **listing_price** | `numeric` | - | - | Price if listed on the marketplace. |
+| **marketplace_status** | `text` | `none` | - | State: `none`, `listed`, `sold`. |
+| **recurring_group_id** | `uuid` | - | `recurring_booking_groups.id` | Link for repeated series. |
+| **stripe_payment_intent_id** | `text` | - | - | Secure payment reference. |
 
 ---
 
-**The `resource_bookings` table is the platform's "Physical Ledger," mathematically managing the availability of physical space across all event types, private rentals, and long-term contracts.**
+**The `resource_bookings` table manages the scheduling and marketplace lifecycle of facility rentals.**
+<!-- slide -->
+# 🗄️ Table: system_settings
+
+**Domain:** #database #cms  **Primary Key:** `key` (Text)
+
+## 📄 Column Definitions
+
+| Column | Type | Default | Foreign Key | Description |
+|---|---|---|---|---|
+| **key** | `text` | - | - | Unique configuration key (e.g. `maintenance_mode`). |
+| **value** | `jsonb` | `true` | - | The value stored in JSON format. |
+| **label** | `text` | - | - | Human-readable name (Admin UI). |
+| **category** | `text` | `general` | - | Grouping: `general`, `auth`, `experimental`. |
+| **description** | `text` | - | - | Support text for administrators. |
+
+---
+
+**The `system_settings` table stores persistent application-wide configurations and feature flags.**
+<!-- slide -->
+# 🗄️ Table: promo_codes
+
+**Domain:** #database #finance  **Primary Key:** `id` (UUID)
+
+## 📄 Column Definitions
+
+| Column | Type | Default | Foreign Key | Description |
+|---|---|---|---|---|
+| **id** | `uuid` | `gen_random_uuid()` | - | Unique code identifier. |
+| **facility_id** | `uuid` | - | `facilities.id` | Optional: restrict code to one venue. |
+| **code** | `text` | - | - | The unique string entered by users (e.g. `KICKOFF10`). |
+| **discount_type** | `text` | - | - | Type: `percentage`, `fixed_amount`. |
+| **discount_value** | `int4` | - | - | Magnitude of the discount. |
+| **max_uses** | `int4` | - | - | Total redemption cap. |
+| **current_uses** | `int4` | `0` | - | Redemption counter. |
+| **expires_at** | `timestamp` | - | - | Temporal validity limit. |
+
+---
+
+**The `promo_codes` table manages marketing discounts and redemption logic for game bookings.**
+<!-- slide -->
+# 🗄️ Table: tournament_registrations
+
+**Domain:** #database #competition  **Primary Key:** `id` (UUID)
+
+## 📄 Column Definitions
+
+| Column | Type | Default | Foreign Key | Description |
+|---|---|---|---|---|
+| **id** | `uuid` | `gen_random_uuid()` | - | Unique signup identifier. |
+| **game_id** | `uuid` | - | `games.id` | The parent tournament event. |
+| **league_id** | `uuid` | - | `leagues.id` | The parent competition context. |
+| **user_id** | `uuid` | - | `profiles.id` | The individual player signing up. |
+| **team_id** | `uuid` | - | `teams.id` | Optional: The team being registered. |
+| **status** | `text` | `registered` | - | State: `registered`, `drafted`, `waitlisted`, `cancelled`. |
+| **payment_status** | `text` | `pending` | - | Transactional state. |
+| **stripe_setup_intent_id** | `text` | - | - | Reference for card collection/autocharge. |
+
+---
+
+**The `tournament_registrations` table handles the enrollment flow for competitive events, supporting both individual free agents and full teams.**

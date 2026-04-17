@@ -19,6 +19,7 @@ interface Game {
     reward: string | null;
     prize_type: string | null;
     tournament_style: string | null;
+    league_format?: 'structured' | 'rolling' | null;
 }
 
 interface TournamentRegistration {
@@ -118,20 +119,31 @@ export function TournamentCard({ tournament, userId, registrations }: Tournament
                         >
                             Captain's Command Center <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                         </button>
+                    ) : (userRole === 'player' || userRole === 'registered') && userTeamId ? (
+                        <button
+                            onClick={() => router.push(`/tournaments/${tournament.id}/team/${userTeamId}`)}
+                            className="col-span-1 sm:col-span-2 w-full py-4 bg-transparent border border-white/20 text-white font-black uppercase tracking-widest text-xs hover:bg-white/5 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn"
+                        >
+                            Team Hub <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                        </button>
                     ) : userRole ? (
                         <button
                             onClick={() => {
+                                const targetPath = tournament.league_format === 'rolling' ? 'games' : 'tournaments';
                                 const tournamentId = tournament.id || (userReg as any).game_id;
-                                router.push(`/dashboard/tournaments/${tournamentId}`);
+                                router.push(`/${targetPath}/${tournamentId}`);
                             }}
                             className="col-span-1 sm:col-span-2 w-full py-4 bg-white/10 text-white border border-white/20 font-black uppercase tracking-widest text-xs hover:bg-white/20 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn"
                         >
-                            View Player Dashboard <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                            {tournament.league_format === 'rolling' ? 'View League Lobby' : 'View Tournament Lobby'} <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                         </button>
                     ) : (
                         <>
                             <button
-                                onClick={() => router.push(`/tournaments/${tournament.id}/register?type=team`)}
+                                onClick={() => {
+                                    const targetPath = tournament.league_format === 'rolling' ? 'games' : 'tournaments';
+                                    router.push(`/${targetPath}/${tournament.id}/register?type=team`);
+                                }}
                                 className="w-full py-4 bg-[#cbff00] text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 group/btn shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm"
                             >
                                 <span className="flex items-center gap-2">Register Team <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" /></span>
@@ -139,7 +151,10 @@ export function TournamentCard({ tournament, userId, registrations }: Tournament
                             </button>
                             {(tournament.free_agent_price !== null && tournament.free_agent_price >= 0) && (
                                 <button
-                                    onClick={() => router.push(`/tournaments/${tournament.id}/register?type=free_agent`)}
+                                    onClick={() => {
+                                        const targetPath = tournament.league_format === 'rolling' ? 'games' : 'tournaments';
+                                        router.push(`/${targetPath}/${tournament.id}/register?type=free_agent`);
+                                    }}
                                     className="w-full py-4 border border-[#cbff00]/50 text-[#cbff00] font-black uppercase tracking-widest text-xs hover:bg-[#cbff00]/10 transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 rounded-sm"
                                 >
                                     <span>Join Free Agent</span>

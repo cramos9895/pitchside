@@ -15,6 +15,7 @@ interface Match {
     away_score: number;
     status: 'scheduled' | 'active' | 'completed' | 'cancelled';
     group_name?: string;
+    is_playoff?: boolean;
 }
 
 interface TeamConfig {
@@ -63,7 +64,7 @@ export function StandingsTable({
                 stats[t.name] = { id: t.id || '', gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
             });
 
-            groupMatches.filter(m => m.status === 'completed').forEach(m => {
+            groupMatches.filter(m => m.status === 'completed' && !m.is_playoff).forEach(m => {
                 if (!stats[m.home_team]) stats[m.home_team] = { id: m.home_team_id || '', gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
                 if (!stats[m.away_team]) stats[m.away_team] = { id: m.away_team_id || '', gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
 

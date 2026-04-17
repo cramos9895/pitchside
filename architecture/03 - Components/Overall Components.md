@@ -49,6 +49,7 @@ _Location: `src/components/public`_
 - **[[CaptainDashboard]]**: Roster and match management for team leaders.
 - **[[StripeCheckoutModal]]**: Integrated secure payment interface.
 - **[[TournamentCard]] / [[LeagueCard]]**: Discovery modules for competitive events.
+- **[[PitchSideConfirmModal]]**: MANDATORY global standard for user confirmation dialogs. (BANS `window.confirm()`).
 - **[[DraftConfirmationModal]] / [[LeaveConfirmationModal]]**: State-change guards.
 
 ### 🧩 Shared & System Components

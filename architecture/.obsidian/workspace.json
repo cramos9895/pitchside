@@ -4,31 +4,21 @@
     "type": "split",
     "children": [
       {
-        "id": "93d4e5f34d70e659",
+        "id": "65da64b17f742966",
         "type": "tabs",
         "children": [
           {
-            "id": "0bc8c5d81feadbe9",
+            "id": "0d9ce5ed7a897bee",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "03 - Components/ManualAddPlayerModal.md",
+                "file": "02 - Routing & Pages/Approval Queue (Master Admin).md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "ManualAddPlayerModal"
-            }
-          },
-          {
-            "id": "435dc5619c578d84",
-            "type": "leaf",
-            "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graph view"
+              "title": "Approval Queue (Master Admin)"
             }
           }
         ]
@@ -190,34 +180,35 @@
       "bases:Create new base": false
     }
   },
-  "active": "0bc8c5d81feadbe9",
+  "active": "0d9ce5ed7a897bee",
   "lastOpenFiles": [
-    "03 - Components/LiveProjectorPage.md",
-    "03 - Components/ManualAddPlayerModal.md",
-    "03 - Components/MatchResultsLog.md",
-    "03 - Components/MatchManager.md",
-    "02 - Routing & Pages/Game Details Page.md",
-    "03 - Components/GameForm.md",
-    "04 - Database & API/Overall Database & API.md",
-    "03 - Components/BookingModal.md",
-    "03 - Components/CaptainDashboard.md",
-    "03 - Components/AuthButton.md",
-    "03 - Components/AdminTournamentCard.md",
-    "03 - Components/AdminPickupCard.md",
+    "06 - Roadmap - Phase 6.md",
+    "03 - Components/PitchSideConfirmModal.md",
+    "03 - Components/RollingRegistrationClient.md",
+    "04 - Database & API/app/actions/processLeaguePayments.md",
     "03 - Components/AdminLeagueControl.md",
-    "03 - Components/AdminLeagueCard.md",
-    "03 - Components/AdminGameList.md",
-    "03 - Components/AdminClaimModal.md",
-    "03 - Components/AdminCard.md",
-    "03 - Components/ActivityItem.md",
-    "02 - Routing & Pages/User Management Dashboard.md",
-    "02 - Routing & Pages/User Account Settings.md",
-    "02 - Routing & Pages/Tournament Lobby Page.md",
-    "02 - Routing & Pages/Team Recruitment Page.md",
-    "02 - Routing & Pages/System Settings & CMS.md",
-    "02 - Routing & Pages/Signup Page.md",
-    "02 - Routing & Pages/Schedule Page.md",
-    "02 - Routing & Pages/Revenue Engine & Financials.md",
+    "03 - Components/LeagueRegistrationForm.md",
+    "03 - Components/AdminMatchCards.md",
+    "03 - Components/RollingLeagueCard.md",
+    "04 - Database & API/app/api/stripe/connect.md",
+    "04 - Database & API/app/api/matches.md",
+    "00 - Global Index.md",
+    "04 - Database & API/Tables/resource_bookings (supabase).md",
+    "04 - Database & API/Tables/tournament_registrations (supabase).md",
+    "04 - Database & API/Tables/waiver_signatures (supabase).md",
+    "04 - Database & API/Tables/teams (supabase).md",
+    "04 - Database & API/Tables/booking_rosters (supabase).md",
+    "04 - Database & API/Tables/activity_types (supabase).md",
+    "05 - Globals & Types/Global State & Constants.md",
+    "04 - Database & API/Tables/security_logs (supabase).md",
+    "04 - Database & API/Tables/recurring_booking_groups (supabase).md",
+    "04 - Database & API/Tables/league_resources (supabase).md",
+    "04 - Database & API/Tables/team_players (supabase).md",
+    "04 - Database & API/Tables/site_content (supabase).md",
+    "04 - Database & API/Tables/mvp_votes (supabase).md",
+    "04 - Database & API/Tables/messages (supabase).md",
+    "05 - Globals & Types/Identity & Session Flow.md",
+    "05 - Globals & Types",
     "auth",
     "04 - Database & API/lib",
     "04 - Database & API/Tables",
@@ -226,7 +217,6 @@
     "src/app/actions",
     "src/app",
     "src",
-    "api",
-    "04 - Database & API/app/actions"
+    "api"
   ]
 }

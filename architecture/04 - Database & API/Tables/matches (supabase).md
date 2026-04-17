@@ -1,37 +1,37 @@
 # 🗄️ Table: matches
 
-**Domain:** #database #competition **Primary Key:** `id` (UUID)
+**Domain:** #database #competition  **Primary Key:** `id` (UUID)
 
 ## 📄 Column Definitions
 
-|Column|Type|Description|
-|---|---|---|
-|**id**|`uuid`|Primary unique identifier for the specific match pairing.|
-|**game_id**|`uuid`|(FK) Reference to the parent event (`games` table).|
-|**home_team**|`text`|The name or identifier of the "Home" squad.|
-|**away_team**|`text`|The name or identifier of the "Away" squad.|
-|**home_score**|`int4`|Current (or final) goals/points for the home team.|
-|**away_score**|`int4`|Current (or final) goals/points for the away team.|
-|**start_time**|`timestamp`|The specific kickoff time for this individual match.|
-|**round_number**|`int4`|Index for scheduling (Reserved: 99=Semi, 100=Final).|
-|**status**|`text`|Match state: `scheduled`, `in_progress`, `completed`.|
-|**tournament_stage**|`text`|Competitive phase: `group`, `semi_final`, `final`.|
-|**is_playoff**|`boolean`|Flag used to bridge the match to knockout bracket logic.|
-|**field_name**|`text`|Display name of the specific pitch (e.g., "Field 1").|
-|**referee_id**|`uuid`|(FK) Reference to the `profiles` table for the assigned official.|
+| Column | Type | Default | Foreign Key | Description |
+|---|---|---|---|---|
+| **id** | `uuid` | `gen_random_uuid()` | - | Unique match instance identifier. |
+| **game_id** | `uuid` | - | `games.id` | The parent tournament/event. |
+| **home_team** | `text` | - | - | Team A display name (string). |
+| **away_team** | `text` | - | - | Team B display name (string). |
+| **home_team_id** | `uuid` | - | `teams.id` | Relational FK for Home team (Rolling League). |
+| **away_team_id** | `uuid` | - | `teams.id` | Relational FK for Away team (Rolling League). |
+| **home_score** | `int4` | `0` | - | Goals/Points for Home side. |
+| **away_score** | `int4` | `0` | - | Goals/Points for Away side. |
+| **start_time** | `timestamptz` | - | - | The scheduled kickoff time for this match. |
+| **field_name** | `text` | - | - | Physical field/pitch assignment (e.g. "Field A"). |
+| **is_final** | `boolean` | `false` | - | Completion flag. |
+| **is_playoff** | `boolean` | `false` | - | Marks this match as a playoff bracket entry. |
+| **tournament_stage** | `text` | `group` | - | Stage: `group`, `semi_final`, `final`. |
+| **match_phase** | `text` | `pre_game` | - | Phase: `first_half`, `halftime`, `second_half`, etc. |
+| **status** | `text` | `scheduled` | - | Readiness state. |
+| **timer_status** | `text` | `stopped` | - | Logic flag for UI countdowns. |
 
 ## 🔗 Relationships
 
-- **belongs_to** games (`game_id`)
-- **belongs_to** profiles (`referee_id`)
-- **has_many** match_players (Junction table for lineups)
-
-## 🛡️ RLS & Governance
-
-- **Select**: Publicly readable while the parent game is `active`.
-- **Update**: Restricted to the facility host or the assigned `referee_id`.
-- **Realtime Logic**: Updates to `home_score` and `away_score` are broadcast via Supabase Realtime to the `LiveProjectorPage` and `FieldProjector`.
+| Relation | Table | Key | Description |
+|---|---|---|---|
+| **belongs_to** | [[games (supabase).md]] | `game_id` | The parent event. |
+| **has_many** | [[match_players (supabase).md]] | `match_id` | Individual match participants. |
+| **belongs_to** | [[teams (supabase).md]] | `home_team_id` | Home team relation (Rolling League). |
+| **belongs_to** | [[teams (supabase).md]] | `away_team_id` | Away team relation (Rolling League). |
 
 ---
 
-**The `matches` table is the "Competitive Heartbeat" of the platform, providing the granular data needed for real-time scoreboards and tournament standings.**
+**The `matches` table tracks the granular score and lifecycle of individual match-ups within a larger tournament context.**

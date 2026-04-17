@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Security: exclude debug logs and sensitive script files
+dev_server.log
+scripts/force_waitlist.ts
+architecture_files.txt

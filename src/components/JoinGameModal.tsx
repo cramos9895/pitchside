@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, X, UserPlus, DollarSign, CreditCard, Copy, Check, Award } from 'lucide-react';
+import { Loader2, X, UserPlus, DollarSign, CreditCard, Copy, Check, Award, ScrollText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { WaiverModal } from './WaiverModal';
@@ -61,6 +61,11 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     const [selectedGuests, setSelectedGuests] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
 
+    // Context-Aware Financials
+    const [gameData, setGameData] = useState<any>(null);
+    const [eventWaiverAccepted, setEventWaiverAccepted] = useState(false);
+    const [cashAcknowledgement, setCashAcknowledgement] = useState(false);
+
     const supabase = createClient();
 
     useEffect(() => {
@@ -79,30 +84,33 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             if (gameId) {
                 const { data: gameData } = await supabase
                     .from('games')
-                    .select('allowed_payment_methods, teams_config')
+                    .select('allowed_payment_methods, teams_config, payment_collection_type, strict_waiver_required, waiver_details, cash_amount, cash_fee_structure, player_registration_fee')
                     .eq('id', gameId)
                     .single();
 
-                if (gameData && gameData.allowed_payment_methods) {
-                    setAllowedMethods(gameData.allowed_payment_methods);
-                }
+                if (gameData) {
+                    setGameData(gameData);
+                    if (gameData.allowed_payment_methods) {
+                        setAllowedMethods(gameData.allowed_payment_methods);
+                    }
 
-                if (gameData && gameData.teams_config && Array.isArray(gameData.teams_config)) {
-                    setTeamsConfig(gameData.teams_config);
+                    if (gameData.teams_config && Array.isArray(gameData.teams_config)) {
+                        setTeamsConfig(gameData.teams_config);
 
-                    // Fetch Active Squad Rosters
-                    const { data: activeBookings } = await supabase
-                        .from('bookings')
-                        .select(`
-                            team_assignment,
-                            stripe_payment_method_id,
-                            user:profiles!bookings_user_id_fkey (full_name)
-                        `)
-                        .eq('game_id', gameId)
-                        .neq('status', 'cancelled')
-                        .not('team_assignment', 'is', null);
+                        // Fetch Active Squad Rosters
+                        const { data: activeBookings } = await supabase
+                            .from('bookings')
+                            .select(`
+                                team_assignment,
+                                stripe_payment_method_id,
+                                user:profiles!bookings_user_id_fkey (full_name)
+                            `)
+                            .eq('game_id', gameId)
+                            .neq('status', 'cancelled')
+                            .not('team_assignment', 'is', null);
 
-                    if (activeBookings) setRosters(activeBookings);
+                        if (activeBookings) setRosters(activeBookings);
+                    }
                 }
             }
 
@@ -253,11 +261,22 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
         }
 
         if (joinMode === 'free-agent' && !isWaitlist) {
-            // Free Agents IMMEDIATELY go to Stripe to vault. No manual cash/venmo.
-            if (!waiverSigned) {
-                setShowWaiver(true);
+            // Free Agents IMMEDIATELY go to Stripe to vault UNLESS it is a cash league.
+            const isCashLeague = gameData?.payment_collection_type === 'cash';
+            
+            if (isCashLeague) {
+                // For cash leagues, Free Agents just confirm.
+                if (!waiverSigned) {
+                    setShowWaiver(true);
+                } else {
+                    onConfirm({ note, paymentMethod: 'cash', promoCodeId: appliedPromo?.id, isFreeAgent: true });
+                }
             } else {
-                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, isFreeAgent: true });
+                if (!waiverSigned) {
+                    setShowWaiver(true);
+                } else {
+                    onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, isFreeAgent: true });
+                }
             }
             return;
         }
@@ -576,12 +595,35 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 </div>
                             )}
 
+                            {/* Free Agent Pricing Breakdown */}
                             {joinMode === 'free-agent' && !isWaitlist && (
-                                <div className="bg-pitch-accent/10 border border-pitch-accent/20 rounded-sm p-4 mb-4 text-sm mt-4">
-                                    <h4 className="font-bold text-pitch-accent mb-1 uppercase tracking-wider text-xs">Pre-Authorization Hold</h4>
-                                    <p className="text-gray-300">
-                                        Your card will <strong className="text-white">not be charged today</strong>. We will secure your card on file and automatically charge <strong>${finalPrice.toFixed(2)}</strong> only if you are officially drafted to a squad.
-                                    </p>
+                                <div className="mt-4">
+                                    {gameData?.payment_collection_type === 'cash' ? (
+                                        <div className="bg-pitch-accent/5 border border-pitch-accent/20 rounded-sm p-4">
+                                            <h4 className="font-bold text-pitch-accent mb-2 uppercase tracking-widest text-[10px]">Individual Fee Structure</h4>
+                                            <div className="space-y-1.5 font-bold uppercase tracking-wider">
+                                                <div className="flex justify-between text-[11px]">
+                                                    <span className="text-gray-400">Registration Fee:</span>
+                                                    <span className="text-white">${gameData.player_registration_fee?.toFixed(2) || '0.00'} (At Door)</span>
+                                                </div>
+                                                <div className="flex justify-between text-[11px]">
+                                                    <span className="text-gray-400">Match Fee:</span>
+                                                    <span className="text-white">
+                                                        {gameData.cash_fee_structure === 'per_match' 
+                                                            ? `$${gameData.cash_amount?.toFixed(2) || '0.00'}/match`
+                                                            : `$${gameData.cash_amount?.toFixed(2) || '0.00'} upfront`}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-pitch-accent/10 border border-pitch-accent/20 rounded-sm p-4 text-sm mt-4">
+                                            <h4 className="font-bold text-pitch-accent mb-1 uppercase tracking-wider text-xs">Pre-Authorization Hold</h4>
+                                            <p className="text-gray-300">
+                                                Your card will <strong className="text-white">not be charged today</strong>. We will secure your card on file and automatically charge <strong>${finalPrice.toFixed(2)}</strong> only if you are officially drafted to a squad.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -624,20 +666,62 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 </div>
                             )}
 
+                            {/* Dynamic Event Waiver */}
+                            {gameData?.strict_waiver_required && !isWaitlist && (
+                                <div className="space-y-4 pt-6 mt-6 border-t border-white/10">
+                                    <div className="flex items-center gap-2 text-white font-black uppercase tracking-widest text-[10px]">
+                                        <ScrollText className="w-3.5 h-3.5 text-pitch-accent" />
+                                        Event Waiver & Rules
+                                    </div>
+                                    <div className="bg-black/60 border border-white/10 p-4 rounded-sm text-[11px] text-gray-400 leading-relaxed font-medium max-h-32 overflow-y-auto custom-scrollbar whitespace-pre-wrap italic">
+                                        {gameData.waiver_details || "No additional rules specified."}
+                                    </div>
+                                    <label className="flex items-center gap-3 cursor-pointer group">
+                                        <input 
+                                            type="checkbox" 
+                                            required
+                                            checked={eventWaiverAccepted}
+                                            onChange={e => setEventWaiverAccepted(e.target.checked)}
+                                            className="w-4 h-4 bg-black border-2 border-white/20 rounded-sm checked:bg-pitch-accent checked:border-pitch-accent text-black focus:ring-0 focus:ring-offset-0 transition-colors cursor-pointer"
+                                        />
+                                        <span className="text-[10px] font-bold text-gray-400 group-hover:text-white uppercase tracking-widest select-none">I agree to the event rules.</span>
+                                    </label>
+                                </div>
+                            )}
+
+                            {/* Cash Acknowledgement */}
+                            {gameData?.payment_collection_type === 'cash' && !isWaitlist && (
+                                <div className="mt-4 bg-pitch-accent/5 border border-pitch-accent/20 p-4 rounded-sm">
+                                    <label className="flex items-start gap-4 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            required 
+                                            checked={cashAcknowledgement}
+                                            onChange={e => setCashAcknowledgement(e.target.checked)}
+                                            className="mt-1 w-4 h-4 bg-black border-2 border-pitch-accent/50 rounded-sm checked:bg-pitch-accent checked:border-pitch-accent text-black focus:ring-0 focus:ring-offset-0 transition-colors"
+                                        />
+                                        <span className="text-[10px] text-pitch-accent font-bold uppercase tracking-wider leading-relaxed">
+                                            I understand that all league fees must be paid in cash at the door.
+                                        </span>
+                                    </label>
+                                </div>
+                            )}
+
                             <div className="sticky bottom-[-24px] -mx-6 px-6 pb-6 pt-4 bg-pitch-card border-t border-white/5 z-10 mt-auto shadow-[0_-15px_15px_-15px_rgba(0,0,0,0.5)]">
                                 <button
                                     onClick={handleNext}
-                                    disabled={loading}
+                                    disabled={loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (gameData?.payment_collection_type === 'cash' && !cashAcknowledgement)}
                                     className={cn(
                                         "w-full py-4 font-black uppercase tracking-wider rounded-sm transition-colors flex items-center justify-center gap-2",
                                         isWaitlist
                                             ? "bg-yellow-500 text-black hover:bg-yellow-400"
-                                            : "bg-pitch-accent text-pitch-black hover:bg-white"
+                                            : "bg-pitch-accent text-pitch-black hover:bg-white",
+                                        (loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (gameData?.payment_collection_type === 'cash' && !cashAcknowledgement)) && "opacity-50 cursor-not-allowed grayscale"
                                     )}
                                 >
                                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> :
                                         isWaitlist ? "Confirm Waitlist Spot" :
-                                            joinMode === 'free-agent' ? "Vault Card & Register as Free Agent" :
+                                            joinMode === 'free-agent' ? (gameData?.payment_collection_type === 'cash' ? "Confirm Free Agent Registration" : "Vault Card & Register") :
                                                 finalPrice === 0 ? "Confirm & Join" : `Continue to Payment ($${finalPrice.toFixed(2)})`}
                                 </button>
                             </div>

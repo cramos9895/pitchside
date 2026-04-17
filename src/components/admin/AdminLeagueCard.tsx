@@ -11,12 +11,21 @@ interface Game {
     start_time: string;
     end_time: string | null;
     current_players: number;
+    current_teams?: number; // Added for registration tracking
     max_players: number;
     price: number;
     surface_type: string;
     status: string;
     refund_processed: boolean;
-    game_format?: string;
+    league_format?: string;
+    // New fields from GameForm
+    min_teams?: number;
+    max_teams?: number;
+    location_nickname?: string;
+    field_size?: string;
+    total_game_time?: number;
+    payment_collection_type?: string;
+    cash_fee_structure?: string;
 }
 
 interface AdminLeagueCardProps {
@@ -33,6 +42,7 @@ export function AdminLeagueCard({ game, onEdit, onCancel, onHardDelete }: AdminL
     const isCancelled = game.status === 'cancelled';
     const isCompleted = game.status === 'completed';
     const isLive = game.status === 'active';
+    const isRolling = game.league_format === 'rolling';
 
     return (
         <div className={cn(
@@ -52,7 +62,8 @@ export function AdminLeagueCard({ game, onEdit, onCancel, onHardDelete }: AdminL
                 <div className="flex-1 space-y-4">
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest text-blue-400 flex items-center gap-1">
-                            <LayoutList className="w-3 h-3" /> Season League
+                            {isRolling ? <Zap className="w-3 h-3 text-blue-400" /> : <LayoutList className="w-3 h-3" />} 
+                            {isRolling ? 'Rolling League' : 'Season League'}
                         </div>
                         <h3 className={cn("text-2xl font-heading font-bold italic uppercase tracking-tight text-white", isCancelled && "text-gray-500 line-through")}>
                             {game.title}
@@ -61,7 +72,8 @@ export function AdminLeagueCard({ game, onEdit, onCancel, onHardDelete }: AdminL
                         {isCompleted && <span className="bg-green-500/20 text-green-400 text-[10px] font-black px-2 py-0.5 rounded border border-green-500/30">Season Finished</span>}
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4">
+                        {/* 1. Start Date */}
                         <div className="space-y-1">
                             <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider flex items-center gap-1">
                                 <Calendar className="w-3 h-3 text-blue-500" /> Start Date
@@ -71,31 +83,61 @@ export function AdminLeagueCard({ game, onEdit, onCancel, onHardDelete }: AdminL
                                 <span className="text-pitch-secondary text-xs">Registration Open</span>
                             </div>
                         </div>
+
+                        {/* 2. Scale (Min-Max Teams) */}
                         <div className="space-y-1">
                             <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider flex items-center gap-1">
                                 <Users className="w-3 h-3 text-blue-500" /> Scale
                             </span>
                             <div className="text-sm font-bold text-white">
-                                Multiple Teams <br />
+                                {game.min_teams || 4} - {game.max_teams || 8} Teams <br />
                                 <span className="text-pitch-secondary text-xs">Draft & Free Agents</span>
                             </div>
                         </div>
+
+                        {/* 3. Teams Registered */}
+                        <div className="space-y-1">
+                            <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider flex items-center gap-1">
+                                <LayoutList className="w-3 h-3 text-blue-500" /> Teams Registered
+                            </span>
+                            <div className="text-sm font-bold text-white">
+                                {game.current_teams || 0} Registered <br />
+                                <span className="text-pitch-secondary text-xs">{game.current_players || 0} Total Players</span>
+                            </div>
+                        </div>
+
+                        {/* 4. Location (Nickname + Surface) */}
                         <div className="space-y-1">
                             <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider flex items-center gap-1">
                                 <MapPin className="w-3 h-3 text-blue-500" /> Location
                             </span>
                             <div className="text-sm font-bold text-white truncate max-w-[150px]">
-                                {game.location.split(',')[0]} <br />
-                                <span className="text-pitch-secondary text-xs italic">League Venue</span>
+                                {game.location_nickname || game.location.split(',')[0]} <br />
+                                <span className="text-pitch-secondary text-xs">{game.surface_type || 'League Venue'}</span>
                             </div>
                         </div>
+
+                        {/* 5. Format (Size + Length) */}
                         <div className="space-y-1">
                             <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider flex items-center gap-1">
-                                <ShieldCheck className="w-3 h-3 text-blue-500" /> Format
+                                <Zap className="w-3 h-3 text-blue-500" /> Format
                             </span>
                             <div className="text-sm font-bold text-white">
-                                {game.game_format || 'Season'} <br />
-                                <span className="text-pitch-secondary text-xs">Official League</span>
+                                {game.field_size || 'Standard'} <br />
+                                <span className="text-pitch-secondary text-xs">{game.total_game_time || 40} Minutes</span>
+                            </div>
+                        </div>
+
+                        {/* 6. Collection Method */}
+                        <div className="space-y-1">
+                            <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3 text-blue-500" /> Collection Method
+                            </span>
+                            <div className="text-sm font-bold text-white">
+                                {game.payment_collection_type === 'cash' ? 'Cash' : 'Credit'} <br />
+                                <span className="text-pitch-secondary text-xs">
+                                    {game.cash_fee_structure === 'per_game' ? 'Pay on Gamedays' : 'One time fee'}
+                                </span>
                             </div>
                         </div>
                     </div>

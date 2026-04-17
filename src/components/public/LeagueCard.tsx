@@ -3,6 +3,7 @@
 import { Calendar, Users, Trophy, ArrowRight, MapPin, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { isLeagueLocked } from '@/lib/league-utils';
 
 interface LeagueData {
     id: string;
@@ -26,6 +27,7 @@ interface LeagueData {
     roster_lock_date?: string | null;
     regular_season_start?: string | null;
     playoff_start_date?: string | null;
+    league_format?: 'structured' | 'rolling' | null;
 }
 
 interface TournamentRegistration {
@@ -52,7 +54,10 @@ export function LeagueCard({ league, userId, registrations }: LeagueCardProps) {
     const startTime = league.start_time || league.start_date || null;
     const teamPrice = league.team_price ?? league.price ?? null;
     const freeAgentPrice = league.free_agent_price ?? league.price_per_free_agent ?? null;
+    const faPrice = freeAgentPrice; // Alias for TS error resolving below
     const regularSeasonStart = league.regular_season_start || league.start_date || null;
+    
+    const isLocked = isLeagueLocked(league);
 
     const formatDate = (dateString: string | null) => {
         if (!dateString) return 'TBD';
@@ -140,40 +145,59 @@ export function LeagueCard({ league, userId, registrations }: LeagueCardProps) {
                 </div>
 
                 {/* Action Footer */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
+                <div className="mt-auto">
                     {userRole === 'captain' && userTeamId ? (
                         <button
                             onClick={() => router.push(`/tournaments/${league.id}/team/${userTeamId}`)}
-                            className="col-span-1 sm:col-span-2 w-full py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm group/btn"
+                            className="w-full py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm group/btn"
                         >
                             Captain's Command Center <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                        </button>
+                    ) : (userRole === 'player' || userRole === 'registered') && userTeamId ? (
+                         <button
+                            onClick={() => router.push(`/tournaments/${league.id}/team/${userTeamId}`)}
+                            className="w-full py-4 bg-transparent border border-white/20 text-white font-black uppercase tracking-widest text-xs hover:bg-white/5 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn"
+                        >
+                            Team Command Center <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                         </button>
                     ) : userRole ? (
                         <button
                             onClick={() => {
-                                const leagueId = league.id || (userReg as any).game_id;
-                                router.push(`/dashboard/tournaments/${leagueId}`);
+                                const targetPath = league.league_format === 'rolling' ? 'games' : 'tournaments';
+                                router.push(`/${targetPath}/${league.id}`);
                             }}
-                            className="col-span-1 sm:col-span-2 w-full py-4 bg-white/10 text-white border border-white/20 font-black uppercase tracking-widest text-xs hover:bg-white/20 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn"
+                            className="col-span-1 sm:col-span-2 w-full py-4 bg-transparent border border-white/20 text-white font-black uppercase tracking-widest text-xs hover:bg-white/5 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn"
                         >
-                            View Player Dashboard <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                            League Lobby <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                         </button>
+                    ) : isLocked ? (
+                        <div className="w-full py-4 border border-pitch-accent/30 bg-pitch-accent/10 rounded-sm text-center">
+                            <span className="text-pitch-accent font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2">
+                                Registration Closed
+                            </span>
+                        </div>
                     ) : (
                         <>
                             <button
-                                onClick={() => router.push(`/tournaments/${league.id}/register?type=team`)}
-                                className="w-full py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 group/btn shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm"
+                                onClick={() => {
+                                    const targetPath = league.league_format === 'rolling' ? 'games' : 'tournaments';
+                                    router.push(`/${targetPath}/${league.id}/register?type=team`);
+                                }}
+                                className="w-full py-4 bg-[#cbff00] text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 group/btn shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm"
                             >
                                 <span className="flex items-center gap-2">Register Team <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" /></span>
                                 {teamPrice !== null && <span className="text-[10px] opacity-70">(${teamPrice})</span>}
                             </button>
-                            {(freeAgentPrice !== null && freeAgentPrice >= 0) && (
+                            {(faPrice !== null && faPrice >= 0) && (
                                 <button
-                                    onClick={() => router.push(`/tournaments/${league.id}/register?type=free_agent`)}
-                                    className="w-full py-4 border border-pitch-accent/50 text-pitch-accent font-black uppercase tracking-widest text-xs hover:bg-pitch-accent/10 transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 rounded-sm"
+                                    onClick={() => {
+                                        const targetPath = league.league_format === 'rolling' ? 'games' : 'tournaments';
+                                        router.push(`/${targetPath}/${league.id}/register?type=free_agent`);
+                                    }}
+                                    className="w-full py-4 border border-[#cbff00]/50 text-[#cbff00] font-black uppercase tracking-widest text-xs hover:bg-[#cbff00]/10 transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 rounded-sm flex-1 mt-2"
                                 >
                                     <span>Join Free Agent</span>
-                                    <span className="text-[10px] opacity-70">(${freeAgentPrice})</span>
+                                    <span className="text-[10px] opacity-70">(${faPrice})</span>
                                 </button>
                             )}
                         </>

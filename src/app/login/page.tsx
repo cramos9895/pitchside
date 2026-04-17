@@ -1,14 +1,14 @@
+// 🏗️ Architecture: [[LoginForm.md]]
 'use client';
 
 import { useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
+import { loginUser } from '@/app/actions/auth';
 
 function LoginForm() {
     const router = useRouter();
-    const supabase = createClient();
 
     // Form Fields
     const [email, setEmail] = useState('');
@@ -24,32 +24,29 @@ function LoginForm() {
         setError(null);
 
         try {
-            const { data: authData, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-            if (error) throw error;
+            const formData = new FormData();
+            formData.append('email', email);
+            formData.append('password', password);
 
-            // After successful sign-in, check role for redirection
-            if (authData?.user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('system_role')
-                    .eq('id', authData.user.id)
-                    .single();
+            const result = await loginUser(formData);
 
-                if (profile?.system_role === 'facility_admin' || profile?.system_role === 'super_admin') {
+            if (result.error) {
+                setError(result.error);
+                setLoading(false);
+                return;
+            }
+
+            if (result.success) {
+                if (result.systemRole === 'facility_admin' || result.systemRole === 'super_admin') {
                     router.push('/facility');
                 } else {
                     router.push('/');
                 }
-            } else {
-                router.push('/');
+                router.refresh();
             }
-            router.refresh();
 
         } catch (err: any) {
-            setError(err.message);
+            setError(err.message || 'An unexpected error occurred.');
         } finally {
             setLoading(false);
         }

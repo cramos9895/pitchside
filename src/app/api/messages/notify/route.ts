@@ -1,6 +1,9 @@
+// 🏗️ Architecture: [[ChatInterface.md]]
+
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendNotification } from '@/lib/email';
+import { isRateLimited } from '@/lib/security/rate-limit';
 
 export async function POST(request: NextRequest) {
     try {
@@ -10,6 +13,17 @@ export async function POST(request: NextRequest) {
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        // --- SECURITY: RATE LIMITING ---
+        // Messaging is an authenticated action, so we limit by User ID
+        // 10 messages per minute to prevent mass-spamming email notifications
+        const isLimited = await isRateLimited(user.id, 'api:messages:notify', 10, 60);
+        if (isLimited) {
+            return NextResponse.json({ 
+                error: "Messaging limit exceeded. Please wait a moment before sending more notifications." 
+            }, { status: 429 });
+        }
+        // -------------------------------
 
         const { gameId, messageId, content, isBroadcast, hasHostTag } = await request.json();
 

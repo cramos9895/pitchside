@@ -300,14 +300,22 @@ export async function updateLeague(leagueId: string, formData: FormData) {
     const min_roster = formData.get('min_roster') as string;
     const max_teams = formData.get('max_teams') as string;
     const start_date = formData.get('start_date') as string;
-    const end_date = formData.get('end_date') as string;
+    
+    let end_date = formData.get('end_date') as string;
+    let has_playoffs = formData.get('has_playoffs') === 'on';
+    let playoff_spots = formData.get('playoff_spots') as string;
+
+    const league_format = formData.get('league_format') as string || 'structured';
+    if (league_format === 'rolling') {
+        end_date = '';
+        has_playoffs = false;
+        playoff_spots = '';
+    }
 
     const format = formData.get('format') as string;
     const game_length = formData.get('game_length') as string;
     const game_periods = formData.get('game_periods') as string;
     const game_days = formData.get('game_days') as string;
-    const has_playoffs = formData.get('has_playoffs') === 'on';
-    const playoff_spots = formData.get('playoff_spots') as string;
 
     const time_range_start = formData.get('time_range_start') as string;
     const time_range_end = formData.get('time_range_end') as string;
@@ -326,6 +334,7 @@ export async function updateLeague(leagueId: string, formData: FormData) {
         .update({
             name,
             season,
+            league_format,
             activity_id: activity_id ? activity_id : null,
             price: price ? parseFloat(price) : null,
             max_roster: max_roster ? parseInt(max_roster) : null,

@@ -1,27 +1,16 @@
 # 🗄️ Table: resource_types
 
-**Domain:** #database #taxonomy  
-**Primary Key:** `id` (UUID)
+**Domain:** #database #facility  **Primary Key:** `id` (UUID)
 
 ## 📄 Column Definitions
 
-| Column          | Type        | Description                                                                      |
-| --------------- | ----------- | -------------------------------------------------------------------------------- |
-| **id**          | `uuid`      | Primary unique identifier for the specific taxonomy of resource.                 |
-| **name**        | `text`      | The public name of the category (e.g., "Full Soccer Pitch", "Padel Court").      |
-| **description** | `text`      | Descriptive context regarding the dimensions or standard use-case for this type. |
-| **created_at**  | `timestamp` | Auto-generated record tracking.                                                  |
-
-## 🔗 Relationships
-
-- **has_many** resources (via `resource_type_id`) - Acts as the template for individual physical fields.
-
-## 🛡️ RLS & Governance
-
-- **Select**: Publicly readable. Essential for venue builders and marketplace filtering.
-- **Insert/Update/Delete**: Strictly restricted to **Super-Admins** and **Master-Admins** via `[[src/app/actions/master-settings.ts]]`.
-- **Integrity**: Deletion is blocked if the resource type is currently assigned to any physical `resources`, ensuring that the facility hierarchy remains intact.
+| Column | Type | Default | Foreign Key | Description |
+|---|---|---|---|---|
+| **id** | `uuid` | `gen_random_uuid()` | - | Type identifier. |
+| **name** | `text` | - | - | e.g. `Indoor Turf`, `Hardcourt`. |
+| **default_hourly_rate** | `numeric` | `100.00` | - | Suggested base price for venues. |
+| **is_active** | `boolean` | `true` | - | Availability toggle. |
 
 ---
 
-**The `resource_types` table is the platform's "Infrastructure Taxonomy," mathematically defining the categories of playable space that physical venues can utilize.**
+**The `resource_types` table categorizes physical assets (e.g., Hardcourt, Outdoor Turf) across the platform.**

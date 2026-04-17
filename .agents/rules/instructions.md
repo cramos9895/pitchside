@@ -1,9 +1,14 @@
+---
+trigger: always_on
+---
+
 # User Policy & Development Guidelines
 
 This document outlines the strict operational and coding standards for the PitchSide project. These rules are prioritized to ensure non-destructive development, clear communication with a non-technical user, and high-quality UI/UX.
 
 ## 1. Non-Technical Communication & Documentation
 - **Code Comments:** Always include easy-to-understand, plain-English comments in all code changes. Explain *what* the code does and *why*, avoiding overly dense technical jargon.
+- **The Tester Snippet:** At the end of every major task, provide a clear, step-by-step verification guide that a non-technical user can follow in their browser to verify the change.
 - **Implementation Plans:** BEFORE making any changes, generate a detailed Implementation Plan. It must explain the proposed changes, the rationale behind them, and how they will be verified. Wait for user approval before proceeding.
 - **Walkthroughs:** AFTER every major change, create a Walkthrough artifact. Detail the steps taken, the results achieved, and include media (screenshots/recordings) if applicable.
 
@@ -41,3 +46,22 @@ This document outlines the strict operational and coding standards for the Pitch
     Context Gathering: Before proposing architectural changes or bug fixes, you MUST search the /architecture folder for the relevant [[Component]] or [[API]] to understand the existing routing and state.
 
     Auto-Updating: If you execute a change that alters a database schema, adds a new component, or changes a route, you MUST update the corresponding .md file in the /architecture directory to reflect the new architecture. Maintain the existing template formatting and [[Wikilink]] syntax.
+
+## 6. Quota & Efficiency Protocols
+- **Targeted Reading:** Only read files absolutely necessary for the current task. Avoid listing full directories if the target path is already known.
+- **The "Reference Check":** Always state which `architecture` files you are following at the start of a task (e.g., "I am referencing [[GameCard.md]]").
+- **The Backlink Protocol:** For every complex file edited, ensure a single-line comment exists at the top: `// 🏗️ Architecture: [[NoteName.md]]`. This bridges the gap between code and documentation.
+- **Plan "Lite":** For "Trivial Fixes" (typos, CSS color tweaks, single-line logic fixes), you may skip the formal Implementation Plan and proceed directly to execution to save turns and quota.
+- **Session Handoff:** At the end of a major task, provide a brief "Technical Delta" summary that can be used to re-index knowledge in future sessions.
+
+## 7. Migration & Database Standards
+- **No Root SQL Files:** All database changes (schema updates, RLS policy changes, seeds) MUST be placed in `./supabase/migrations/`.
+- **Naming Convention:** Use the standard Supabase timestamp format: `YYYYMMDDHHMMSS_description.sql`.
+- **Atomic Migrations:** Ensure each migration is a complete, runnable unit of change.
+
+## 8. Security & Safety Guardrails
+- **The "Wall of RLS":** PROHIBITED from proposing database schema changes without an accompanying RLS (Row Level Security) policy.
+- **Auth-by-Default:** Every new route, API, or Server Action MUST include an explicit check for a valid user session.
+- **Environment Isolation:** NEVER hardcode keys, secrets, or sensitive IDs. Use environment variables and verify their existence before use.
+- **Pre-Push Security Audit:** Before requesting permission to push or merge, providing a brief "Security Audit" summary is REQUIRED (e.g., "Verified RLS, Verified Auth, No Hardcoded Keys").
+- **Strict Typing:** Use strict TypeScript (avoid `any`) to prevent runtime errors in production.

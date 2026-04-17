@@ -47,6 +47,9 @@ interface PlayerDashboardProps {
 export function PlayerDashboardClient({ tournament, team, registration, roster, upcomingMatch, allMatches }: PlayerDashboardProps) {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'roster' | 'schedule' | 'bracket'>('roster');
+    
+    // Filter live matches sequentially hooked to this Player's team_id
+    const myMatches = allMatches.filter(m => m.home_team === team.id || m.away_team === team.id);
 
     const handlePayNow = () => {
         // Since Stripe logic isn't strictly requested for Lobby B right here (just the UI CTA), I'll make it redirect to the payment pipeline or alert.
@@ -221,7 +224,7 @@ export function PlayerDashboardClient({ tournament, team, registration, roster, 
                         {/* Tab 2: Schedule */}
                         {activeTab === 'schedule' && (
                             <div className="animate-in fade-in duration-500 space-y-4">
-                                {allMatches.length === 0 ? (
+                                {myMatches.length === 0 ? (
                                     <div className="text-center py-24 bg-black/50 border border-dashed border-white/10 rounded-2xl">
                                         <Calendar className="w-12 h-12 text-gray-700 mx-auto mb-4" />
                                         <h3 className="text-xl font-black italic uppercase tracking-widest text-white mb-2">Schedule Pending</h3>
@@ -230,7 +233,7 @@ export function PlayerDashboardClient({ tournament, team, registration, roster, 
                                         </p>
                                     </div>
                                 ) : (
-                                    allMatches.map(match => (
+                                    myMatches.map(match => (
                                         <div key={match.id} className="bg-pitch-card border border-white/5 rounded-sm p-4 hover:border-white/20 transition-colors flex flex-col md:flex-row items-center justify-between gap-4">
                                             <div className="flex items-center gap-4 text-center md:text-left w-full md:w-auto">
                                                 <div className="bg-black/50 border border-white/10 px-4 py-2 rounded text-center min-w-[120px]">

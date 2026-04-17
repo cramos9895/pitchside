@@ -14,7 +14,14 @@ export async function registerCaptain(formData: FormData) {
     const leagueId = formData.get('leagueId') as string;
     const teamName = formData.get('teamName') as string;
     const primaryColor = formData.get('primaryColor') as string;
-    const paymentChoice = formData.get('paymentChoice') as string; // 'full' or 'split'
+    const positionsRaw = formData.get('positions') as string;
+    let positions: string[] = [];
+    
+    try {
+        positions = positionsRaw ? JSON.parse(positionsRaw) : [];
+    } catch (e) {
+        console.error("Failed to parse positions:", e);
+    }
     
     if (!leagueId || !teamName) throw new Error("Missing required fields");
 
@@ -46,7 +53,7 @@ export async function registerCaptain(formData: FormData) {
             captain_id: user.id,
             primary_color: primaryColor,
             accepting_free_agents: false,
-            status: 'approved' // Auto-approve or pending based on biz logic. Let's assume approved.
+            status: 'approved'
         })
         .select()
         .single();
@@ -60,6 +67,7 @@ export async function registerCaptain(formData: FormData) {
             league_id: leagueId,
             user_id: user.id,
             team_id: team.id,
+            preferred_positions: positions,
             status: 'registered'
         });
 
@@ -82,9 +90,16 @@ export async function registerFreeAgent(formData: FormData) {
 
     // 2. Extract form data
     const leagueId = formData.get('leagueId') as string;
-    const positions = formData.getAll('positions') as string[]; // e.g. ['Forward', 'Midfield']
+    const positionsRaw = formData.get('positions') as string;
+    let positions: string[] = [];
     
-    if (!leagueId || !positions || positions.length === 0) {
+    try {
+        positions = positionsRaw ? JSON.parse(positionsRaw) : [];
+    } catch (e) {
+        console.error("Failed to parse positions:", e);
+    }
+    
+    if (!leagueId || positions.length === 0) {
         throw new Error("Missing required fields. Please select at least one position.");
     }
 

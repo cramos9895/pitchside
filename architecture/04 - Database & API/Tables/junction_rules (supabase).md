@@ -1,39 +1,26 @@
-# 🗄️ Tables: Junction Rules (`facility_activities` & `resource_activities`)
+# 🧩 Logic: junction_rules
 
-**Domain:** #database #infrastructure #governance **Primary Key:** Composite (See Below)
+**Domain:** #database #logic  **Context:** Relationship Management
 
-## 📄 Column Definitions: `facility_activities`
+## 📖 Overview
 
-_This table defines the global sports/activities that a venue is capable of hosting._
+The PitchSide database relies heavily on junction tables to manage many-to-many relationships (e.g., Facility ↔ Activity). This document outlines the consistency rules for these intersections.
 
-|Column|Type|Description|
-|---|---|---|
-|**facility_id**|`uuid`|(PK/FK) Reference to the parent venue facilities.|
-|**activity_type_id**|`uuid`|(PK/FK) Reference to the global sport category activity_types.|
-|**created_at**|`timestamp`|Record of when the activity was officially "enabled" at the venue.|
+## 📄 Junction Registry
 
-## 📄 Column Definitions: `resource_activities`
+| Table | Left Side | Right Side | Logical Purpose |
+|---|---|---|---|
+| **facility_activities** | `facility_id` | `activity_type_id` | Defines which sports a venue supports. |
+| **resource_activities** | `resource_id` | `activity_type_id` | Defines sport compatibility for specific courts/fields. |
+| **league_resources** | `league_id` | `resource_id` | Designates specific fields for competition use. |
+| **team_players** | `team_id` | `user_id` | Manages rosters and squad memberships. |
 
-_This table provides granular control, defining which specific sports can be played on which specific field/court._
+## 🛡️ RLS & Cascade Rules
 
-|Column|Type|Description|
-|---|---|---|
-|**resource_id**|`uuid`|(PK/FK) Reference to the specific pitch or court resources.|
-|**activity_type_id**|`uuid`|(PK/FK) Reference to the global sport category activity_types.|
-|**created_at**|`timestamp`|Record of when the resource was designated as compatible with the sport.|
-
-## 🔗 Relationships
-
-- **belongs_to** facilities or resources - To identify the owner of the capability.
-- **belongs_to** activity_types - To identify the sport itself.
-- **Used By**: The "Marketplace Filtering" engine and the "Game Creation" validator.
-
-## 🛡️ RLS & Governance
-
-- **Select**: Publicly readable. Essential for the public search UI (e.g., "Find all venues near me that support Pickleball").
-- **Insert/Delete**: Restricted to the **Facility Admin** of the associated venue or a **Super Admin**.
-- **The "Physical Capability" Guard**: These junction tables serve as the platform's "Logic Filter." When an administrator attempts to schedule a "Tournament" or "Pickup Game," the system queries these tables to ensure the selected `resource` (Field 1) is physically and legally configured for the chosen sport (Activity Type).
+1.  **Deletion**: Most junctions use `ON DELETE CASCADE` to prevent orphaned records.
+2.  **Uniqueness**: Primary keys are typically composite `(id_a, id_b)` to prevent duplicate mapping.
+3.  **Governance**: Insertion into junctions usually requires "Owner" permissions on the Left Side entity (e.g. Facility Admin for `facility_activities`).
 
 ---
 
-**The "Junction Rules" are the platform's "Capability Matrix," mathematically defining the relationship between physical space and competitive activity across the ecosystem.**
+**Maintaining strict junction logic prevents "Dead Scheduling" and ensures that games are only created on compatible resources.**

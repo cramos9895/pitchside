@@ -33,19 +33,51 @@ export default async function TournamentRegistrationPage({ params, searchParams 
 
     const { data: gameTourney } = await supabase
         .from('games')
-        .select('title, team_price, free_agent_price, deposit_amount')
+        .select(`
+            title, 
+            team_price, 
+            free_agent_price, 
+            deposit_amount,
+            player_registration_fee,
+            cash_amount,
+            payment_collection_type,
+            rules_description,
+            strict_waiver_required,
+            waiver_details
+        `)
         .eq('id', tournamentId)
         .single();
+
+    let details: any = {};
 
     if (gameTourney) {
         tournamentName = gameTourney.title;
         teamPrice = gameTourney.team_price;
         faPrice = gameTourney.free_agent_price;
         deposit = gameTourney.deposit_amount;
+        details = {
+            signup_fee: gameTourney.player_registration_fee,
+            cash_amount: gameTourney.cash_amount,
+            payment_collection_type: gameTourney.payment_collection_type,
+            description: gameTourney.rules_description,
+            strict_waiver_required: gameTourney.strict_waiver_required,
+            waiver_details: gameTourney.waiver_details
+        };
     } else {
         const { data: leagueTourney } = await supabase
             .from('leagues')
-            .select('name, price_per_team, price_per_free_agent, deposit_amount')
+            .select(`
+                name, 
+                price_per_team, 
+                price_per_free_agent, 
+                deposit_amount,
+                player_registration_fee,
+                cash_amount,
+                payment_collection_type,
+                description,
+                strict_waiver_required,
+                waiver_details
+            `)
             .eq('id', tournamentId)
             .single();
 
@@ -54,6 +86,14 @@ export default async function TournamentRegistrationPage({ params, searchParams 
             teamPrice = leagueTourney.price_per_team;
             faPrice = leagueTourney.price_per_free_agent;
             deposit = leagueTourney.deposit_amount;
+            details = {
+                signup_fee: leagueTourney.player_registration_fee,
+                cash_amount: leagueTourney.cash_amount,
+                payment_collection_type: leagueTourney.payment_collection_type,
+                description: leagueTourney.description,
+                strict_waiver_required: leagueTourney.strict_waiver_required,
+                waiver_details: leagueTourney.waiver_details
+            };
         } else {
             console.error('Tournament not found in either games or leagues tables.');
             notFound();
@@ -69,6 +109,7 @@ export default async function TournamentRegistrationPage({ params, searchParams 
                     teamPrice={teamPrice}
                     faPrice={faPrice}
                     dbDepositAmount={deposit}
+                    {...details}
                 />
             </div>
         </main>

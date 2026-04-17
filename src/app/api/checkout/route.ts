@@ -1,11 +1,23 @@
+// 🏗️ Architecture: [[GameCard.md]]
 
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isRateLimited } from '@/lib/security/rate-limit';
 
 export async function POST(request: Request) {
     try {
         const { gameId, userId, price = 10.00, title = 'Pickup Soccer Game', note = '', promoCodeId, teamAssignment, isFreeAgent, isLeagueCaptainVaulting, guestIds = [] } = await request.json();
+
+        // --- SECURITY: RATE LIMITING ---
+        // Checkout is an authenticated action, so we limit by User ID
+        const isLimited = await isRateLimited(userId, 'api:checkout', 5, 60);
+        if (isLimited) {
+            return NextResponse.json({ 
+                error: "Too many checkout attempts. Please wait 60 seconds before trying again." 
+            }, { status: 429 });
+        }
+        // -------------------------------
 
         const origin = request.headers.get('origin') || 'http://localhost:3000';
         const adminSupabase = createAdminClient();
