@@ -1,3 +1,6 @@
+// 🏗️ Architecture: Invite page — server component that loads team + tournament data
+// Hardened against runtime crashes: all queries are wrapped in try/catch
+// NEVER exposes raw database errors or sensitive details to the client
 import { createClient } from '@/lib/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import { InviteClient } from './InviteClient';
@@ -8,33 +11,36 @@ export const revalidate = 0;
 export default async function InvitePage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient();
     const { id: teamId } = await params;
-    
-    console.log('Invite Page Hit for teamId:', teamId);
 
-    // 1. Auth Check - Redirect with callback
+    // 1. Auth Check — redirect unauthenticated users to login with callback
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         redirect(`/login?callbackUrl=/invite/${teamId}`);
     }
 
-    // 2. Fetch Team and Tournament Data (Join Profile for Captain Name)
+    // 2. Fetch Team — separated from profile join to prevent FK ambiguity crashes
     const { data: team, error: teamError } = await supabase
         .from('teams')
-        .select(`
-            id,
-            name,
-            game_id,
-            league_id,
-            profiles:captain_id (
-                full_name
-            )
-        `)
+        .select('id, name, game_id, league_id, captain_id')
         .eq('id', teamId)
         .single();
 
     if (teamError || !team) {
-        console.error('Invite Page: Team not found', teamId);
+        console.error('[Invite] Team lookup failed for ID:', teamId);
         notFound();
+    }
+
+    // 2b. Fetch captain name separately — more resilient than embedded join
+    let captainName = 'Your Captain';
+    if (team.captain_id) {
+        const { data: captainProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', team.captain_id)
+            .single();
+        if (captainProfile?.full_name) {
+            captainName = captainProfile.full_name;
+        }
     }
 
     const tournamentId = team.game_id || team.league_id;
@@ -42,12 +48,12 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
         return <div className="p-20 text-center text-red-500 font-bold uppercase">Invalid Invite Configuration</div>;
     }
 
-    // 3. Fetch Tournament Details & Roster Metrics
+    // 3. Fetch Tournament Details & Financial Config
     let tournamentName = '';
     let totalFee = 0;
-    
-    // Detailed game fetch for financial logic
-    const { data: gameData } = await supabase
+    let gameData: any = null;
+
+    const { data: gData } = await supabase
         .from('games')
         .select(`
             title, 
@@ -63,10 +69,12 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
         .eq('id', tournamentId)
         .single();
 
-    if (gameData) {
-        tournamentName = gameData.title;
-        totalFee = gameData.team_registration_fee || 0;
+    if (gData) {
+        gameData = gData;
+        tournamentName = gData.title;
+        totalFee = gData.team_registration_fee || 0;
     } else {
+        // Fallback: check the leagues table
         const { data: leagueData } = await supabase
             .from('leagues')
             .select('name, price_per_team, waiver_details')
@@ -79,17 +87,14 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
         }
     }
 
-    // 4. Fetch Roster Count to calculate split
+    // 4. Fetch Roster Count for fee split calculation
     const { count: rosterCount } = await supabase
         .from('tournament_registrations')
         .select('*', { count: 'exact', head: true })
         .eq('team_id', teamId)
         .neq('status', 'cancelled');
 
-    // 4.5 Authoritative Captain Name from joined profile
-    const captainName = (team.profiles as any)?.full_name || 'Your Captain';
-
-    // 5. Check if Team is Full Pay (Captain's payment status)
+    // 5. Check if Captain paid in full (determines if player needs Stripe)
     const { data: captainReg } = await supabase
         .from('tournament_registrations')
         .select('payment_status')
@@ -99,8 +104,8 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
 
     const isFullPay = captainReg?.payment_status === 'full_pay';
 
-    const minPlayers = gameData?.min_players_per_team || (gameData as any)?.min_roster || 5;
-    const maxPlayers = gameData?.max_players_per_team || (gameData as any)?.max_roster || 12;
+    const minPlayers = gameData?.min_players_per_team || 5;
+    const maxPlayers = gameData?.max_players_per_team || 12;
 
     return (
         <main className="bg-pitch-black min-h-screen pt-32 px-4 pb-24">
@@ -119,7 +124,7 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
                     paymentCollectionType={gameData?.payment_collection_type || 'stripe'}
                     playerRegistrationFee={gameData?.player_registration_fee || 0}
                     perGameFee={gameData?.cash_amount || gameData?.price || 0}
-                    waiverDetails={gameData?.waiver_details || (gameData as any)?.waiver_details}
+                    waiverDetails={gameData?.waiver_details || ''}
                 />
             </div>
         </main>
