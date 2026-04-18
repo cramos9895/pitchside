@@ -793,7 +793,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     <div className="bg-pitch-card border border-white/10 rounded-sm p-6 shadow-xl">
                         <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
                             <h2 className="font-heading text-2xl font-bold italic uppercase flex items-center gap-2">
-                                <Users className="w-6 h-6 text-pitch-accent" /> Registered Players ({bookings.length})
+                                <Users className="w-6 h-6 text-pitch-accent" /> Registered Players ({roster.length})
                             </h2>
                             {/* Refund Action */}
                             <div className="flex items-center gap-4">

@@ -143,20 +143,29 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
     }
 
     // 4. Fetch Matches (For Schedule & Standings)
-    // We look for matches where league_id or game_id matches the tournament ID
+    // Always use the 'matches' table for live data sync
     const { data: matches, error: matchesError } = await supabase
-        .from('league_matches')
+        .from('matches')
         .select(`
             *,
-            home_team:teams!home_team_id(name),
-            away_team:teams!away_team_id(name)
+            home_team_rel:teams!home_team_id(name),
+            away_team_rel:teams!away_team_id(name)
         `)
-        .or(`league_id.eq.${id},game_id.eq.${id}`)
+        .eq('game_id', id)
         .order('start_time', { ascending: true });
 
     if (matchesError) {
-        console.error('Match Fetch Error:', matchesError.message, '| Hint:', matchesError.hint, '| Code:', matchesError.code);
+        console.error('Match Fetch Error:', matchesError.message);
     }
+
+    // Map relations to expected naming convention for legacy support if needed
+    const processedMatches = (matches || []).map(m => ({
+        ...m,
+        home_team: m.home_team_rel?.name, // Can be null if TBD
+        away_team: m.away_team_rel?.name, // Can be null if TBD
+        home_team_obj: m.home_team_rel, // object for UI
+        away_team_obj: m.away_team_rel  // object for UI
+    }));
 
     // 5. Fetch Team Messages (For Chat)
     const { data: initialMessages, error: chatError } = await supabase
@@ -194,6 +203,14 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
         console.error('Error fetching free agents:', faError.message);
     }
 
+    // 7. Fetch Official Tournament Teams
+    const { data: teamsData } = await supabase
+        .from('teams')
+        .select('id, name, primary_color')
+        .eq('game_id', id);
+
+    const teams = teamsData || [];
+
     // Generate the base URL for the invite link
     const headersList = await headers();
     const host = headersList.get('host') || 'localhost:3000';
@@ -207,7 +224,8 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
                 tournament={tournament as any}
                 roster={(roster as any) || []}
                 freeAgents={(freeAgents as any) || []}
-                matches={(matches as any) || []}
+                matches={(processedMatches as any) || []}
+                teams={teams}
                 initialMessages={(initialMessages as any) || []}
                 tournamentUrlBase={tournamentUrlBase}
                 isCaptain={isCaptain}

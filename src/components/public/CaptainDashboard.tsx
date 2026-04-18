@@ -16,6 +16,8 @@ import { leaveRollingTeam, disbandRollingTeam } from '@/app/actions/rolling-leag
 import { useTransition } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { PitchSideConfirmModal } from './PitchSideConfirmModal';
+import { StandingsTable, Match } from '@/components/admin/StandingsTable';
+import { cn } from '@/lib/utils';
 import { isLeagueLocked } from '@/lib/league-utils';
 
 interface Player {
@@ -56,20 +58,11 @@ interface Tournament {
     lifecycle_status?: 'active' | 'paused' | 'completed';
     lifecycle_end_date?: string | null;
     skipped_dates?: string[];
+    teams_config?: any[];
 }
 
-interface Match {
-    id: string;
-    start_time: string;
-    status: 'scheduled' | 'active' | 'completed' | 'cancelled';
-    home_score: number | null;
-    away_score: number | null;
-    home_team_id: string;
-    away_team_id: string;
-    home_team: { name: string } | null;
-    away_team: { name: string } | null;
-    field_name?: string;
-}
+// Using Match interface from StandingsTable for consistency
+
 
 interface Message {
     id: string;
@@ -89,6 +82,7 @@ interface CaptainDashboardProps {
     roster: Player[];
     freeAgents: Player[];
     matches: Match[];
+    teams: any[];
     initialMessages: Message[];
     tournamentUrlBase: string; // e.g., "https://pitchside.com/tournaments/123"
     isCaptain: boolean;
@@ -101,6 +95,7 @@ export function CaptainDashboard({
     roster, 
     freeAgents, 
     matches, 
+    teams,
     initialMessages, 
     tournamentUrlBase, 
     isCaptain, 
@@ -116,8 +111,13 @@ export function CaptainDashboard({
     const [activeTab, setActiveTab] = useState<'dashboard' | 'game-day' | 'schedule' | 'standings' | 'rules' | 'chat'>('dashboard');
     const [attendance, setAttendance] = useState<any[]>([]);
     
-    // Filter live matches sequentially hooked to this Captain's team_id
+    // Filter live matches sequentially hooked to this Captain's team ID (UUID)
     const myMatches = matches.filter(m => m.home_team_id === team.id || m.away_team_id === team.id);
+    const sortedMatches = [...matches].sort((a, b) => {
+        const dateA = new Date(a.start_time || '').getTime();
+        const dateB = new Date(b.start_time || '').getTime();
+        return dateA - dateB;
+    });
     const [isFetchingAttendance, setIsFetchingAttendance] = useState(false);
     const [isRsvping, setIsRsvping] = useState<string | null>(null);
     const [isLeaving, startLeavingTransition] = useTransition();
@@ -786,35 +786,43 @@ export function CaptainDashboard({
 
                         {/* 2. Concrete Matches (From DB) */}
                         <div className="space-y-4">
-                            {myMatches.map((match, idx) => (
-                                <div key={match.id} className="bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center gap-8 relative group overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-1 h-full bg-pitch-accent opacity-20" />
+                            {myMatches.length === 0 ? (
+                                <div className="bg-[#171717] border border-dashed border-white/5 rounded-2xl p-16 text-center">
+                                    <Calendar className="w-12 h-12 text-pitch-secondary mx-auto mb-6 opacity-20" />
+                                    <h4 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Schedule Pending</h4>
+                                    <p className="text-xs text-pitch-secondary uppercase tracking-widest leading-relaxed max-w-sm mx-auto">
+                                        Waiting for Commissioner to release the schedule.
+                                    </p>
+                                </div>
+                            ) : (
+                                myMatches.map((match, idx) => (
+                                    <div key={match.id} className="bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center gap-8 relative group overflow-hidden">
                                     
                                     {/* Match Date Label */}
                                     <div className="flex flex-col items-center justify-center p-4 bg-white/5 rounded-xl border border-white/10 w-24 shrink-0">
                                         <span className="text-[10px] font-black uppercase text-pitch-secondary">
-                                            {new Date(match.start_time).toLocaleString('default', { month: 'short' })}
+                                            {new Date(match.start_time || '').toLocaleString('default', { month: 'short' })}
                                         </span>
                                         <span className="text-3xl font-black italic tracking-tighter">
-                                            {new Date(match.start_time).getDate()}
+                                            {new Date(match.start_time || '').getDate()}
                                         </span>
                                     </div>
 
                                     {/* Opponents */}
                                     <div className="flex-1 flex items-center justify-between gap-4 w-full px-4">
                                         <div className="text-center md:text-left flex-1">
-                                            <p className="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">Home</p>
+                                            <p className="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">{new Date(match.start_time || '').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
                                             <h3 className="font-heading text-xl md:text-2xl font-black uppercase italic truncate">
-                                                {match.home_team?.name || 'Home Team'}
+                                                {match.home_team_obj?.name || match.home_team || 'Home Team'}
                                             </h3>
                                         </div>
                                         <div className="bg-white/10 px-4 py-2 rounded font-black italic text-lg text-pitch-accent">
                                             {match.status === 'completed' ? `${match.home_score} - ${match.away_score}` : 'VS'}
                                         </div>
                                         <div className="text-center md:text-right flex-1">
-                                            <p className="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">Away</p>
+                                            <p className="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">{new Date(match.start_time || '').toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
                                             <h3 className="font-heading text-xl md:text-2xl font-black uppercase italic truncate">
-                                                {match.away_team?.name || 'Away Team'}
+                                                {match.away_team_obj?.name || match.away_team || 'Away Team'}
                                             </h3>
                                         </div>
                                     </div>
@@ -831,7 +839,7 @@ export function CaptainDashboard({
                                         </span>
                                     </div>
                                 </div>
-                            ))}
+                            )))}
 
                             {/* 3. Autopilot Projections (The Phase Shift Seam) */}
                             {(() => {
@@ -879,86 +887,24 @@ export function CaptainDashboard({
                             </div>
                         </div>
 
-                        <div className="bg-pitch-card border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="bg-white/5 text-[10px] font-black uppercase tracking-[0.3em] text-pitch-secondary border-b border-white/10">
-                                            <th className="px-6 py-5">Pos</th>
-                                            <th className="px-6 py-5">Team</th>
-                                            <th className="px-4 py-5 text-center">P</th>
-                                            <th className="px-4 py-5 text-center">W</th>
-                                            <th className="px-4 py-5 text-center">D</th>
-                                            <th className="px-4 py-5 text-center">L</th>
-                                            <th className="px-4 py-5 text-center">GD</th>
-                                            <th className="px-6 py-5 text-right">Pts</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5 font-bold uppercase text-xs">
-                                        {(() => {
-                                            // 1. Standings engine
-                                            type TeamStats = { id: string; name: string; p: number; w: number; d: number; l: number; gf: number; ga: number; gd: number; pts: number; };
-                                            const statsMap: Record<string, TeamStats> = {};
-
-                                            // Process every match
-                                            matches.filter(m => m.status === 'completed' && m.home_score !== null && m.away_score !== null).forEach(m => {
-                                                const { home_team_id, away_team_id, home_score, away_score, home_team, away_team } = m;
-                                                
-                                                [
-                                                    { id: home_team_id, name: home_team?.name || 'Local', score: home_score!, opponentScore: away_score! },
-                                                    { id: away_team_id, name: away_team?.name || 'Visitor', score: away_score!, opponentScore: home_score! }
-                                                ].forEach(side => {
-                                                    if (!statsMap[side.id]) {
-                                                        statsMap[side.id] = { id: side.id, name: side.name, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 };
-                                                    }
-                                                    const s = statsMap[side.id];
-                                                    s.p += 1;
-                                                    s.gf += side.score;
-                                                    s.ga += side.opponentScore;
-                                                    s.gd = s.gf - s.ga;
-                                                    
-                                                    if (side.score > side.opponentScore) { s.w += 1; s.pts += 3; }
-                                                    else if (side.score === side.opponentScore) { s.d += 1; s.pts += 1; }
-                                                    else { s.l += 1; }
-                                                });
-                                            });
-
-                                            const sorted = Object.values(statsMap).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
-
-                                            return sorted.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500 font-bold uppercase tracking-widest italic bg-black/40">
-                                                        No results recorded yet for the current season.
-                                                    </td>
-                                                </tr>
-                                            ) : sorted.map((s, idx) => (
-                                                <tr 
-                                                    key={s.id} 
-                                                    className={`hover:bg-white/5 transition-colors border-l-4 ${s.id === team.id ? 'border-pitch-accent bg-pitch-accent/5' : 'border-transparent'}`}
-                                                >
-                                                    <td className="px-6 py-5 font-black text-pitch-secondary text-[10px]">{idx + 1}</td>
-                                                    <td className="px-6 py-5">
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="tracking-widest truncate max-w-[150px]">{s.name}</span>
-                                                            {s.id === team.id && (
-                                                                <span className="text-[8px] bg-pitch-accent/20 text-pitch-accent px-1.5 py-0.5 rounded font-black border border-pitch-accent/30">YOU</span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-5 text-center text-gray-400">{s.p}</td>
-                                                    <td className="px-4 py-5 text-center">{s.w}</td>
-                                                    <td className="px-4 py-5 text-center">{s.d}</td>
-                                                    <td className="px-4 py-5 text-center">{s.l}</td>
-                                                    <td className={`px-4 py-5 text-center font-black ${s.gd > 0 ? 'text-green-400' : s.gd < 0 ? 'text-red-400' : 'text-gray-500'}`}>
-                                                        {s.gd > 0 ? `+${s.gd}` : s.gd}
-                                                    </td>
-                                                    <td className="px-6 py-5 text-right font-black text-base italic text-pitch-accent">{s.pts}</td>
-                                                </tr>
-                                            ));
-                                        })()}
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div className="bg-pitch-card border border-white/5 rounded-2xl overflow-hidden shadow-2xl p-1">
+                            {matches.length === 0 ? (
+                                <div className="bg-[#171717] rounded-xl py-20 px-6 text-center border border-white/5">
+                                    <Trophy className="w-12 h-12 text-pitch-secondary mx-auto mb-6 opacity-20" />
+                                    <h3 className="text-xl font-black italic uppercase tracking-widest text-white mb-2">Standings Pending</h3>
+                                    <p className="text-gray-500 font-bold uppercase text-xs tracking-[0.2em] leading-relaxed max-w-md mx-auto">
+                                        Waiting for Commissioner to release the schedule.
+                                    </p>
+                                </div>
+                            ) : (
+                                <StandingsTable 
+                                    gameId={tournament.id}
+                                    teams={teams}
+                                    matches={matches}
+                                    isPublicMode={true}
+                                    highlightTeamId={team.id}
+                                />
+                            )}
                         </div>
                     </div>
                 )}

@@ -65,3 +65,11 @@ This document outlines the strict operational and coding standards for the Pitch
 - **Environment Isolation:** NEVER hardcode keys, secrets, or sensitive IDs. Use environment variables and verify their existence before use.
 - **Pre-Push Security Audit:** Before requesting permission to push or merge, providing a brief "Security Audit" summary is REQUIRED (e.g., "Verified RLS, Verified Auth, No Hardcoded Keys").
 - **Strict Typing:** Use strict TypeScript (avoid `any`) to prevent runtime errors in production.
+
+## 9. Git & Security Operations
+- **Pre-Push Sweep:** EVERY git push must be preceded by a mandatory credentials sweep.
+    - Check for: `sk_test`, `sk_live`, `re_`, `eyJ` (JWT), and Supabase service role keys.
+    - If detected, remediative actions must be taken IMMEDIATELY before staging.
+- **Environment Verification:** Explicitly verify that all `.env` files are ignored by `.gitignore` before every push. 
+- **Loud Failure Principle:** Avoid fallbacks or defaults for security-critical environment variables (e.g., Stripe Secret Keys). The system should fail loudly if credentials are missing rather than operating in a potentially insecure or mocked state.
+- **Merge Hygiene:** Ensure the target branch (usually `main`) is clean of all untracked test scripts or temporary SQL files before merging.

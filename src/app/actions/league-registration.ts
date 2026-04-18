@@ -60,16 +60,17 @@ export async function registerCaptain(formData: FormData) {
 
     if (teamError || !team) throw new Error("Failed to create team: " + teamError?.message);
 
-    // 5. Register user to tournament_registrations
+    // 5. Register/Recycle user to tournament_registrations
     const { error: regError } = await supabase
         .from('tournament_registrations')
-        .insert({
+        .upsert({
             league_id: leagueId,
             user_id: user.id,
             team_id: team.id,
             preferred_positions: positions,
-            status: 'registered'
-        });
+            status: 'registered',
+            role: 'captain'
+        }, { onConflict: 'user_id,game_id,league_id' });
 
     if (regError) {
         // Rollback team creation if registration fails
@@ -122,7 +123,27 @@ export async function registerFreeAgent(formData: FormData) {
         }
     }
 
-    // 4. Register user to tournament_registrations (Global Draft Pool)
+    // 4. Determine price and check for Credit Bypass
+    const { data: profile } = await supabase.from('profiles').select('credit_balance').eq('id', user.id).single();
+    
+    const price = (league.free_agent_price ?? league.player_registration_fee ?? 0);
+    
+    let initialStatus = 'registered';
+    const walletBalance = profile?.credit_balance || 0;
+
+    if (price > 0 && walletBalance >= (price * 100)) {
+        // Deduct from wallet
+        const { error: walletError } = await supabase
+            .from('profiles')
+            .update({ credit_balance: walletBalance - (price * 100) })
+            .eq('id', user.id);
+        if (walletError) throw new Error("Credit deduction failed.");
+        initialStatus = 'registered';
+    } else if (price > 0) {
+        initialStatus = 'pending';
+    }
+
+    // 5. Register/Recycle user to tournament_registrations (Global Draft Pool)
     const { error: regError } = await supabase
         .from('tournament_registrations')
         .upsert({
@@ -130,8 +151,8 @@ export async function registerFreeAgent(formData: FormData) {
             user_id: user.id,
             team_id: null, // explicitly null for free agents
             preferred_positions: positions,
-            status: 'registered'
-        }, { onConflict: 'league_id,user_id' }); // Handle re-registration edge case softly
+            status: initialStatus
+        }, { onConflict: 'user_id,game_id,league_id' });
 
     if (regError) {
         console.error('Registration error:', regError);

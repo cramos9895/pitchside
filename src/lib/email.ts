@@ -10,7 +10,7 @@ interface SendNotificationProps {
         id: string;
         variables: Record<string, any>;
     };
-    type: 'welcome' | 'confirmation' | 'cancellation' | 'waitlist' | 'chat_alert' | 'new_request' | 'contract_ready' | 'booking_receipt' | 'booking_cancellation' | 'team_invite' | 'waitlist_promotion' | 'password_reset' | 'captain_receipt';
+    type: 'welcome' | 'confirmation' | 'cancellation' | 'waitlist' | 'chat_alert' | 'new_request' | 'contract_ready' | 'booking_receipt' | 'booking_cancellation' | 'team_invite' | 'waitlist_promotion' | 'password_reset' | 'captain_receipt' | 'role_elevation';
     data?: Record<string, any>;
 }
 

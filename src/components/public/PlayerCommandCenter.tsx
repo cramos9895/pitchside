@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Trophy, Users, Calendar, MapPin, MessageSquare, Shield, Clock, Timer, CheckCircle2, Wallet, Info, FileText, LogOut, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { StandingsTable } from '@/components/admin/StandingsTable';
+import { StandingsTable, Match } from '@/components/admin/StandingsTable';
 import { ChatInterface } from '@/components/ChatInterface';
 import { leaveTournament } from '@/app/actions/tournament-registration';
 import { useRouter } from 'next/navigation';
@@ -15,10 +15,11 @@ interface PlayerCommandCenterProps {
     registration: any;
     game: any;
     roster: any[];
-    matches: any[];
+    matches: Match[];
+    teams: any[];
 }
 
-export function PlayerCommandCenter({ user, registration, game, roster, matches }: PlayerCommandCenterProps) {
+export function PlayerCommandCenter({ user, registration, game, roster, matches, teams }: PlayerCommandCenterProps) {
     const [mounted, setMounted] = useState(false);
     const [activeTab, setActiveTab] = useState<'hub' | 'standings' | 'schedule' | 'rules' | 'chat'>('hub');
     const [isLeaving, setIsLeaving] = useState(false);
@@ -51,8 +52,8 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches 
     const teamId = registration.team_id;
     const locationName = game.location_nickname || game.facilities?.name || 'Unknown Venue';
 
-    // Filter matches for the user's team
-    const teamMatches = matches.filter(m => m.home_team === teamName || m.away_team === teamName);
+    // Filter matches for the user's team using UUID for accuracy
+    const teamMatches = matches.filter(m => m.home_team_id === teamId || m.away_team_id === teamId);
     
     // Sort matches by upcoming
     const nextMatch = teamMatches.find(m => m.status === 'scheduled' || m.status === 'active');
@@ -182,18 +183,22 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches 
                                             
                                             <div className="flex items-center justify-between gap-4">
                                                 <div className="flex-1 text-right">
-                                                    <p className="text-xl md:text-2xl font-black uppercase italic tracking-tighter">{nextMatch.home_team}</p>
+                                                    <p className={cn("text-xl md:text-2xl font-black uppercase italic tracking-tighter", nextMatch.home_team_id === teamId && "text-pitch-accent")}>
+                                                        {nextMatch.home_team_name || 'Home Team'}
+                                                    </p>
                                                 </div>
                                                 <div className="text-center bg-white/10 px-4 py-2 rounded italic font-black text-xl">VS</div>
                                                 <div className="flex-1 text-left">
-                                                    <p className="text-xl md:text-2xl font-black uppercase italic tracking-tighter">{nextMatch.away_team}</p>
+                                                    <p className={cn("text-xl md:text-2xl font-black uppercase italic tracking-tighter", nextMatch.away_team_id === teamId && "text-pitch-accent")}>
+                                                        {nextMatch.away_team_name || 'Away Team'}
+                                                    </p>
                                                 </div>
                                             </div>
 
                                             <div className="flex items-center justify-center gap-6 pt-4 border-t border-white/10">
                                                 <div className="flex items-center gap-2">
                                                     <Clock className="w-5 h-5 text-pitch-accent" />
-                                                    <span className="text-lg font-black">{new Date(nextMatch.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                    <span className="text-lg font-black">{new Date(nextMatch.start_time || '').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <Timer className="w-5 h-5 text-pitch-accent" />
@@ -204,11 +209,13 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches 
                                     </div>
                                 )}
 
-                                {isRostered && teamMatches.length === 0 && (
-                                    <div className="bg-white/5 border border-dashed border-white/10 p-12 text-center rounded-sm">
-                                        <Calendar className="w-12 h-12 text-white/10 mx-auto mb-4" />
-                                        <h4 className="text-lg font-black uppercase italic text-white/60 mb-2">Schedule Not Yet Generated</h4>
-                                        <p className="text-pitch-secondary text-sm max-w-xs mx-auto">Check back once the tournament organizer has finalized the brackets.</p>
+                                {isRostered && matches.length === 0 && (
+                                    <div className="bg-[#171717] border border-dashed border-white/5 p-12 text-center rounded-2xl">
+                                        <Calendar className="w-12 h-12 text-pitch-secondary mx-auto mb-4 opacity-20" />
+                                        <h4 className="text-lg font-black italic uppercase tracking-widest text-white mb-2">Schedule Pending</h4>
+                                        <p className="text-gray-500 font-bold uppercase text-[10px] tracking-[0.2em] leading-relaxed max-w-xs mx-auto">
+                                            Waiting for Commissioner to release the schedule.
+                                        </p>
                                     </div>
                                 )}
 
@@ -282,8 +289,8 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches 
                                                     <Clock className="w-3 h-3 text-pitch-accent" />
                                                     <span className="text-[10px] font-bold uppercase">Charge Date</span>
                                                 </div>
-                                                <p className="text-xs font-black text-white">
-                                                    {mounted ? chargeDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '---'}
+                                                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1 italic">
+                                                    {nextMatch ? new Date(nextMatch.start_time || '').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '---'}
                                                 </p>
                                                 <p className="text-[8px] text-pitch-secondary leading-tight">Balance will be auto-charged to your card on file 24h before kickoff.</p>
                                             </div>
@@ -329,12 +336,23 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches 
                     {/* STANDINGS TAB */}
                     {activeTab === 'standings' && (
                         <div className="animate-in fade-in duration-500">
-                            <StandingsTable 
-                                gameId={game.id} 
-                                teams={game.teams_config || []} 
-                                matches={matches}
-                                viewOnly={true}
-                            />
+                            {matches.length === 0 ? (
+                                <div className="bg-[#171717] rounded-xl py-24 px-6 text-center border border-white/5">
+                                    <Trophy className="w-12 h-12 text-pitch-secondary mx-auto mb-6 opacity-20" />
+                                    <h3 className="text-xl font-black italic uppercase tracking-widest text-white mb-2">Standings Pending</h3>
+                                    <p className="text-gray-500 font-bold uppercase text-xs tracking-[0.2em] leading-relaxed max-w-md mx-auto">
+                                        Waiting for Commissioner to release the schedule.
+                                    </p>
+                                </div>
+                            ) : (
+                                <StandingsTable 
+                                    gameId={game.id} 
+                                    teams={teams} 
+                                    matches={matches}
+                                    isPublicMode={true}
+                                    highlightTeamId={teamId}
+                                />
+                            )}
                         </div>
                     )}
 
@@ -344,44 +362,54 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches 
                             <h3 className="text-2xl font-black italic uppercase tracking-tight flex items-center gap-3">
                                 <Calendar className="w-6 h-6 text-pitch-accent" /> Tournament Schedule
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {matches.map((match) => {
-                                    const isUserMatch = match.home_team === teamName || match.away_team === teamName;
-                                    return (
-                                        <div 
-                                            key={match.id} 
-                                            className={cn(
-                                                "p-4 border rounded-sm transition-all",
-                                                isUserMatch 
-                                                    ? "bg-pitch-accent/5 border-pitch-accent" 
-                                                    : "bg-white/5 border-white/10 opacity-60 grayscale-[0.5]"
-                                            )}
-                                        >
-                                            <div className="flex justify-between items-center mb-3">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-pitch-secondary">{match.field_name}</span>
-                                                <span className="text-[9px] font-mono text-white/40">{new Date(match.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between gap-2">
-                                                <div className={cn("flex-1 text-sm font-bold uppercase truncate", match.home_team === teamName && "text-pitch-accent")}>{match.home_team}</div>
-                                                <div className="text-[10px] font-black text-white/20 italic">VS</div>
-                                                <div className={cn("flex-1 text-right text-sm font-bold uppercase truncate", match.away_team === teamName && "text-pitch-accent")}>{match.away_team}</div>
-                                            </div>
-                                            {match.status === 'completed' && (
-                                                <div className="mt-3 pt-3 border-t border-white/10 flex justify-center gap-4">
-                                                    <span className="font-black text-lg">{match.home_score}</span>
-                                                    <span className="text-white/20">-</span>
-                                                    <span className="font-black text-lg">{match.away_score}</span>
+                            
+                            {matches.length === 0 ? (
+                                <div className="bg-[#171717] rounded-xl py-24 px-6 text-center border border-white/5">
+                                    <Calendar className="w-12 h-12 text-pitch-secondary mx-auto mb-6 opacity-20" />
+                                    <h4 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Full Schedule Pending</h4>
+                                    <p className="text-gray-500 font-bold uppercase text-xs tracking-[0.2em] leading-relaxed max-w-sm mx-auto">
+                                        Waiting for Commissioner to release the schedule.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {matches.map((match) => {
+                                        const isUserMatch = match.home_team_id === teamId || match.away_team_id === teamId;
+                                        return (
+                                            <div 
+                                                key={match.id} 
+                                                className={cn(
+                                                    "p-4 border rounded-sm transition-all",
+                                                    isUserMatch 
+                                                        ? "bg-pitch-accent/5 border-pitch-accent" 
+                                                        : "bg-white/5 border-white/10 opacity-60 grayscale-[0.5]"
+                                                )}
+                                            >
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-pitch-secondary">{match.field_name || 'Field TBD'}</span>
+                                                    <span className="text-[9px] font-mono text-white/40">{new Date(match.start_time || '').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                 </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                                {matches.length === 0 && (
-                                    <div className="col-span-full py-20 text-center">
-                                        <p className="text-pitch-secondary italic uppercase font-black text-sm tracking-widest">Full Schedule TBD</p>
-                                    </div>
-                                )}
-                            </div>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className={cn("flex-1 text-sm font-bold uppercase truncate", match.home_team_id === teamId && "text-pitch-accent")}>
+                                                        {match.home_team_name || 'Home'}
+                                                    </div>
+                                                    <div className="text-[10px] font-black text-white/20 italic">VS</div>
+                                                    <div className={cn("flex-1 text-right text-sm font-bold uppercase truncate", match.away_team_id === teamId && "text-pitch-accent")}>
+                                                        {match.away_team_name || 'Away'}
+                                                    </div>
+                                                </div>
+                                                {match.status === 'completed' && (
+                                                    <div className="mt-3 pt-3 border-t border-white/10 flex justify-center gap-4">
+                                                        <span className="font-black text-lg">{match.home_score}</span>
+                                                        <span className="text-white/20">-</span>
+                                                        <span className="font-black text-lg">{match.away_score}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     )}
 

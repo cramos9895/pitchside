@@ -25,15 +25,15 @@ export async function registerTournamentTeam(formData: FormData) {
         throw new Error("You must acknowledge financial liability.");
     }
 
-    // NEW: Dual-Role / Duplicate Registration Check
+    // 3. Dual-Role / Duplicate Registration Check (Recycling Pattern)
     const { data: existingReg } = await supabase
         .from('tournament_registrations')
-        .select('id')
+        .select('id, status')
         .eq('user_id', user.id)
         .or(`game_id.eq.${tournamentId},league_id.eq.${tournamentId}`)
-        .single();
+        .maybeSingle();
 
-    if (existingReg) {
+    if (existingReg && existingReg.status !== 'cancelled' && existingReg.status !== 'withdrawn') {
         throw new Error("You are already registered for this tournament/league.");
     }
 
@@ -64,7 +64,7 @@ export async function registerTournamentTeam(formData: FormData) {
         throw new Error("Failed to create team.");
     }
 
-    // 3. Insert the Captain into tournament_registrations mapping to team_id
+    // 3. Register/Recycle the Captain in tournament_registrations
     const regPayload: any = {
         user_id: user.id,
         team_id: team.id,
@@ -79,7 +79,7 @@ export async function registerTournamentTeam(formData: FormData) {
 
     const { error: regError } = await supabase
         .from('tournament_registrations')
-        .insert([regPayload]);
+        .upsert(regPayload, { onConflict: 'user_id,game_id,league_id' });
 
     if (regError) {
         console.error("Error registering captain:", regError);
@@ -109,15 +109,15 @@ export async function registerTournamentFreeAgent(formData: FormData) {
         throw new Error("You must select at least one preferred position.");
     }
 
-    // NEW: Dual-Role / Duplicate Registration Check
+    // 1. Dual-Role / Duplicate Registration Check (Recycling Pattern)
     const { data: existingReg } = await supabase
         .from('tournament_registrations')
-        .select('id')
+        .select('id, status')
         .eq('user_id', user.id)
         .or(`game_id.eq.${tournamentId},league_id.eq.${tournamentId}`)
-        .single();
+        .maybeSingle();
 
-    if (existingReg) {
+    if (existingReg && existingReg.status !== 'cancelled' && existingReg.status !== 'withdrawn') {
         throw new Error("You are already registered for this tournament/league.");
     }
 
@@ -125,11 +125,36 @@ export async function registerTournamentFreeAgent(formData: FormData) {
     const { data: gameCheck } = await supabase.from('games').select('id').eq('id', tournamentId).single();
     const isGame = !!gameCheck;
 
+    // 2. Determine price and check for Credit Bypass
+    const { data: profile } = await supabase.from('profiles').select('credit_balance').eq('id', user.id).single();
+    const { data: gameData } = await supabase.from('games').select('free_agent_price, player_registration_fee').eq('id', tournamentId).single();
+    const { data: leagueData } = await supabase.from('leagues').select('free_agent_price, player_registration_fee').eq('id', tournamentId).single();
+    
+    const price = (gameData?.free_agent_price ?? gameData?.player_registration_fee ?? 
+                   leagueData?.free_agent_price ?? leagueData?.player_registration_fee ?? 0);
+    
+    let initialStatus = 'registered';
+    const walletBalance = profile?.credit_balance || 0;
+
+    if (price > 0 && walletBalance >= (price * 100)) {
+        // Deduct from wallet
+        const { error: walletError } = await supabase
+            .from('profiles')
+            .update({ credit_balance: walletBalance - (price * 100) })
+            .eq('id', user.id);
+        if (walletError) throw new Error("Credit deduction failed.");
+        initialStatus = 'registered';
+    } else if (price > 0) {
+        // If price > 0 and not covered, we expect the frontend/webhook to handle the final 'registered' status
+        // But for this action, we set it to pending if bypass didn't happen
+        initialStatus = 'pending';
+    }
+
     const regPayload: any = {
         user_id: user.id,
         team_id: null,
         preferred_positions: positions,
-        status: 'registered',
+        status: initialStatus,
         role: 'player'
     };
     if (isGame) {
@@ -138,10 +163,10 @@ export async function registerTournamentFreeAgent(formData: FormData) {
         regPayload.league_id = tournamentId;
     }
 
-    // 2. Insert user into tournament_registrations with team_id: null
+    // 3. Register/Recycle user in tournament_registrations (Draft Pool)
     const { error: regError } = await supabase
         .from('tournament_registrations')
-        .insert([regPayload]);
+        .upsert(regPayload, { onConflict: 'user_id,game_id,league_id' });
 
     if (regError) {
         console.error("Error registering free agent:", regError);

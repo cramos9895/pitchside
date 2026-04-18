@@ -20,12 +20,14 @@ export default async function UsersPage() {
         redirect('/admin');
     }
 
-    // Fetch all profiles and their platform-wide waiver signatures
+    // Fetch all profiles and their engagement data (filtered on client-side for status)
     const { data: profiles, error } = await supabase
         .from('profiles')
         .select(`
             *,
-            waiver_signatures (id, agreed_at)
+            waiver_signatures (id, agreed_at),
+            bookings!user_id (id, status),
+            tournament_registrations!user_id (id, status)
         `)
         .is('waiver_signatures.facility_id', null)
         .order('updated_at', { ascending: false });

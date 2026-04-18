@@ -80,14 +80,17 @@ export async function POST(request: NextRequest) {
         }
         // --------------------------------------
 
-        // 2. Check if already joined (excluding cancelled)
+        // 2. Check if already joined (Recycling Pattern)
         const { data: existing } = await supabase
             .from('bookings')
             .select('id, status')
             .eq('game_id', gameId)
             .eq('user_id', user.id)
-            .neq('status', 'cancelled') // Ignore cancelled bookings
-            .single();
+            .maybeSingle();
+
+        if (existing && existing.status !== 'cancelled') {
+            return NextResponse.json({ success: true, message: 'Already joined' });
+        }
 
         if (existing) {
             return NextResponse.json({ success: true, message: 'Already joined' });
@@ -151,12 +154,34 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        const { error: insertError } = await adminSupabase
-            .from('bookings')
-            .insert(insertPayload);
+        // 6. Perform Atomic Batch UPSERT Using Admin Client to recycle rows
+        for (const passenger of insertPayload) {
+            const { data: existingRow } = await adminSupabase
+                .from('bookings')
+                .select('id')
+                .eq('game_id', passenger.game_id)
+                .eq('user_id', passenger.user_id)
+                .maybeSingle();
 
-        if (insertError) {
-            throw insertError;
+            if (existingRow) {
+                const { error: updateError } = await adminSupabase
+                    .from('bookings')
+                    .update({
+                        ...passenger,
+                        status: passenger.status,
+                        payment_status: passenger.payment_status,
+                        team_assignment: passenger.team_assignment,
+                        note: passenger.note,
+                        linked_booking_id: passenger.linked_booking_id
+                    })
+                    .eq('id', existingRow.id);
+                if (updateError) throw updateError;
+            } else {
+                const { error: insertError } = await adminSupabase
+                    .from('bookings')
+                    .insert([passenger]);
+                if (insertError) throw insertError;
+            }
         }
 
         // 4. Sync Player Count (Handled by DB Trigger now)

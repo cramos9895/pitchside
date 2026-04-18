@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
 
 // Fallback prevents Vercel from crashing the entire route at module load time if env var is missing
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_fallback', {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2026-01-28.clover' as any,
 });
 

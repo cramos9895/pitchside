@@ -5,20 +5,26 @@ import { useMemo } from 'react';
 import { Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface Match {
+export interface Match {
     id: string;
-    home_team: string;
-    away_team: string;
+    start_time?: string;
+    home_team: string; // name
+    away_team: string; // name
     home_team_id?: string;
     away_team_id?: string;
-    home_score: number;
-    away_score: number;
+    home_team_name?: string;
+    away_team_name?: string;
+    home_team_obj?: { name: string } | null;
+    away_team_obj?: { name: string } | null;
+    home_score: number | null;
+    away_score: number | null;
     status: 'scheduled' | 'active' | 'completed' | 'cancelled';
+    field_name?: string;
     group_name?: string;
     is_playoff?: boolean;
 }
 
-interface TeamConfig {
+export interface TeamConfig {
     id?: string;
     name: string;
     color: string;
@@ -29,6 +35,7 @@ interface StandingsTableProps {
     teams: TeamConfig[];
     matches: Match[];
     viewOnly?: boolean;
+    isPublicMode?: boolean;
     teamsIntoPlayoffs?: number;
     highlightTeamId?: string;
 }
@@ -38,6 +45,7 @@ export function StandingsTable({
     teams, 
     matches, 
     viewOnly = false, 
+    isPublicMode = false,
     teamsIntoPlayoffs = 0,
     highlightTeamId
 }: StandingsTableProps) {
@@ -50,45 +58,66 @@ export function StandingsTable({
         
         uniqueGroups.forEach(groupName => {
             const groupMatches = matches.filter(m => (m.group_name || 'Group A') === groupName);
-            const groupTeams = teams.filter(t => 
-                groupMatches.some(m => m.home_team === t.name || m.away_team === t.name)
-            );
-
-            // Fallback for empty groups (if matches haven't been generated yet)
-            if (groupTeams.length === 0 && uniqueGroups.length === 1) {
-                groupTeams.push(...teams);
-            }
-
-            const stats: Record<string, { id: string, gp: number, w: number, d: number, l: number, gf: number, ga: number, pts: number }> = {};
-            groupTeams.forEach(t => {
-                stats[t.name] = { id: t.id || '', gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+            
+            // 1. Initialize stats strictly from teams configuration
+            const stats: Record<string, { name: string, id: string, gp: number, w: number, d: number, l: number, gf: number, ga: number, pts: number }> = {};
+            
+            // Use ID as the primary key for reliable asymmetric matching, fallback to name for legacy
+            teams.forEach(t => {
+                const teamKey = t.id || t.name;
+                stats[teamKey] = { 
+                    name: t.name,
+                    id: t.id || '', 
+                    gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 
+                };
             });
 
+            // 2. Process matches with Asymmetric Point Attribution
             groupMatches.filter(m => m.status === 'completed' && !m.is_playoff).forEach(m => {
-                if (!stats[m.home_team]) stats[m.home_team] = { id: m.home_team_id || '', gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
-                if (!stats[m.away_team]) stats[m.away_team] = { id: m.away_team_id || '', gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+                const homeKey = m.home_team_id || m.home_team;
+                const awayKey = m.away_team_id || m.away_team;
+                
+                const home = stats[homeKey];
+                const away = stats[awayKey];
 
-                const home = stats[m.home_team];
-                const away = stats[m.away_team];
+                const hScore = m.home_score ?? 0;
+                const aScore = m.away_score ?? 0;
 
-                home.gp++;
-                away.gp++;
-                home.gf += m.home_score;
-                home.ga += m.away_score;
-                away.gf += m.away_score;
-                away.ga += m.home_score;
+                // Evaluate Home Side independently
+                if (home) {
+                    home.gp++;
+                    home.gf += hScore;
+                    home.ga += aScore;
+                    if (hScore > aScore) {
+                        home.w++;
+                        home.pts += 3;
+                    } else if (hScore === aScore) {
+                        home.d++;
+                        home.pts += 1;
+                    } else {
+                        home.l++;
+                    }
+                }
 
-                if (m.home_score > m.away_score) {
-                    home.w++; home.pts += 3; away.l++;
-                } else if (m.away_score > m.home_score) {
-                    away.w++; away.pts += 3; home.l++;
-                } else {
-                    home.d++; home.pts += 1; away.d++; away.pts += 1;
+                // Evaluate Away Side independently
+                if (away) {
+                    away.gp++;
+                    away.gf += aScore;
+                    away.ga += hScore;
+                    if (aScore > hScore) {
+                        away.w++;
+                        away.pts += 3;
+                    } else if (aScore === hScore) {
+                        away.d++;
+                        away.pts += 1;
+                    } else {
+                        away.l++;
+                    }
                 }
             });
 
-            groups[groupName] = Object.entries(stats)
-                .map(([name, data]) => ({ name, ...data, gd: data.gf - data.ga }))
+            groups[groupName] = Object.values(stats)
+                .map((data) => ({ ...data, gd: data.gf - data.ga }))
                 .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
         });
 
@@ -125,22 +154,25 @@ export function StandingsTable({
                                     // OR if we have a simple way to know the master ranking.
                                     // NOTE: The user's request for "Unified Master Ranking" was for SEEDING, 
                                     // but for DISPLAY they want separate tables.
-                                    const isHighlighted = highlightTeamId && team.id === highlightTeamId;
+                                    const isHighlighted = highlightTeamId && (team.id === highlightTeamId);
 
                                     return (
                                         <tr key={team.name} className={cn(
                                             "border-b border-white/5 transition-colors relative hover:bg-white/5",
                                             isHighlighted && "bg-pitch-accent/10 border-l-2 border-l-pitch-accent"
                                         )}>
-                                            <td className={cn("font-bold uppercase flex items-center gap-2 text-white", viewOnly ? "px-4 py-2 lg:py-2.5 text-base lg:text-lg" : "px-4 py-3")}>
-                                                <span className={cn("font-mono font-normal mr-1", viewOnly ? "text-xs text-gray-500" : "text-gray-600")}>{index + 1}.</span> {team.name}
+                                            <td className={cn("font-bold uppercase flex items-center gap-2 text-white", (isPublicMode || viewOnly) ? "px-4 py-2 lg:py-2.5 text-base lg:text-lg" : "px-4 py-3")}>
+                                                <span className={cn("font-mono font-normal mr-1", (isPublicMode || viewOnly) ? "text-xs text-gray-500" : "text-gray-600")}>{index + 1}.</span> 
+                                                <span className={isHighlighted ? "text-pitch-accent" : ""}>
+                                                    {team.name}
+                                                </span>
                                             </td>
-                                            <td className={cn("text-center text-gray-400", viewOnly ? "px-2 py-2 lg:py-2.5 text-base" : "px-4 py-3")}>{team.gp}</td>
-                                            <td className={cn("text-center font-mono", viewOnly ? "px-2 py-2 lg:py-2.5 text-sm" : "px-4 py-3 text-xs")}>{team.w}</td>
-                                            <td className={cn("text-center font-mono", viewOnly ? "px-2 py-2 lg:py-2.5 text-sm" : "px-4 py-3 text-xs")}>{team.d}</td>
-                                            <td className={cn("text-center font-mono", viewOnly ? "px-2 py-2 lg:py-2.5 text-sm" : "px-4 py-3 text-xs")}>{team.l}</td>
-                                            <td className={cn("text-center font-mono text-gray-300", viewOnly ? "px-2 py-2 lg:py-2.5 text-sm" : "px-4 py-3 text-xs")}>{team.gd > 0 ? `+${team.gd}` : team.gd}</td>
-                                            <td className={cn("text-center font-black", viewOnly ? "px-4 py-2 lg:py-2.5 text-xl lg:text-2xl text-pitch-accent" : "px-4 py-3 text-lg")}>{team.pts}</td>
+                                            <td className={cn("text-center text-gray-400", (isPublicMode || viewOnly) ? "px-2 py-2 lg:py-2.5 text-base" : "px-4 py-3")}>{team.gp}</td>
+                                            <td className={cn("text-center font-mono", (isPublicMode || viewOnly) ? "px-2 py-2 lg:py-2.5 text-sm" : "px-4 py-3 text-xs")}>{team.w}</td>
+                                            <td className={cn("text-center font-mono", (isPublicMode || viewOnly) ? "px-2 py-2 lg:py-2.5 text-sm" : "px-4 py-3 text-xs")}>{team.d}</td>
+                                            <td className={cn("text-center font-mono", (isPublicMode || viewOnly) ? "px-2 py-2 lg:py-2.5 text-sm" : "px-4 py-3 text-xs")}>{team.l}</td>
+                                            <td className={cn("text-center font-mono text-gray-300", (isPublicMode || viewOnly) ? "px-2 py-2 lg:py-2.5 text-sm" : "px-4 py-3 text-xs")}>{team.gd > 0 ? `+${team.gd}` : team.gd}</td>
+                                            <td className={cn("text-center font-black", (isPublicMode || viewOnly) ? "px-4 py-2 lg:py-2.5 text-xl lg:text-2xl text-pitch-accent" : "px-4 py-3 text-lg")}>{team.pts}</td>
                                         </tr>
                                     );
                                 })}
