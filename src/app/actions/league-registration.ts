@@ -28,7 +28,7 @@ export async function registerCaptain(formData: FormData) {
     // 3. Validation: Check registration cutoff
     const { data: league, error: leagueError } = await supabase
         .from('leagues')
-        .select('registration_cutoff, status')
+        .select('registration_cutoff, status, free_agent_price, player_registration_fee')
         .eq('id', leagueId)
         .single();
 
@@ -107,7 +107,7 @@ export async function registerFreeAgent(formData: FormData) {
     // 3. Validation: Check registration cutoff
     const { data: league, error: leagueError } = await supabase
         .from('leagues')
-        .select('registration_cutoff, status')
+        .select('registration_cutoff, status, free_agent_price, player_registration_fee')
         .eq('id', leagueId)
         .single();
 
