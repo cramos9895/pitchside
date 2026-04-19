@@ -288,7 +288,7 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
         gameEndTimeLimit.setUTCHours(parseInt(hours), parseInt(mins), 0, 0); 
     }
 
-    const slotDurationMs = (game.total_game_time || 60) * 60 * 1000;
+    const slotDurationMs = ((game.total_game_time ?? 60) || 60) * 60 * 1000;
     const maxFields = game.amount_of_fields || 1;
     const fieldNames = game.field_names && game.field_names.length > 0 
         ? game.field_names 

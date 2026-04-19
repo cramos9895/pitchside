@@ -470,13 +470,13 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                 total_game_time: activeTab === 'rolling' ? (totalGameTime === '' ? 60 : totalGameTime) : null,
                 
                 // League / Rolling shared fields
-                earliest_game_start_time: activeTab === 'league' ? earliestGameStartTime || null : null,
-                latest_game_start_time: activeTab === 'league' ? latestGameStartTime || null : null,
+                earliest_game_start_time: (activeTab === 'league' || activeTab === 'rolling') ? earliestGameStartTime || null : null,
+                latest_game_start_time: (activeTab === 'league' || activeTab === 'rolling') ? latestGameStartTime || null : null,
                 field_names: (activeTab === 'league' || activeTab === 'rolling') ? fieldNames : null,
                 min_games_guaranteed: activeTab === 'league' ? (minGamesGuaranteed === '' ? null : minGamesGuaranteed) : null,
                 teams_into_playoffs: activeTab === 'league' ? teamsIntoPlayoffs : null,
                 has_playoff_bye: activeTab === 'league' ? hasPlayoffBye : false,
-                break_between_games: activeTab === 'league' ? (breakBetweenGames === '' ? null : breakBetweenGames) : null,
+                break_between_games: (activeTab === 'league' || activeTab === 'rolling') ? (breakBetweenGames === '' ? null : breakBetweenGames) : null,
 
                 prize_type: (activeTab === 'tournament' || activeTab === 'league' || activeTab === 'rolling') ? prizeType : null,
                 prize_pool_percentage: (activeTab === 'tournament' || activeTab === 'league' || activeTab === 'rolling') && prizeType === 'Percentage Pool (Scaling Pot)' ? (prizePoolPercentage === '' ? null : prizePoolPercentage) : null,
@@ -2326,46 +2326,6 @@ export function GameForm({ initialData, action = 'create', onSuccess }: GameForm
                                     value={rollingStartDate}
                                     onChange={(e) => setRollingStartDate(e.target.value)}
                                     className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Time Matrix Config — feeds the scheduling engine's slot calculations */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
-                                    <Clock className="w-3 h-3" /> Earliest Game Start
-                                </label>
-                                <input
-                                    type="time"
-                                    value={startTime}
-                                    onChange={(e) => setStartTime(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">
-                                    <Clock className="w-3 h-3" /> Latest Game End
-                                </label>
-                                <input
-                                    type="time"
-                                    value={endTime}
-                                    onChange={(e) => setEndTime(e.target.value)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                                    Match Duration (Minutes)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="15"
-                                    max="180"
-                                    value={totalGameTime}
-                                    onChange={(e) => setTotalGameTime(e.target.value === '' ? '' : parseInt(e.target.value))}
-                                    className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
-                                    placeholder="60"
                                 />
                             </div>
                         </div>
