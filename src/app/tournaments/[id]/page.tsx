@@ -19,7 +19,8 @@ export default async function TournamentHub({ params }: { params: Promise<{ id: 
             start_time, 
             end_time,
             team_price,
-            free_agent_price
+            free_agent_price,
+            league_format
         `)
         .eq('id', id)
         .single();
@@ -27,6 +28,11 @@ export default async function TournamentHub({ params }: { params: Promise<{ id: 
     if (tourneyError || !tournament) {
         console.error('Tournament not found or error:', tourneyError);
         notFound();
+    }
+
+    if (tournament.league_format === 'rolling') {
+        const { redirect } = await import('next/navigation');
+        redirect(`/rolling-leagues/${id}`);
     }
 
     // 2. Fetch Verified Teams

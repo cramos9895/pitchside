@@ -17,7 +17,7 @@ import { GameMap } from '@/components/GameMap';
 import { StandingsTable } from '@/components/admin/StandingsTable';
 import { JoinGameModal } from '@/components/JoinGameModal';
 import { EmbeddedCheckoutModal } from '@/components/EmbeddedCheckoutModal';
-import { RollingLeagueLobby } from '@/components/public/RollingLeagueLobby';
+
 
 // Reuse types/interfaces if possible, or define locally for now
 interface Game {
@@ -368,11 +368,6 @@ export function GameClientPage({
     const isCancelled = game?.status === 'cancelled';
     const isCompleted = game?.status === 'completed';
     const isLive = !isPastStrict && !isCancelled;
-
-    // Rolling League Lobby check - Allow everyone (including hosts) to see it if not a participant, or if they are a Free Agent
-    if (game.league_format === 'rolling' && (!isParticipant || isFreeAgent)) {
-        return <RollingLeagueLobby game={game as any} currentUser={currentUser} isFreeAgent={isFreeAgent} primaryHost={primaryHost} />;
-    }
 
     return (
         <div className="min-h-screen bg-pitch-black text-white font-sans pb-20 overflow-hidden relative">

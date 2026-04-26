@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
-import { RollingLeagueLobby } from '@/components/public/RollingLeagueLobby';
+
 import { GameClientPage } from './GameClientPage';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 export const revalidate = 0;
 
@@ -108,18 +108,9 @@ export default async function GameDetailsPage({ params }: { params: Promise<{ id
         }
     }
 
-    // 6. Conditional Rendering
-    // If it's a Rolling League and they aren't a team participant, show the Lobby
-    if (game.league_format === 'rolling' && (!isParticipant || isFreeAgent)) {
-        return (
-            <RollingLeagueLobby 
-                game={game as any} 
-                currentUser={user} 
-                isFreeAgent={isFreeAgent} 
-                primaryHost={primaryHost}
-                registeredTeams={registeredTeams}
-            />
-        );
+    // If it's a Rolling League, redirect to the unified hub
+    if (game.league_format === 'rolling') {
+        redirect(`/rolling-leagues/${gameId}`);
     }
 
     // Otherwise, show the full Interactive Page (Client Side)

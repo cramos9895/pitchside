@@ -35,7 +35,7 @@ export async function createManualTeam(gameId: string, name: string, captainId?:
 /**
  * Updates a team's basic details.
  */
-export async function updateTeamDetails(teamId: string, gameId: string, updates: { name?: string; captain_id?: string }) {
+export async function updateTeamDetails(teamId: string, gameId: string, updates: { name?: string; captain_id?: string | null }) {
     const adminSupabase = await createAdminClient();
     const { error } = await adminSupabase
         .from('teams')
@@ -112,12 +112,14 @@ export async function draftAutoTeam(gameId: string, registrationIds: string[]) {
  * Manually logs a historical match to feed into the standings.
  * Enforces team selection from actual DB teams, so aggregate works correctly.
  */
-export async function logPastMatch(gameId: string, homeTeamName: string, awayTeamName: string, homeScore: number, awayScore: number, dateString: string) {
+export async function logPastMatch(gameId: string, homeTeamId: string, homeTeamName: string, awayTeamId: string, awayTeamName: string, homeScore: number, awayScore: number, dateString: string) {
     const adminSupabase = await createAdminClient();
     
     const { error } = await adminSupabase.from('matches').insert({
         game_id: gameId,
+        home_team_id: homeTeamId,
         home_team: homeTeamName,
+        away_team_id: awayTeamId,
         away_team: awayTeamName,
         home_score: homeScore,
         away_score: awayScore,
@@ -145,6 +147,23 @@ export async function updateMatchOverride(matchId: string, gameId: string, updat
         .eq('id', matchId);
 
     if (error) throw new Error(`Match modification failed: ${error.message}`);
+
+    revalidatePath(`/admin/games/${gameId}`);
+    return { success: true };
+}
+
+/**
+ * Permanently deletes a match from the database.
+ */
+export async function deleteMatchPermanently(matchId: string, gameId: string) {
+    const adminSupabase = await createAdminClient();
+    
+    const { error } = await adminSupabase
+        .from('matches')
+        .delete()
+        .eq('id', matchId);
+
+    if (error) throw new Error(`Failed to delete match: ${error.message}`);
 
     revalidatePath(`/admin/games/${gameId}`);
     return { success: true };
@@ -508,4 +527,128 @@ export async function generatePlayoffBracket(gameId: string, teams: any[], numTe
 
     revalidatePath(`/admin/games/${gameId}`);
     return { success: true, count: matchesToInsert.length };
+}
+
+// -------------------------------------------------------------
+// ADVANCED PLAYER MANAGEMENT (BANS, MANUAL ADDS, ETC)
+// -------------------------------------------------------------
+
+export async function searchProfiles(query: string) {
+    const adminSupabase = await createAdminClient();
+    const { data, error } = await adminSupabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
+        .limit(10);
+        
+    if (error) throw new Error(`Search failed: ${error.message}`);
+    return { success: true, profiles: data || [] };
+}
+
+export async function addManualPlayer(gameId: string, teamId: string, userId: string) {
+    const adminSupabase = await createAdminClient();
+    
+    // Check if already registered
+    const { data: existing } = await adminSupabase
+        .from('tournament_registrations')
+        .select('id')
+        .eq('game_id', gameId)
+        .eq('user_id', userId)
+        .single();
+        
+    if (existing) {
+        throw new Error("This user is already registered for this league.");
+    }
+    
+    const { error } = await adminSupabase
+        .from('tournament_registrations')
+        .insert({
+            game_id: gameId,
+            user_id: userId,
+            team_id: teamId,
+            status: 'registered',
+            role: 'player',
+            payment_status: 'comped' // Assume manually verified if added by admin
+        });
+        
+    if (error) throw new Error(`Failed to add player: ${error.message}`);
+    
+    revalidatePath(`/admin/games/${gameId}`);
+    return { success: true };
+}
+
+export async function moveToFreeAgency(registrationId: string, gameId: string) {
+    const adminSupabase = await createAdminClient();
+    const { error } = await adminSupabase
+        .from('tournament_registrations')
+        .update({ team_id: null })
+        .eq('id', registrationId);
+        
+    if (error) throw new Error(`Failed to move to free agency: ${error.message}`);
+    
+    revalidatePath(`/admin/games/${gameId}`);
+    return { success: true };
+}
+
+export async function removeFromLeague(registrationId: string, gameId: string) {
+    const adminSupabase = await createAdminClient();
+    // Using soft cancellation
+    const { error } = await adminSupabase
+        .from('tournament_registrations')
+        .update({ status: 'cancelled', team_id: null })
+        .eq('id', registrationId);
+        
+    if (error) throw new Error(`Failed to remove player: ${error.message}`);
+    
+    revalidatePath(`/admin/games/${gameId}`);
+    return { success: true };
+}
+
+export async function issuePermanentBan(registrationId: string, gameId: string) {
+    const adminSupabase = await createAdminClient();
+    // Ban from this specific league
+    const { error } = await adminSupabase
+        .from('tournament_registrations')
+        .update({ status: 'banned', team_id: null })
+        .eq('id', registrationId);
+        
+    if (error) throw new Error(`Failed to ban player: ${error.message}`);
+    
+    revalidatePath(`/admin/games/${gameId}`);
+    return { success: true };
+}
+
+export async function issueSoftBan(userId: string, teamId: string, gameId: string, numGames: number) {
+    const adminSupabase = await createAdminClient();
+    
+    // Find upcoming games for the team
+    const { data: upcomingMatches, error: matchError } = await adminSupabase
+        .from('matches')
+        .select('id')
+        .eq('game_id', gameId)
+        .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+        .in('status', ['scheduled', 'active'])
+        .order('start_time', { ascending: true })
+        .limit(numGames);
+        
+    if (matchError) throw new Error(`Failed to find upcoming matches: ${matchError.message}`);
+    
+    if (!upcomingMatches || upcomingMatches.length === 0) {
+        throw new Error("No upcoming matches found for this team to ban them from.");
+    }
+    
+    const suspensions = upcomingMatches.map(m => ({
+        match_id: m.id,
+        user_id: userId,
+        reason: `${numGames} Game Soft Ban`
+    }));
+    
+    const { error } = await adminSupabase
+        .from('match_suspensions')
+        .insert(suspensions);
+        
+    if (error) throw new Error(`Failed to issue suspension: ${error.message}`);
+    
+    revalidatePath(`/admin/games/${gameId}`);
+    return { success: true, suspendedMatches: upcomingMatches.length };
 }

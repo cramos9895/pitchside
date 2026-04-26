@@ -79,7 +79,7 @@ export default async function SchedulePage({
                 .neq('status', 'cancelled'),
             supabase
                 .from('tournament_registrations')
-                .select('game_id, role, team_id, user_id')
+                .select('game_id, role, team_id, user_id, status, teams(id, name, captain_id)')
                 .eq('user_id', user.id)
         ]);
 
@@ -133,7 +133,7 @@ export default async function SchedulePage({
                 .select('*')
                 .eq('event_type', 'league')
                 .neq('status', 'cancelled')
-                .gt('start_time', new Date().toISOString())
+                .or(`start_time.gt.${new Date().toISOString()},status.eq.active,status.eq.scheduled`)
                 .order('start_time', { ascending: true })
         ]);
 
@@ -154,7 +154,7 @@ export default async function SchedulePage({
             .select('*, tournament_registrations(user_id, team_id, role)')
             .neq('status', 'cancelled')
             .eq('event_type', 'tournament')
-            .gt('start_time', new Date().toISOString())
+            .or(`start_time.gt.${new Date().toISOString()},status.eq.active,status.eq.scheduled`)
             .order('start_time', { ascending: true });
         tournaments = res.data;
         tournamentsError = res.error;

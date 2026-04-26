@@ -9,6 +9,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { useSearchParams } from 'next/navigation';
 import { LeagueCard } from '@/components/public/LeagueCard';
+import { RollingLeagueCard } from '@/components/public/RollingLeagueCard';
 import { TournamentCard } from '@/components/public/TournamentCard';
 import { GameCard } from '@/components/GameCard';
 import { createContractCheckoutSession } from '@/app/actions/stripe';
@@ -111,7 +112,7 @@ function DashboardContent() {
                         .not('roster_status', 'eq', 'dropped'),
                     supabase
                         .from('tournament_registrations')
-                        .select('*, games(*), teams(id, name)')
+                        .select('*, games(*), teams(id, name, captain_id)')
                         .eq('user_id', user.id)
                         .order('created_at', { ascending: false })
                 ]);
@@ -156,7 +157,8 @@ function DashboardContent() {
                 if (tournamentsRes.data) {
                     tournamentsRes.data.forEach(reg => {
                         const isLeague = reg.games?.event_type === 'league';
-                        if (reg.games && new Date(reg.games.start_time).toISOString() >= now) {
+                        const isActive = reg.games?.status === 'active' || reg.games?.status === 'scheduled';
+                        if (reg.games && (new Date(reg.games.start_time).toISOString() >= now || isActive)) {
                             events.push({
                                 type: isLeague ? 'league' : 'tournament',
                                 id: reg.id,
@@ -267,7 +269,13 @@ function DashboardContent() {
 
                         {nextUp ? (
                             nextUp.type === 'league' || nextUp.type === 'tournament' ? (
-                                nextUp.type === 'league' ? (
+                                nextUp.data.league_format === 'rolling' ? (
+                                    <RollingLeagueCard 
+                                        league={nextUp.data}
+                                        userId={user?.id}
+                                        registrations={nextUp.registrations}
+                                    />
+                                ) : nextUp.type === 'league' ? (
                                     <LeagueCard 
                                         league={nextUp.data}
                                         userId={user?.id}

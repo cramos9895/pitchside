@@ -129,20 +129,18 @@ export function TournamentCard({ tournament, userId, registrations }: Tournament
                     ) : userRole ? (
                         <button
                             onClick={() => {
-                                const targetPath = tournament.league_format === 'rolling' ? 'games' : 'tournaments';
                                 const tournamentId = tournament.id || (userReg as any).game_id;
-                                router.push(`/${targetPath}/${tournamentId}`);
+                                router.push(`/tournaments/${tournamentId}`);
                             }}
                             className="col-span-1 sm:col-span-2 w-full py-4 bg-white/10 text-white border border-white/20 font-black uppercase tracking-widest text-xs hover:bg-white/20 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn"
                         >
-                            {tournament.league_format === 'rolling' ? 'View League Lobby' : 'View Tournament Lobby'} <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                            View Tournament Lobby <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                         </button>
                     ) : (
                         <>
                             <button
                                 onClick={() => {
-                                    const targetPath = tournament.league_format === 'rolling' ? 'games' : 'tournaments';
-                                    router.push(`/${targetPath}/${tournament.id}/register?type=team`);
+                                    router.push(`/tournaments/${tournament.id}/register?type=team`);
                                 }}
                                 className="w-full py-4 bg-[#cbff00] text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 group/btn shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm"
                             >
@@ -152,8 +150,7 @@ export function TournamentCard({ tournament, userId, registrations }: Tournament
                             {(tournament.free_agent_price !== null && tournament.free_agent_price >= 0) && (
                                 <button
                                     onClick={() => {
-                                        const targetPath = tournament.league_format === 'rolling' ? 'games' : 'tournaments';
-                                        router.push(`/${targetPath}/${tournament.id}/register?type=free_agent`);
+                                        router.push(`/tournaments/${tournament.id}/register?type=free_agent`);
                                     }}
                                     className="w-full py-4 border border-[#cbff00]/50 text-[#cbff00] font-black uppercase tracking-widest text-xs hover:bg-[#cbff00]/10 transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 rounded-sm"
                                 >

@@ -172,12 +172,20 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
         const now = new Date();
         const isToday = gameDate.toDateString() === now.toDateString();
 
-        // Fix: Sort "Completed" immediately to Past
-        const isPast = game.status === 'completed' || (now > endTime);
+        // Fix: Determine if event is long-running
+        const isLeagueOrTournament = game.event_type === 'league' || game.event_type === 'tournament';
 
-        // Active: Must NOT be past
-        const isActiveOrUpcomingToday = !isPast && (game.status === 'active' || game.status === 'scheduled') && isToday;
-        const isFutureUpcoming = !isPast && game.status === 'scheduled' && gameDate > now && !isToday;
+        // Fix: Sort "Completed" immediately to Past. Long running events only go to past if explicitly completed or cancelled.
+        const isPast = game.status === 'completed' || (!isLeagueOrTournament && now > endTime);
+
+        // Active: Must NOT be past. Leagues/Tournaments remain active regardless of `isToday`.
+        const isActiveOrUpcomingToday = !isPast && (
+            game.status === 'active' || 
+            (game.status === 'scheduled' && isToday) ||
+            (isLeagueOrTournament && game.status !== 'completed' && game.status !== 'cancelled')
+        );
+
+        const isFutureUpcoming = !isPast && !isLeagueOrTournament && game.status === 'scheduled' && gameDate > now && !isToday;
 
         if (activeTab === 'cancelled') return game.status === 'cancelled';
         if (game.status === 'cancelled') return false;
@@ -214,7 +222,7 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
                         activeTab === 'active' ? "border-pitch-accent text-pitch-accent bg-white/5" : "border-transparent text-gray-500 hover:text-white"
                     )}
                 >
-                    Today
+                    Active
                 </button>
                 <button
                     onClick={() => handleTabChange('upcoming')}

@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { TournamentCard } from '@/components/public/TournamentCard';
+import { RollingLeagueCard } from '@/components/public/RollingLeagueCard';
 import { GameCard } from '@/components/GameCard';
 
 interface UnifiedEvent {
@@ -75,7 +76,7 @@ export default function DashboardSchedulePage() {
                         .eq('user_id', user.id),
                     supabase
                         .from('tournament_registrations')
-                        .select('*, games(*), teams(id, name)')
+                        .select('*, games(*), teams(id, name, captain_id)')
                         .eq('user_id', user.id)
                 ]);
 
@@ -172,7 +173,14 @@ export default function DashboardSchedulePage() {
     const filteredEvents = events.filter(evt => {
         const now = new Date();
         const isToday = evt.startTime.toDateString() === now.toDateString();
-        const isPast = now > evt.endTime;
+        let isPast = now > evt.endTime;
+
+        if (evt.type === 'tournament' && evt.rawReg?.games?.status) {
+            const status = evt.rawReg.games.status;
+            if (status === 'active' || status === 'scheduled') {
+                isPast = false;
+            }
+        }
 
         if (activeTab === 'today') return isToday;
         if (activeTab === 'upcoming') return !isPast && !isToday;
@@ -236,6 +244,17 @@ export default function DashboardSchedulePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {filteredEvents.map((evt) => {
                         if (evt.type === 'tournament') {
+                            if (evt.rawReg?.games?.league_format === 'rolling') {
+                                return (
+                                    <RollingLeagueCard 
+                                        key={evt.id}
+                                        league={evt.rawReg.games}
+                                        userId={user?.id}
+                                        registrations={[evt.rawReg]}
+                                    />
+                                );
+                            }
+
                             return (
                                 <TournamentCard 
                                     key={evt.id}

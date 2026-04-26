@@ -2,9 +2,16 @@
 import { useState } from 'react';
 import { Calendar, History, Trash2, Edit2, CheckCircle2, RotateCw, Settings2, Trophy, ChevronDown, X } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
-import { scheduleNextRound, logPastMatch, updateMatchOverride, bulkScheduleSeason, generatePlayoffBracket } from '@/app/actions/rolling-god-mode';
+import { scheduleNextRound, logPastMatch, updateMatchOverride, bulkScheduleSeason, generatePlayoffBracket, deleteMatchPermanently } from '@/app/actions/rolling-god-mode';
 import { StandingsTable } from '@/components/admin/StandingsTable';
 import { PitchSideConfirmModal } from '@/components/public/PitchSideConfirmModal';
+
+// Helper to strictly format local datetime for <input type="datetime-local">
+const toLocalDatetimeString = (dateObj: string | Date) => {
+    const d = new Date(dateObj);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: any) {
     const { success, error } = useToast();
@@ -15,8 +22,8 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
     
     // History Form State
     const [showHistoryForm, setShowHistoryForm] = useState(false);
-    const [hHomeTeam, setHHomeTeam] = useState('');
-    const [hAwayTeam, setHAwayTeam] = useState('');
+    const [hHomeTeamId, setHHomeTeamId] = useState('');
+    const [hAwayTeamId, setHAwayTeamId] = useState('');
     const [hHomeScore, setHHomeScore] = useState('');
     const [hAwayScore, setHAwayScore] = useState('');
     const [hDate, setHDate] = useState('');
@@ -39,6 +46,9 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
     const [editHomeScore, setEditHomeScore] = useState('');
     const [editAwayScore, setEditAwayScore] = useState('');
     const [editStatus, setEditStatus] = useState('');
+
+    // Optimistic Deletion State
+    const [deletedMatchIds, setDeletedMatchIds] = useState<Set<string>>(new Set());
 
     // ───────────────────────────────────────────────────────
     // EXISTING HANDLERS (unchanged logic)
@@ -101,11 +111,14 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
         e.preventDefault();
         setProcessing(true);
         try {
-            await logPastMatch(gameId, hHomeTeam, hAwayTeam, parseInt(hHomeScore), parseInt(hAwayScore), hDate);
+            const homeName = teams.find((t: any) => t.id === hHomeTeamId)?.name || '';
+            const awayName = teams.find((t: any) => t.id === hAwayTeamId)?.name || '';
+
+            await logPastMatch(gameId, hHomeTeamId, homeName, hAwayTeamId, awayName, parseInt(hHomeScore), parseInt(hAwayScore), hDate);
             success("Historical match logged.");
             setShowHistoryForm(false);
-            setHHomeTeam('');
-            setHAwayTeam('');
+            setHHomeTeamId('');
+            setHAwayTeamId('');
             setHHomeScore('');
             setHAwayScore('');
             setHDate('');
@@ -131,6 +144,21 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
         }
     };
 
+    const handleDeleteMatchPermanently = async (matchId: string) => {
+        if (!window.confirm("Are you sure you want to permanently delete this match? This cannot be undone.")) return;
+        setProcessing(true);
+        try {
+            await deleteMatchPermanently(matchId, gameId);
+            setDeletedMatchIds(prev => new Set(prev).add(matchId));
+            success('Match permanently deleted.');
+            onRefresh();
+        } catch (err: any) {
+            error(err.message);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
     // ───────────────────────────────────────────────────────
     // EDIT MODAL HANDLERS
     // ───────────────────────────────────────────────────────
@@ -138,8 +166,8 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
     // Open the edit modal and pre-fill form fields from the match data
     const openEditModal = (match: any) => {
         setEditingMatch(match);
-        // Convert ISO timestamp to datetime-local format for the input
-        setEditStartTime(new Date(match.start_time).toISOString().slice(0, 16));
+        // Convert ISO timestamp to datetime-local format strictly
+        setEditStartTime(toLocalDatetimeString(match.start_time));
         setEditFieldName(match.field_name || '');
         setEditHomeTeamId(match.home_team_id || '');
         setEditAwayTeamId(match.away_team_id || '');
@@ -300,16 +328,16 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Home Team</label>
-                                <select required className="w-full bg-black border border-white/20 p-2 text-white text-xs" value={hHomeTeam} onChange={(e) => setHHomeTeam(e.target.value)}>
-                                    <option value="">Select Team</option>
-                                    {teams.map((t: any) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                                <select required className="w-full bg-black border border-white/20 p-2 text-white text-xs uppercase" value={hHomeTeamId} onChange={(e) => setHHomeTeamId(e.target.value)}>
+                                    <option value="">SELECT TEAM</option>
+                                    {teams.map((t: any) => <option key={t.id} value={t.id}>{t.name.toUpperCase()}</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Away Team</label>
-                                <select required className="w-full bg-black border border-white/20 p-2 text-white text-xs" value={hAwayTeam} onChange={(e) => setHAwayTeam(e.target.value)}>
-                                    <option value="">Select Team</option>
-                                    {teams.map((t: any) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                                <select required className="w-full bg-black border border-white/20 p-2 text-white text-xs uppercase" value={hAwayTeamId} onChange={(e) => setHAwayTeamId(e.target.value)}>
+                                    <option value="">SELECT TEAM</option>
+                                    {teams.map((t: any) => <option key={t.id} value={t.id}>{t.name.toUpperCase()}</option>)}
                                 </select>
                             </div>
                             <div>
@@ -322,7 +350,7 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
                             </div>
                             <div className="md:col-span-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1">Match Date</label>
-                                <input type="datetime-local" required className="w-full bg-black border border-white/20 p-2 text-white text-xs" value={hDate} onChange={(e) => setHDate(e.target.value)} />
+                                <input type="datetime-local" required className="w-full bg-black border border-white/20 p-2 text-white text-xs" style={{ colorScheme: 'dark' }} value={hDate} onChange={(e) => setHDate(e.target.value)} />
                             </div>
                         </div>
                         <div className="flex justify-end pt-2">
@@ -356,8 +384,9 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
                 {dateEntries.map(([dateKey, dateMatches], weekIdx) => {
                     // All expanded by default; only collapsed if explicitly toggled
                     const isExpanded = !collapsedWeeks.has(dateKey);
-                    const activeMatches = dateMatches.filter((m: any) => m.status !== 'canceled');
-                    const canceledMatches = dateMatches.filter((m: any) => m.status === 'canceled');
+                    const validMatches = dateMatches.filter((m: any) => !deletedMatchIds.has(m.id));
+                    const activeMatches = validMatches.filter((m: any) => m.status !== 'canceled');
+                    const canceledMatches = validMatches.filter((m: any) => m.status === 'canceled');
                     const currentTab = weekTabs[dateKey] || 'active';
                     const displayMatches = currentTab === 'active' ? activeMatches : canceledMatches;
 
@@ -479,6 +508,15 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
                                                             <CheckCircle2 className="w-3.5 h-3.5" />
                                                         </button>
                                                     )}
+                                                    {m.status === 'canceled' && (
+                                                        <button
+                                                            onClick={() => handleDeleteMatchPermanently(m.id)}
+                                                            className="p-1.5 bg-red-900/20 text-red-500 hover:bg-red-500 hover:text-white rounded transition-colors"
+                                                            title="Delete Permanently"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -517,10 +555,10 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
                                     <select
                                         value={editHomeTeamId}
                                         onChange={(e) => setEditHomeTeamId(e.target.value)}
-                                        className="w-full bg-black border border-white/20 p-2.5 text-white text-sm font-bold rounded focus:border-pitch-accent outline-none"
+                                        className="w-full bg-black border border-white/20 p-2.5 text-white text-sm font-bold rounded focus:border-pitch-accent outline-none uppercase"
                                     >
-                                        <option value="">Select Team</option>
-                                        {teams.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        <option value="">SELECT TEAM</option>
+                                        {teams.map((t: any) => <option key={t.id} value={t.id}>{t.name.toUpperCase()}</option>)}
                                     </select>
                                 </div>
                                 <div>
@@ -528,10 +566,10 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
                                     <select
                                         value={editAwayTeamId}
                                         onChange={(e) => setEditAwayTeamId(e.target.value)}
-                                        className="w-full bg-black border border-white/20 p-2.5 text-white text-sm font-bold rounded focus:border-pitch-accent outline-none"
+                                        className="w-full bg-black border border-white/20 p-2.5 text-white text-sm font-bold rounded focus:border-pitch-accent outline-none uppercase"
                                     >
-                                        <option value="">Select Team</option>
-                                        {teams.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        <option value="">SELECT TEAM</option>
+                                        {teams.map((t: any) => <option key={t.id} value={t.id}>{t.name.toUpperCase()}</option>)}
                                     </select>
                                 </div>
                             </div>

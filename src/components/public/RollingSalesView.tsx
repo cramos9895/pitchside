@@ -7,9 +7,6 @@ import {
     XCircle, ShieldCheck, UserPlus, Users, Crown, Lock
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
-import { withdrawFromRollingLeague } from '@/app/actions/rolling-league-registration';
-import { PitchSideConfirmModal } from './PitchSideConfirmModal';
 import { isLeagueLocked } from '@/lib/league-utils';
 
 interface RollingLeague {
@@ -50,33 +47,15 @@ interface RollingLeague {
     player_registration_fee?: number;
 }
 
-interface RollingLeagueLobbyProps {
+interface RollingSalesViewProps {
     game: RollingLeague;
-    currentUser: any;
-    isFreeAgent?: boolean;
     primaryHost?: { name: string; email: string } | null;
     registeredTeams?: any[];
 }
 
-export function RollingLeagueLobby({ game, isFreeAgent, primaryHost, registeredTeams = [] }: RollingLeagueLobbyProps) {
-    const [isPending, startTransition] = useTransition();
-    const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: RollingSalesViewProps) {
 
-    const executeWithdraw = () => {
-        startTransition(async () => {
-            try {
-                await withdrawFromRollingLeague(game.id);
-                setIsWithdrawModalOpen(false);
-                // Force reload to re-evaluate Smart Bouncer logic and return to signup lobby
-                window.location.reload();
-            } catch (err) {
-                console.error("Failed to withdraw:", err);
-                setIsWithdrawModalOpen(false);
-            }
-        });
-    };
-
-    const isLocked = isLeagueLocked(game);
+    const isLocked = isLeagueLocked(game as any);
     const isCash = game.payment_collection_type === 'cash';
     
     const gameDate = new Date(game.start_time);
@@ -402,24 +381,6 @@ export function RollingLeagueLobby({ game, isFreeAgent, primaryHost, registeredT
                                 </span>
                             </div>
                         </div>
-                    ) : isFreeAgent ? (
-                        <div className="w-full flex flex-col gap-4">
-                            <div className="w-full py-6 bg-pitch-accent/10 border border-pitch-accent/30 rounded-sm flex flex-col items-center justify-center gap-1 animate-pulse">
-                                <div className="flex items-center gap-3">
-                                    <Activity className="w-5 h-5 text-pitch-accent" />
-                                    <span className="text-pitch-accent font-black uppercase tracking-[0.3em] text-sm">Status: In Draft Pool</span>
-                                </div>
-                                <span className="text-[10px] text-pitch-secondary font-black uppercase tracking-widest opacity-70">Waiting for Captain Assignment</span>
-                            </div>
-                            <button
-                                onClick={() => setIsWithdrawModalOpen(true)}
-                                disabled={isPending}
-                                className="w-full py-4 bg-transparent border border-red-500/30 text-red-500/70 hover:text-red-500 hover:border-red-500 hover:bg-red-500/5 transition-all font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 rounded-sm disabled:opacity-50"
-                            >
-                                <XCircle className="w-3 h-3" /> 
-                                {isPending ? 'Processing...' : 'Withdraw from Draft Pool'}
-                            </button>
-                        </div>
                     ) : (
                         <>
                             <Link
@@ -441,19 +402,6 @@ export function RollingLeagueLobby({ game, isFreeAgent, primaryHost, registeredT
                     )}
                 </div>
             </div>
-
-            <PitchSideConfirmModal 
-                isOpen={isWithdrawModalOpen}
-                onClose={() => setIsWithdrawModalOpen(false)}
-                onConfirm={executeWithdraw}
-                isProcessing={isPending}
-                isDestructive={true}
-                title="Withdraw from Pool"
-                confirmText="Confirm Withdrawal"
-                description={
-                    <p>Are you sure you want to withdraw from the Free Agent pool? This will remove you from the active draft list for <span className="text-white font-bold">{game.title}</span>.</p>
-                }
-            />
         </div>
     );
 }

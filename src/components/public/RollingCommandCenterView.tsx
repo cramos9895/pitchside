@@ -20,6 +20,7 @@ import { PitchSideConfirmModal } from './PitchSideConfirmModal';
 import { StandingsTable, Match } from '@/components/admin/StandingsTable';
 import { cn } from '@/lib/utils';
 import { isLeagueLocked } from '@/lib/league-utils';
+import { RollingMatchHistory } from './RollingMatchHistory';
 
 interface Player {
     id: string;
@@ -77,7 +78,7 @@ interface Message {
     };
 }
 
-interface CaptainDashboardProps {
+interface RollingCommandCenterViewProps {
     team: Team;
     tournament: Tournament;
     roster: Player[];
@@ -90,7 +91,7 @@ interface CaptainDashboardProps {
     currentUserId: string;
 }
 
-export function CaptainDashboard({ 
+export function RollingCommandCenterView({ 
     team, 
     tournament, 
     roster, 
@@ -101,7 +102,7 @@ export function CaptainDashboard({
     tournamentUrlBase, 
     isCaptain, 
     currentUserId 
-}: CaptainDashboardProps) {
+}: RollingCommandCenterViewProps) {
     const router = useRouter();
     const supabase = createClient();
     const [copied, setCopied] = useState(false);
@@ -926,6 +927,13 @@ export function CaptainDashboard({
                                 />
                             )}
                         </div>
+
+                        {/* Historical Results Section */}
+                        <RollingMatchHistory 
+                            matches={matches}
+                            teams={teams}
+                            userTeamId={team.id}
+                        />
                     </div>
                 )}
 

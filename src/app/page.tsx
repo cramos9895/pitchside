@@ -81,7 +81,7 @@ export default async function Home() {
         .neq('status', 'cancelled'),
       supabase
         .from('tournament_registrations')
-        .select('game_id, role, team_id, user_id')
+        .select('game_id, role, team_id, user_id, status, teams(id, name, captain_id)')
         .eq('user_id', user.id)
     ]);
 

@@ -1,5 +1,6 @@
-import { useState, useTransition } from 'react';
-import { Users, Loader2, CreditCard, DollarSign, RotateCcw } from 'lucide-react';
+import { useState, useTransition, useEffect } from 'react';
+import { Users, Loader2, CreditCard, DollarSign, RotateCcw, ShieldAlert } from 'lucide-react';
+import { getGameSuspensions } from '@/app/actions/suspensions';
 import { processLeaguePayments } from '@/app/actions/process-league-payments';
 import { toggleCashPayment, resetCashTracker } from '@/app/actions/rolling-god-mode';
 import { useToast } from '@/components/ui/Toast';
@@ -14,6 +15,15 @@ export function GameDayTab({ registrations, teams, gameId, game, onRefresh }: an
     const [expandedTeams, setExpandedTeams] = useState<string[]>([]);
     // Track which specific registrations are mid-toggle to block double-clicks
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+    const [suspendedUserIds, setSuspendedUserIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (!gameId) return;
+        getGameSuspensions(gameId).then(data => {
+            const suspended = new Set(data.map(s => s.user_id));
+            setSuspendedUserIds(suspended);
+        }).catch(err => console.error(err));
+    }, [gameId]);
 
     const toggleTeamExpansion = (id: string) => {
         setExpandedTeams(prev => 
@@ -185,6 +195,7 @@ export function GameDayTab({ registrations, teams, gameId, game, onRefresh }: an
                                                                             <div className="font-bold text-white uppercase text-sm flex items-center gap-2">
                                                                                 {reg.profiles.full_name || 'Unknown Player'}
                                                                                 {isCaptain && <span className="text-[9px] bg-pitch-accent text-black px-1.5 py-0.5 rounded font-black tracking-widest">C</span>}
+                                                                                {suspendedUserIds.has(reg.user_id) && <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-black tracking-widest flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> SUSPENDED</span>}
                                                                             </div>
                                                                             <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">
                                                                                 Role: {displayRole}
@@ -235,7 +246,10 @@ export function GameDayTab({ registrations, teams, gameId, game, onRefresh }: an
                                                             {faPlayers.map((reg: any) => (
                                                                 <div key={reg.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors group">
                                                                     <div>
-                                                                        <div className="font-bold text-white uppercase text-sm">{reg.profiles.full_name || 'Unknown Player'}</div>
+                                                                        <div className="font-bold text-white uppercase text-sm flex items-center gap-2">
+                                                                            {reg.profiles.full_name || 'Unknown Player'}
+                                                                            {suspendedUserIds.has(reg.user_id) && <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-black tracking-widest flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> SUSPENDED</span>}
+                                                                        </div>
                                                                         <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">
                                                                             Free Agent
                                                                         </div>

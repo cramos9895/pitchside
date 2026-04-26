@@ -48,6 +48,10 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
         }
 
         if (gameTourney) {
+            if (gameTourney.league_format === 'rolling') {
+                redirect(`/rolling-leagues/${id}`);
+            }
+
             tournamentName = gameTourney.title;
             teamPrice = gameTourney.team_price;
             depositAmount = gameTourney.deposit_amount;
