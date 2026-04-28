@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export async function upsertAttendance(gameId: string, teamId: string, matchDate: string, status: 'committed' | 'out' | 'pending') {
@@ -28,21 +28,15 @@ export async function upsertAttendance(gameId: string, teamId: string, matchDate
     }
 
     revalidatePath(`/tournaments/[id]/team/[team_id]`, 'page');
+    revalidatePath(`/rolling-leagues/[id]`, 'page');
 }
 
 export async function getAttendanceForMatch(gameId: string, matchDate: string) {
-    const supabase = await createClient();
+    const supabase = await createAdminClient();
     
     const { data, error } = await supabase
         .from('game_attendance')
-        .select(`
-            user_id,
-            status,
-            profiles:user_id (
-                full_name,
-                avatar_url
-            )
-        `)
+        .select('user_id, team_id, status')
         .eq('game_id', gameId)
         .eq('match_date', matchDate);
 

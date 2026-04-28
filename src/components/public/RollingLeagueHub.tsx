@@ -18,6 +18,8 @@ interface RollingLeagueHubProps {
     matches?: any[];
     initialMessages?: any[];
     allTeams?: any[];
+    lineups?: any[];
+    attendance?: any[];
 }
 
 export function RollingLeagueHub({ 
@@ -28,10 +30,12 @@ export function RollingLeagueHub({
     registeredTeams,
     team,
     roster,
+    attendance,
     freeAgents,
     matches,
     initialMessages,
-    allTeams
+    allTeams,
+    lineups
 }: RollingLeagueHubProps) {
     
     // Render the appropriate sub-view based on the user's role
@@ -73,6 +77,7 @@ export function RollingLeagueHub({
                     tournamentUrlBase={tournamentUrlBase}
                     isCaptain={userRole === 'captain'}
                     currentUserId={currentUser.id}
+                    lineups={lineups || []}
                 />
             );
         default:

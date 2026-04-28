@@ -114,14 +114,28 @@ export function TournamentCard({ tournament, userId, registrations }: Tournament
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
                     {userRole === 'captain' && userTeamId ? (
                         <button
-                            onClick={() => router.push(`/tournaments/${tournament.id}/team/${userTeamId}`)}
+                            onClick={() => {
+                                if (!tournament.id) return;
+                                if (tournament.league_format === 'rolling') {
+                                    router.push(`/rolling-leagues/${tournament.id}`);
+                                } else {
+                                    router.push(`/tournaments/${tournament.id}/team/${userTeamId}`);
+                                }
+                            }}
                             className="col-span-1 sm:col-span-2 w-full py-4 bg-[#cbff00] text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm group/btn"
                         >
                             Captain's Command Center <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                         </button>
                     ) : (userRole === 'player' || userRole === 'registered') && userTeamId ? (
                         <button
-                            onClick={() => router.push(`/tournaments/${tournament.id}/team/${userTeamId}`)}
+                            onClick={() => {
+                                if (!tournament.id) return;
+                                if (tournament.league_format === 'rolling') {
+                                    router.push(`/rolling-leagues/${tournament.id}`);
+                                } else {
+                                    router.push(`/tournaments/${tournament.id}/team/${userTeamId}`);
+                                }
+                            }}
                             className="col-span-1 sm:col-span-2 w-full py-4 bg-transparent border border-white/20 text-white font-black uppercase tracking-widest text-xs hover:bg-white/5 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn"
                         >
                             Team Hub <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />

@@ -18,7 +18,8 @@ export function TournamentRegistrationClient({
     payment_collection_type,
     description,
     strict_waiver_required,
-    waiver_details
+    waiver_details,
+    isRolling = false
 }: { 
     tournamentId: string, 
     tournamentName: string, 
@@ -30,7 +31,8 @@ export function TournamentRegistrationClient({
     payment_collection_type?: 'stripe' | 'cash',
     description?: string | null,
     strict_waiver_required?: boolean,
-    waiver_details?: string | null
+    waiver_details?: string | null,
+    isRolling?: boolean
 }) {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -72,7 +74,11 @@ export function TournamentRegistrationClient({
             
             const res = await registerTournamentTeam(formData);
             if (res.success && res.teamId) {
-                router.push(`/tournaments/${tournamentId}/team/${res.teamId}`);
+                if (isRolling) {
+                    router.push(`/rolling-leagues/${tournamentId}`);
+                } else {
+                    router.push(`/tournaments/${tournamentId}/team/${res.teamId}`);
+                }
             }
         } catch (err: any) {
             setError(err.message || 'Failed to register team.');
@@ -124,7 +130,11 @@ export function TournamentRegistrationClient({
 
             const res = await registerTournamentFreeAgent(formData);
             if (res.success) {
-                router.push(`/tournaments/${tournamentId}`);
+                if (isRolling) {
+                    router.push(`/rolling-leagues/${tournamentId}`);
+                } else {
+                    router.push(`/tournaments/${tournamentId}`);
+                }
                 router.refresh();
             }
         } catch (err: any) {

@@ -84,6 +84,7 @@ export async function registerRollingCaptain(formData: FormData) {
     }
 
     revalidatePath(`/games/${gameId}`);
+    revalidatePath(`/rolling-leagues/${gameId}`);
     return { success: true, teamId: team.id };
 }
 
@@ -142,6 +143,7 @@ export async function registerRollingFreeAgent(formData: FormData) {
     }
 
     revalidatePath(`/games/${gameId}`);
+    revalidatePath(`/rolling-leagues/${gameId}`);
     return { success: true };
 }
 
@@ -169,6 +171,7 @@ export async function withdrawFromRollingLeague(gameId: string) {
     // For cash-at-door events, no refund is necessary.
 
     revalidatePath(`/games/${gameId}`);
+    revalidatePath(`/rolling-leagues/${gameId}`);
     return { success: true };
 }
 
@@ -195,6 +198,7 @@ export async function leaveRollingTeam(gameId: string, teamId: string) {
 
     revalidatePath(`/tournaments/${gameId}/team/${teamId}`);
     revalidatePath(`/games/${gameId}`);
+    revalidatePath(`/rolling-leagues/${gameId}`);
     return { success: true };
 }
 

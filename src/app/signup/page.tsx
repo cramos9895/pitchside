@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, User, Building } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,8 @@ import { registerAccount } from '@/app/actions/auth';
 
 function SignUpForm() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const nextPath = searchParams.get('next');
 
     // Form Fields
     const [accountType, setAccountType] = useState<'player' | 'facility'>('player');
@@ -67,7 +69,9 @@ function SignUpForm() {
             }
 
             // Immediately redirect
-            if (accountType === 'facility') {
+            if (nextPath) {
+                router.push(nextPath);
+            } else if (accountType === 'facility') {
                 router.push('/pending');
             } else {
                 router.push('/');

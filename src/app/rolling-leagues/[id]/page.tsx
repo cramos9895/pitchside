@@ -1,7 +1,8 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import { RollingLeagueHub } from '@/components/public/RollingLeagueHub';
 import { headers } from 'next/headers';
+import Link from 'next/link';
 
 export const revalidate = 0;
 
@@ -17,16 +18,76 @@ export default async function RollingLeaguePage({ params }: { params: Promise<{ 
     const { id: gameId } = await params;
     const supabase = await createClient();
 
-    // 1. Fetch Auth User
+    // 1. Fetch Auth User and Core Game Data (Sequential to avoid dependency trap)
     const { data: { user } } = await supabase.auth.getUser();
+    
+    const { data: game, error: gameError } = await supabase
+        .from('games')
+        .select(`
+            id, title, start_time, end_time, location, location_nickname, 
+            league_format, host_ids, team_registration_fee, min_players_per_team, 
+            max_players_per_team, payment_collection_type, player_registration_fee, 
+            cash_amount, price, waiver_details, 
+            has_registration_fee_credit, deposit_amount, lifecycle_status,
+            lifecycle_end_date, skipped_dates, teams_config, event_type, status,
+            prize_type, prize_pool_percentage, fixed_prize_amount, reward,
+            game_format_type, field_size, surface_type, half_length,
+            match_style, shoe_types, allow_free_agents, free_agent_price
+        `)
+        .eq('id', gameId)
+        .single();
 
-    // 2. Fetch Game Data and Registered Teams
-    const [gameResult, regTeamsResult] = await Promise.all([
-        supabase
+    if (gameError || !game) {
+        // Diagnostic Logging
+        console.error("Hub Fetch Failed for Game ID:", gameId);
+        console.error("Error Details:", JSON.stringify(gameError, null, 2));
+        
+        // Test with Admin Client to see if it's an RLS issue
+        const adminClient = await createAdminClient();
+        const { data: adminGame, error: adminError } = await adminClient
             .from('games')
-            .select('*')
+            .select('id, title, league_format')
             .eq('id', gameId)
-            .single(),
+            .maybeSingle();
+        
+        console.log("Admin Client Rescue Check:", adminGame ? "SUCCESS" : "FAILED");
+        if (adminError) console.error("Admin Client Error:", adminError);
+
+        return (
+            <div className="bg-pitch-black min-h-screen flex items-center justify-center p-10 text-center">
+                <div className="max-w-md space-y-4">
+                    <h1 className="text-2xl font-black text-white uppercase italic">Access Error</h1>
+                    <p className="text-gray-400 text-sm font-bold uppercase tracking-widest">
+                        We could not retrieve the league data for this ID. This is usually caused by a strict RLS policy or a missing record.
+                    </p>
+                    <div className="p-4 bg-red-500/10 border border-red-500/30 rounded text-red-500 text-[10px] font-mono break-all">
+                        ID: {gameId} <br/>
+                        ERROR: {gameError?.message || 'Record Not Found'}
+                    </div>
+                    <Link 
+                        href="/dashboard"
+                        className="mt-6 px-8 py-3 bg-white/10 hover:bg-white/20 text-white font-black uppercase text-xs tracking-widest transition-all inline-block"
+                    >
+                        Return to Dashboard
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+    
+    // Safety redirect if not rolling league
+    if (game.league_format !== 'rolling') {
+        redirect(`/games/${gameId}`);
+    }
+
+    // 2. Parallel Fetching (Dependent on user or game)
+    const [
+        regTeamsResult,
+        hostProfileResult,
+        userRegResult,
+        allTeamsResult
+    ] = await Promise.all([
+        // All team registrations for this game
         supabase
             .from('tournament_registrations')
             .select(`
@@ -43,36 +104,27 @@ export default async function RollingLeaguePage({ params }: { params: Promise<{ 
             `)
             .eq('game_id', gameId)
             .not('team_id', 'is', null)
-            .neq('status', 'cancelled')
+            .neq('status', 'cancelled'),
+
+        // Primary Host Profile
+        game.host_ids?.[0] 
+            ? supabase.from('profiles').select('full_name, email').eq('id', game.host_ids[0]).maybeSingle()
+            : Promise.resolve({ data: null }),
+
+        // Current User Registration
+        user 
+            ? supabase.from('tournament_registrations').select('team_id, status, role').eq('game_id', gameId).eq('user_id', user.id).neq('status', 'cancelled').maybeSingle()
+            : Promise.resolve({ data: null }),
+
+        // All Teams for Standings
+        supabase.from('teams').select('id, name, primary_color').eq('game_id', gameId)
     ]);
 
-    if (gameResult.error || !gameResult.data) {
-        return notFound();
-    }
-
-    const game = gameResult.data;
-    
-    // Safety redirect if not rolling league
-    if (game.league_format !== 'rolling') {
-        redirect(`/games/${gameId}`);
-    }
-
     // 3. Process Primary Host
-    let primaryHost = null;
-    if (game.host_ids?.length > 0) {
-        const { data: hostProfile } = await supabase
-            .from('profiles')
-            .select('full_name, email')
-            .eq('id', game.host_ids[0])
-            .single();
-        
-        if (hostProfile) {
-            primaryHost = {
-                name: hostProfile.full_name,
-                email: hostProfile.email
-            };
-        }
-    }
+    const primaryHost = hostProfileResult.data ? {
+        name: hostProfileResult.data.full_name,
+        email: hostProfileResult.data.email
+    } : null;
 
     // 4. Process Registered Teams & Counts
     const teamMap = new Map<string, RegisteredTeam>();
@@ -93,152 +145,81 @@ export default async function RollingLeaguePage({ params }: { params: Promise<{ 
     });
     const registeredTeams = Array.from(teamMap.values());
 
-    // 5. Check Participation
+    // 5. Determine User Role
     let userRole: 'unregistered' | 'free_agent' | 'player' | 'captain' = 'unregistered';
     let userTeamId: string | null = null;
+    const userReg = userRegResult.data;
 
-    if (user) {
-        const { data: userReg } = await supabase
-            .from('tournament_registrations')
-            .select('team_id, status, role')
-            .eq('game_id', gameId)
-            .eq('user_id', user.id)
-            .neq('status', 'cancelled')
-            .maybeSingle();
-
-        if (userReg) {
-            if (!userReg.team_id) {
-                userRole = 'free_agent';
-            } else {
-                userTeamId = userReg.team_id;
-                
-                // Check if captain
-                const { data: teamData } = await supabase
-                    .from('teams')
-                    .select('captain_id')
-                    .eq('id', userReg.team_id)
-                    .single();
-                    
-                if (teamData?.captain_id === user.id || userReg.role === 'captain') {
-                    userRole = 'captain';
-                } else {
-                    userRole = 'player';
-                }
-            }
+    if (userReg) {
+        if (!userReg.team_id) {
+            userRole = 'free_agent';
+        } else {
+            userTeamId = userReg.team_id;
+            // We'll verify captain status in Step 6
         }
     }
 
-    // 6. Fetch Team Command Center Data (if player or captain)
+    // 6. Fetch Team-Specific Command Center Data (if applicable)
     let teamData: any = null;
     let rosterData: any[] = [];
     let freeAgentsData: any[] = [];
     let matchesData: any[] = [];
     let messagesData: any[] = [];
-    let allTeamsData: any[] = [];
+    let lineupsData: any[] = [];
 
-    if (userRole === 'player' || userRole === 'captain') {
-        // A. Fetch Team Info
-        const { data: team } = await supabase
-            .from('teams')
-            .select(`
-                id, 
-                name, 
-                primary_color, 
-                accepting_free_agents, 
-                captain_id
-            `)
-            .eq('id', userTeamId)
-            .single();
-        teamData = team;
+    if (userTeamId) {
+        const [
+            teamInfoRes,
+            rosterRes,
+            matchesRes,
+            messagesRes,
+            freeAgentsRes,
+            lineupsRes
+        ] = await Promise.all([
+            supabase.from('teams').select('id, name, primary_color, accepting_free_agents, captain_id').eq('id', userTeamId).maybeSingle(),
+            supabase.from('tournament_registrations').select('id, user_id, status, preferred_positions, profiles(full_name, avatar_url)').eq('team_id', userTeamId).neq('status', 'cancelled'),
+            supabase.from('matches').select('*, home_team_rel:teams!home_team_id(name), away_team_rel:teams!away_team_id(name)').eq('game_id', gameId).order('start_time', { ascending: true }),
+            supabase.from('messages').select('*, profiles(full_name, avatar_url)').eq('team_id', userTeamId).order('created_at', { ascending: true }).limit(100),
+            supabase.from('tournament_registrations').select('id, user_id, status, preferred_positions, profiles(full_name, avatar_url)').is('team_id', null).neq('status', 'cancelled').or(`league_id.eq.${gameId},game_id.eq.${gameId}`),
+            supabase.from('match_lineups').select('*').eq('team_id', userTeamId)
+        ]);
 
-        // B. Fetch Roster
-        const { data: roster } = await supabase
-            .from('tournament_registrations')
-            .select(`
-                id,
-                user_id,
-                status,
-                preferred_positions,
-                profiles (
-                    full_name,
-                    avatar_url
-                )
-            `)
-            .eq('team_id', userTeamId)
-            .neq('status', 'cancelled');
-        rosterData = roster || [];
-
-        // C. Fetch Matches
-        const { data: matches } = await supabase
-            .from('matches')
-            .select(`
-                *,
-                home_team_rel:teams!home_team_id(name),
-                away_team_rel:teams!away_team_id(name)
-            `)
-            .eq('game_id', gameId)
-            .order('start_time', { ascending: true });
-
-        matchesData = (matches || []).map(m => ({
+        teamData = teamInfoRes.data;
+        rosterData = rosterRes.data || [];
+        matchesData = (matchesRes.data || []).map(m => ({
             ...m,
             home_team: m.home_team_rel?.name,
             away_team: m.away_team_rel?.name,
             home_team_obj: m.home_team_rel,
             away_team_obj: m.away_team_rel
         }));
+        messagesData = messagesRes.data || [];
+        freeAgentsData = freeAgentsRes.data || [];
+        lineupsData = lineupsRes.data || [];
 
-        // D. Fetch Messages
-        const { data: initialMessages } = await supabase
-            .from('messages')
-            .select(`
-                *,
-                profiles(full_name, avatar_url)
-            `)
-            .eq('team_id', userTeamId)
-            .order('created_at', { ascending: true })
-            .limit(100);
-        messagesData = initialMessages || [];
-
-        // E. Fetch Free Agents
-        const { data: freeAgents } = await supabase
-            .from('tournament_registrations')
-            .select(`
-                id,
-                user_id,
-                status,
-                preferred_positions,
-                profiles (
-                    full_name,
-                    avatar_url
-                )
-            `)
-            .is('team_id', null)
-            .neq('status', 'cancelled')
-            .or(`league_id.eq.${gameId},game_id.eq.${gameId}`);
-        freeAgentsData = freeAgents || [];
-
-        // F. Official Teams for Standings
-        const { data: teamsDataObj } = await supabase
-            .from('teams')
-            .select('id, name, primary_color')
-            .eq('game_id', gameId);
-        allTeamsData = teamsDataObj || [];
+        // Finalize Role
+        if (teamData?.captain_id === user?.id || userReg?.role === 'captain') {
+            userRole = 'captain';
+        } else {
+            userRole = 'player';
+        }
     }
 
     return (
         <RollingLeagueHub 
-            game={game}
+            game={game as any}
             currentUser={user}
             userRole={userRole}
             primaryHost={primaryHost}
             registeredTeams={registeredTeams}
-            // Command Center Props
             team={teamData}
             roster={rosterData}
             freeAgents={freeAgentsData}
             matches={matchesData}
             initialMessages={messagesData}
-            allTeams={allTeamsData}
+            allTeams={allTeamsResult.data || []}
+            lineups={lineupsData}
         />
     );
 }
+

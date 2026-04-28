@@ -21,6 +21,7 @@ import { StandingsTable, Match } from '@/components/admin/StandingsTable';
 import { cn } from '@/lib/utils';
 import { isLeagueLocked } from '@/lib/league-utils';
 import { RollingMatchHistory } from './RollingMatchHistory';
+import { TacticalBoard } from './tactics/TacticalBoard';
 
 interface Player {
     id: string;
@@ -61,6 +62,7 @@ interface Tournament {
     lifecycle_end_date?: string | null;
     skipped_dates?: string[];
     teams_config?: any[];
+    league_format?: 'rolling' | 'structured';
 }
 
 // Using Match interface from StandingsTable for consistency
@@ -89,6 +91,7 @@ interface RollingCommandCenterViewProps {
     tournamentUrlBase: string; // e.g., "https://pitchside.com/tournaments/123"
     isCaptain: boolean;
     currentUserId: string;
+    lineups: any[];
 }
 
 export function RollingCommandCenterView({ 
@@ -101,7 +104,8 @@ export function RollingCommandCenterView({
     initialMessages, 
     tournamentUrlBase, 
     isCaptain, 
-    currentUserId 
+    currentUserId,
+    lineups
 }: RollingCommandCenterViewProps) {
     const router = useRouter();
     const supabase = createClient();
@@ -140,7 +144,9 @@ export function RollingCommandCenterView({
     const [messages, setMessages] = useState<Message[]>(initialMessages);
     const [newMessage, setNewMessage] = useState('');
 
-    const matchDateResult = tournament.is_rolling 
+    const isRolling = tournament.is_rolling || tournament.league_format === 'rolling';
+
+    const matchDateResult = isRolling 
         ? calculateNextMatch(tournament as any) 
         : { status: 'concluded' as const, date: null };
 
@@ -162,14 +168,31 @@ export function RollingCommandCenterView({
     }, [activeTab, tournament.id, matchDateResult.date]);
 
     const handleRsvp = async (status: 'committed' | 'out') => {
-        if (!matchDateResult.date) return;
+        if (!matchDateResult.date) {
+            console.error("RSVP Error: No match date found.");
+            return;
+        }
+
+        const matchDate = matchDateResult.date.split('T')[0];
+        console.log("Attempting RSVP:", { 
+            gameId: tournament.id, 
+            teamId: team.id, 
+            matchDate, 
+            status 
+        });
+
         setIsRsvping(status);
         try {
-            await upsertAttendance(tournament.id, team.id, matchDateResult.date.split('T')[0], status);
+            await upsertAttendance(tournament.id, team.id, matchDate, status);
+            
+            // Small delay to ensure consistency
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
             // Refresh attendance list
-            const data = await getAttendanceForMatch(tournament.id, matchDateResult.date.split('T')[0]);
+            const data = await getAttendanceForMatch(tournament.id, matchDate);
             setAttendance(data);
-        } catch (error) {
+            router.refresh();
+        } catch (error: any) {
             console.error("Failed to RSVP:", error);
         } finally {
             setIsRsvping(null);
@@ -346,12 +369,12 @@ export function RollingCommandCenterView({
 
                         {/* Escape Hatches (Disband / Leave) */}
                         {!isLocked && (
-                            <div className="flex gap-3 mt-4 md:mt-0">
+                            <div className="flex flex-col sm:flex-row gap-3 mt-4 md:mt-0 w-full sm:w-auto">
                                 {isCaptain ? (
                                     <button
                                         onClick={() => setActiveHatch('disband')}
                                         disabled={isLeaving}
-                                        className="px-6 py-3 border border-red-500/30 text-red-500/70 hover:text-red-500 hover:border-red-500 hover:bg-red-500/5 transition-all font-black uppercase tracking-widest text-[10px] flex items-center gap-2 rounded-lg disabled:opacity-50"
+                                        className="w-full sm:w-auto px-6 py-4 border border-red-500/30 text-red-500/70 hover:text-red-500 hover:border-red-500 hover:bg-red-500/5 transition-all font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 rounded-lg disabled:opacity-50 min-h-[44px]"
                                     >
                                         <Trash2 className="w-4 h-4" /> 
                                         {isLeaving ? 'Disbanding...' : 'Disband Team'}
@@ -360,7 +383,7 @@ export function RollingCommandCenterView({
                                     <button
                                         onClick={() => setActiveHatch('leave')}
                                         disabled={isLeaving}
-                                        className="px-6 py-3 border border-red-500/30 text-red-500/70 hover:text-red-500 hover:border-red-500 hover:bg-red-500/5 transition-all font-black uppercase tracking-widest text-[10px] flex items-center gap-2 rounded-lg disabled:opacity-50"
+                                        className="w-full sm:w-auto px-6 py-4 border border-red-500/30 text-red-500/70 hover:text-red-500 hover:border-red-500 hover:bg-red-500/5 transition-all font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 rounded-lg disabled:opacity-50 min-h-[44px]"
                                     >
                                         <XCircle className="w-4 h-4" /> 
                                         {isLeaving ? 'Leaving...' : 'Leave Team'}
@@ -375,7 +398,7 @@ export function RollingCommandCenterView({
                 <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto hide-scrollbar sticky top-[72px] z-40 backdrop-blur-md">
                     {[
                         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-                        ...(tournament.is_rolling ? [{ id: 'game-day', label: 'Game Day Prep', icon: HeartPulse }] : []),
+                        ...(isRolling ? [{ id: 'game-day', label: 'Game Day Prep', icon: HeartPulse }] : []),
                         { id: 'schedule', label: 'Schedule', icon: Calendar },
                         { id: 'standings', label: 'Standings', icon: List },
                         { id: 'rules', label: 'Rules', icon: ScrollText },
@@ -414,7 +437,7 @@ export function RollingCommandCenterView({
                                 </p>
                                 <button
                                     onClick={handleCopy}
-                                    className={`w-full py-5 rounded-lg flex items-center justify-center gap-3 font-black uppercase tracking-[0.2em] transition-all transform active:scale-[0.98] ${
+                                    className={`w-full py-5 rounded-lg flex items-center justify-center gap-3 font-black uppercase tracking-[0.2em] transition-all transform active:scale-[0.98] min-h-[44px] ${
                                         copied 
                                         ? 'bg-green-500 text-pitch-black shadow-[0_0_30px_rgba(34,197,94,0.3)]' 
                                         : 'bg-pitch-accent text-pitch-black hover:bg-white shadow-[0_0_30px_rgba(204,255,0,0.15)]'
@@ -422,11 +445,11 @@ export function RollingCommandCenterView({
                                 >
                                     {copied ? (
                                         <>
-                                            <CheckCircle2 className="w-6 h-6" /> Link Copied to Clipboard!
+                                            <CheckCircle2 className="w-6 h-6" /> Link Copied!
                                         </>
                                     ) : (
                                         <>
-                                            <Copy className="w-6 h-6" /> Copy Tournament Invite Link
+                                            <Copy className="w-6 h-6" /> Copy Invite Link
                                         </>
                                     )}
                                 </button>
@@ -444,51 +467,53 @@ export function RollingCommandCenterView({
                                 </span>
                             </div>
                             
-                            <div className="space-y-3">
-                                {roster.length === 0 ? (
-                                    <div className="text-center py-12 bg-black/50 rounded-xl border border-dashed border-white/10">
-                                        <Users className="w-8 h-8 text-gray-600 mx-auto mb-3" />
-                                        <p className="text-gray-500 font-bold uppercase text-xs tracking-widest">No players drafted yet</p>
-                                    </div>
-                                ) : (
-                                    roster.map(player => (
-                                        <div key={player.id} className="flex items-center justify-between p-4 bg-black/50 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-white/20">
-                                                    {player.profiles.avatar_url ? (
-                                                        <img src={player.profiles.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                            <div className="overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0">
+                                <div className="space-y-3 min-w-[300px]">
+                                    {roster.length === 0 ? (
+                                        <div className="text-center py-12 bg-black/50 rounded-xl border border-dashed border-white/10">
+                                            <Users className="w-8 h-8 text-gray-600 mx-auto mb-3" />
+                                            <p className="text-gray-500 font-bold uppercase text-xs tracking-widest">No players drafted yet</p>
+                                        </div>
+                                    ) : (
+                                        roster.map(player => (
+                                            <div key={player.id} className="flex items-center justify-between p-4 bg-black/50 rounded-xl border border-white/5 hover:border-white/10 transition-colors gap-4">
+                                                <div className="flex items-center gap-4 min-w-0">
+                                                    <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-white/20 shrink-0">
+                                                        {player.profiles.avatar_url ? (
+                                                            <img src={player.profiles.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <Users className="w-5 h-5 text-gray-500" />
+                                                        )}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="font-bold uppercase tracking-wider text-sm flex items-center gap-2 truncate">
+                                                            {player.profiles.full_name || 'Unknown Player'}
+                                                            {suspendedUserIds.has(player.user_id) && <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-black tracking-widest flex items-center gap-1 shrink-0"><ShieldAlert className="w-3 h-3" /> SUSP</span>}
+                                                        </div>
+                                                        <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1 truncate">
+                                                            {player.preferred_positions?.join(', ') || 'No preference'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    {player.status === 'paid' || player.status === 'confirmed' ? (
+                                                        <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#ccff00] bg-[#ccff00]/10 px-2 py-1 rounded border border-[#ccff00]/20">
+                                                            <CheckCircle2 className="w-3 h-3" /> Paid
+                                                        </span>
+                                                    ) : (player.status === 'registered' || player.status === 'drafted') ? (
+                                                        <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-white bg-white/10 px-2 py-1 rounded border border-white/20">
+                                                            <CheckCircle2 className="w-3 h-3" /> Reg
+                                                        </span>
                                                     ) : (
-                                                        <Users className="w-5 h-5 text-gray-500" />
+                                                        <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20">
+                                                            <AlertTriangle className="w-3 h-3" /> Pend
+                                                        </span>
                                                     )}
                                                 </div>
-                                                <div>
-                                                    <div className="font-bold uppercase tracking-wider text-sm flex items-center gap-2">
-                                                        {player.profiles.full_name || 'Unknown Player'}
-                                                        {suspendedUserIds.has(player.user_id) && <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-black tracking-widest flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> SUSPENDED</span>}
-                                                    </div>
-                                                    <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1">
-                                                        {player.preferred_positions?.join(', ') || 'No preference'}
-                                                    </div>
-                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                {player.status === 'paid' || player.status === 'confirmed' ? (
-                                                    <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#ccff00] bg-[#ccff00]/10 px-2 py-1 rounded border border-[#ccff00]/20">
-                                                        <CheckCircle2 className="w-3 h-3" /> Paid
-                                                    </span>
-                                                ) : player.status === 'registered' ? (
-                                                    <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-white bg-white/10 px-2 py-1 rounded border border-white/20">
-                                                        <CheckCircle2 className="w-3 h-3" /> Registered
-                                                    </span>
-                                                ) : (
-                                                    <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20">
-                                                        <AlertTriangle className="w-3 h-3" /> Pending
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
+                                        ))
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -499,9 +524,6 @@ export function RollingCommandCenterView({
                         {/* SECTION B: The Financial Tracker or Cash Block */}
                         {tournament.payment_collection_type === 'cash' ? (
                             <div className="bg-pitch-accent text-pitch-black rounded-2xl p-8 shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
-                                <div className="absolute -right-4 -top-4 opacity-10">
-                                    <DollarSign className="w-32 h-32" />
-                                </div>
                                 <Zap className="w-12 h-12 mb-4 animate-pulse" />
                                 <h3 className="text-xs font-black uppercase tracking-[0.3em] mb-2 opacity-70">Payment Mode</h3>
                                 <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-6">Cash at Door</h2>
@@ -509,7 +531,7 @@ export function RollingCommandCenterView({
                                 <div className="w-full bg-black/10 p-6 rounded-xl border border-black/5 mb-6">
                                     <p className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-60">Amount Required</p>
                                     <p className="text-5xl font-black italic tracking-tighter mb-1">${tournament.cash_amount || 0}</p>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">{tournament.cash_fee_structure || 'Per Selection'}</p>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">{tournament.cash_fee_structure || 'Per Game'}</p>
                                 </div>
                                 
                                 <p className="text-[10px] uppercase font-bold leading-relaxed tracking-widest px-4 opacity-80">
@@ -664,10 +686,6 @@ export function RollingCommandCenterView({
                 {activeTab === 'game-day' && (
                     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="bg-pitch-card border border-white/5 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-8 opacity-10">
-                                <HeartPulse className="w-24 h-24" />
-                            </div>
-                            
                             <div className="mb-8">
                                 <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-2">Game Day Prep</h2>
                                 <p className="text-pitch-secondary text-xs font-bold uppercase tracking-widest">RSVP & Match Commitment</p>
@@ -746,10 +764,10 @@ export function RollingCommandCenterView({
                                             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-pitch-secondary">Team Commitment</h4>
                                             <div className="flex gap-4">
                                                 <span className="text-[10px] font-bold uppercase text-green-500">
-                                                    {attendance.filter(a => a.status === 'committed').length} In
+                                                    {attendance.filter(a => a.team_id === team.id && a.status === 'committed').length} In
                                                 </span>
                                                 <span className="text-[10px] font-bold uppercase text-red-500">
-                                                    {attendance.filter(a => a.status === 'out').length} Out
+                                                    {attendance.filter(a => a.team_id === team.id && a.status === 'out').length} Out
                                                 </span>
                                             </div>
                                         </div>
@@ -786,6 +804,26 @@ export function RollingCommandCenterView({
                                             })}
                                         </div>
                                     </div>
+
+                                    {/* TACTICAL BOARD SECTION */}
+                                    {matchDateResult.date && myMatches.length > 0 && (
+                                        <div className="border-t border-white/10 pt-12">
+                                            <div className="mb-8 text-center md:text-left">
+                                                <h2 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Tactical Board</h2>
+                                                <p className="text-pitch-secondary text-[10px] font-black uppercase tracking-[0.2em]">Match-Specific Lineup Builder</p>
+                                            </div>
+                                            
+                                            <TacticalBoard 
+                                                matchId={myMatches.find(m => m.start_time?.startsWith(matchDateResult.date!.split('T')[0]))?.id || myMatches[0]?.id}
+                                                teamId={team.id}
+                                                format={tournament.teams_config?.[0]?.max_players ? `${tournament.teams_config[0].max_players}v${tournament.teams_config[0].max_players}` : '5v5'}
+                                                roster={roster}
+                                                attendance={attendance}
+                                                isCaptain={isCaptain}
+                                                initialLineup={lineups.find(l => l.match_id === (myMatches.find(m => m.start_time?.startsWith(matchDateResult.date!.split('T')[0]))?.id || myMatches[0]?.id))}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

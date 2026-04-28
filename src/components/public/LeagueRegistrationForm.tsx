@@ -123,7 +123,7 @@ export function LeagueRegistrationForm({ league, type, isRolling = false }: Regi
                 alert("Free Agent Registration Successful!");
             }
             
-            router.push(isRolling ? `/tournaments/${league.id}` : `/leagues/${league.id}`);
+            router.push(isRolling ? `/rolling-leagues/${league.id}` : `/leagues/${league.id}`);
             router.refresh();
 
         } catch (err: any) {
@@ -143,7 +143,7 @@ export function LeagueRegistrationForm({ league, type, isRolling = false }: Regi
                 await registerFreeAgent(pendingFormData);
             }
             alert("Free Agent Registration & Payment Successful!");
-            router.push(isRolling ? `/tournaments/${league.id}` : `/leagues/${league.id}`);
+            router.push(isRolling ? `/rolling-leagues/${league.id}` : `/leagues/${league.id}`);
             router.refresh();
         }
     };

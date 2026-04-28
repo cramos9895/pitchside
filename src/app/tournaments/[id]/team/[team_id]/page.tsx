@@ -10,16 +10,25 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
     const supabase = await createClient();
     const { id, team_id } = await params;
 
+    // 1. FAST PATH: Check for Rolling League and Redirect IMMEDIATELY
+    // We do this before auth or any other heavy lifting to avoid 404s on legacy routes.
+    const { data: quickGame } = await supabase
+        .from('games')
+        .select('league_format')
+        .eq('id', id)
+        .maybeSingle();
+
+    if (quickGame?.league_format === 'rolling') {
+        redirect(`/rolling-leagues/${id}`);
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
 
-    // In a real strict environment, we would verify `user` is the captain of `team_id`.
-    // For this prototype, we just require authentication.
     if (!user) {
         redirect('/login');
     }
 
-    // 1. Fetch Tournament Info
-    // Check games first, then leagues
+    // 2. Fetch Full Tournament/League Info for Standard Formats
     let tournamentName = '';
     let teamPrice: number | null = null;
     let depositAmount: number | null = null;
@@ -48,6 +57,7 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
         }
 
         if (gameTourney) {
+            // Safety check again, though redirected above
             if (gameTourney.league_format === 'rolling') {
                 redirect(`/rolling-leagues/${id}`);
             }
@@ -82,6 +92,10 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
             }
         }
     } catch (err) {
+        // Only catch actual errors, let Next.js internal redirect/notFound errors propagate
+        if ((err as any)?.digest?.startsWith('NEXT_REDIRECT') || (err as any)?.digest?.startsWith('NEXT_NOT_FOUND')) {
+            throw err;
+        }
         console.error('Error fetching tournament data:', err);
     }
 
@@ -117,10 +131,12 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
             captain_id
         `)
         .eq('id', team_id)
-        .single();
+        .maybeSingle();
 
     if (teamError || !team) {
         console.error('Team not found or error:', teamError);
+        // For legacy catchers, we still 404 if the team is missing and it's NOT a rolling league
+        // (Rolling leagues are caught by the fast-path at the top)
         notFound();
     }
 

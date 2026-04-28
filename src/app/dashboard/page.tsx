@@ -42,6 +42,7 @@ function DashboardContent() {
         const fetchOverviewData = async () => {
             setLoading(true);
             try {
+                // 1. Fetch User Sequentially (Dependency Root)
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) {
                     router.push('/login');
@@ -49,23 +50,54 @@ function DashboardContent() {
                 }
                 setUser(user);
 
-                const { data: profile } = await supabase.from('profiles').select('credit_balance').eq('id', user.id).single();
-                if (profile) {
-                    setCreditBalance(profile.credit_balance || 0);
-                }
-
                 const now = new Date().toISOString();
 
-                // 1. Fetch Action Required Rentals
-                const { data: pendingBookings } = await supabase
-                    .from('resource_bookings')
-                    .select('*, facility:facilities(name), resource:resources(title)')
-                    .eq('user_id', user.id)
-                    .eq('status', 'awaiting_payment')
-                    .order('start_time', { ascending: true });
+                // 2. Parallel Fetching (Independent Queries)
+                const [
+                    profileRes,
+                    pendingBookingsRes,
+                    rentalsRes,
+                    gamesRes,
+                    tournamentsRes
+                ] = await Promise.all([
+                    supabase.from('profiles').select('credit_balance').eq('id', user.id).single(),
+                    supabase.from('resource_bookings')
+                        .select('id, start_time, end_time, status, recurring_group_id, amount_total, facility:facilities(name), resource:resources(title)')
+                        .eq('user_id', user.id)
+                        .eq('status', 'awaiting_payment')
+                        .order('start_time', { ascending: true }),
+                    supabase.from('resource_bookings')
+                        .select('id, start_time, end_time, status, facility:facilities(name), resource:resources(title)')
+                        .eq('user_id', user.id)
+                        .eq('status', 'confirmed')
+                        .gte('start_time', now)
+                        .order('start_time', { ascending: true }),
+                    supabase.from('bookings')
+                        .select('id, game:games(id, start_time, end_time, title, facility:facilities(name), max_players, current_players, match_style, game_format, location, location_nickname)')
+                        .eq('user_id', user.id)
+                        .in('status', ['paid', 'confirmed'])
+                        .not('roster_status', 'eq', 'dropped'),
+                    supabase.from('tournament_registrations')
+                        .select(`
+                            id, user_id, team_id, role, status, created_at,
+                            games:game_id (
+                                id, title, start_time, end_time, location_nickname, 
+                                event_type, status, league_format
+                            ),
+                            teams:team_id (id, name, captain_id)
+                        `)
+                        .eq('user_id', user.id)
+                        .order('created_at', { ascending: false })
+                ]);
 
-                if (pendingBookings) {
-                    const grouped = pendingBookings.reduce((acc: any, booking: any) => {
+                // 3. Process Profile
+                if (profileRes.data) {
+                    setCreditBalance(profileRes.data.credit_balance || 0);
+                }
+
+                // 4. Process Pending Bookings & Fetch Contracts (Sequential dependency)
+                if (pendingBookingsRes.data) {
+                    const grouped = pendingBookingsRes.data.reduce((acc: any, booking: any) => {
                         const key = booking.recurring_group_id || booking.id;
                         if (!acc[key]) {
                             acc[key] = {
@@ -83,7 +115,7 @@ function DashboardContent() {
                     if (groupIds.length > 0) {
                         const { data: contractsData } = await supabase
                             .from('recurring_booking_groups')
-                            .select('*')
+                            .select('id, payment_term, final_price')
                             .in('id', groupIds);
 
                         if (contractsData) {
@@ -95,34 +127,12 @@ function DashboardContent() {
                     setActionRequiredRentals(Object.values(grouped));
                 }
 
-                // 2. Fetch All Event Types
-                const [rentalsRes, gamesRes, tournamentsRes] = await Promise.all([
-                    supabase
-                        .from('resource_bookings')
-                        .select('*, facility:facilities(name), resource:resources(title)')
-                        .eq('user_id', user.id)
-                        .eq('status', 'confirmed')
-                        .gte('start_time', now)
-                        .order('start_time', { ascending: true }),
-                    supabase
-                        .from('bookings')
-                        .select('id, game:games(id, start_time, end_time, title, facility:facilities(name), max_players, current_players, match_style, game_format, location, location_nickname)')
-                        .eq('user_id', user.id)
-                        .in('status', ['paid', 'confirmed'])
-                        .not('roster_status', 'eq', 'dropped'),
-                    supabase
-                        .from('tournament_registrations')
-                        .select('*, games(*), teams(id, name, captain_id)')
-                        .eq('user_id', user.id)
-                        .order('created_at', { ascending: false })
-                ]);
-
-                // 3. Normalize into Unified Feed
+                // 5. Normalize into Unified Feed
                 const events: any[] = [];
 
                 // Add Rentals
                 if (rentalsRes.data) {
-                    rentalsRes.data.forEach(r => events.push({
+                    (rentalsRes.data as any[]).forEach(r => events.push({
                         type: 'rental',
                         id: r.id,
                         start_time: r.start_time,
@@ -140,7 +150,7 @@ function DashboardContent() {
                         if (g && new Date(g.start_time).toISOString() >= now) {
                             events.push({
                                 type: 'game',
-                                id: b.id, // This is the bookingId
+                                id: b.id, 
                                 rawGameId: g.id,
                                 start_time: g.start_time,
                                 end_time: g.end_time,
@@ -156,17 +166,21 @@ function DashboardContent() {
                 // Add Tournaments & Leagues
                 if (tournamentsRes.data) {
                     tournamentsRes.data.forEach(reg => {
-                        const isLeague = reg.games?.event_type === 'league';
-                        const isActive = reg.games?.status === 'active' || reg.games?.status === 'scheduled';
-                        if (reg.games && (new Date(reg.games.start_time).toISOString() >= now || isActive)) {
+                        const g = reg.games as any;
+                        if (!g) return;
+                        
+                        const isLeague = g.event_type === 'league';
+                        const isActive = g.status === 'active' || g.status === 'scheduled';
+                        
+                        if (new Date(g.start_time).toISOString() >= now || isActive) {
                             events.push({
                                 type: isLeague ? 'league' : 'tournament',
                                 id: reg.id,
-                                start_time: reg.games.start_time,
-                                end_time: reg.games.end_time,
-                                title: reg.games.title || (isLeague ? 'League' : 'Tournament'),
-                                location: reg.games.location_nickname,
-                                data: reg.games,
+                                start_time: g.start_time,
+                                end_time: g.end_time,
+                                title: g.title || (isLeague ? 'League' : 'Tournament'),
+                                location: g.location_nickname,
+                                data: g,
                                 registration: reg,
                                 registrations: [reg] 
                             });
@@ -187,6 +201,7 @@ function DashboardContent() {
 
         fetchOverviewData();
     }, [router, supabase]);
+
 
     const handlePayContract = async (groupId: string) => {
         setIsPayingContract(groupId);

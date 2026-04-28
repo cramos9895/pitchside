@@ -22,6 +22,7 @@ export async function toggleAcceptingFreeAgents(teamId: string, isAccepting: boo
     }
 
     revalidatePath(`/tournaments/[id]/team/[team_id]`, 'page');
+    revalidatePath(`/rolling-leagues/[id]`, 'page');
 }
 
 export async function draftFreeAgent(registrationId: string, teamId: string) {
@@ -36,17 +37,21 @@ export async function draftFreeAgent(registrationId: string, teamId: string) {
     console.log('Drafting Request (Admin Bypass):', { registrationId, teamId, requestedBy: user.id });
 
     // 2. MANUAL SECURITY CHECK: Verify the requester is the Captain of the target team
-    // We check tournament_registrations to see if they have a 'captain' role for this team_id
-    const { data: captainStatus, error: captainError } = await supabase
-        .from('tournament_registrations')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('team_id', teamId)
-        .eq('role', 'captain')
-        .single();
+    // We check both the teams table (primary) and tournament_registrations (legacy/backup)
+    const [teamRes, regRes] = await Promise.all([
+        supabase.from('teams').select('captain_id').eq('id', teamId).maybeSingle(),
+        supabase.from('tournament_registrations')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('team_id', teamId)
+            .eq('role', 'captain')
+            .maybeSingle()
+    ]);
 
-    if (captainError || !captainStatus) {
-        console.error('Security Violation: User is not the Captain of team', teamId);
+    const isCaptain = teamRes.data?.captain_id === user.id || !!regRes.data;
+
+    if (!isCaptain) {
+        console.error('Security Violation: User', user.id, 'is not the Captain of team', teamId);
         throw new Error('Unauthorized: Only the team captain can draft players.');
     }
 
@@ -92,6 +97,7 @@ export async function draftFreeAgent(registrationId: string, teamId: string) {
 
     // 6. Revalidate all relevant paths
     revalidatePath(`/tournaments/[id]/team/[team_id]`, 'page');
+    revalidatePath(`/rolling-leagues/[id]`, 'page');
     revalidatePath(`/admin/(dashboard)/games/[id]`, 'page');
     revalidatePath(`/admin`, 'layout');
 }

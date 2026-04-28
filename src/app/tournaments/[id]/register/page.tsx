@@ -38,7 +38,8 @@ export default async function TournamentRegistrationPage({ params, searchParams 
             payment_collection_type,
             rules_description,
             strict_waiver_required,
-            waiver_details
+            waiver_details,
+            league_format
         `)
         .eq('id', tournamentId)
         .single();
@@ -56,7 +57,8 @@ export default async function TournamentRegistrationPage({ params, searchParams 
             payment_collection_type: gameTourney.payment_collection_type,
             description: gameTourney.rules_description,
             strict_waiver_required: gameTourney.strict_waiver_required,
-            waiver_details: gameTourney.waiver_details
+            waiver_details: gameTourney.waiver_details,
+            isRolling: gameTourney.league_format === 'rolling'
         };
     } else {
         const { data: leagueTourney } = await supabase

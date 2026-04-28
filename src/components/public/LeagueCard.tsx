@@ -108,7 +108,7 @@ export function LeagueCard({ league, userId, registrations }: LeagueCardProps) {
                 </div>
 
                 {/* Timeline Matrix */}
-                <div className="grid grid-cols-3 gap-2 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-8">
                     <div className="bg-white/5 p-3 rounded-sm border border-white/5 hover:bg-white/10 transition-colors group/item">
                         <div className="text-[8px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-pitch-accent transition-colors flex items-center gap-1">
                             <Clock className="w-2.5 h-2.5" /> Start
@@ -148,15 +148,35 @@ export function LeagueCard({ league, userId, registrations }: LeagueCardProps) {
                 <div className="mt-auto">
                     {userRole === 'captain' && userTeamId ? (
                         <button
-                            onClick={() => router.push(`/tournaments/${league.id}/team/${userTeamId}`)}
-                            className="w-full py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm group/btn"
+                            onClick={() => {
+                                if (!league.id) {
+                                    console.error('League ID missing from card data');
+                                    return;
+                                }
+                                if (league.league_format === 'rolling') {
+                                    router.push(`/rolling-leagues/${league.id}`);
+                                } else {
+                                    router.push(`/tournaments/${league.id}/team/${userTeamId}`);
+                                }
+                            }}
+                            className="w-full py-5 bg-pitch-accent text-pitch-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm group/btn min-h-[44px]"
                         >
                             Captain's Command Center <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                         </button>
                     ) : (userRole === 'player' || userRole === 'registered') && userTeamId ? (
                          <button
-                            onClick={() => router.push(`/tournaments/${league.id}/team/${userTeamId}`)}
-                            className="w-full py-4 bg-transparent border border-white/20 text-white font-black uppercase tracking-widest text-xs hover:bg-white/5 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn"
+                            onClick={() => {
+                                if (!league.id) {
+                                    console.error('League ID missing from card data');
+                                    return;
+                                }
+                                if (league.league_format === 'rolling') {
+                                    router.push(`/rolling-leagues/${league.id}`);
+                                } else {
+                                    router.push(`/tournaments/${league.id}/team/${userTeamId}`);
+                                }
+                            }}
+                            className="w-full py-5 bg-transparent border border-white/20 text-white font-black uppercase tracking-widest text-xs hover:bg-white/5 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn min-h-[44px]"
                         >
                             Team Command Center <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                         </button>
@@ -166,12 +186,12 @@ export function LeagueCard({ league, userId, registrations }: LeagueCardProps) {
                                 const targetPath = league.league_format === 'rolling' ? 'games' : 'tournaments';
                                 router.push(`/${targetPath}/${league.id}`);
                             }}
-                            className="col-span-1 sm:col-span-2 w-full py-4 bg-transparent border border-white/20 text-white font-black uppercase tracking-widest text-xs hover:bg-white/5 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn"
+                            className="col-span-1 sm:col-span-2 w-full py-5 bg-transparent border border-white/20 text-white font-black uppercase tracking-widest text-xs hover:bg-white/5 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn min-h-[44px]"
                         >
                             League Lobby <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                         </button>
                     ) : isLocked ? (
-                        <div className="w-full py-4 border border-pitch-accent/30 bg-pitch-accent/10 rounded-sm text-center">
+                        <div className="w-full py-5 border border-pitch-accent/30 bg-pitch-accent/10 rounded-sm text-center min-h-[44px]">
                             <span className="text-pitch-accent font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2">
                                 Registration Closed
                             </span>
@@ -183,7 +203,7 @@ export function LeagueCard({ league, userId, registrations }: LeagueCardProps) {
                                     const targetPath = league.league_format === 'rolling' ? 'games' : 'tournaments';
                                     router.push(`/${targetPath}/${league.id}/register?type=team`);
                                 }}
-                                className="w-full py-4 bg-[#cbff00] text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 group/btn shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm"
+                                className="w-full py-5 bg-[#cbff00] text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 group/btn shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm min-h-[44px]"
                             >
                                 <span className="flex items-center gap-2">Register Team <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" /></span>
                                 {teamPrice !== null && <span className="text-[10px] opacity-70">(${teamPrice})</span>}
@@ -194,7 +214,7 @@ export function LeagueCard({ league, userId, registrations }: LeagueCardProps) {
                                         const targetPath = league.league_format === 'rolling' ? 'games' : 'tournaments';
                                         router.push(`/${targetPath}/${league.id}/register?type=free_agent`);
                                     }}
-                                    className="w-full py-4 border border-[#cbff00]/50 text-[#cbff00] font-black uppercase tracking-widest text-xs hover:bg-[#cbff00]/10 transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 rounded-sm flex-1 mt-2"
+                                    className="w-full py-5 border border-[#cbff00]/50 text-[#cbff00] font-black uppercase tracking-widest text-xs hover:bg-[#cbff00]/10 transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 rounded-sm flex-1 mt-3 min-h-[44px]"
                                 >
                                     <span>Join Free Agent</span>
                                     <span className="text-[10px] opacity-70">(${faPrice})</span>
@@ -203,6 +223,7 @@ export function LeagueCard({ league, userId, registrations }: LeagueCardProps) {
                         </>
                     )}
                 </div>
+
             </div>
         </div>
     );

@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { TournamentLobbyClient } from './TournamentLobbyClient';
 
 export const revalidate = 0; // Dynamic data
@@ -23,16 +23,15 @@ export default async function TournamentHub({ params }: { params: Promise<{ id: 
             league_format
         `)
         .eq('id', id)
-        .single();
+        .maybeSingle();
+
+    if (tournament?.league_format === 'rolling') {
+        redirect(`/rolling-leagues/${id}`);
+    }
 
     if (tourneyError || !tournament) {
         console.error('Tournament not found or error:', tourneyError);
         notFound();
-    }
-
-    if (tournament.league_format === 'rolling') {
-        const { redirect } = await import('next/navigation');
-        redirect(`/rolling-leagues/${id}`);
     }
 
     // 2. Fetch Verified Teams

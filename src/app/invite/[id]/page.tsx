@@ -15,7 +15,7 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
     // 1. Auth Check — redirect unauthenticated users to login with callback
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-        redirect(`/login?callbackUrl=/invite/${teamId}`);
+        redirect(`/login?next=/invite/${teamId}`);
     }
 
     // 2. Fetch Team — separated from profile join to prevent FK ambiguity crashes

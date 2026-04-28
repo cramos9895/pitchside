@@ -2,13 +2,15 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { loginUser } from '@/app/actions/auth';
 
 function LoginForm() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const nextPath = searchParams.get('next');
 
     // Form Fields
     const [email, setEmail] = useState('');
@@ -37,7 +39,9 @@ function LoginForm() {
             }
 
             if (result.success) {
-                if (result.systemRole === 'facility_admin' || result.systemRole === 'super_admin') {
+                if (nextPath) {
+                    router.push(nextPath);
+                } else if (result.systemRole === 'facility_admin' || result.systemRole === 'super_admin') {
                     router.push('/facility');
                 } else {
                     router.push('/');

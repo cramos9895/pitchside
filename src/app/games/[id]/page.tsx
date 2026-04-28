@@ -27,7 +27,7 @@ export default async function GameDetailsPage({ params }: { params: Promise<{ id
             .from('games')
             .select('*')
             .eq('id', gameId)
-            .single(),
+            .maybeSingle(),
         supabase
             .from('tournament_registrations')
             .select(`
@@ -47,11 +47,16 @@ export default async function GameDetailsPage({ params }: { params: Promise<{ id
             .neq('status', 'cancelled')
     ]);
 
-    if (gameResult.error || !gameResult.data) {
-        return notFound();
+    const game = gameResult.data;
+
+    // If it's a Rolling League, redirect to the unified hub immediately
+    if (game?.league_format === 'rolling') {
+        redirect(`/rolling-leagues/${gameId}`);
     }
 
-    const game = gameResult.data;
+    if (gameResult.error || !game) {
+        return notFound();
+    }
 
     // 3. Process Primary Host
     let primaryHost = null;
@@ -108,10 +113,6 @@ export default async function GameDetailsPage({ params }: { params: Promise<{ id
         }
     }
 
-    // If it's a Rolling League, redirect to the unified hub
-    if (game.league_format === 'rolling') {
-        redirect(`/rolling-leagues/${gameId}`);
-    }
 
     // Otherwise, show the full Interactive Page (Client Side)
     return (
