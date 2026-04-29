@@ -107,11 +107,20 @@ export function TacticalBoard({
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/4 h-12 border-t border-x border-white/10" />
 
                 {/* Formation Nodes */}
-                <div className="relative h-full flex flex-col py-8 px-6">
+                <div 
+                    className="relative flex flex-col py-8 px-6 items-center"
+                    style={{ height: '100%', width: '100%' }}
+                >
                     {/* Outfield Rows Group */}
-                    <div className="flex-1 flex flex-col justify-around mb-4">
+                    <div 
+                        className="flex-1 flex flex-col mb-4"
+                        style={{ width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-around' }}
+                    >
                         {formation.rows.map((row, rowIndex) => (
-                            <div key={rowIndex} className="flex justify-around items-center">
+                            <div 
+                                key={rowIndex} 
+                                style={{ width: '100%', display: 'flex', justifyContent: 'space-evenly', alignItems: 'center' }}
+                            >
                                 {row.nodes.map(node => {
                                     const assignedUserId = positions[node.id];
                                     const player = assignedUserId ? getPlayerInfo(assignedUserId) : null;
@@ -177,7 +186,7 @@ export function TacticalBoard({
                     </div>
 
                     {/* Goalkeeper (Always present) */}
-                    <div className="flex justify-center mt-auto">
+                    <div className="flex justify-center w-full mt-auto">
                         <div className="flex flex-col items-center gap-2">
                             <div className="relative">
                                 <button

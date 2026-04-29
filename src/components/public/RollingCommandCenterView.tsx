@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { toggleAcceptingFreeAgents, draftFreeAgent } from '@/app/actions/draft-player';
 import { DraftConfirmationModal } from './DraftConfirmationModal';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { calculateNextMatch, calculateProjectedMatches } from '@/lib/match-logic';
 import { upsertAttendance, getAttendanceForMatch } from '@/app/actions/attendance';
 import { getGameSuspensions } from '@/app/actions/suspensions';
@@ -108,13 +108,25 @@ export function RollingCommandCenterView({
     lineups
 }: RollingCommandCenterViewProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
     const supabase = createClient();
     const [copied, setCopied] = useState(false);
     const [isAcceptingAgents, setIsAcceptingAgents] = useState(team.accepting_free_agents);
     const [isProcessing, setIsProcessing] = useState<string | null>(null);
     const [confirmDraftPlayer, setConfirmDraftPlayer] = useState<Player | null>(null);
     const [inviteLink, setInviteLink] = useState('');
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'game-day' | 'schedule' | 'standings' | 'rules' | 'chat'>('dashboard');
+    // Get initial tab from URL or default to dashboard
+    const initialTab = (searchParams.get('tab') as any) || 'dashboard';
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'game-day' | 'schedule' | 'standings' | 'rules' | 'chat'>(initialTab);
+
+    // Sync URL when tab changes
+    const handleTabChange = (tabId: string) => {
+        setActiveTab(tabId as any);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('tab', tabId);
+        router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    };
     const [attendance, setAttendance] = useState<any[]>([]);
     
     // Filter live matches sequentially hooked to this Captain's team ID (UUID)
@@ -406,7 +418,7 @@ export function RollingCommandCenterView({
                     ].map((tab) => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
+                            onClick={() => handleTabChange(tab.id)}
                             className={`flex items-center gap-2 px-6 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-lg whitespace-nowrap ${
                                 activeTab === tab.id
                                     ? 'bg-pitch-accent text-pitch-black shadow-lg shadow-pitch-accent/20'
