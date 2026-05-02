@@ -53,7 +53,8 @@ export function RollingLeagueHub({
                 <RollingFreeAgentView 
                     game={game} 
                     primaryHost={primaryHost} 
-                    registeredTeams={registeredTeams} 
+                    registeredTeams={registeredTeams}
+                    currentUserId={currentUser.id}
                 />
             );
         case 'player':

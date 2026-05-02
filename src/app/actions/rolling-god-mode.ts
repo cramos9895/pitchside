@@ -366,7 +366,7 @@ export async function toggleCashPayment(registrationId: string, isPaid: boolean,
 
     const { data: reg, error: fetchErr } = await adminSupabase
         .from('tournament_registrations')
-        .select('total_cash_collected')
+        .select('total_cash_collected, user_id')
         .eq('id', registrationId)
         .single();
         
@@ -383,6 +383,16 @@ export async function toggleCashPayment(registrationId: string, isPaid: boolean,
         .eq('id', registrationId);
 
     if (error) return { success: false, error: `Toggle cash failed: ${error.message}` };
+
+    // If we are marking as unpaid, also undo their check-in so systems stay in sync
+    if (!isPaid && reg.user_id) {
+        await adminSupabase
+            .from('event_check_ins')
+            .delete()
+            .eq('user_id', reg.user_id)
+            .eq('event_id', gameId);
+    }
+
     revalidatePath(`/admin/games/${gameId}`);
     return { success: true };
 }

@@ -6,6 +6,8 @@ import { toggleCashPayment, resetCashTracker } from '@/app/actions/rolling-god-m
 import { useToast } from '@/components/ui/Toast';
 import { PitchSideConfirmModal } from '@/components/public/PitchSideConfirmModal';
 import { cn } from '@/lib/utils';
+import { CheckInManager } from '@/components/public/checkin/CheckInManager';
+import { Scan } from 'lucide-react';
 
 export function GameDayTab({ registrations, teams, gameId, game, onRefresh }: any) {
     const { success, error } = useToast();
@@ -99,6 +101,19 @@ export function GameDayTab({ registrations, teams, gameId, game, onRefresh }: an
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
+            {/* Facility Operations / Check-In Scanner */}
+            <div className="bg-black border border-pitch-accent/30 p-6 rounded-lg shadow-[0_0_40px_rgba(204,255,0,0.05)]">
+                <h3 className="text-xl font-black italic uppercase tracking-tighter text-pitch-accent flex items-center gap-2 mb-4">
+                    <Scan className="w-5 h-5" /> Facility Scanner
+                </h3>
+                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest italic mb-6">
+                    Scan Player Passports to verify identity, check financial status, and log attendance.
+                </p>
+                <div className="max-w-md mx-auto">
+                    <CheckInManager eventId={gameId} onCheckInComplete={onRefresh} />
+                </div>
+            </div>
+
             {isCashMode ? (
                 <>
                     {/* ESTIMATED REVENUE LEDGER */}

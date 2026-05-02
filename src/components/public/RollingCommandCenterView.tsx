@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { isLeagueLocked } from '@/lib/league-utils';
 import { RollingMatchHistory } from './RollingMatchHistory';
 import { TacticalBoard } from './tactics/TacticalBoard';
+import { PlayerQRCard } from './checkin/PlayerQRCard';
 
 interface Player {
     id: string;
@@ -437,6 +438,11 @@ export function RollingCommandCenterView({
                     {/* Left Column: Roster & Invites */}
                     <div className="lg:col-span-2 space-y-8">
                         
+                        {/* SECTION: Universal Player Passport */}
+                        <div className="mb-8">
+                            <PlayerQRCard userId={currentUserId} />
+                        </div>
+
                         {/* SECTION A: Viral Invite Engine - CAPTAIN ONLY */}
                         {isCaptain && !isLocked && (
                             <div className="bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-2xl relative overflow-hidden group">

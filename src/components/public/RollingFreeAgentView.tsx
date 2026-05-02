@@ -11,6 +11,7 @@ import { useState, useTransition } from 'react';
 import { withdrawFromRollingLeague } from '@/app/actions/rolling-league-registration';
 import { PitchSideConfirmModal } from './PitchSideConfirmModal';
 import { isLeagueLocked } from '@/lib/league-utils';
+import { PlayerQRCard } from './checkin/PlayerQRCard';
 
 interface RollingLeague {
     id: string;
@@ -54,9 +55,10 @@ interface RollingFreeAgentViewProps {
     game: RollingLeague;
     primaryHost?: { name: string; email: string } | null;
     registeredTeams?: any[];
+    currentUserId?: string;
 }
 
-export function RollingFreeAgentView({ game, primaryHost, registeredTeams = [] }: RollingFreeAgentViewProps) {
+export function RollingFreeAgentView({ game, primaryHost, registeredTeams = [], currentUserId }: RollingFreeAgentViewProps) {
     const [isPending, startTransition] = useTransition();
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
 
@@ -148,6 +150,13 @@ export function RollingFreeAgentView({ game, primaryHost, registeredTeams = [] }
                     {/* Primary Content: Intelligence Matrix */}
                     <div className="lg:col-span-8 space-y-12">
                         
+                        {/* Universal Player Passport */}
+                        {currentUserId && (
+                            <section className="mb-8">
+                                <PlayerQRCard userId={currentUserId} />
+                            </section>
+                        )}
+
                         <section className="bg-pitch-card border border-white/5 p-10 rounded-sm relative overflow-hidden">
                              <div className="absolute top-0 right-0 w-64 h-64 bg-pitch-accent/5 blur-[100px] -mr-32 -mt-32 rounded-full" />
                             
