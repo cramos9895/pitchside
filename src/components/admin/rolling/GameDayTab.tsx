@@ -129,7 +129,7 @@ export function GameDayTab({ registrations, teams, gameId, game, onRefresh }: an
                             </div>
                             <button
                                 onClick={() => setResetModalOpen(true)}
-                                className="px-4 py-2 border border-white/20 text-white font-black uppercase tracking-widest text-[10px] hover:text-red-500 hover:border-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2 rounded"
+                                className="w-full md:w-auto justify-center px-4 py-3 md:py-2 border border-white/20 text-white font-black uppercase tracking-widest text-xs md:text-[10px] hover:text-red-500 hover:border-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2 rounded"
                             >
                                 <RotateCcw className="w-3 h-3" /> Reset Cash Tracker for New Week
                             </button>

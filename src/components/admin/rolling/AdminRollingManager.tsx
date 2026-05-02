@@ -36,7 +36,7 @@ export function AdminRollingManager({
             />
 
             <Tabs defaultValue="gameday" className="w-full">
-                <TabsList className="w-full justify-start bg-black border-b border-white/10 rounded-none mb-8 p-0 h-auto gap-6 sm:gap-8 overflow-x-auto hide-scrollbar">
+                <TabsList className="w-full justify-start flex-nowrap bg-black border-b border-white/10 rounded-none mb-8 p-0 h-auto gap-6 sm:gap-8 overflow-x-auto hide-scrollbar">
                     <TabsTrigger 
                         value="gameday" 
                         className="rounded-none bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-pitch-accent px-0 py-3 text-xs sm:text-sm font-black uppercase tracking-widest text-gray-500 data-[state=active]:text-white transition-all whitespace-nowrap"

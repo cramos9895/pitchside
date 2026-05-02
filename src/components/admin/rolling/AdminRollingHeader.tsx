@@ -30,7 +30,7 @@ export function AdminRollingHeader({
                 onClick={onRefresh}
                 disabled={loading}
                 className={cn(
-                    "flex items-center gap-2 px-4 py-2 border border-white/20 text-white font-black uppercase tracking-widest text-[10px] rounded hover:bg-white/10 transition-colors",
+                    "w-full md:w-auto justify-center flex items-center gap-2 px-4 py-3 md:py-2 border border-white/20 text-white font-black uppercase tracking-widest text-xs md:text-[10px] rounded hover:bg-white/10 transition-colors",
                     loading && "opacity-50 cursor-not-allowed"
                 )}
             >

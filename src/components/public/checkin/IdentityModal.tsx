@@ -47,7 +47,7 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', o
     const startCamera = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'user' } // Use front facing for taking picture of them, or environment if host points their phone. Let's use user (selfie) if the host turns the phone, or environment. Usually environment is back. Let's use 'environment'. Wait, user instructed: "rear-facing environment camera by default (facingMode: 'environment') so hosts don't accidentally open their selfie cameras when trying to scan a player." - Ah that was for the SCANNER. For taking a picture, the host probably points the phone at the player, so environment is also best.
+                video: { facingMode: 'environment' } // Always use rear camera to face players
             });
             setCameraStream(stream);
             if (videoRef.current) {

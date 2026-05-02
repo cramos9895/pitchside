@@ -28,7 +28,7 @@ export function Navbar() {
 
                     {/* Right Actions */}
                     <div className="flex items-center gap-6">
-                        <div className="hidden md:block">
+                        <div>
                             <AuthButton />
                         </div>
 

@@ -152,15 +152,15 @@ export function SquadsTab({ registrations, teams, gameId, game, onRefresh }: any
                 </div>
             )}
 
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-white/10 pb-4 gap-4">
                 <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
                     <Users className="w-5 h-5 text-pitch-accent" /> Squad Control
                 </h3>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row w-full md:w-auto gap-2">
                     <button 
                         onClick={() => setCreateModalOpen(true)}
                         disabled={processing}
-                        className="px-4 py-2 border border-white/20 text-white font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-colors flex items-center gap-2"
+                        className="w-full md:w-auto justify-center px-4 py-3 md:py-2 border border-white/20 text-white font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-colors flex items-center gap-2 rounded"
                     >
                         <FilePlus2 className="w-3 h-3" /> New Squad
                     </button>
@@ -168,7 +168,7 @@ export function SquadsTab({ registrations, teams, gameId, game, onRefresh }: any
                         <button 
                             onClick={handleAutoDraft}
                             disabled={processing}
-                            className="px-4 py-2 bg-pitch-accent text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-colors flex items-center gap-2"
+                            className="w-full md:w-auto justify-center px-4 py-3 md:py-2 bg-pitch-accent text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-colors flex items-center gap-2 rounded"
                         >
                             <Handshake className="w-3 h-3" /> Draft Team from Free Agents
                         </button>
