@@ -38,7 +38,8 @@ export default async function GameDetailsPage({ params }: { params: Promise<{ id
                     name,
                     accepting_free_agents,
                     profiles:captain_id (
-                        full_name
+                        first_name,
+                        last_name
                     )
                 )
             `)
@@ -63,13 +64,13 @@ export default async function GameDetailsPage({ params }: { params: Promise<{ id
     if (game.host_ids?.length > 0) {
         const { data: hostProfile } = await supabase
             .from('profiles')
-            .select('full_name, email')
+            .select('first_name, last_name, email')
             .eq('id', game.host_ids[0])
             .single();
         
         if (hostProfile) {
             primaryHost = {
-                name: hostProfile.full_name,
+                name: `${hostProfile.first_name} ${hostProfile.last_name}`,
                 email: hostProfile.email
             };
         }
@@ -85,7 +86,7 @@ export default async function GameDetailsPage({ params }: { params: Promise<{ id
             teamMap.set(team.id, {
                 id: team.id,
                 name: team.name,
-                captain_name: team.profiles?.full_name || 'Host',
+                captain_name: team.profiles?.first_name ? `${team.profiles.first_name} ${team.profiles.last_name}` : 'Host',
                 player_count: 0,
                 accepting_free_agents: team.accepting_free_agents
             });
@@ -122,6 +123,8 @@ export default async function GameDetailsPage({ params }: { params: Promise<{ id
             registeredTeams={registeredTeams}
             params={{ id: gameId }}
             currentUser={user}
+            isParticipantServer={isParticipant}
+            isFreeAgentServer={isFreeAgent}
         />
     );
 }

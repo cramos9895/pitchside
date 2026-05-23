@@ -98,17 +98,17 @@ export function FreeAgentCard({
                         {/* Avatar */}
                         <div className="w-20 h-20 rounded-full border-[3px] border-white/50 overflow-hidden shadow-2xl relative z-10 mb-2 bg-pitch-black">
                             {player.avatar_url ? (
-                                <img src={player.avatar_url} alt={player.full_name} className="w-full h-full object-cover" />
+                                <img src={player.avatar_url} alt={`${player.first_name} ${player.last_name}`} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center font-bold text-3xl text-white/50">
-                                    {player.full_name?.charAt(0) || 'P'}
+                                    {player.first_name?.charAt(0) || 'P'}
                                 </div>
                             )}
                         </div>
 
                         {/* Name */}
                         <h3 className={cn("font-heading font-black italic uppercase text-lg leading-tight tracking-wider text-center w-full px-1 z-10 truncate", textColor)}>
-                            {player.full_name}
+                            {player.first_name} {player.last_name}
                         </h3>
 
                         {/* Divider */}
@@ -159,7 +159,7 @@ export function FreeAgentCard({
                                 <div className="w-16 h-16 bg-pitch-accent/20 text-pitch-accent rounded-full flex items-center justify-center mb-4">
                                     <Trophy className="w-8 h-8" />
                                 </div>
-                                <h3 className="font-bold text-lg mb-1">{player.full_name} Drafted!</h3>
+                                <h3 className="font-bold text-lg mb-1">{player.first_name} {player.last_name} Drafted!</h3>
                                 <p className="text-pitch-secondary text-sm">Their vaulted card was successfully captured.</p>
                             </div>
                         ) : !teamsConfig || teamsConfig.length === 0 ? (
@@ -170,7 +170,7 @@ export function FreeAgentCard({
                         ) : (
                             <div className="mt-4 space-y-4">
                                 <p className="text-sm text-pitch-secondary mb-4">
-                                    Select which squad you are assigning <span className="text-white font-bold">{player.full_name}</span> to:
+                                    Select which squad you are assigning <span className="text-white font-bold">{player.first_name} {player.last_name}</span> to:
                                 </p>
                                 <div className="grid grid-cols-2 gap-2 mb-4">
                                     {teamsConfig.map((team, idx) => {

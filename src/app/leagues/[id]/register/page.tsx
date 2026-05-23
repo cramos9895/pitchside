@@ -1,140 +1,114 @@
 import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, Trophy, Users, AlertTriangle } from 'lucide-react';
-import { LeagueRegistrationForm } from '@/components/public/LeagueRegistrationForm';
+import { notFound, redirect } from 'next/navigation';
+import { LeagueRegistrationClient } from './LeagueRegistrationClient';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+export const revalidate = 0; // Dynamic data
 
-export default async function LeagueRegistrationPage({
-    params,
-    searchParams
-}: {
-    params: { id: string },
-    searchParams: { type?: string; role?: string }
+export default async function LeagueRegistrationPage({ params, searchParams }: { 
+    params: Promise<{ id: string }>,
+    searchParams: Promise<{ type?: string }>
 }) {
     const supabase = await createClient();
+    const { id: leagueId } = await params;
+    
+    // Require authentication
     const { data: { user } } = await supabase.auth.getUser();
-
-    // Map role to type if type is missing
-    const registrationType = searchParams?.type || (searchParams?.role === 'free_agent' ? 'free_agent' : 'team');
-
     if (!user) {
-        redirect(`/login?redirect=/leagues/${params.id}/register?type=${registrationType}`);
+        redirect(`/login?next=/leagues/${leagueId}/register`);
     }
 
-    const type = searchParams?.type === 'free_agent' ? 'free_agent' : 'team';
+    // Since Pitchside architecture has events in both 'games' (Rolling Leagues) and 'leagues' (Structured),
+    // we robustly check both tables.
+    let leagueName = '';
+    let teamPrice: number | null = null;
+    let faPrice: number | null = null;
+    let deposit: number | null = null;
 
-    // Fetch league info from 'leagues' table
-    const { data: leagueData, error: leagueError } = await supabase
-        .from('leagues')
+    const { data: gameLeague } = await supabase
+        .from('games')
         .select(`
-            id, 
-            name, 
-            description,
-            format, 
-            match_day, 
-            registration_cutoff, 
-            status,
-            price_per_team,
-            team_price,
-            price,
-            price_per_free_agent,
-            free_agent_price,
+            title, 
+            team_price, 
+            free_agent_price, 
+            deposit_amount,
             player_registration_fee,
-            payment_collection_type,
-            cash_fee_structure,
             cash_amount,
+            payment_collection_type,
+            rules_description,
             strict_waiver_required,
-            waiver_details
+            waiver_details,
+            league_format
         `)
-        .eq('id', params.id)
+        .eq('id', leagueId)
+        .eq('event_type', 'league')
         .single();
 
-    let league = leagueData;
+    let details: any = {};
 
-    // If not found in 'leagues', check 'games'
-    if (!league) {
-        const { data: gameData } = await supabase
-            .from('games')
+    if (gameLeague) {
+        leagueName = gameLeague.title;
+        teamPrice = gameLeague.team_price;
+        faPrice = gameLeague.free_agent_price;
+        deposit = gameLeague.deposit_amount;
+        details = {
+            signup_fee: gameLeague.player_registration_fee,
+            cash_amount: gameLeague.cash_amount,
+            payment_collection_type: gameLeague.payment_collection_type,
+            description: gameLeague.rules_description,
+            strict_waiver_required: gameLeague.strict_waiver_required,
+            waiver_details: gameLeague.waiver_details,
+            isRolling: gameLeague.league_format === 'rolling'
+        };
+    } else {
+        const { data: structuredLeague } = await supabase
+            .from('leagues')
             .select(`
-                id, 
-                title, 
-                description,
-                game_format, 
-                match_style, 
-                registration_cutoff:roster_lock_date, 
-                status,
-                team_price,
-                free_agent_price,
+                name, 
+                price_per_team, 
+                price_per_free_agent, 
+                deposit_amount,
                 player_registration_fee,
-                payment_collection_type,
-                cash_fee_structure,
                 cash_amount,
+                payment_collection_type,
+                description,
                 strict_waiver_required,
                 waiver_details
             `)
-            .eq('id', params.id)
-            .eq('event_type', 'league')
+            .eq('id', leagueId)
             .single();
-        league = gameData as any;
-    }
 
-    if (!league) {
-        return (
-            <div className="min-h-screen bg-pitch-black text-white flex items-center justify-center p-4">
-                <div className="text-center">
-                    <AlertTriangle className="w-12 h-12 text-pitch-accent mx-auto mb-4" />
-                    <h1 className="text-2xl font-black uppercase tracking-widest mb-2">League Not Found</h1>
-                    <Link href="/schedule" className="text-pitch-secondary hover:text-white transition-colors uppercase text-xs font-bold tracking-widest border-b border-white/20 pb-1">Return to Schedule</Link>
-                </div>
-            </div>
-        );
+        if (structuredLeague) {
+            leagueName = structuredLeague.name || '';
+            teamPrice = structuredLeague.price_per_team;
+            faPrice = structuredLeague.price_per_free_agent;
+            deposit = structuredLeague.deposit_amount;
+            details = {
+                signup_fee: structuredLeague.player_registration_fee,
+                cash_amount: structuredLeague.cash_amount,
+                payment_collection_type: structuredLeague.payment_collection_type,
+                description: structuredLeague.description,
+                strict_waiver_required: structuredLeague.strict_waiver_required,
+                waiver_details: structuredLeague.waiver_details
+            };
+        } else {
+            console.error('League not found in either games or leagues tables.');
+            notFound();
+        }
     }
-
-    // Check cutoff
-    const isPastCutoff = league.registration_cutoff && new Date() > new Date(league.registration_cutoff);
-    const isClosed = league.status === 'cancelled' || league.status === 'completed';
 
     return (
-        <div className="min-h-screen bg-pitch-black text-white font-sans pt-32 px-4 pb-20">
-            <div className="max-w-2xl mx-auto">
-                <Link 
-                    href={`/leagues/${params.id}`}
-                    className="inline-flex items-center text-pitch-secondary hover:text-white transition-colors text-xs font-black uppercase tracking-[0.2em] group mb-8"
-                >
-                    <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-                    Back to League
-                </Link>
-
-                <div className="mb-10 pb-8 border-b border-white/5">
-                    <div className="flex items-center gap-2 text-pitch-accent text-[10px] font-black uppercase tracking-widest mb-3">
-                        {type === 'team' ? <Trophy className="w-4 h-4" /> : <Users className="w-4 h-4" />}
-                        {type === 'team' ? 'Team Captain Registration' : 'Free Agent Registration'}
-                    </div>
-                    <h1 className="font-heading text-4xl md:text-5xl font-bold uppercase italic tracking-tighter leading-none mb-4">
-                        {league.name}
-                    </h1>
-                    <div className="flex gap-4">
-                        {league.format && <span className="text-xs uppercase bg-white/5 px-2 py-0.5 rounded-sm text-gray-400 font-bold border border-white/5 tracking-widest">{league.format}</span>}
-                        {league.match_day && <span className="text-xs uppercase bg-white/5 px-2 py-0.5 rounded-sm text-gray-400 font-bold border border-white/5 tracking-widest">{league.match_day}</span>}
-                    </div>
-                </div>
-
-                {isPastCutoff || isClosed ? (
-                    <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-sm text-center">
-                        <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                        <h2 className="text-xl font-black uppercase tracking-widest text-red-500 mb-2">Registration Closed</h2>
-                        <p className="text-sm text-red-400/80 mb-6">The deadline to register for this league has passed.</p>
-                        <Link href="/schedule" className="inline-block px-6 py-3 bg-red-500 text-white font-black uppercase tracking-widest text-xs hover:bg-red-400 transition-colors">
-                            View Open Leagues
-                        </Link>
-                    </div>
-                ) : (
-                    <LeagueRegistrationForm league={league} type={type} />
-                )}
+        <main className="bg-pitch-black min-h-screen pt-32 px-4 pb-24">
+            <div className="max-w-3xl mx-auto border-t-4 pt-8" style={{ borderColor: '#cbff00' }}>
+                <LeagueRegistrationClient 
+                    leagueId={leagueId}
+                    leagueName={leagueName}
+                    teamPrice={teamPrice}
+                    faPrice={faPrice}
+                    dbDepositAmount={deposit}
+                    userId={user.id}
+                    {...details}
+                />
             </div>
-        </div>
+        </main>
     );
 }

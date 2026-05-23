@@ -18,8 +18,7 @@ export function TournamentRegistrationClient({
     payment_collection_type,
     description,
     strict_waiver_required,
-    waiver_details,
-    isRolling = false
+    waiver_details
 }: { 
     tournamentId: string, 
     tournamentName: string, 
@@ -31,8 +30,7 @@ export function TournamentRegistrationClient({
     payment_collection_type?: 'stripe' | 'cash',
     description?: string | null,
     strict_waiver_required?: boolean,
-    waiver_details?: string | null,
-    isRolling?: boolean
+    waiver_details?: string | null
 }) {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -48,6 +46,8 @@ export function TournamentRegistrationClient({
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [savedFormData, setSavedFormData] = useState<any>(null);
     const [paymentIntentType, setPaymentIntentType] = useState<'team' | 'free_agent'>('team');
+    const [currentRegistrationId, setCurrentRegistrationId] = useState<string | null>(null);
+    const [currentEventType, setCurrentEventType] = useState<string | null>(null);
 
     const isCashLeague = payment_collection_type === 'cash';
     const registrationFee = signup_fee ?? 0;
@@ -71,14 +71,11 @@ export function TournamentRegistrationClient({
                 formData.append(key, value as string);
             });
             formData.append('tournament_id', tournamentId);
+            formData.append('status', 'registered'); // Mark as fully registered now
             
             const res = await registerTournamentTeam(formData);
             if (res.success && res.teamId) {
-                if (isRolling) {
-                    router.push(`/rolling-leagues/${tournamentId}`);
-                } else {
-                    router.push(`/tournaments/${tournamentId}/team/${res.teamId}`);
-                }
+                router.push(`/tournaments/${tournamentId}/team/${res.teamId}`);
             }
         } catch (err: any) {
             setError(err.message || 'Failed to register team.');
@@ -100,15 +97,29 @@ export function TournamentRegistrationClient({
                 liability_acknowledged: formData.get('liability_acknowledged')
             };
             
-            // Add liability trap validation manually in client for UX, though server checks too
             if (!payload.liability_acknowledged) {
                 throw new Error("You must accept financial responsibility.");
             }
 
             if (depositAmount > 0 && !isCashLeague) {
-                setPaymentIntentType('team');
-                setSavedFormData(payload);
-                setShowPaymentModal(true);
+                // Step 1: Create/Update a PENDING registration in the DB
+                const pendingFormData = new FormData();
+                Object.entries(payload).forEach(([key, value]) => {
+                    pendingFormData.append(key, value as string);
+                });
+                pendingFormData.append('tournament_id', tournamentId);
+                pendingFormData.append('status', 'pending');
+                
+                const res = await registerTournamentTeam(pendingFormData);
+                if (res.success && res.registrationId) {
+                    setCurrentRegistrationId(res.registrationId);
+                    setCurrentEventType(res.eventType || 'league');
+                    setPaymentIntentType('team');
+                    setSavedFormData(payload);
+                    setShowPaymentModal(true);
+                } else {
+                    throw new Error("Failed to initialize pending registration.");
+                }
                 setIsSubmitting(false);
             } else {
                 await finalizeTeamRegistration(payload);
@@ -124,17 +135,14 @@ export function TournamentRegistrationClient({
         try {
             const formData = new FormData();
             formData.append('tournament_id', tournamentId);
+            formData.append('status', 'registered'); // Mark as fully registered
             if (Array.isArray(payload.positions)) {
                 payload.positions.forEach((pos: string) => formData.append('positions', pos));
             }
 
             const res = await registerTournamentFreeAgent(formData);
             if (res.success) {
-                if (isRolling) {
-                    router.push(`/rolling-leagues/${tournamentId}`);
-                } else {
-                    router.push(`/tournaments/${tournamentId}`);
-                }
+                router.push(`/tournaments/${tournamentId}`);
                 router.refresh();
             }
         } catch (err: any) {
@@ -164,9 +172,22 @@ export function TournamentRegistrationClient({
             const faTotalOnlinePrice = (!isCashLeague && faPrice) ? faPrice : 0;
 
             if (faTotalOnlinePrice > 0) {
-                setPaymentIntentType('free_agent');
-                setSavedFormData(payload);
-                setShowPaymentModal(true);
+                // Step 1: Create/Update a PENDING registration in the DB
+                const pendingFormData = new FormData();
+                pendingFormData.append('tournament_id', tournamentId);
+                pendingFormData.append('status', 'pending');
+                payload.positions.forEach((pos: any) => pendingFormData.append('positions', pos as string));
+                
+                const res = await registerTournamentFreeAgent(pendingFormData);
+                if (res.success && res.registrationId) {
+                    setCurrentRegistrationId(res.registrationId);
+                    setCurrentEventType(res.eventType || 'league');
+                    setPaymentIntentType('free_agent');
+                    setSavedFormData(payload);
+                    setShowPaymentModal(true);
+                } else {
+                    throw new Error("Failed to initialize pending registration.");
+                }
                 setIsSubmitting(false);
             } else {
                 await finalizeFARegistration(payload);
@@ -294,7 +315,7 @@ export function TournamentRegistrationClient({
                                             className="mt-1 w-5 h-5 bg-black border-2 border-pitch-accent/50 rounded-sm checked:bg-pitch-accent checked:border-pitch-accent text-black focus:ring-0 focus:ring-offset-0 transition-colors"
                                         />
                                         <span className="text-xs text-pitch-accent font-bold uppercase tracking-wider leading-relaxed">
-                                            I understand that all league fees must be paid in cash at the door.
+                                            I understand that all tournament fees must be paid in cash at the door.
                                         </span>
                                     </label>
                                 </div>
@@ -400,7 +421,7 @@ export function TournamentRegistrationClient({
                                      className="mt-1 w-5 h-5 bg-black border-2 border-pitch-accent/50 rounded-sm checked:bg-pitch-accent checked:border-pitch-accent text-black focus:ring-0 focus:ring-offset-0 transition-colors"
                                  />
                                  <span className="text-xs text-pitch-accent font-bold uppercase tracking-wider leading-relaxed">
-                                     I understand that all league fees must be paid in cash at the door.
+                                     I understand that all tournament fees must be paid in cash at the door.
                                  </span>
                              </label>
                          </div>
@@ -438,6 +459,9 @@ export function TournamentRegistrationClient({
                     amount={paymentIntentType === 'team' ? depositAmount : (faPrice || 0)}
                     title={paymentIntentType === 'team' ? "Team Deposit Reservation" : "Free Agent Registration"}
                     description={paymentIntentType === 'team' ? `Secure your spot in ${tournamentName}` : `Join the draft pool for ${tournamentName}`}
+                    eventId={tournamentId}
+                    registrationId={currentRegistrationId || undefined}
+                    eventType={currentEventType || undefined}
                     onSuccess={() => {
                         setShowPaymentModal(false);
                         if (savedFormData) {
@@ -493,7 +517,7 @@ function RulesAndTerms({
         <div className="space-y-6 pt-6 border-t border-white/10">
             <div className="flex items-center gap-2 text-white font-black uppercase tracking-widest text-xs">
                 <ScrollText className="w-4 h-4 text-pitch-accent" />
-                League Rules & Terms
+                Tournament Rules & Terms
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

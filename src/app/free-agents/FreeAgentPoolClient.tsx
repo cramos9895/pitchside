@@ -25,8 +25,9 @@ export function FreeAgentPoolClient({ freeAgents, currentUser, userBookings }: F
     const isGlobalCaptain = captainBookings.length > 0;
 
     const filteredAgents = freeAgents.filter(agent => {
-        const matchesSearch = agent.profiles?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                             agent.profiles?.email?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = agent.profiles?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                              agent.profiles?.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                              agent.profiles?.email?.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesPosition = positionFilter === 'All' || agent.profiles?.position === positionFilter;
         return matchesSearch && matchesPosition;
     });

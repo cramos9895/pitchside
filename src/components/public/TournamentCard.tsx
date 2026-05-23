@@ -116,11 +116,7 @@ export function TournamentCard({ tournament, userId, registrations }: Tournament
                         <button
                             onClick={() => {
                                 if (!tournament.id) return;
-                                if (tournament.league_format === 'rolling') {
-                                    router.push(`/rolling-leagues/${tournament.id}`);
-                                } else {
-                                    router.push(`/tournaments/${tournament.id}/team/${userTeamId}`);
-                                }
+                                router.push(`/tournaments/${tournament.id}/team/${userTeamId}`);
                             }}
                             className="col-span-1 sm:col-span-2 w-full py-4 bg-[#cbff00] text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm group/btn"
                         >
@@ -130,11 +126,7 @@ export function TournamentCard({ tournament, userId, registrations }: Tournament
                         <button
                             onClick={() => {
                                 if (!tournament.id) return;
-                                if (tournament.league_format === 'rolling') {
-                                    router.push(`/rolling-leagues/${tournament.id}`);
-                                } else {
-                                    router.push(`/tournaments/${tournament.id}/team/${userTeamId}`);
-                                }
+                                router.push(`/tournaments/${tournament.id}/team/${userTeamId}`);
                             }}
                             className="col-span-1 sm:col-span-2 w-full py-4 bg-transparent border border-white/20 text-white font-black uppercase tracking-widest text-xs hover:bg-white/5 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn"
                         >

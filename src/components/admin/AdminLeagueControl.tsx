@@ -22,7 +22,8 @@ interface Registration {
         name: string;
     };
     profiles?: {
-        full_name: string;
+        first_name: string;
+        last_name: string;
         email: string;
     };
 }
@@ -515,7 +516,7 @@ export function AdminLeagueControl({
                                     teamList.map((team: any) => {
                                         const isExpanded = expandedTeams[team.id];
                                         const captain = team.players.find((p: any) => p.role === 'captain') || team.players[0];
-                                        const captainName = captain?.profiles?.full_name || 'No Captain Assigned';
+                                        const captainName = captain?.profiles?.first_name ? `${captain.profiles.first_name} ${captain.profiles.last_name}` : 'No Captain Assigned';
 
                                         return (
                                             <div key={team.id} className="bg-pitch-card border border-white/5 rounded-lg overflow-hidden transition-all hover:border-white/10">
@@ -559,7 +560,7 @@ export function AdminLeagueControl({
                                                                         <tr key={p.id} className="hover:bg-white/[0.02] transition-colors group">
                                                                             <td className="px-6 py-4">
                                                                                 <div className="flex items-center gap-2">
-                                                                                    <span className="text-sm font-bold text-white uppercase">{p.profiles?.full_name || 'Anonymous'}</span>
+                                                                                    <span className="text-sm font-bold text-white uppercase">{p.profiles?.first_name ? `${p.profiles.first_name} ${p.profiles.last_name}` : 'Anonymous'}</span>
                                                                                     {p.role === 'captain' && (
                                                                                         <span className="bg-pitch-accent text-black text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded">Capt</span>
                                                                                     )}
@@ -636,7 +637,7 @@ export function AdminLeagueControl({
                                             <div key={p.id} className="bg-white/5 border border-white/10 p-4 rounded-lg group hover:border-pitch-accent/30 transition-all">
                                                 <div className="flex items-center justify-between mb-3">
                                                     <div>
-                                                        <div className="text-sm font-black text-white uppercase italic">{p.profiles?.full_name || 'Anonymous'}</div>
+                                                        <div className="text-sm font-black text-white uppercase italic">{p.profiles?.first_name ? `${p.profiles.first_name} ${p.profiles.last_name}` : 'Anonymous'}</div>
                                                         <div className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">{p.role}</div>
                                                     </div>
                                                     <div className={cn(

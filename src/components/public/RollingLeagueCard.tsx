@@ -1,4 +1,6 @@
+// 🏗️ Architecture: [[League Architecture.md]]
 'use client';
+
 
 import { Calendar, Users, Trophy, ArrowRight, MapPin, Clock, Layers, Activity, Footprints, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -35,8 +37,10 @@ interface LeagueData {
     team_registration_fee?: number;
     allow_free_agents?: boolean;
     prize_type?: string;
+    prize_pool_percentage?: number;
     fixed_prize_amount?: number;
     reward?: string;
+    max_teams?: number | null;
 }
 
 interface TournamentRegistration {
@@ -70,18 +74,22 @@ export function RollingLeagueCard({ league, userId, registrations }: RollingLeag
     const title = league.title || league.name || 'Untitled League';
     const startTime = league.regular_season_start || league.start_time || league.start_date || null;
     const isCash = league.payment_collection_type === 'cash';
+    
+    const uniqueTeamIds = new Set(registrations?.map(r => r.team_id).filter(Boolean));
+    const teamCount = uniqueTeamIds.size;
 
     const getPrizeDisplay = () => {
-        if (league.prize_type === 'Fixed Cash Bounty' && league.fixed_prize_amount) {
-            return `$${league.fixed_prize_amount} Cash`;
-        }
-        if (league.prize_type === 'Physical Item' && league.reward) {
-            return league.reward;
-        }
+        if (!league.prize_type || league.prize_type === 'No Official Prize') return 'Bragging Rights';
         if (league.prize_type === 'Percentage Pool (Scaling Pot)') {
-            return 'Scaling Cash Pot';
+            return `${league.prize_pool_percentage || 0}% Pool`;
         }
-        return league.prize_type || 'Trophy + Medals';
+        if (league.prize_type === 'Fixed Cash Bounty') {
+            return `$${league.fixed_prize_amount || 0}`;
+        }
+        if (league.prize_type === 'Physical Item') {
+            return league.reward || 'Trophy';
+        }
+        return 'TBD';
     };
 
     const formatDate = (dateString: string | null) => {
@@ -190,16 +198,16 @@ export function RollingLeagueCard({ league, userId, registrations }: RollingLeag
     );
 
     const renderFreeAgentView = () => (
-        <div className="flex-1 flex flex-col justify-between mt-4">
-            <div className="bg-pitch-accent/10 border border-pitch-accent/20 p-4 rounded-sm flex flex-col items-center justify-center text-center space-y-2 mb-6">
-                <Users className="w-6 h-6 text-pitch-accent" />
-                <h4 className="text-pitch-accent font-black uppercase text-sm tracking-widest">Free Agent Status</h4>
+        <div className="flex-1 flex flex-col justify-between">
+            <div className="bg-blue-600/10 border border-blue-600/20 p-4 rounded-sm flex flex-col items-center justify-center text-center space-y-2 mb-8">
+                <Users className="w-6 h-6 text-blue-500" />
+                <h4 className="text-blue-500 font-black uppercase text-sm tracking-widest">Free Agent Status</h4>
                 <p className="text-white/70 text-xs">You are registered as a Free Agent. Pending team placement by league admins.</p>
             </div>
             <div className="mt-auto">
                 <button
                     onClick={() => router.push(`/rolling-leagues/${league.id}`)}
-                    className="w-full py-4 bg-pitch-accent text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm group/btn"
+                    className="w-full py-5 bg-blue-600 text-white font-black uppercase tracking-widest text-xs hover:bg-white hover:text-black transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.15)] rounded-sm group/btn min-h-[44px]"
                 >
                     Free Agent Dashboard <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                 </button>
@@ -208,17 +216,17 @@ export function RollingLeagueCard({ league, userId, registrations }: RollingLeag
     );
 
     const renderPlayerOrCaptainView = () => (
-        <div className="flex-1 flex flex-col justify-between mt-2">
+        <div className="flex-1 flex flex-col justify-between">
             {loadingStats ? (
-                <div className="grid grid-cols-3 gap-2 mb-6 animate-pulse">
+                <div className="grid grid-cols-3 gap-3 mb-8 animate-pulse">
                     <div className="bg-white/5 h-20 rounded-sm border border-white/5"></div>
                     <div className="bg-white/5 h-20 rounded-sm border border-white/5"></div>
                     <div className="bg-white/5 h-20 rounded-sm border border-white/5"></div>
                 </div>
             ) : (
-                <div className="grid grid-cols-3 gap-2 mb-6">
-                    <div className="bg-pitch-accent/10 p-3 rounded-sm border border-pitch-accent/20">
-                        <div className="text-[8px] text-pitch-accent font-black uppercase mb-1 tracking-widest flex items-center gap-1">
+                <div className="grid grid-cols-3 gap-3 mb-8">
+                    <div className="bg-blue-600/10 p-3 rounded-sm border border-blue-600/20">
+                        <div className="text-[8px] text-blue-500 font-black uppercase mb-1 tracking-widest flex items-center gap-1">
                             <Users className="w-2.5 h-2.5" /> Team
                         </div>
                         <div className="text-white font-bold text-[11px] uppercase truncate">{teamName || 'Your Team'}</div>
@@ -246,14 +254,14 @@ export function RollingLeagueCard({ league, userId, registrations }: RollingLeag
                 {isCaptain ? (
                     <button
                         onClick={() => router.push(`/rolling-leagues/${league.id}`)}
-                        className="w-full py-4 bg-pitch-accent text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm group/btn"
+                        className="w-full py-5 bg-blue-600 text-white font-black uppercase tracking-widest text-xs hover:bg-white hover:text-black transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.15)] rounded-sm group/btn min-h-[44px]"
                     >
-                        Captain's Command Center <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                        Captain&apos;s Command Center <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                     </button>
                 ) : (
                     <button
                         onClick={() => router.push(`/rolling-leagues/${league.id}`)}
-                        className="w-full py-4 bg-transparent border border-white/20 text-white font-black uppercase tracking-widest text-xs hover:bg-white/5 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn"
+                        className="w-full py-5 bg-transparent border border-white/20 text-white font-black uppercase tracking-widest text-xs hover:bg-white/5 transition-all transform active:scale-95 flex items-center justify-center gap-2 rounded-sm group/btn"
                     >
                         Team Hub <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                     </button>
@@ -264,77 +272,31 @@ export function RollingLeagueCard({ league, userId, registrations }: RollingLeag
 
     const renderUnregisteredView = () => (
         <div className="flex-1 flex flex-col justify-between">
-            <div className="grid grid-cols-3 gap-2 mb-6">
+            <div className="grid grid-cols-3 gap-3 mb-8">
                 <div className="bg-white/5 p-3 rounded-sm border border-white/5 hover:bg-white/10 transition-colors group/item">
-                    <div className="text-[8px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-pitch-accent transition-colors flex items-center gap-1">
-                        <Calendar className="w-2.5 h-2.5" /> Starts
+                    <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-blue-500 transition-colors flex items-center gap-1">
+                        <Users className="w-4 h-4" /> Teams
                     </div>
-                    <div className="text-white font-bold text-[11px] uppercase">{formatDate(startTime)}</div>
-                </div>
-                <div className="bg-white/5 p-3 rounded-sm border border-white/5 hover:bg-white/10 transition-colors group/item">
-                    <div className="text-[8px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-pitch-accent transition-colors flex items-center gap-1">
-                        <Clock className="w-2.5 h-2.5" /> Game Length
-                    </div>
-                    <div className="text-white font-bold text-[11px] uppercase">{league.half_length ? `${league.half_length * 2} minutes` : (league.total_game_time ? `${league.total_game_time} minutes` : 'TBD')}</div>
+                    <div className="text-white font-bold text-xs uppercase">{teamCount} / {league.max_teams || '∞'}</div>
                 </div>
                 <div className="bg-white/5 p-3 rounded-sm border border-white/5 hover:bg-white/10 transition-colors group/item">
-                    <div className="text-[8px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-pitch-accent transition-colors flex items-center gap-1">
-                         Prize
+                    <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-blue-500 transition-colors flex items-center gap-1">
+                        <Clock className="w-4 h-4" /> Match
                     </div>
-                    <div className="text-pitch-accent font-black text-[10px] uppercase truncate">{getPrizeDisplay()}</div>
+                    <div className="text-white font-bold text-xs uppercase">{league.half_length ? `${league.half_length * 2} minutes` : (league.total_game_time ? `${league.total_game_time} minutes` : 'TBD')}</div>
                 </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 px-1">
-                <div className="flex flex-col">
-                    <span className="text-[8px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1"><Layers className="w-2 h-2" /> Format & Field Size</span>
-                    <span className="text-[10px] text-white font-bold uppercase">{league.game_format_type || 'League Play'} - {league.field_size || 'N/A'}</span>
-                </div>
-                <div className="flex flex-col">
-                    <span className="text-[8px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1"><Activity className="w-2 h-2" /> Surface Type</span>
-                    <span className="text-[10px] text-white font-bold uppercase truncate">{league.surface_type || 'Standard / Turf'}</span>
-                </div>
-            </div>
-
-            <div className="mb-6 px-1">
-                <div className="flex flex-col">
-                    <span className="text-[8px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1"><Footprints className="w-2 h-2" /> Recommended Gear</span>
-                    <span className="text-[10px] text-white font-bold uppercase truncate">{league.shoe_types?.join(', ') || 'Any'}</span>
-                </div>
-            </div>
-
-            <div className="mb-8 p-4 bg-white/5 border border-white/5 rounded-sm space-y-3">
-                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                    <span className="text-gray-500">Entry Fee</span>
-                    <span className="text-white">{isCash ? 'Cash at Door' : league.team_price ? `$${league.team_price}` : 'FREE'}</span>
-                </div>
-                
-                {isCash ? (
-                    <div className="flex justify-between items-center">
-                        <span className="text-[8px] text-pitch-accent font-black uppercase tracking-widest italic">Door Fee: {league.cash_fee_structure?.replace('_', ' ')}</span>
-                        <span className="text-lg font-black italic text-pitch-accent">${league.cash_amount || 0}</span>
+                <div className="bg-white/5 p-3 rounded-sm border border-white/5 hover:bg-white/10 transition-colors group/item">
+                    <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-blue-500 transition-colors flex items-center gap-1">
+                        <Trophy className="w-4 h-4" /> Prize
                     </div>
-                ) : (
-                    league.team_registration_fee && (
-                        <div className="flex justify-between items-center">
-                            <span className="text-[8px] text-pitch-accent font-black uppercase tracking-widest italic">Admin Deposit Required</span>
-                            <span className="text-lg font-black italic text-pitch-accent">${league.team_registration_fee}</span>
-                        </div>
-                    )
-                )}
-
-                {(league.allow_free_agents && (league.free_agent_price || 0) > 0) && (
-                    <div className="pt-2 border-t border-white/5 flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                        <span className="text-gray-500">Free Agent Sign Up Fee</span>
-                        <span className="text-white">${league.free_agent_price} {isCash ? '/ Match' : '/ Season'}</span>
-                    </div>
-                )}
+                    <div className="text-blue-500 font-black text-xs uppercase truncate">{getPrizeDisplay()}</div>
+                </div>
             </div>
 
             <div className="mt-auto">
                 <button
                     onClick={() => router.push(`/rolling-leagues/${league.id}`)}
-                    className="w-full py-4 bg-pitch-accent text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(204,255,0,0.2)] rounded-sm group/btn"
+                    className="w-full py-5 bg-blue-600 text-white font-black uppercase tracking-widest text-xs hover:bg-white hover:text-black transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.15)] rounded-sm group/btn min-h-[44px]"
                 >
                     Explore Details <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                 </button>
@@ -344,40 +306,59 @@ export function RollingLeagueCard({ league, userId, registrations }: RollingLeag
 
     return (
         <div className={cn(
-            "relative w-full overflow-hidden rounded-sm group transition-all duration-500 h-full flex flex-col",
+            "bg-pitch-card border rounded-sm p-6 shadow-2xl transition-all group overflow-hidden relative flex flex-col h-full",
             isBanned 
-                ? "bg-[#111] border-2 border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.15)]"
-                : "bg-[#111] border border-white/10 hover:border-white/20 hover:shadow-[0_0_30px_rgba(204,255,0,0.05)]"
+                ? "border-red-500/50 hover:border-red-500/80"
+                : "border-white/5 hover:border-blue-600/20"
         )}>
-            {/* Header / Title Area */}
-            <div className="p-6 pb-4 border-b border-white/5 relative z-10 flex-shrink-0">
-                <div className="flex items-center justify-between mb-4">
-                    <span className="px-3 py-1 bg-white/5 text-white/50 text-[9px] font-black uppercase tracking-[0.2em] rounded-sm">
-                        Rolling League
-                    </span>
-                    {isBanned && (
-                        <span className="px-3 py-1 bg-red-500 text-white text-[9px] font-black uppercase tracking-[0.2em] rounded-sm animate-pulse">
-                            Suspended
-                        </span>
-                    )}
+            {/* Glossy Overlay Effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            
+            {/* Status Indicator Bar */}
+            <div className={cn(
+                "absolute top-0 left-0 w-1 h-full transition-opacity z-20",
+                isBanned ? "bg-red-500 opacity-100" : "bg-blue-600 opacity-50 group-hover:opacity-100"
+            )} />
+            
+            <div className="relative z-10 flex flex-col h-full">
+                {/* Header / Title Area */}
+                <div className="flex justify-between items-start mb-6">
+                    <div className="flex-1 mr-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="bg-blue-600/10 border border-blue-600/20 px-2 py-0.5 rounded-sm flex items-center justify-center">
+                                <span className="text-[10px] font-black uppercase text-blue-500 tracking-widest whitespace-nowrap">Rolling League</span>
+                            </div>
+                            {isBanned && (
+                                <span className="px-3 py-1 bg-red-500 text-white text-[9px] font-black uppercase tracking-[0.2em] rounded-sm animate-pulse">
+                                    Suspended
+                                </span>
+                            )}
+                        </div>
+                        
+                        <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white leading-[0.85] mb-4 font-sans break-words overflow-hidden">
+                            {title}
+                        </h2>
+                        
+                        <div className="flex flex-col gap-2 text-pitch-secondary text-[10px] font-black uppercase tracking-[0.2em] opacity-80">
+                            <div className="flex items-center gap-2">
+                                <Calendar className="w-3 h-3 text-blue-500" />
+                                {formatDate(startTime)} - {formatDate(league.end_date || league.end_time || null)}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <MapPin className="w-3 h-3 text-blue-500" />
+                                {league.location_nickname || league.location?.split(',')[0] || 'TBD'}
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <h3 className="text-2xl font-black italic uppercase tracking-tight text-white group-hover:text-pitch-accent transition-colors mb-2">
-                    {title}
-                </h3>
-                
-                <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold uppercase tracking-widest">
-                    <MapPin className="w-3 h-3 text-pitch-accent" />
-                    {league.location_nickname || league.location?.split(',')[0] || 'TBD'}
-                </div>
-            </div>
 
-            {/* Inner Views */}
-            <div className="p-6 flex-1 flex flex-col relative z-10 bg-gradient-to-b from-transparent to-black/50">
-                {isBanned ? renderBannedView() : 
-                 userTeamId ? renderPlayerOrCaptainView() :
-                 userReg ? renderFreeAgentView() :
-                 renderUnregisteredView()}
+                {/* Inner Views */}
+                <div className="flex-1 flex flex-col">
+                    {isBanned ? renderBannedView() : 
+                     userTeamId ? renderPlayerOrCaptainView() :
+                     userReg ? renderFreeAgentView() :
+                     renderUnregisteredView()}
+                </div>
             </div>
         </div>
     );

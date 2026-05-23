@@ -547,8 +547,8 @@ export async function searchProfiles(query: string) {
     const adminSupabase = await createAdminClient();
     const { data, error } = await adminSupabase
         .from('profiles')
-        .select('id, full_name, email')
-        .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
+        .select('id, first_name, last_name, email')
+        .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%`)
         .limit(10);
         
     if (error) throw new Error(`Search failed: ${error.message}`);

@@ -640,7 +640,8 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
                                                 teamList.map((team: any) => {
                                                     const teamPlayers = team.players;
                                                     const captain = teamPlayers.find((p: any) => p.role === 'captain') || teamPlayers[0];
-                                                    const captainName = captain ? (Array.isArray(captain.profiles) ? captain.profiles[0]?.full_name : captain.profiles?.full_name) : 'No Captain';
+                                                    const captainProfile = captain ? (Array.isArray(captain.profiles) ? captain.profiles[0] : captain.profiles) : null;
+                                                    const captainName = captainProfile?.first_name ? `${captainProfile.first_name} ${captainProfile.last_name}` : 'No Captain';
                                                     
                                                     const isExpanded = expandedTeams[team.name];
 
@@ -681,7 +682,8 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
                                                                             </thead>
                                                                             <tbody className="divide-y divide-white/5">
                                                                                 {teamPlayers.map((p: any) => {
-                                                                                    const name = Array.isArray(p.profiles) ? p.profiles[0]?.full_name : p.profiles?.full_name || 'Unknown';
+                                                                                    const pProfile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
+                                                                                    const name = pProfile?.first_name ? `${pProfile.first_name} ${pProfile.last_name}` : 'Unknown';
                                                                                     return (
                                                                                         <tr key={p.id} className="hover:bg-white/5">
                                                                                             <td className="px-4 py-3 font-medium flex items-center gap-2">
@@ -738,7 +740,8 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
                                             ) : (
                                                 <div className="space-y-3 relative z-10">
                                                     {freeAgents.map(p => {
-                                                        const name = Array.isArray(p.profiles) ? p.profiles[0]?.full_name : p.profiles?.full_name || 'Unknown';
+                                                        const pProfile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
+                                                        const name = pProfile?.first_name ? `${pProfile.first_name} ${pProfile.last_name}` : 'Unknown';
                                                         return (
                                                             <div key={p.id} className="bg-gray-900 p-3 rounded border border-gray-800 hover:border-white/20 transition-colors">
                                                                 <p className="font-bold text-sm mb-2">{name}</p>

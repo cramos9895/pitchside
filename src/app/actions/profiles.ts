@@ -12,8 +12,8 @@ export async function searchProfiles(query: string) {
 
     const { data: profiles, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
-        .or(`full_name.ilike.${searchString},email.ilike.${searchString}`)
+        .select('id, first_name, last_name, email')
+        .or(`first_name.ilike.${searchString},last_name.ilike.${searchString},email.ilike.${searchString}`)
         .limit(10);
 
     if (error) {

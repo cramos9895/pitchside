@@ -115,7 +115,9 @@ export async function acceptTeamInvite({
 
     revalidatePath('/dashboard');
     revalidatePath(`/tournaments/${tournamentId}/team/${teamId}`);
+    revalidatePath(`/leagues/${tournamentId}/team/${teamId}`);
     revalidatePath(`/rolling-leagues/${tournamentId}`);
+    revalidatePath(`/leagues/${tournamentId}`);
     
     return { success: true };
 }

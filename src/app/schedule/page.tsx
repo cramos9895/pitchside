@@ -3,9 +3,11 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { MapPin, Clock, ArrowRight, Calendar, Users, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { GameCard } from '@/components/GameCard';
-import { LeagueCard } from '@/components/public/LeagueCard';
-import { TournamentCard } from '@/components/public/TournamentCard';
+import { PickupCard } from '@/components/public/pickup/PickupCard';
+import { TournamentCard } from '@/components/public/tournaments/TournamentCard';
+import { LeagueCard } from '@/components/public/leagues/LeagueCard';
+import { RollingLeagueCard } from '@/components/public/RollingLeagueCard';
+import { ScheduleClientView } from '@/components/public/ScheduleClientView';
 
 interface Game {
     id: string;
@@ -59,16 +61,16 @@ const formatDateHeader = (dateString: string) => {
 export default async function SchedulePage({ 
     searchParams 
 }: { 
-    searchParams: { view?: string } 
+    searchParams: Promise<{ view?: string }> 
 }) {
     const supabase = await createClient();
     const activeView = (await searchParams).view || 'all';
 
     // Fetch user bookings to check status
     const { data: { user } } = await supabase.auth.getUser();
-    const bookingStatusMap = new Map<string, string>();
-    const bookingIdMap = new Map<string, string>();
-    const userRegistrationsMap = new Map<string, any[]>();
+    const bookingStatusMap: Record<string, string> = {};
+    const bookingIdMap: Record<string, string> = {};
+    const userRegistrationsMap: Record<string, any[]> = {};
 
     if (user) {
         const [bookingsRes, regsRes] = await Promise.all([
@@ -85,18 +87,18 @@ export default async function SchedulePage({
 
         if (bookingsRes.data) {
             bookingsRes.data.forEach((b: any) => {
-                bookingStatusMap.set(b.game_id, b.status);
-                bookingIdMap.set(b.game_id, b.id);
+                bookingStatusMap[b.game_id] = b.status;
+                bookingIdMap[b.game_id] = b.id;
             });
         }
 
         if (regsRes.data) {
             regsRes.data.forEach((r: any) => {
                 if (r.game_id) {
-                    if (!userRegistrationsMap.has(r.game_id)) {
-                        userRegistrationsMap.set(r.game_id, []);
+                    if (!userRegistrationsMap[r.game_id]) {
+                        userRegistrationsMap[r.game_id] = [];
                     }
-                    userRegistrationsMap.get(r.game_id)!.push(r);
+                    userRegistrationsMap[r.game_id].push(r);
                 }
             });
         }
@@ -164,28 +166,9 @@ export default async function SchedulePage({
     if (leaguesError) console.error("Error fetching leagues:", leaguesError);
     if (tournamentsError) console.error("Error fetching tournaments:", tournamentsError);
 
-    // Group games by date
-    const groupedGames: Record<string, Game[]> = {};
-    if (games) {
-        games.forEach(game => {
-            const dateKey = formatDateHeader(game.start_time);
-            if (!groupedGames[dateKey]) {
-                groupedGames[dateKey] = [];
-            }
-            groupedGames[dateKey].push(game);
-        });
-    }
-
-    const tabs = [
-        { id: 'all', label: 'All Events', icon: Calendar },
-        { id: 'pickup', label: 'Pickup Games', icon: Users },
-        { id: 'tournaments', label: 'Tournaments', icon: Trophy },
-        { id: 'leagues', label: 'Leagues', icon: Trophy },
-    ];
-
     return (
-        <div className="min-h-screen bg-pitch-black text-white font-sans pt-2 px-4 pb-24">
-            <div className="max-w-4xl mx-auto">
+        <div className="min-h-screen bg-pitch-black text-white font-sans pt-2 px-6 md:px-12 pb-24">
+            <div className="max-w-7xl">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 border-b border-white/5 pb-8">
                     <div>
@@ -193,7 +176,7 @@ export default async function SchedulePage({
                             The <span className="text-pitch-accent">Hub</span>
                         </h1>
                         <p className="text-pitch-secondary text-sm font-bold uppercase tracking-widest opacity-60">
-                            Northwest Chicago's Premier Soccer Network
+                            The Chicago and Northwest Suburbs Premier pickup platform
                         </p>
                     </div>
                     <Link href="/" className="inline-flex items-center text-pitch-secondary hover:text-white transition-colors text-xs font-black uppercase tracking-[0.2em] group">
@@ -202,132 +185,16 @@ export default async function SchedulePage({
                     </Link>
                 </div>
 
-                {/* Sticky Tab Navigation (Apple-widget style) */}
-                <div className="sticky top-24 z-30 bg-pitch-black/80 backdrop-blur-md py-4 mb-12 border-b border-white/5">
-                    <div className="flex p-1 bg-white/5 rounded-xl border border-white/5 max-w-fit md:max-w-none overflow-x-auto no-scrollbar">
-                        {tabs.map((tab) => {
-                            const Icon = tab.icon;
-                            const isActive = activeView === tab.id;
-                            return (
-                                <Link
-                                    key={tab.id}
-                                    href={`/schedule?view=${tab.id}`}
-                                    className={cn(
-                                        "flex items-center gap-2 px-6 py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap",
-                                        isActive 
-                                            ? "bg-pitch-accent text-pitch-black shadow-[0_0_20px_rgba(204,255,0,0.2)] scale-[1.02]" 
-                                            : "text-gray-500 hover:text-white hover:bg-white/5"
-                                    )}
-                                >
-                                    <Icon className={cn("w-4 h-4", isActive ? "text-pitch-black" : "text-gray-500")} />
-                                    {tab.label}
-                                </Link>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Content Area */}
-                <div className="space-y-16">
-                    {/* LEAGUES SECTION */}
-                    {(activeView === 'all' || activeView === 'leagues') && (
-                        <div className="space-y-8">
-                            <div className="flex items-center gap-4 text-pitch-accent text-xs font-black uppercase tracking-[0.3em]">
-                                <Trophy className="w-4 h-4" /> Upcoming Leagues
-                                <div className="h-px bg-pitch-accent/20 flex-1 ml-2" />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {leagues?.map((league: any) => (
-                                    <GameCard 
-                                        key={league.id} 
-                                        game={{
-                                            ...league,
-                                            // Ensure legacy leagues are identified as leagues
-                                            event_type: league.event_type || 'league',
-                                            start_time: league.start_time || league.start_date
-                                        }} 
-                                        user={user}
-                                        bookingStatus={bookingStatusMap.get(league.id)}
-                                        bookingId={bookingIdMap.get(league.id)}
-                                        tournamentRegistrations={userRegistrationsMap.get(league.id) || league.tournament_registrations}
-                                    />
-                                ))}
-                            </div>
-                            {(!leagues || leagues.length === 0) && activeView === 'leagues' && (
-                                <div className="text-center py-20 bg-white/5 rounded-sm border border-dashed border-white/10">
-                                    <Trophy className="w-12 h-12 text-gray-700 mx-auto mb-4" />
-                                    <p className="text-gray-500 font-bold uppercase text-xs tracking-widest">No Active Leagues Found</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* TOURNAMENTS SECTION */}
-                    {(activeView === 'all' || activeView === 'tournaments') && (
-                        <div className="space-y-8">
-                            <div className="flex items-center gap-4 text-pitch-accent text-xs font-black uppercase tracking-[0.3em]">
-                                <Trophy className="w-4 h-4" /> Upcoming Tournaments
-                                <div className="h-px bg-pitch-accent/20 flex-1 ml-2" />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {tournaments?.map((tournament: any) => (
-                                    <GameCard 
-                                        key={tournament.id} 
-                                        game={tournament} 
-                                        user={user}
-                                        tournamentRegistrations={userRegistrationsMap.get(tournament.id) || tournament.tournament_registrations} 
-                                    />
-                                ))}
-                            </div>
-                            {(!tournaments || tournaments.length === 0) && activeView === 'tournaments' && (
-                                <div className="text-center py-20 bg-white/5 rounded-sm border border-dashed border-white/10">
-                                    <Trophy className="w-12 h-12 text-gray-700 mx-auto mb-4" />
-                                    <p className="text-gray-500 font-bold uppercase text-xs tracking-widest">No Active Tournaments Found</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* PICKUP GAMES SECTION */}
-                    {(activeView === 'all' || activeView === 'pickup') && (
-                        <div className="space-y-8">
-                            <div className="flex items-center gap-4 text-pitch-accent text-xs font-black uppercase tracking-[0.3em]">
-                                <Users className="w-4 h-4" /> Upcoming Pickups
-                                <div className="h-px bg-pitch-accent/20 flex-1 ml-2" />
-                            </div>
-                            <div className="space-y-12">
-                                {Object.entries(groupedGames).map(([date, dailyGames]) => (
-                                    <div key={date} className="relative">
-                                        <div className="flex items-center gap-3 mb-6">
-                                            <span className="w-2 h-6 bg-white/10 rounded-full" />
-                                            <h2 className="font-heading text-2xl font-bold uppercase italic text-white tracking-tight">
-                                                {date}
-                                            </h2>
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {dailyGames.map((game) => (
-                                                <GameCard
-                                                    key={game.id}
-                                                    game={game}
-                                                    user={user}
-                                                    bookingStatus={bookingStatusMap.get(game.id)}
-                                                    bookingId={bookingIdMap.get(game.id)}
-                                                    tournamentRegistrations={userRegistrationsMap.get(game.id)}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                                {(!games || games.length === 0) && (
-                                    <div className="text-center py-20 bg-white/5 rounded-sm border border-dashed border-white/10">
-                                        <Calendar className="w-12 h-12 text-gray-700 mx-auto mb-4" />
-                                        <p className="text-gray-500 font-bold uppercase text-xs tracking-widest">Check back for new games</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                <ScheduleClientView 
+                    games={games}
+                    leagues={leagues}
+                    tournaments={tournaments}
+                    activeView={activeView}
+                    user={user}
+                    bookingStatusMap={bookingStatusMap}
+                    bookingIdMap={bookingIdMap}
+                    userRegistrationsMap={userRegistrationsMap}
+                />
             </div>
         </div>
     );

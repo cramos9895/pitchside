@@ -61,7 +61,7 @@ export default async function PendingVerificationPage() {
                             Account Under Review
                         </h1>
                         <p className="text-gray-400 text-lg leading-relaxed font-medium">
-                            Thank you for applying to join <span className="text-pitch-accent font-bold">Pitch Side</span>. Our team is currently reviewing your application and verifying your facility's details.
+                            Thank you for applying to join <span className="text-pitch-accent font-bold">Pitch Side</span>. Our team is currently reviewing your application and verifying your credentials or facility&apos;s details.
                         </p>
                     </div>
 

@@ -1,38 +1,114 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Trophy, Clock, MapPin, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StandingsTable } from '@/components/admin/StandingsTable';
 
 export default function TournamentDisplay({ params }: { params: Promise<{ id: string }> }) {
-    const { id: gameId } = use(params);
+    // Robust parameter extraction with client-side fallback
+    const resolvedParams = use(params);
+    const gameId = resolvedParams?.id || (typeof window !== 'undefined' ? window.location.pathname.split('/')[3] : '');
+    const supabase = useMemo(() => createClient(), []);
     const [game, setGame] = useState<any>(null);
     const [matches, setMatches] = useState<any[]>([]);
     const [view, setView] = useState<'standings' | 'matches'>('standings');
     const [loading, setLoading] = useState(true);
-    const supabase = createClient();
+    const [error, setError] = useState<string | null>(null);
 
     // Fetch Initial Data
     const fetchData = async () => {
         try {
-            const { data: gameData } = await supabase.from('games').select('*').eq('id', gameId).single();
-            const { data: matchesData } = await supabase.from('matches').select('*').eq('game_id', gameId).order('start_time', { ascending: true });
+            let gameData = null;
+            let gameError = null;
+            try {
+                const res = await supabase.from('games').select('*').eq('id', gameId).single();
+                gameData = res.data;
+                gameError = res.error;
+                
+                // Self-healing retry for Safari/session recovery delays
+                if ((gameError || !gameData) && typeof window !== 'undefined') {
+                    console.warn("First fetch failed, retrying in 1s...", gameError);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    const retry = await supabase.from('games').select('*').eq('id', gameId).single();
+                    gameData = retry.data;
+                    gameError = retry.error;
+                }
+            } catch (err: any) {
+                if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+                    console.warn("[display/page.tsx] Game query was aborted");
+                    return;
+                }
+                throw err;
+            }
+
+            if (gameError) {
+                if (gameError.message && (gameError.message.includes('abort') || gameError.message.includes('Abort'))) {
+                    console.warn("[display/page.tsx] AbortError detected in games query, ignoring");
+                } else {
+                    setError(gameError.message);
+                }
+            } else {
+                setError(null);
+            }
+
+            let matchesData = [];
+            try {
+                const res = await supabase.from('matches').select('*').eq('game_id', gameId).order('start_time', { ascending: true });
+                matchesData = res.data || [];
+            } catch (err: any) {
+                if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+                    console.warn("[display/page.tsx] Matches query was aborted");
+                } else {
+                    throw err;
+                }
+            }
             
             if (gameData) setGame(gameData);
-            if (matchesData) setMatches(matchesData);
-        } catch (err) {
+            if (matchesData.length > 0) setMatches(matchesData);
+        } catch (err: any) {
+            if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+                console.warn("[display/page.tsx] FetchData was aborted, ignoring");
+                return;
+            }
             console.error("Display Fetch Error:", err);
+            setError(err.message || 'Unknown fetch error');
         } finally {
             setLoading(false);
         }
     };
 
+    // 1. Initial Fetch
     useEffect(() => {
-        fetchData();
-        
-        // Real-time Sync
+        let isMounted = true;
+        const init = async () => {
+            try {
+                try {
+                    await supabase.auth.getSession();
+                } catch (authErr) {
+                    console.warn("[display/page.tsx] Auth session recovery failed:", authErr);
+                }
+                if (isMounted) {
+                    await fetchData();
+                }
+            } catch (err) {
+                console.error("Display Init Error:", err);
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        };
+        init();
+        return () => {
+            isMounted = false;
+        };
+    }, [gameId]);
+
+    // 2. Real-time Sync
+    useEffect(() => {
+        if (!gameId || loading) return;
+
         const channel = supabase.channel('display-sync-' + gameId)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'matches', filter: `game_id=eq.${gameId}` }, () => {
                 fetchData();
@@ -42,16 +118,21 @@ export default function TournamentDisplay({ params }: { params: Promise<{ id: st
             })
             .subscribe();
 
-        // View Rotation (every 15 seconds)
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [gameId, loading]);
+
+    // 3. View Rotation (every 15 seconds)
+    useEffect(() => {
         const interval = setInterval(() => {
             setView(prev => prev === 'standings' ? 'matches' : 'standings');
         }, 15000);
 
         return () => {
-            supabase.removeChannel(channel);
             clearInterval(interval);
         };
-    }, [gameId]);
+    }, []);
 
     if (loading) return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center text-pitch-accent gap-4">
@@ -60,7 +141,16 @@ export default function TournamentDisplay({ params }: { params: Promise<{ id: st
         </div>
     );
 
-    if (!game) return <div className="min-h-screen bg-black flex items-center justify-center text-red-500 uppercase tracking-widest">Tournament Not Found</div>;
+    if (!game) return (
+        <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4 text-red-500 uppercase tracking-widest font-bold">
+            <div>Tournament Not Found</div>
+            {error && (
+                <p className="text-sm text-pitch-secondary bg-white/5 border border-white/10 px-4 py-2 rounded normal-case tracking-normal font-medium">
+                    Error: {error}
+                </p>
+            )}
+        </div>
+    );
 
     const activeMatches = matches.filter(m => m.status === 'active' || (m.status === 'scheduled' && new Date(m.start_time) <= new Date()));
     const upcomingMatches = matches.filter(m => m.status === 'scheduled' && new Date(m.start_time) > new Date()).slice(0, 6);

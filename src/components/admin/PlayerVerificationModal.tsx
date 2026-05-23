@@ -46,9 +46,9 @@ export function PlayerVerificationModal({
 
     const getPlayerName = (p: any) => {
         if (!p) return 'Unknown';
-        if (p.full_name) return p.full_name;
+        if (p.first_name) return `${p.first_name} ${p.last_name}`;
         const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
-        return profile?.full_name || 'Unknown Player';
+        return profile?.first_name ? `${profile.first_name} ${profile.last_name}` : 'Unknown Player';
     };
 
     const getAvatarUrl = (p: any) => {

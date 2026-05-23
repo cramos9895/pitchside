@@ -54,7 +54,7 @@ export default async function BookingDetailsPage({ params }: { params: { booking
         .select(`
             id,
             joined_at,
-            profile:profiles(id, full_name)
+            profile:profiles(id, first_name, last_name)
         `)
         .eq('booking_group_id', groupId)
         .order('joined_at', { ascending: true });
@@ -168,9 +168,9 @@ export default async function BookingDetailsPage({ params }: { params: { booking
                                 <div key={player.id} className="flex items-center justify-between p-3 bg-transparent border border-white/5 rounded-md hover:bg-white/5 transition-colors">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-gray-300 font-bold text-sm">
-                                            {player.profile?.full_name?.charAt(0).toUpperCase() || '?'}
+                                            {player.profile?.first_name?.charAt(0).toUpperCase() || '?'}
                                         </div>
-                                        <span className="font-medium text-gray-200">{player.profile?.full_name || 'Unknown Player'}</span>
+                                        <span className="font-medium text-gray-200">{player.profile?.first_name} {player.profile?.last_name || 'Unknown Player'}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <UserCheck className="w-4 h-4 text-green-400" />

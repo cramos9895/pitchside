@@ -44,6 +44,8 @@ export function RollingRegistrationClient({
     // Payment State
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentIntentType, setPaymentIntentType] = useState<'team' | 'free_agent'>(type);
+    const [registrationId, setRegistrationId] = useState<string | null>(null);
+    const [eventType, setEventType] = useState<string | null>(null);
 
     const isCashLeague = league.payment_collection_type === 'cash';
     
@@ -74,32 +76,40 @@ export function RollingRegistrationClient({
         );
     };
 
-    const handleRegistration = async () => {
+    const handleRegistration = async (status: string = 'registered') => {
         setIsSubmitting(true);
         setError(null);
         try {
             const formData = new FormData();
             formData.append('leagueId', league.id);
             formData.append('positions', JSON.stringify(selectedPositions));
+            formData.append('status', status);
             
             if (type === 'team') {
                 formData.append('teamName', teamName);
                 formData.append('primaryColor', primaryColor);
                 const res = await registerRollingCaptain(formData);
                 if (res.success) {
-                    router.push(`/games/${league.id}`);
-                    router.refresh();
+                    if (status === 'registered') {
+                        router.push(`/games/${league.id}`);
+                        router.refresh();
+                    }
+                    return res;
                 }
             } else {
                 const res = await registerRollingFreeAgent(formData);
                 if (res.success) {
-                    router.push(`/games/${league.id}`);
-                    router.refresh();
+                    if (status === 'registered') {
+                        router.push(`/games/${league.id}`);
+                        router.refresh();
+                    }
+                    return res;
                 }
             }
         } catch (err: any) {
             setError(err.message || 'Registration failed.');
             setIsSubmitting(false);
+            throw err;
         }
     };
 
@@ -111,9 +121,20 @@ export function RollingRegistrationClient({
         const stripeAmount = !isCashLeague ? (upfrontLeaguePrice + registrationFee) : 0;
 
         if (stripeAmount > 0) {
-            setShowPaymentModal(true);
+            // Create pending first
+            try {
+                const res = await handleRegistration('pending');
+                if (res?.registrationId) {
+                    setRegistrationId(res.registrationId);
+                    setEventType(res.eventType || 'rolling_league');
+                    setShowPaymentModal(true);
+                    setIsSubmitting(false);
+                }
+            } catch (err) {
+                // Error handled in handleRegistration
+            }
         } else {
-            await handleRegistration();
+            await handleRegistration('registered');
         }
     };
 
@@ -278,9 +299,12 @@ export function RollingRegistrationClient({
                     amount={registrationFee}
                     title="League Registration"
                     description={`Initial registration for ${league.title}`}
+                    eventId={league.id}
+                    registrationId={registrationId || undefined}
+                    eventType={eventType || undefined}
                     onSuccess={() => {
                         setShowPaymentModal(false);
-                        handleRegistration();
+                        handleRegistration('registered');
                     }}
                 />
             )}

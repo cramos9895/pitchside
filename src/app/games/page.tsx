@@ -1,6 +1,9 @@
 
 import { createClient } from '@/lib/supabase/server';
-import { GameCard } from '@/components/GameCard';
+import { PickupCard } from '@/components/public/pickup/PickupCard';
+import { TournamentCard } from '@/components/public/tournaments/TournamentCard';
+import { LeagueCard } from '@/components/public/leagues/LeagueCard';
+import { RollingLeagueCard } from '@/components/public/RollingLeagueCard';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
@@ -49,17 +52,36 @@ export default async function GamesPage() {
 
     const bookingStatusMap = new Map<string, string>();
     const bookingIdMap = new Map<string, string>();
-    if (user) {
-        const { data: bookings } = await supabase
-            .from('bookings')
-            .select('id, game_id, status')
-            .eq('user_id', user.id)
-            .neq('status', 'cancelled');
+    const userRegistrationsMap = new Map<string, any[]>();
 
-        if (bookings) {
-            bookings.forEach((b: any) => {
+    if (user) {
+        const [bookingsRes, regsRes] = await Promise.all([
+            supabase
+                .from('bookings')
+                .select('id, game_id, status')
+                .eq('user_id', user.id)
+                .neq('status', 'cancelled'),
+            supabase
+                .from('tournament_registrations')
+                .select('game_id, role, team_id, user_id, status, teams(id, name, captain_id)')
+                .eq('user_id', user.id)
+        ]);
+
+        if (bookingsRes.data) {
+            bookingsRes.data.forEach((b: any) => {
                 bookingStatusMap.set(b.game_id, b.status);
                 bookingIdMap.set(b.game_id, b.id);
+            });
+        }
+
+        if (regsRes.data) {
+            regsRes.data.forEach((r: any) => {
+                if (r.game_id) {
+                    if (!userRegistrationsMap.has(r.game_id)) {
+                        userRegistrationsMap.set(r.game_id, []);
+                    }
+                    userRegistrationsMap.get(r.game_id)!.push(r);
+                }
             });
         }
     }
@@ -92,15 +114,64 @@ export default async function GamesPage() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {games.map((game: any) => (
-                            <GameCard
-                                key={game.id}
-                                game={game}
-                                user={user}
-                                bookingStatus={bookingStatusMap.get(game.id)}
-                                bookingId={bookingIdMap.get(game.id)}
-                            />
-                        ))}
+                        {games.map((game: any) => {
+                            const registrations = userRegistrationsMap.get(game.id) || [];
+
+                            if (game.event_type === 'pickup' || game.event_type === 'standard') {
+                                return (
+                                    <PickupCard
+                                        key={game.id}
+                                        game={game}
+                                        user={user}
+                                        bookingStatus={bookingStatusMap.get(game.id)}
+                                        bookingId={bookingIdMap.get(game.id)}
+                                    />
+                                );
+                            }
+
+                            if (game.event_type === 'tournament') {
+                                return (
+                                    <TournamentCard
+                                        key={game.id}
+                                        tournament={game}
+                                        userId={user?.id}
+                                        registrations={registrations}
+                                    />
+                                );
+                            }
+
+                            if (game.event_type === 'league') {
+                                if (game.league_format === 'rolling') {
+                                    return (
+                                        <RollingLeagueCard
+                                            key={game.id}
+                                            league={game}
+                                            userId={user?.id}
+                                            registrations={registrations}
+                                        />
+                                    );
+                                }
+                                return (
+                                    <LeagueCard
+                                        key={game.id}
+                                        league={game}
+                                        userId={user?.id}
+                                        registrations={registrations}
+                                    />
+                                );
+                            }
+
+                            // Fallback for unmatched types (like rentals or edge cases)
+                            return (
+                                <PickupCard
+                                    key={game.id}
+                                    game={game}
+                                    user={user}
+                                    bookingStatus={bookingStatusMap.get(game.id)}
+                                    bookingId={bookingIdMap.get(game.id)}
+                                />
+                            );
+                        })}
                     </div>
                 )}
             </div>

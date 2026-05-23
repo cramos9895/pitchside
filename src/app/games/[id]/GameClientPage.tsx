@@ -79,7 +79,8 @@ interface Booking {
     user_id: string;
     team_assignment?: string;
     profiles: {
-        full_name: string;
+        first_name: string;
+        last_name: string;
         email: string;
     } | null;
 }
@@ -90,6 +91,8 @@ interface GameClientPageProps {
     registeredTeams: any[];
     params: { id: string };
     currentUser: any;
+    isParticipantServer?: boolean;
+    isFreeAgentServer?: boolean;
 }
 
 export function GameClientPage({ 
@@ -97,7 +100,9 @@ export function GameClientPage({
     initialHost, 
     registeredTeams, 
     params,
-    currentUser 
+    currentUser,
+    isParticipantServer = false,
+    isFreeAgentServer = false
 }: GameClientPageProps) {
     const { id: gameId } = params;
     const [activeTab, setActiveTab] = useState<'details' | 'roster' | 'chat' | 'tournament-hub'>('details');
@@ -107,7 +112,7 @@ export function GameClientPage({
     const [loading, setLoading] = useState(true);
     const [userProfile, setUserProfile] = useState<any>(null);
 
-    const [isParticipant, setIsParticipant] = useState(false);
+    const [isParticipant, setIsParticipant] = useState(isParticipantServer);
     const [isWaitlisted, setIsWaitlisted] = useState(false);
     const [isHost, setIsHost] = useState(false);
     const [userBooking, setUserBooking] = useState<any>(null);
@@ -119,7 +124,7 @@ export function GameClientPage({
     const [isSubmittingVote, setIsSubmittingVote] = useState(false);
 
     const [isCaptain, setIsCaptain] = useState(false);
-    const [isFreeAgent, setIsFreeAgent] = useState(false);
+    const [isFreeAgent, setIsFreeAgent] = useState(isFreeAgentServer);
     const [customInviteFee, setCustomInviteFee] = useState<number | ''>('');
     const [isSavingFee, setIsSavingFee] = useState(false);
     const [primaryHost, setPrimaryHost] = useState<{ name: string; email: string } | null>(initialHost);
@@ -150,7 +155,7 @@ export function GameClientPage({
             const [rosterRes, matchesRes] = await Promise.all([
                 supabase
                     .from('bookings')
-                    .select('*, profiles!bookings_user_id_fkey(id, full_name, email)')
+                    .select('*, profiles!bookings_user_id_fkey(id, first_name, last_name, email)')
                     .eq('game_id', gameId)
                     .neq('status', 'cancelled'),
                 game.event_type === 'tournament' 
@@ -640,7 +645,7 @@ export function GameClientPage({
                                             {teammates.length > 0 ? (
                                                 teammates.map(mate => {
                                                     const isMe = mate.user_id === currentUser?.id;
-                                                    const fullName = mate.profiles?.full_name || mate.profiles?.email || 'Player';
+                                                    const fullName = mate.profiles?.first_name ? `${mate.profiles.first_name} ${mate.profiles.last_name}` : mate.profiles?.email || 'Player';
 
                                                     return (
                                                         <div key={mate.id} className={cn("text-sm font-medium flex items-center gap-2 p-2 rounded", isMe ? "bg-pitch-accent/10 border border-pitch-accent/20" : "bg-black/30 border border-white/5")}>
@@ -790,7 +795,7 @@ export function GameClientPage({
                                         <div className="p-8 text-center text-gray-500 italic">No players joined yet. Be the first!</div>
                                     ) : (
                                         activeRoster.map((player) => {
-                                            const name = player.profiles?.full_name || player.profiles?.email || 'Unknown';
+                                            const name = player.profiles?.first_name ? `${player.profiles.first_name} ${player.profiles.last_name}` : player.profiles?.email || 'Unknown';
                                             const isMe = currentUser?.id === player.user_id;
 
                                             return (
@@ -847,7 +852,8 @@ export function GameClientPage({
                                                 const faProfile = Array.isArray(fa.profiles) ? fa.profiles[0] : fa.profiles;
                                                 const mockPlayer = {
                                                     id: fa.user_id,
-                                                    full_name: faProfile?.full_name || 'Free Agent',
+                                                    first_name: faProfile?.first_name || 'Free',
+                                                    last_name: faProfile?.last_name || 'Agent',
                                                     position: 'UTL',
                                                     ovr: 75,
                                                     matches_played: 0,
@@ -888,7 +894,7 @@ export function GameClientPage({
                                     </div>
                                     <div className="divide-y divide-white/5">
                                         {waitlist.map((player) => {
-                                            const name = player.profiles?.full_name || player.profiles?.email || 'Unknown';
+                                            const name = player.profiles?.first_name ? `${player.profiles.first_name} ${player.profiles.last_name}` : player.profiles?.email || 'Unknown';
                                             return (
                                                 <div key={player.id} className="p-4 flex items-center gap-3">
                                                     <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-gray-500 text-xs">
@@ -990,7 +996,8 @@ export function GameClientPage({
                             const p = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
                             return {
                                 id: p?.id || b.user_id,
-                                full_name: p?.full_name || 'Unknown',
+                                first_name: p?.first_name || 'Unknown',
+                                last_name: p?.last_name || '',
                                 email: p?.email || '',
                                 team_assignment: b.team_assignment?.toString()
                             };

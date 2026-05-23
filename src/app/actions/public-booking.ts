@@ -84,7 +84,7 @@ export async function submitBookingRequest(data: BookingRequestData) {
     // Find the Facility Admin(s) for this facility via profiles using admin client
     const { data: adminProfiles } = await adminSupabase
         .from('profiles')
-        .select('id, email, full_name')
+        .select('id, email, first_name, last_name')
         .eq('facility_id', data.facilityId)
         .eq('system_role', 'facility_admin');
 
@@ -104,7 +104,7 @@ export async function submitBookingRequest(data: BookingRequestData) {
             await sendAppNotification(admin.id, message, 'booking_request');
 
             if (admin.email) {
-                const adminName = admin.full_name || 'Admin';
+                const adminName = admin.first_name ? `${admin.first_name} ${admin.last_name}` : 'Admin';
                 const requestedDates = [`${new Date(data.startTime).toLocaleDateString()} at ${new Date(data.startTime).toLocaleTimeString()}`];
 
                 await sendNotification({

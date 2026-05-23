@@ -92,7 +92,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                         )}
                     </div>
                     
-                    <h1 className="text-7xl md:text-[10rem] font-black italic uppercase tracking-tighter text-white leading-[0.75] mb-12 drop-shadow-2xl">
+                    <h1 className="text-5xl md:text-7xl lg:text-8xl font-black italic uppercase tracking-tighter text-white leading-[0.85] mb-12 drop-shadow-2xl">
                         {game.title}
                     </h1>
 
@@ -384,7 +384,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                     ) : (
                         <>
                             <Link
-                                href={`/games/${game.id}/register?role=captain`}
+                                href={`/leagues/${game.id}/register?type=team`}
                                 className="flex-1 py-5 bg-pitch-accent text-pitch-black font-black uppercase tracking-[0.2em] text-sm hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(204,255,0,0.15)] rounded-sm"
                             >
                                 Register as Captain <ArrowRight className="w-4 h-4" />
@@ -392,7 +392,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                             
                             {game.allow_free_agents && (
                                 <Link
-                                    href={`/games/${game.id}/register?role=free_agent`}
+                                    href={`/leagues/${game.id}/register?type=free_agent`}
                                     className="flex-1 py-5 bg-white text-black font-black uppercase tracking-[0.2em] text-sm hover:bg-pitch-accent transition-all transform active:scale-95 flex items-center justify-center gap-3 rounded-sm"
                                 >
                                     Join as Free Agent <ArrowRight className="w-4 h-4" />

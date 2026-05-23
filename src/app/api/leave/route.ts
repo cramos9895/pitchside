@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
         // Fetch profile for display name in email
         const { data: profile } = await supabaseAdmin
             .from('profiles')
-            .select('full_name')
+            .select('first_name, last_name')
             .eq('id', user.id)
             .single();
 
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
                         subject: `Cancellation Confirmed: ${game.title}`,
                         type: 'cancellation',
                         data: {
-                            userName: profile?.full_name || 'Player',
+                            userName: profile?.first_name ? `${profile.first_name} ${profile.last_name}` : 'Player',
                             gameTitle: game.title,
                             gameDate: new Date(game.start_time).toLocaleDateString(),
                             refundMethod: refunded ? 'Credits' : 'None (Late Cancellation)'
@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
 
                     const { data: waitlistProfile } = await supabaseAdmin
                         .from('profiles')
-                        .select('email, full_name')
+                        .select('email, first_name, last_name')
                         .eq('id', nextWaitlist.user_id)
                         .single();
 
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
                                 subject: `Spot Open: You have been promoted for ${game.title}!`,
                                 type: 'waitlist_promotion',
                                 data: {
-                                    userName: waitlistProfile.full_name || 'Player',
+                                    userName: waitlistProfile.first_name ? `${waitlistProfile.first_name} ${waitlistProfile.last_name}` : 'Player',
                                     gameTitle: game.title,
                                     gameDate: new Date(game.start_time).toLocaleDateString(),
                                     gameTime: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),

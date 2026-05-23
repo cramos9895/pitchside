@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         // --- ENFORCER: BAN CHECK & PROFILE FETCH ---
         const { data: profile } = await supabase
             .from('profiles')
-            .select('is_banned, banned_until, full_name, credit_balance')
+            .select('is_banned, banned_until, first_name, last_name, credit_balance')
             .eq('id', user.id)
             .single();
 
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
                 subject: `Booking Confirmed: ${game.title}`,
                 type: 'confirmation',
                 data: {
-                    userName: profile?.full_name || user.email?.split('@')[0] || 'Player',
+                    userName: profile?.first_name ? `${profile.first_name} ${profile.last_name}` : user.email?.split('@')[0] || 'Player',
                     gameTitle: game.title,
                     gameDate: new Date(game.start_time).toLocaleDateString(),
                     gameTime: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),

@@ -27,7 +27,7 @@ export function Navbar() {
                     </Link>
 
                     {/* Right Actions */}
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-3 sm:gap-6">
                         <div>
                             <AuthButton />
                         </div>

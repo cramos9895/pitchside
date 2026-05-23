@@ -23,11 +23,11 @@ export async function inviteFreeAgent(formData: FormData) {
         // Fetch captain details
         const { data: captainProfile } = await supabase
             .from('profiles')
-            .select('full_name')
+            .select('first_name, last_name')
             .eq('id', user.id)
             .single();
 
-        const captainName = captainProfile?.full_name || 'A Team Captain';
+        const captainName = captainProfile?.first_name ? `${captainProfile.first_name} ${captainProfile.last_name}` : 'A Team Captain';
 
         // Fetch agent details
         const { data: targetProfile } = await supabase

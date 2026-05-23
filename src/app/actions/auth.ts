@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isRateLimited } from '@/lib/security/rate-limit';
 import { headers } from 'next/headers';
+import { revalidatePath } from 'next/cache';
 
 export async function registerAccount(formData: FormData) {
     // --- SECURITY: RATE LIMITING ---
@@ -26,12 +27,29 @@ export async function registerAccount(formData: FormData) {
 
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
-    const fullName = formData.get('fullName') as string;
-    const accountType = formData.get('accountType') as 'player' | 'facility';
+    const firstName = formData.get('firstName') as string;
+    const lastName = formData.get('lastName') as string;
+    const accountType = formData.get('accountType') as 'player' | 'facility' | 'referee';
+    
+    // Optional / Persona Specific
+    const dob = formData.get('dob') as string;
+    const phone = formData.get('phone') as string;
+    const zip = formData.get('zip') as string;
     const organizationName = formData.get('organizationName') as string;
+    const jobTitle = formData.get('jobTitle') as string;
+    const certLevel = formData.get('certLevel') as string;
+    const primarySportsJson = formData.get('primarySports') as string;
+    let primarySports: string[] = [];
+    try {
+        if (primarySportsJson) {
+            primarySports = JSON.parse(primarySportsJson);
+        }
+    } catch (e) {
+        console.error("Error parsing primarySports:", e);
+    }
 
-    if (!email || !password || !fullName) {
-        return { error: 'Missing required fields.' };
+    if (!email || !password || !firstName || !lastName) {
+        return { error: 'Missing required base fields.' };
     }
 
     // 1. Sign up the user via standard Supabase Auth
@@ -39,7 +57,19 @@ export async function registerAccount(formData: FormData) {
         email,
         password,
         options: {
-            data: { full_name: fullName }
+            data: { 
+                first_name: firstName,
+                last_name: lastName,
+                dob,
+                phone_number: phone,
+                zip_code: zip,
+                organization_name: organizationName,
+                job_title: jobTitle,
+                certification_level: certLevel,
+                primary_sports: primarySports,
+                role: accountType === 'referee' ? 'referee' : 'player',
+                system_role: accountType === 'facility' ? 'facility_admin' : 'player'
+            }
         }
     });
 
@@ -90,6 +120,19 @@ export async function registerAccount(formData: FormData) {
             console.error("Profile update error:", profileUpdateError);
             return { error: 'Failed to assign facility permissions.' };
         }
+    } else if (accountType === 'referee') {
+        // Referees are pending until background check/cert verification
+        const { error: profileUpdateError } = await supabaseAdmin
+            .from('profiles')
+            .update({
+                role: 'referee',
+                verification_status: 'pending'
+            })
+            .eq('id', userId);
+
+        if (profileUpdateError) {
+            console.error("Profile update error:", profileUpdateError);
+        }
     } else {
         // Explicitly ensure player type is active
         const { error: profileUpdateError } = await supabaseAdmin
@@ -108,46 +151,4 @@ export async function registerAccount(formData: FormData) {
     return { success: true };
 }
 
-export async function loginUser(formData: FormData) {
-    // --- SECURITY: RATE LIMITING ---
-    const headerList = await headers();
-    const forwarded = headerList.get('x-forwarded-for');
-    const ip = forwarded ? forwarded.split(',')[0].trim() : '127.0.0.1';
 
-    // 5 login attempts per 5 minutes per IP
-    const isLimited = await isRateLimited(ip, 'action:auth:login', 5, 300);
-    if (isLimited) {
-        return { error: 'Too many login attempts. Please wait 5 minutes.' };
-    }
-    // -------------------------------
-
-    const supabase = await createClient();
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    });
-
-    if (authError) {
-        return { error: authError.message };
-    }
-
-    // Role Fetching for redirection
-    if (authData?.user) {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('system_role')
-            .eq('id', authData.user.id)
-            .single();
-
-        return { 
-            success: true, 
-            userId: authData.user.id,
-            systemRole: profile?.system_role || 'user'
-        };
-    }
-
-    return { error: 'Unexpected login error.' };
-}

@@ -1,0 +1,165 @@
+
+> pitch-side@0.1.0 dev
+> next dev
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3005
+- Network:       http://10.0.0.176:3005
+- Environments: .env.local
+
+✓ Starting...
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+✓ Ready in 470ms
+ GET /admin 307 in 1530ms (compile: 1118ms, proxy.ts: 42ms, render: 370ms)
+
+thread 'tokio-runtime-worker' (5876674) panicked at /Users/geist/dev/actions-runner/_work/next.js/next.js/turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for <EsmAssetReference as ChunkableModuleReference>::chunking_type (TaskId 146462))
+
+Caused by:
+    0: Looking up data for TaskId 146462 from database failed
+    1: Unable to open static sorted file referenced from 00000035.meta
+    2: Unable to open static sorted file 00000031.sst
+    3: No such file or directory (os error 2)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'tokio-runtime-worker' (5875833) panicked at /Users/geist/dev/actions-runner/_work/next.js/next.js/turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for resolve_internal (TaskId 146527))
+
+Caused by:
+    0: Looking up data for TaskId 146527 from database failed
+    1: Unable to open static sorted file referenced from 00000035.meta
+    2: Unable to open static sorted file 00000031.sst
+    3: No such file or directory (os error 2)
+
+thread 'tokio-runtime-worker' (5886828) panicked at /Users/geist/dev/actions-runner/_work/next.js/next.js/turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for ResolveOrigin::resolve_options (TaskId 146590))
+
+Caused by:
+    0: Looking up data for TaskId 146590 from database failed
+    1: Unable to open static sorted file referenced from 00000021.meta
+    2: Unable to open static sorted file 00000011.sst
+    3: No such file or directory (os error 2)
+
+thread 'tokio-runtime-worker' (5875833) panicked at /Users/geist/dev/actions-runner/_work/next.js/next.js/turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for <EsmAssetReference as ChunkableModuleReference>::chunking_type (TaskId 146726))
+
+Caused by:
+    0: Looking up data for TaskId 146726 from database failed
+    1: Unable to open static sorted file referenced from 00000035.meta
+    2: Unable to open static sorted file 00000031.sst
+    3: No such file or directory (os error 2)
+Persisting failed: Unable to open static sorted file referenced from 00000070.meta
+
+Caused by:
+    0: Unable to open static sorted file 00000067.sst
+    1: No such file or directory (os error 2)
+
+thread 'tokio-runtime-worker' (5894555) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:387:51:
+range start index 569764 out of range for slice of length 569728
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+
+thread 'tokio-runtime-worker' (5875585) panicked at /Users/geist/dev/actions-runner/_work/next.js/next.js/turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for ResolveOrigin::resolve_options (TaskId 147007))
+
+Caused by:
+    0: Looking up data for TaskId 147007 from database failed
+    1: Unable to open static sorted file referenced from 00000029.meta
+    2: Unable to open static sorted file 00000025.sst
+    3: No such file or directory (os error 2)
+
+thread 'tokio-runtime-worker' (5886828) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:387:51:
+range start index 569748 out of range for slice of length 569728
+
+thread 'tokio-runtime-worker' (5886828) panicked at /Users/geist/dev/actions-runner/_work/next.js/next.js/turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for <EsmAssetReference as ChunkableModuleReference>::chunking_type (TaskId 147153))
+
+Caused by:
+    0: Looking up data for TaskId 147153 from database failed
+    1: Unable to open static sorted file referenced from 00000071.meta
+    2: Unable to open static sorted file 00000066.sst
+    3: No such file or directory (os error 2)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+
+thread 'tokio-runtime-worker' (5888833) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:411:46:
+range start index 4127466497 out of range for slice of length 1631
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+
+thread 'tokio-runtime-worker' (5886828) panicked at /Users/geist/dev/actions-runner/_work/next.js/next.js/turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Meta for directory_tree_to_loader_tree (TaskId 147189))
+
+Caused by:
+    0: Looking up data for TaskId 147189 from database failed
+    1: Unable to open static sorted file referenced from 00000071.meta
+    2: Unable to open static sorted file 00000066.sst
+    3: No such file or directory (os error 2)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+
+thread 'tokio-runtime-worker' (5875585) panicked at turbopack/crates/turbo-persistence/src/static_sorted_file.rs:387:51:
+range start index 569752 out of range for slice of length 569728
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+
+thread 'tokio-runtime-worker' (5888830) panicked at /Users/geist/dev/actions-runner/_work/next.js/next.js/turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:156:17:
+Failed to restore task data (corrupted database or bug): Data for read_dir (TaskId 147196))
+
+Caused by:
+    0: Looking up data for TaskId 147196 from database failed
+    1: Unable to open static sorted file referenced from 00000021.meta
+    2: Unable to open static sorted file 00000014.sst
+    3: No such file or directory (os error 2)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+[?25h

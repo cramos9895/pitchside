@@ -1,40 +1,110 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Clock, Trophy, MapPin, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function FieldProjector({ params }: { params: Promise<{ match_id: string }> }) {
-    const { match_id: matchId } = use(params);
+    // Robust parameter extraction with client-side fallback
+    const resolvedParams = use(params);
+    const matchId = resolvedParams?.match_id || (typeof window !== 'undefined' ? window.location.pathname.split('/')[3] : '');
+    const supabase = useMemo(() => createClient(), []);
     const [match, setMatch] = useState<any>(null);
     const [game, setGame] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [displayTime, setDisplayTime] = useState(0);
-    const supabase = createClient();
 
     const fetchData = async () => {
         try {
-            const { data: matchData } = await supabase
-                .from('matches')
-                .select('*, games(*)')
-                .eq('id', matchId)
-                .single();
+            let matchData = null;
+            let matchError = null;
+            try {
+                const res = await supabase
+                    .from('matches')
+                    .select('*, games(*)')
+                    .eq('id', matchId)
+                    .single();
+                matchData = res.data;
+                matchError = res.error;
+                
+                // Self-healing retry for Safari/session recovery delays
+                if ((matchError || !matchData) && typeof window !== 'undefined') {
+                    console.warn("First fetch failed, retrying in 1s...", matchError);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    const retry = await supabase
+                        .from('matches')
+                        .select('*, games(*)')
+                        .eq('id', matchId)
+                        .single();
+                    matchData = retry.data;
+                    matchError = retry.error;
+                }
+            } catch (err: any) {
+                if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+                    console.warn("[match_id/display/page.tsx] Match query was aborted");
+                    return;
+                }
+                throw err;
+            }
+
+            if (matchError) {
+                if (matchError.message && (matchError.message.includes('abort') || matchError.message.includes('Abort'))) {
+                    console.warn("[match_id/display/page.tsx] AbortError detected in match query, ignoring");
+                } else {
+                    setError(matchError.message);
+                }
+            } else {
+                setError(null);
+            }
             
             if (matchData) {
                 setMatch(matchData);
                 setGame(matchData.games);
             }
-        } catch (err) {
+        } catch (err: any) {
+            if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+                console.warn("[match_id/display/page.tsx] FetchData was aborted, ignoring");
+                return;
+            }
             console.error("Match Fetch Error:", err);
+            setError(err.message || 'Unknown fetch error');
         } finally {
             setLoading(false);
         }
     };
 
+    // 1. Initial Fetch
     useEffect(() => {
-        fetchData();
-        
+        let isMounted = true;
+        const init = async () => {
+            try {
+                try {
+                    await supabase.auth.getSession();
+                } catch (authErr) {
+                    console.warn("[match_id/display/page.tsx] Auth session recovery failed:", authErr);
+                }
+                if (isMounted) {
+                    await fetchData();
+                }
+            } catch (err) {
+                console.error("Match Display Init Error:", err);
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        };
+        init();
+        return () => {
+            isMounted = false;
+        };
+    }, [matchId]);
+
+    // 2. Real-time Sync
+    useEffect(() => {
+        if (!matchId || loading) return;
+
         const channel = supabase.channel(`match-display-${matchId}`)
             .on('postgres_changes', { 
                 event: '*', 
@@ -49,7 +119,7 @@ export default function FieldProjector({ params }: { params: Promise<{ match_id:
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [matchId]);
+    }, [matchId, loading]);
 
     // Timer Logic
     useEffect(() => {
@@ -100,7 +170,16 @@ export default function FieldProjector({ params }: { params: Promise<{ match_id:
         </div>
     );
 
-    if (!match) return <div className="min-h-screen bg-black flex items-center justify-center text-red-500 uppercase tracking-widest">Match Not Found</div>;
+    if (!match) return (
+        <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4 text-red-500 uppercase tracking-widest font-bold">
+            <div>Match Not Found</div>
+            {error && (
+                <p className="text-sm text-pitch-secondary bg-white/5 border border-white/10 px-4 py-2 rounded normal-case tracking-normal font-medium">
+                    Error: {error}
+                </p>
+            )}
+        </div>
+    );
 
     const isTBD = match.home_team?.includes('TBD') || match.home_team?.includes('Winner') || 
                   match.away_team?.includes('TBD') || match.away_team?.includes('Winner');

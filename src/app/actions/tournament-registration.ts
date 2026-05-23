@@ -28,47 +28,69 @@ export async function registerTournamentTeam(formData: FormData) {
     // 3. Dual-Role / Duplicate Registration Check (Recycling Pattern)
     const { data: existingReg } = await supabase
         .from('tournament_registrations')
-        .select('id, status')
+        .select('id, status, team_id')
         .eq('user_id', user.id)
         .or(`game_id.eq.${tournamentId},league_id.eq.${tournamentId}`)
         .maybeSingle();
 
-    if (existingReg && existingReg.status !== 'cancelled' && existingReg.status !== 'withdrawn') {
+    if (existingReg && 
+        existingReg.status !== 'cancelled' && 
+        existingReg.status !== 'withdrawn' && 
+        existingReg.status !== 'pending'
+    ) {
         throw new Error("You are already registered for this tournament/league.");
     }
 
     // 1. Determine if this tournament corresponds to a game or a league
-    const { data: gameCheck } = await supabase.from('games').select('id').eq('id', tournamentId).single();
+    const { data: gameCheck } = await supabase.from('games').select('id, event_type').eq('id', tournamentId).single();
     const isGame = !!gameCheck;
-    const insertPayload: any = {
+    const eventType = gameCheck?.event_type || 'league';
+
+    const teamPayload: any = {
         captain_id: user.id,
         name: teamName,
         primary_color: primaryColor,
         accepting_free_agents: false // Default to false
     };
     if (isGame) {
-        insertPayload.game_id = tournamentId;
+        teamPayload.game_id = tournamentId;
     } else {
-        insertPayload.league_id = tournamentId;
+        teamPayload.league_id = tournamentId;
     }
 
-    // 2. Create the Team in the teams table
-    const { data: team, error: teamError } = await supabase
-        .from('teams')
-        .insert([insertPayload])
-        .select()
-        .single();
+    let teamId = existingReg?.team_id;
+    let teamError;
 
-    if (teamError || !team) {
-        console.error("Error creating team:", teamError);
-        throw new Error("Failed to create team.");
+    if (teamId) {
+        // Update existing team if it was pending
+        const { error } = await supabase
+            .from('teams')
+            .update(teamPayload)
+            .eq('id', teamId);
+        teamError = error;
+    } else {
+        // Create the Team in the teams table
+        const { data: team, error: err } = await supabase
+            .from('teams')
+            .insert([teamPayload])
+            .select()
+            .single();
+        teamId = team?.id;
+        teamError = err;
+    }
+
+    if (teamError || !teamId) {
+        console.error("Error creating/updating team:", teamError);
+        throw new Error("Failed to process team details.");
     }
 
     // 3. Register/Recycle the Captain in tournament_registrations
+    const requestedStatus = (formData.get('status') as string) || 'registered';
+
     const regPayload: any = {
         user_id: user.id,
-        team_id: team.id,
-        status: 'registered',
+        team_id: teamId,
+        status: requestedStatus,
         role: 'captain'
     };
     if (isGame) {
@@ -77,20 +99,32 @@ export async function registerTournamentTeam(formData: FormData) {
         regPayload.league_id = tournamentId;
     }
 
-    const { error: regError } = await supabase
-        .from('tournament_registrations')
-        .upsert(regPayload, { onConflict: 'user_id,game_id,league_id' });
+    let regError;
+    let registrationId = existingReg?.id;
 
-    if (regError) {
+    if (registrationId) {
+        const { error } = await supabase
+            .from('tournament_registrations')
+            .update(regPayload)
+            .eq('id', registrationId);
+        regError = error;
+    } else {
+        const { data: newReg, error: err } = await supabase
+            .from('tournament_registrations')
+            .insert([regPayload])
+            .select()
+            .single();
+        regError = err;
+        registrationId = newReg?.id;
+    }
+
+    if (regError || !registrationId) {
         console.error("Error registering captain:", regError);
-        // We'd ideally rollback the team creation here, but we'll keep it simple for now
         throw new Error("Failed to finalize registration.");
     }
 
-    // Here we'd integrate Stripe checkout. For this prototype, assume success.
-
     revalidatePath(`/schedule`);
-    return { success: true, teamId: team.id };
+    return { success: true, teamId, registrationId, eventType };
 }
 
 export async function registerTournamentFreeAgent(formData: FormData) {
@@ -102,7 +136,6 @@ export async function registerTournamentFreeAgent(formData: FormData) {
     }
 
     const tournamentId = formData.get('tournament_id') as string;
-    // Extract positions
     const positions = formData.getAll('positions') as string[];
 
     if (positions.length === 0) {
@@ -117,37 +150,44 @@ export async function registerTournamentFreeAgent(formData: FormData) {
         .or(`game_id.eq.${tournamentId},league_id.eq.${tournamentId}`)
         .maybeSingle();
 
-    if (existingReg && existingReg.status !== 'cancelled' && existingReg.status !== 'withdrawn') {
+    if (existingReg && 
+        existingReg.status !== 'cancelled' && 
+        existingReg.status !== 'withdrawn' &&
+        existingReg.status !== 'pending'
+    ) {
         throw new Error("You are already registered for this tournament/league.");
     }
 
     // 1. Determine if this tournament corresponds to a game or a league
-    const { data: gameCheck } = await supabase.from('games').select('id').eq('id', tournamentId).single();
+    const { data: gameCheck } = await supabase.from('games').select('id, event_type').eq('id', tournamentId).single();
     const isGame = !!gameCheck;
+    const eventType = gameCheck?.event_type || 'league';
 
     // 2. Determine price and check for Credit Bypass
     const { data: profile } = await supabase.from('profiles').select('credit_balance').eq('id', user.id).single();
-    const { data: gameData } = await supabase.from('games').select('free_agent_price, player_registration_fee').eq('id', tournamentId).single();
-    const { data: leagueData } = await supabase.from('leagues').select('free_agent_price, player_registration_fee').eq('id', tournamentId).single();
     
-    const price = (gameData?.free_agent_price ?? gameData?.player_registration_fee ?? 
-                   leagueData?.free_agent_price ?? leagueData?.player_registration_fee ?? 0);
-    
-    let initialStatus = 'registered';
-    const walletBalance = profile?.credit_balance || 0;
+    let initialStatus = (formData.get('status') as string) || 'registered';
 
-    if (price > 0 && walletBalance >= (price * 100)) {
-        // Deduct from wallet
-        const { error: walletError } = await supabase
-            .from('profiles')
-            .update({ credit_balance: walletBalance - (price * 100) })
-            .eq('id', user.id);
-        if (walletError) throw new Error("Credit deduction failed.");
-        initialStatus = 'registered';
-    } else if (price > 0) {
-        // If price > 0 and not covered, we expect the frontend/webhook to handle the final 'registered' status
-        // But for this action, we set it to pending if bypass didn't happen
-        initialStatus = 'pending';
+    // If no status provided, check for credit bypass
+    if (!formData.get('status')) {
+        const { data: gameData } = await supabase.from('games').select('free_agent_price, player_registration_fee').eq('id', tournamentId).single();
+        const { data: leagueData } = await supabase.from('leagues').select('free_agent_price, player_registration_fee').eq('id', tournamentId).single();
+        
+        const price = (gameData?.free_agent_price ?? gameData?.player_registration_fee ?? 
+                       leagueData?.free_agent_price ?? leagueData?.player_registration_fee ?? 0);
+        
+        const walletBalance = profile?.credit_balance || 0;
+
+        if (price > 0 && walletBalance >= (price * 100)) {
+            const { error: walletError } = await supabase
+                .from('profiles')
+                .update({ credit_balance: walletBalance - (price * 100) })
+                .eq('id', user.id);
+            if (walletError) throw new Error("Credit deduction failed.");
+            initialStatus = 'registered';
+        } else if (price > 0) {
+            initialStatus = 'pending';
+        }
     }
 
     const regPayload: any = {
@@ -163,23 +203,32 @@ export async function registerTournamentFreeAgent(formData: FormData) {
         regPayload.league_id = tournamentId;
     }
 
-    // 3. Register/Recycle user in tournament_registrations (Draft Pool)
-    const { error: regError } = await supabase
-        .from('tournament_registrations')
-        .upsert(regPayload, { onConflict: 'user_id,game_id,league_id' });
+    let regError;
+    let registrationId = existingReg?.id;
 
-    if (regError) {
+    if (registrationId) {
+        const { error } = await supabase
+            .from('tournament_registrations')
+            .update(regPayload)
+            .eq('id', registrationId);
+        regError = error;
+    } else {
+        const { data: newReg, error: err } = await supabase
+            .from('tournament_registrations')
+            .insert([regPayload])
+            .select()
+            .single();
+        regError = err;
+        registrationId = newReg?.id;
+    }
+
+    if (regError || !registrationId) {
         console.error("Error registering free agent:", regError);
-        // Supabase foreign key / unique constraints might trip if they already registered
-        if (regError.code === '23505') {
-            throw new Error("You have already registered for this tournament.");
-        }
-        // Return detailed error for diagnosis
-        throw new Error(`Failed to join draft pool: ${regError.message} (${regError.code}) ${regError.details || ''}`);
+        throw new Error(`Failed to join draft pool: ${regError?.message || 'Unknown error'}`);
     }
 
     revalidatePath(`/schedule`);
-    return { success: true };
+    return { success: true, registrationId, eventType };
 }
 
 export async function leaveTournament(registrationId: string, tournamentId: string) {

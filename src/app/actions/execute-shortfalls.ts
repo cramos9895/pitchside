@@ -28,7 +28,7 @@ export async function executeEscrowShortfalls(gameId: string) {
         // 2. Fetch all Active/Paid bookings for this league
         const { data: bookingsData, error: bookingsError } = await supabase
             .from('bookings')
-            .select('id, user_id, team_assignment, stripe_payment_method_id, custom_invite_fee, payment_amount, status, payment_status, profiles!bookings_user_id_fkey(stripe_customer_id, full_name, email)')
+            .select('id, user_id, team_assignment, stripe_payment_method_id, custom_invite_fee, payment_amount, status, payment_status, profiles!bookings_user_id_fkey(stripe_customer_id, first_name, last_name, email)')
             .eq('game_id', gameId)
             .neq('status', 'cancelled')
             .neq('roster_status', 'dropped');

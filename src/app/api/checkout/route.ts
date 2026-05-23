@@ -1,4 +1,4 @@
-// 🏗️ Architecture: [[GameCard.md]]
+// 🏗️ Architecture: [[Checkout.md]]
 
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
@@ -7,7 +7,20 @@ import { isRateLimited } from '@/lib/security/rate-limit';
 
 export async function POST(request: Request) {
     try {
-        const { gameId, userId, price = 10.00, title = 'Pickup Soccer Game', note = '', promoCodeId, teamAssignment, isFreeAgent, isLeagueCaptainVaulting, guestIds = [] } = await request.json();
+        const { 
+            gameId, 
+            userId, 
+            price = 10.00, 
+            title = 'Pickup Soccer Game', 
+            note = '', 
+            promoCodeId, 
+            teamAssignment, 
+            isFreeAgent, 
+            isLeagueCaptainVaulting, 
+            registrationId,
+            teamId,
+            guestIds = [] 
+        } = await request.json();
 
         // --- SECURITY: RATE LIMITING ---
         // Checkout is an authenticated action, so we limit by User ID
@@ -28,7 +41,7 @@ export async function POST(request: Request) {
         // Fetch Global Game Config
         const { data: gameConfig } = await adminSupabase
             .from('games')
-            .select('max_players, teams_config, price')
+            .select('max_players, teams_config, price, event_type')
             .eq('id', gameId)
             .single();
 
@@ -123,6 +136,7 @@ export async function POST(request: Request) {
                             .update({
                                 status: passenger.status,
                                 payment_status: passenger.payment_status,
+                                roster_status: 'confirmed',
                                 team_assignment: passenger.team_assignment || null,
                                 note: passenger.note || null
                             })
@@ -157,7 +171,9 @@ export async function POST(request: Request) {
             }
         }
 
-        if (isFreeAgent) {
+        const eventType = gameConfig?.event_type || 'league';
+
+        if (isFreeAgent && eventType !== 'pickup') {
             const session = await stripe.checkout.sessions.create({
                 mode: 'setup',
                 ui_mode: 'embedded',
@@ -166,8 +182,11 @@ export async function POST(request: Request) {
                 metadata: {
                     game_id: gameId,
                     user_id: userId,
+                    registration_id: registrationId || '',
+                    team_id: teamId || '',
                     note: note,
                     is_free_agent: 'true',
+                    type: eventType,
                     ...(promoCodeId && { promo_code_id: promoCodeId })
                 },
                 return_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -207,8 +226,11 @@ export async function POST(request: Request) {
                 metadata: {
                     game_id: gameId,
                     user_id: userId,
+                    registration_id: registrationId || '',
+                    team_id: teamId || '',
                     note: note,
                     is_league_captain: 'true',
+                    type: 'league',
                     ...(teamAssignment !== undefined && teamAssignment !== null && { team_assignment: teamAssignment.toString() })
                 },
                 return_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -236,7 +258,11 @@ export async function POST(request: Request) {
             metadata: {
                 game_id: gameId,
                 user_id: userId,
+                registration_id: registrationId || '',
+                team_id: teamId || '',
                 note: note, // Store request note in metadata
+                type: eventType,
+                is_free_agent: isFreeAgent ? 'true' : 'false',
                 ...(promoCodeId && { promo_code_id: promoCodeId }),
                 ...(teamAssignment && { team_assignment: teamAssignment.toString() })
             },

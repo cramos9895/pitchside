@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect, useCallback } from 'react';
+import { use, useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { 
     Clock, 
@@ -31,6 +31,7 @@ import { checkInPlayer, toggleManualWaiver, updatePlayerPhoto } from '@/app/acti
 
 export default function MatchControlRoom({ params }: { params: Promise<{ match_id: string }> }) {
     const { match_id: matchId } = use(params);
+    const supabase = useMemo(() => createClient(), []);
     const [match, setMatch] = useState<any>(null);
     const [game, setGame] = useState<any>(null);
     const [bookings, setBookings] = useState<any[]>([]);
@@ -41,7 +42,6 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
     const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
     
     const { success, error: toastError } = useToast();
-    const supabase = createClient();
 
     const fetchData = useCallback(async () => {
         try {
@@ -66,7 +66,7 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
                 // Fetch bookings for rosters
                 const { data: bookingData } = await supabase
                     .from('bookings')
-                    .select('*, profiles!bookings_user_id_fkey(full_name, avatar_url)')
+                    .select('*, profiles!bookings_user_id_fkey(first_name, last_name, avatar_url)')
                     .eq('game_id', matchData.game_id)
                     .in('status', ['active', 'paid']);
                 
@@ -328,9 +328,9 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
     };
 
     const getPlayerName = (p: any) => {
-        if (!p) return 'Unknown';
+        if (!p || !p.profiles) return 'Unknown';
         const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
-        return profile?.full_name || 'Unknown Player';
+        return profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : 'Unknown Player';
     };
 
     if (loading) return (
@@ -363,13 +363,13 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <Link
+                    <a
                         href={`/admin/matches/${matchId}/display`}
                         target="_blank"
                         className="flex items-center gap-2 px-4 py-2 bg-pitch-accent/10 border border-pitch-accent/30 text-pitch-accent rounded hover:bg-pitch-accent hover:text-black transition-all text-[10px] font-black uppercase tracking-widest"
                     >
                         <Monitor className="w-4 h-4" /> Launch Projector
-                    </Link>
+                    </a>
                     {match.status !== 'completed' && (
                         <button 
                             onClick={handleCompleteMatch}

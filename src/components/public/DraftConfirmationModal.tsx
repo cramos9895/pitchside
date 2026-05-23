@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils';
 interface Player {
     id: string;
     profiles: {
-        full_name: string;
+        first_name: string;
+        last_name: string;
         avatar_url: string | null;
     };
 }
@@ -50,7 +51,7 @@ export function DraftConfirmationModal({ isOpen, onClose, onConfirm, player, isP
                                 Draft Confirmation
                             </h3>
                             <p className="text-gray-400 text-sm mt-1">
-                                Are you sure you want to draft <span className="text-white font-bold">{player.profiles.full_name}</span>?
+                                Are you sure you want to draft <span className="text-white font-bold">{player.profiles.first_name} {player.profiles.last_name}</span>?
                             </p>
                         </div>
 

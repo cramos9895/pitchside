@@ -49,7 +49,7 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
             .select(`
                 id,
                 user_id,
-                profiles(full_name, avatar_url)
+                profiles(first_name, last_name, avatar_url)
             `)
             .eq('team_id', registration.team_id)
             .neq('status', 'cancelled');

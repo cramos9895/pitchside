@@ -1,5 +1,6 @@
-import { Shield, RefreshCw } from 'lucide-react';
+import { Shield, RefreshCw, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 export function AdminRollingHeader({ 
     leagueTitle, 
@@ -11,8 +12,11 @@ export function AdminRollingHeader({
     loading?: boolean; 
 }) {
     return (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
             <div>
+                <Link href="/admin" className="flex items-center text-pitch-secondary hover:text-white mb-2 transition-colors text-sm">
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+                </Link>
                 <div className="flex items-center gap-3 mb-2">
                     <Shield className="w-6 h-6 text-pitch-accent" />
                     <h1 className="text-3xl font-black italic uppercase tracking-tighter text-white">

@@ -191,7 +191,7 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', o
                         {identityPhoto ? (
                             <div className="text-center">
                                 <div className="w-48 h-48 mx-auto rounded-xl overflow-hidden border-2 border-white/20 relative shadow-xl mb-3">
-                                    <img src={identityPhoto} alt={profile?.full_name} className="w-full h-full object-cover" />
+                                    <img src={identityPhoto} alt={`${profile?.first_name} ${profile?.last_name}`} className="w-full h-full object-cover" />
                                     <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-center">
                                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-green-400 flex items-center justify-center gap-1">
                                             <CheckCircle2 className="w-3 h-3" /> Verified ID
@@ -244,7 +244,7 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', o
                     {/* Player Info */}
                     <div className="bg-black/40 rounded-xl p-4 border border-white/5 space-y-4">
                         <div className="text-center">
-                            <h2 className="text-2xl font-black uppercase tracking-wider">{profile?.full_name}</h2>
+                            <h2 className="text-2xl font-black uppercase tracking-wider">{profile?.first_name} {profile?.last_name}</h2>
                             <p className="text-pitch-accent font-bold uppercase tracking-widest text-xs mt-1 flex items-center justify-center gap-2">
                                 {registration?.teamName || 'Unassigned / Free Agent'}
                                 {registration?.isCaptain && <span className="text-[9px] bg-pitch-accent text-black px-1.5 py-0.5 rounded font-black tracking-widest">C</span>}

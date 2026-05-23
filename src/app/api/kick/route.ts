@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
                 .select(`
                     id,
                     user_id,
-                    profiles:user_id(email, full_name)
+                    profiles:user_id(email, first_name, last_name)
                 `)
                 .eq('game_id', gameId)
                 .or('roster_status.eq.waitlisted,status.eq.waitlist')
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
                                 subject: `You're in! Spot opened for ${game.title}`,
                                 type: 'waitlist_promotion',
                                 data: {
-                                    userName: promotedUser?.full_name || 'Player',
+                                    userName: promotedUser?.first_name ? `${promotedUser.first_name} ${promotedUser.last_name}` : 'Player',
                                     gameTitle: game.title,
                                     gameDate: new Date(game.start_time).toLocaleDateString(),
                                     gameTime: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),

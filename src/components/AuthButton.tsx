@@ -11,44 +11,63 @@ import { GlobalPassportModal } from '@/components/public/checkin/GlobalPassportM
 
 export function AuthButton() {
     const [user, setUser] = useState<User | null>(null);
+    const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null } | null>(null);
     const [passportOpen, setPassportOpen] = useState(false);
     const router = useRouter();
     const supabase = createClient();
 
     useEffect(() => {
-        const getUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            setUser(session?.user ?? null);
-
-            const { data: authListener } = supabase.auth.onAuthStateChange(
-                (event, session) => {
-                    setUser(session?.user ?? null);
-                    if (event === 'SIGNED_OUT') {
-                        router.refresh();
-                    }
-                }
-            );
-
-            return () => {
-                authListener.subscription.unsubscribe();
-            };
+        const fetchSession = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            const currentUser = user ?? null;
+            setUser(currentUser);
+            
+            if (currentUser) {
+                const { data } = await supabase.from('profiles').select('first_name, last_name').eq('id', currentUser.id).single();
+                setProfile(data);
+            } else {
+                setProfile(null);
+            }
         };
 
-        getUser();
-    }, [router]);
+        fetchSession();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event: any, session: any) => {
+                const currentUser = session?.user ?? null;
+                setUser(currentUser);
+                
+                if (currentUser) {
+                    const { data } = await supabase.from('profiles').select('first_name, last_name').eq('id', currentUser.id).single();
+                    setProfile(data);
+                } else {
+                    setProfile(null);
+                }
+
+                if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
+                    router.refresh();
+                }
+            }
+        );
+
+        return () => {
+            subscription.unsubscribe();
+        };
+    }, [router, supabase.auth]);
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();
-        router.refresh();
+        // Trigger the native server-authoritative logout route
+        window.location.href = '/auth/logout';
     };
 
     if (!user) {
         return (
-            <div className="flex gap-4">
-                <Link href="/login" className="px-5 py-2 text-sm font-bold uppercase tracking-wider hover:text-pitch-accent transition-colors">
+            <div className="flex gap-2 sm:gap-4">
+                <Link href="/login" className="px-3 py-1.5 sm:px-5 sm:py-2 text-xs sm:text-sm font-bold uppercase tracking-wider hover:text-pitch-accent transition-colors">
                     Login
                 </Link>
-                <Link href="/signup" className="px-5 py-2 bg-white text-pitch-black text-sm font-bold uppercase tracking-wider hover:bg-pitch-accent hover:text-pitch-black transition-colors rounded-sm">
+                <Link href="/signup" className="px-3 py-1.5 sm:px-5 sm:py-2 bg-white text-pitch-black text-xs sm:text-sm font-bold uppercase tracking-wider hover:bg-pitch-accent hover:text-pitch-black transition-colors rounded-sm">
                     Sign Up
                 </Link>
             </div>
@@ -69,7 +88,9 @@ export function AuthButton() {
                 <div className="w-8 h-8 bg-pitch-accent rounded-full flex items-center justify-center text-pitch-black">
                     <UserIcon className="w-4 h-4" />
                 </div>
-                <span className="hidden md:inline">{user.email?.split('@')[0]}</span>
+                <span className="hidden md:inline">
+                    {profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : (user.email?.split('@')[0])}
+                </span>
             </Link>
             <button
                 onClick={handleSignOut}

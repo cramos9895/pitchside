@@ -5,7 +5,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
-import { loginUser } from '@/app/actions/auth';
+import { createClient } from '@/lib/supabase/client';
 
 function LoginForm() {
     const router = useRouter();
@@ -26,42 +26,60 @@ function LoginForm() {
         setError(null);
 
         try {
-            const formData = new FormData();
-            formData.append('email', email);
-            formData.append('password', password);
+            // 1. Authenticate the Browser Client (Populates LocalStorage for Realtime/Client hooks)
+            const supabase = createClient();
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
 
-            const result = await loginUser(formData);
-
-            if (result.error) {
-                setError(result.error);
+            if (authError) {
+                setError(authError.message || 'Failed to sign in.');
                 setLoading(false);
                 return;
             }
 
-            if (result.success) {
-                if (nextPath) {
-                    router.push(nextPath);
-                } else if (result.systemRole === 'facility_admin' || result.systemRole === 'super_admin') {
-                    router.push('/facility');
-                } else {
-                    router.push('/');
-                }
-                router.refresh();
+            // 2. Authenticate the Next.js Server (Populates HttpOnly Cookie for Server Components)
+            const formData = new FormData();
+            formData.append('email', email);
+            formData.append('password', password);
+            if (nextPath) {
+                formData.append('next', nextPath);
+            }
+
+            const response = await fetch('/auth/login', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                setError(result.error || 'Failed to authenticate server session.');
+                setLoading(false);
+                return;
+            }
+
+            // 3. Clear Next.js Client Router Cache and Navigate
+            if (result.success && result.url) {
+                router.refresh(); // Purge stale unauthenticated caches
+                setTimeout(() => {
+                    router.push(result.url);
+                }, 100);
             }
 
         } catch (err: any) {
             setError(err.message || 'An unexpected error occurred.');
-        } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-pitch-black flex items-center justify-center px-4 font-sans text-white">
+        <div className="min-h-screen bg-pitch-black flex items-center justify-center px-4 font-sans text-white relative overflow-hidden">
             {/* Background Glow */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-pitch-accent/5 blur-[100px] rounded-full pointer-events-none" />
 
-            <div className="w-full max-w-md bg-pitch-card border border-white/10 p-8 rounded-sm relative z-10 shadow-2xl">
+            <div className="w-full max-w-md bg-pitch-card border border-white/10 p-4 sm:p-8 rounded-sm relative z-10 shadow-2xl">
                 <div className="text-center mb-10">
                     <Link href="/" className="inline-block text-3xl font-heading font-black italic tracking-tighter mb-2">
                         PITCH<span className="text-pitch-accent">SIDE</span>
@@ -74,8 +92,10 @@ function LoginForm() {
                 <form onSubmit={handleAuth} className="space-y-4">
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary mb-2">Email</label>
+                            <label htmlFor="email" className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary mb-2">Email</label>
                             <input
+                                id="email"
+                                name="email"
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -87,12 +107,14 @@ function LoginForm() {
 
                         <div>
                             <div className="flex justify-between items-center mb-2">
-                                <label className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary">Password</label>
+                                <label htmlFor="password" className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary">Password</label>
                                 <Link href="/forgot-password" className="text-xs text-pitch-accent hover:underline">
                                     Forgot Password?
                                 </Link>
                             </div>
                             <input
+                                id="password"
+                                name="password"
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
@@ -113,7 +135,7 @@ function LoginForm() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-pitch-accent text-pitch-black font-black uppercase tracking-wider py-4 rounded-sm hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-8"
+                        className="w-full bg-pitch-accent text-pitch-black font-black uppercase tracking-wider py-3 sm:py-4 rounded-sm hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-8"
                     >
                         {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                         Enter the Pitch

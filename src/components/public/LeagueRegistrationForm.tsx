@@ -60,6 +60,8 @@ export function LeagueRegistrationForm({ league, type, isRolling = false }: Regi
     // Stripe State
     const [showStripeModal, setShowStripeModal] = useState(false);
     const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
+    const [registrationId, setRegistrationId] = useState<string | null>(null);
+    const [eventType, setEventType] = useState<string | null>(null);
 
     const handlePositionToggle = (pos: string) => {
         setSelectedPositions(prev => 
@@ -95,6 +97,23 @@ export function LeagueRegistrationForm({ league, type, isRolling = false }: Regi
                 formData.append('primaryColor', primaryColor);
                 formData.append('paymentChoice', paymentChoice);
                 
+                // If payment required (deposit or full), create pending first
+                if (!isCashLeague && teamPrice > 0) {
+                    formData.append('status', 'pending');
+                    const res = isRolling 
+                        ? await registerRollingCaptain(formData) 
+                        : await registerCaptain(formData);
+                    
+                    if (res.success && res.registrationId) {
+                        setRegistrationId(res.registrationId);
+                        setEventType(res.eventType || 'league');
+                        setPendingFormData(formData);
+                        setShowStripeModal(true);
+                        setLoading(false);
+                        return;
+                    }
+                }
+
                 if (isRolling) {
                     await registerRollingCaptain(formData);
                 } else {
@@ -103,16 +122,21 @@ export function LeagueRegistrationForm({ league, type, isRolling = false }: Regi
                 alert("Team Captain Registration Successful!");
 
             } else {
-                // For free agents, we still append for backward compatibility if actions expect multiple keys, 
-                // but the instruction says to JSON.stringify for cleaner parsing.
-                // We'll stick to the JSON.stringify for both as requested.
-
-                // If Stripe, open modal first
-                if (!isCashLeague && freeAgentPrice > 0 && !showStripeModal) {
-                    setPendingFormData(formData);
-                    setShowStripeModal(true);
-                    setLoading(false);
-                    return;
+                // If Stripe, create pending first
+                if (!isCashLeague && freeAgentPrice > 0) {
+                    formData.append('status', 'pending');
+                    const res = isRolling
+                        ? await registerRollingFreeAgent(formData)
+                        : await registerFreeAgent(formData);
+                    
+                    if (res.success && res.registrationId) {
+                        setRegistrationId(res.registrationId);
+                        setEventType(res.eventType || 'league');
+                        setPendingFormData(formData);
+                        setShowStripeModal(true);
+                        setLoading(false);
+                        return;
+                    }
                 }
 
                 if (isRolling) {
@@ -137,14 +161,22 @@ export function LeagueRegistrationForm({ league, type, isRolling = false }: Regi
         setShowStripeModal(false);
         if (pendingFormData) {
             setLoading(true);
-            if (isRolling) {
-                await registerRollingFreeAgent(pendingFormData);
-            } else {
-                await registerFreeAgent(pendingFormData);
+            try {
+                pendingFormData.set('status', 'registered');
+                if (type === 'team') {
+                    if (isRolling) await registerRollingCaptain(pendingFormData);
+                    else await registerCaptain(pendingFormData);
+                } else {
+                    if (isRolling) await registerRollingFreeAgent(pendingFormData);
+                    else await registerFreeAgent(pendingFormData);
+                }
+                alert("Registration & Payment Successful!");
+                router.push(isRolling ? `/rolling-leagues/${league.id}` : `/leagues/${league.id}`);
+                router.refresh();
+            } catch (err: any) {
+                setError(err.message || 'Failed to finalize registration after payment.');
+                setLoading(false);
             }
-            alert("Free Agent Registration & Payment Successful!");
-            router.push(isRolling ? `/rolling-leagues/${league.id}` : `/leagues/${league.id}`);
-            router.refresh();
         }
     };
 
@@ -414,6 +446,9 @@ export function LeagueRegistrationForm({ league, type, isRolling = false }: Regi
                 onSuccess={handleStripeSuccess}
                 title="Free Agent Registration"
                 description={`Registration for ${leagueName}`}
+                eventId={league.id}
+                registrationId={registrationId || undefined}
+                eventType={eventType || undefined}
             />
         </div>
     );

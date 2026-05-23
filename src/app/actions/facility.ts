@@ -1027,7 +1027,7 @@ export async function approveContract(bookingId: string, finalPriceCents: number
     // -------------------------------------------------------------------------------------------------
     const { data: userProfile } = await adminSupabase
         .from('profiles')
-        .select('email, full_name')
+        .select('email, first_name, last_name')
         .eq('id', booking.user_id)
         .single();
 

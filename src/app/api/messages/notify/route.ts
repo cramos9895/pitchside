@@ -44,11 +44,11 @@ export async function POST(request: NextRequest) {
 
         const senderProfile = await supabase
             .from('profiles')
-            .select('full_name, email')
+            .select('first_name, last_name, email')
             .eq('id', user.id)
             .single();
 
-        const senderName = senderProfile?.data?.full_name || senderProfile?.data?.email || 'A Participant';
+        const senderName = senderProfile?.data?.first_name ? `${senderProfile.data.first_name} ${senderProfile.data.last_name}` : senderProfile?.data?.email || 'A Participant';
 
         const gameUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.pitchsidecf.com'}/games/${gameId}`;
         const emailsToSend = new Set<string>();

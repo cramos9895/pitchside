@@ -16,7 +16,8 @@ interface PendingPayment {
     payment_method: string;
     created_at: string;
     profiles: {
-        full_name: string;
+        first_name: string;
+        last_name: string;
         email: string;
     } | null;
     games: {
@@ -45,7 +46,7 @@ export function PendingPaymentsWidget() {
                     payment_amount, 
                     payment_method, 
                     created_at,
-                    profiles(full_name, email),
+                    profiles(first_name, last_name, email),
                     games(title, start_time)
                 `)
                 .eq('payment_status', 'pending')
@@ -158,7 +159,7 @@ export function PendingPaymentsWidget() {
                         {payments.map(item => {
                             const profile = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
                             const game = Array.isArray(item.games) ? item.games[0] : item.games;
-                            const name = profile?.full_name || 'Unknown User';
+                            const name = profile?.first_name ? `${profile.first_name} ${profile.last_name}` : 'Unknown User';
                             const gameTitle = game?.title || 'Unknown Game';
 
                             return (

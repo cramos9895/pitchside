@@ -8,7 +8,8 @@ import { useToast } from '@/components/ui/Toast';
 interface Profile {
     id: string;
     email: string;
-    full_name: string;
+    first_name: string;
+    last_name: string;
     role: 'player' | 'host' | 'master_admin';
     is_banned?: boolean;
     banned_until?: string | null;
@@ -106,7 +107,7 @@ export default function ManageUserModal({ isOpen, onClose, user, onSaveBan }: Ma
                 <div className="p-6 border-b border-white/10 flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-heading font-bold uppercase italic text-white flex items-center gap-2">
-                             Manage <span className="text-pitch-accent">{user.full_name}</span>
+                             Manage <span className="text-pitch-accent">{user.first_name} {user.last_name}</span>
                         </h2>
                         <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">{user.email}</p>
                     </div>

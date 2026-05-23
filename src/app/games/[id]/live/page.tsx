@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState, use, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useEffect, useState, useRef, useMemo } from 'react';
+import { useParams } from 'next/navigation';
+import { createClient as createRawClient } from '@supabase/supabase-js';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { StandingsTable } from '@/components/admin/StandingsTable';
@@ -32,21 +33,121 @@ interface Match {
     field_name?: string;
 }
 
-export default function LiveProjectorPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id: gameId } = use(params);
-    const supabase = createClient();
+export default function LiveProjectorPage() {
+    const params = useParams();
+    const gameId = (params?.id as string) || (typeof window !== 'undefined' ? window.location.pathname.split('/')[2] : '');
+    
+    // Create a RAW client that completely bypasses locks.js and SSR auth contention
+    const supabase = useMemo(() => createRawClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+                detectSessionInUrl: false
+            }
+        }
+    ), []);
 
     const [game, setGame] = useState<Game | null>(null);
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const [timeRemaining, setTimeRemaining] = useState<number>(0);
+
+    const buzzerPlayedRef = useRef(false);
+
+    const playBuzzer = () => {
+        try {
+            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+            if (!AudioContext) return;
+            const audioCtx = new AudioContext();
+            
+            const gainNode = audioCtx.createGain();
+            gainNode.connect(audioCtx.destination);
+            
+            // Hard attack, sustain 1.2s, hard release
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05);
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime + 1.2);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
+            
+            // Dissonant low frequencies for the classic NBA horn
+            const freqs = [150, 154, 200, 204];
+            freqs.forEach(freq => {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sawtooth';
+                osc.frequency.value = freq;
+                osc.connect(gainNode);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 1.5);
+            });
+        } catch (e) {
+            console.error("Audio playback failed", e);
+        }
+    };
+
+    useEffect(() => {
+        if (timeRemaining === 0 && game?.timer_status === 'running' && !buzzerPlayedRef.current) {
+            buzzerPlayedRef.current = true;
+            playBuzzer();
+        } else if (timeRemaining > 0) {
+            buzzerPlayedRef.current = false;
+        }
+    }, [timeRemaining, game?.timer_status]);
+
     // The Unified, Uncached Refetch
     const refreshData = async () => {
-        const { data: freshGame } = await supabase.from('games').select('*').eq('id', gameId).single();
-        const matchesRes = await fetch(`/api/matches?gameId=${gameId}`);
-        const matchesResult = await matchesRes.json();
-        const freshMatches = matchesResult.data || [];
+        let freshGame = null;
+        let gameError = null;
+        try {
+            const { data, error: err } = await supabase.from('games').select('*').eq('id', gameId).single();
+            freshGame = data;
+            gameError = err;
+            
+            // Self-healing retry for Safari/session recovery delays
+            if ((gameError || !freshGame) && typeof window !== 'undefined') {
+                console.warn("First fetch failed, retrying in 1s...", gameError);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const retry = await supabase.from('games').select('*').eq('id', gameId).single();
+                freshGame = retry.data;
+                gameError = retry.error;
+            }
+        } catch (err: any) {
+            if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+                console.warn("[live/page.tsx] Game query was aborted. Retrying in 2s...");
+                setTimeout(refreshData, 2000);
+                return;
+            }
+            gameError = err;
+        }
+
+        if (gameError) {
+            if (gameError.message && (gameError.message.includes('abort') || gameError.message.includes('Abort'))) {
+                console.warn("[live/page.tsx] AbortError detected in games query, ignoring");
+            } else {
+                setError(gameError.message);
+            }
+        } else {
+            setError(null);
+        }
+
+        let freshMatches = [];
+        try {
+            const matchesRes = await fetch(`/api/matches?gameId=${gameId}&_t=${Date.now()}`);
+            const matchesResult = await matchesRes.json();
+            freshMatches = matchesResult.data || [];
+        } catch (err: any) {
+            if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+                console.warn("[live/page.tsx] Matches fetch was aborted. Retrying in 2s...");
+                setTimeout(refreshData, 2000);
+                return;
+            } else {
+                console.error("[live/page.tsx] Matches fetch error:", err);
+            }
+        }
 
         if (freshGame) {
             setGame(freshGame);
@@ -60,7 +161,11 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
         const hLen = g?.half_length || 0;
         const standardDuration = hLen > 0 ? hLen * 60 : (g?.timer_duration || 0);
         
-        if (g?.timer_status === 'stopped' || g?.timer_status === 'paused') {
+        if (g?.timer_status === 'stopped') {
+            setTimeRemaining(standardDuration);
+        } else if (g?.timer_status === 'paused') {
+            setTimeRemaining(g?.timer_duration || standardDuration);
+        } else if (g?.timer_status === 'foo') {
             setTimeRemaining(standardDuration);
         } else if (g?.timer_status === 'running' && g?.timer_started_at) {
             const startTime = new Date(g.timer_started_at).getTime();
@@ -72,13 +177,30 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
 
     // Initial Fetch
     useEffect(() => {
-        refreshData().then(() => setLoading(false));
+        let isMounted = true;
+        const init = async () => {
+            try {
+                if (isMounted) {
+                    await refreshData();
+                }
+            } catch (err) {
+                console.error("Error loading live projector page:", err);
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        };
+        init();
+        return () => {
+            isMounted = false;
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [gameId, supabase]);
+    }, [gameId]);
 
     // Realtime Subscriptions (Tripwire Architecture)
     useEffect(() => {
-        if (!gameId) return;
+        if (!gameId || loading) return;
 
         const channel = supabase.channel(`live-projector-${gameId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
@@ -97,7 +219,7 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [gameId]); // ONLY depend on gameId, nothing else.
+    }, [gameId, loading]); // ONLY depend on gameId and loading, nothing else.
 
     // Timer Heartbeat (Bulletproof Ref Pattern)
     const gameRef = useRef(game);
@@ -115,8 +237,10 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
                 const hLen = g.half_length || 0;
                 const duration = g.timer_duration > 0 ? g.timer_duration : (hLen * 60);
                 setTimeRemaining(Math.max(0, duration - elapsed));
+            } else if (g.timer_status === 'paused') {
+                setTimeRemaining(g.timer_duration || 0);
             } else {
-                // Stopped/Paused: Force Sync to Half Length if available
+                // Stopped: Force Sync to Half Length if available
                 const hLen = g.half_length || 0;
                 const standard = hLen > 0 ? (hLen * 60) : (g.timer_duration || 0);
                 setTimeRemaining(standard);
@@ -136,8 +260,13 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
 
     if (!game) {
         return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
+            <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
                 <h1 className="text-4xl text-white font-bold">Game Not Found</h1>
+                {error && (
+                    <p className="text-sm text-pitch-secondary bg-white/5 border border-white/10 px-4 py-2 rounded">
+                        Error: {error}
+                    </p>
+                )}
             </div>
         );
     }
@@ -197,17 +326,33 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
     // --- VIEW RENDERERS ---
 
     const renderTimer = () => {
-        const isTournament = effectiveMode === 'tournament' || effectiveMode === 'king';
+        const isTourneyOnly = effectiveMode === 'tournament';
+        const timerFontSize = (() => {
+            if (effectiveMode === 'king') return 'clamp(8rem, 22vh, 14rem)';
+            if (effectiveMode === 'tournament') return 'clamp(4rem, 13vh, 8.5rem)';
+            return 'clamp(8rem, 18vw, 15rem)';
+        })();
+        const timerStatusFontSize = (() => {
+            if (effectiveMode === 'king') return 'text-5xl';
+            if (effectiveMode === 'tournament') return 'text-xl lg:text-2xl';
+            return 'text-4xl';
+        })();
+        const timeUpFontSize = (() => {
+            if (effectiveMode === 'king') return 'text-7xl';
+            if (effectiveMode === 'tournament') return 'text-2xl lg:text-4xl';
+            return 'text-6xl';
+        })();
+
         return (
-            <div className={cn("text-center w-full shrink-0", isTournament ? "mb-0" : "mb-8")}>
+            <div className={cn("text-center w-full shrink-0", isTourneyOnly ? "mb-0" : "mb-8")}>
                 <div className={cn(
-                    isTournament ? "font-black tracking-tighter tabular-nums text-white drop-shadow-2xl" : "font-mono font-black tracking-tighter tabular-nums transition-colors duration-500",
-                    !isTournament && (game.timer_status === 'paused' ? "animate-pulse text-gray-500" :
+                    isTourneyOnly ? "font-black tracking-tighter tabular-nums text-white drop-shadow-2xl" : "font-mono font-black tracking-tighter tabular-nums transition-colors duration-500",
+                    !isTourneyOnly && (game.timer_status === 'paused' ? "animate-pulse text-gray-500" :
                     timeRemaining === 0 && game.timer_status !== 'stopped' ? "text-red-600 animate-pulse" :
                         isLowTime ? "text-yellow-500" : "text-white drop-shadow-2xl")
                 )}
                     style={{ 
-                        fontSize: isTournament ? 'clamp(4rem, 13vh, 8.5rem)' : 'clamp(8rem, 18vw, 15rem)',
+                        fontSize: timerFontSize,
                         lineHeight: '1.1',
                         marginBlock: '0'
                     }}
@@ -215,10 +360,10 @@ export default function LiveProjectorPage({ params }: { params: Promise<{ id: st
                     {timeDisplay}
                 </div>
                 {game.timer_status === 'paused' && (
-                    <div className={cn("font-bold uppercase tracking-widest text-gray-500 mt-2 shrink-0", isTournament ? "text-xl lg:text-2xl" : "text-4xl")}>PAUSED</div>
+                    <div className={cn("font-bold uppercase tracking-widest text-gray-500 mt-2 shrink-0", timerStatusFontSize)}>PAUSED</div>
                 )}
                 {timeRemaining === 0 && game.timer_status !== 'stopped' && (
-                    <div className={cn("font-black uppercase tracking-widest text-red-600 mt-2 italic shrink-0", isTournament ? "text-2xl lg:text-4xl" : "text-6xl")}>TIME!</div>
+                    <div className={cn("font-black uppercase tracking-widest text-red-600 mt-2 italic shrink-0", timeUpFontSize)}>TIME!</div>
                 )}
             </div>
         );

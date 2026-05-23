@@ -2,9 +2,11 @@
 import Link from 'next/link';
 import { ArrowRight, Star, Quote, CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { GameCard } from '@/components/GameCard';
-import { TournamentCard } from '@/components/public/TournamentCard';
-import { LeagueCard } from '@/components/public/LeagueCard';
+import { PickupCard } from '@/components/public/pickup/PickupCard';
+import { TournamentCard } from '@/components/public/tournaments/TournamentCard';
+import { LeagueCard } from '@/components/public/leagues/LeagueCard';
+import { RollingLeagueCard } from '@/components/public/RollingLeagueCard';
+import { ReviewMarquee } from '@/components/public/ReviewMarquee';
 
 // Define the Game interface matching the Supabase schema
 interface Game {
@@ -120,10 +122,10 @@ export default async function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-pitch-black text-white font-sans selection:bg-pitch-accent selection:text-pitch-black pt-2 pb-20">
+    <div className="min-h-screen bg-pitch-black text-white font-sans selection:bg-pitch-accent selection:text-pitch-black pb-20">
 
       {/* Hero Section */}
-      <section className="relative px-6 min-h-[70vh] flex flex-col items-center justify-center text-center overflow-hidden">
+      <section className="relative px-6 pt-32 pb-12 md:pb-20 text-center overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-pitch-accent/10 blur-[120px] rounded-full pointer-events-none" />
 
         <div className="relative z-10 max-w-5xl mx-auto space-y-8">
@@ -132,7 +134,7 @@ export default async function Home() {
             Live in NW Chicago Suburbs
           </div>
 
-          <h1 className="font-heading text-5xl md:text-7xl lg:text-8xl font-bold uppercase italic leading-[0.9] tracking-tighter">
+          <h1 className="font-heading text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-bold uppercase italic leading-[0.9] tracking-tighter">
             {siteContent.hero_headline}
           </h1>
 
@@ -160,10 +162,77 @@ export default async function Home() {
         )}
       </section>
 
-      {/* 3-Step How It Works Section */}
-      <section className="py-24 px-6 bg-black/50 border-y border-white/5 mt-12">
+      {/* Featured Games Preview */}
+      <section className="pt-8 pb-12 md:pb-20 px-6 bg-pitch-black">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="flex items-center justify-between mb-12">
+            <h2 className="font-heading text-4xl md:text-5xl font-bold uppercase italic tracking-tighter">
+              Events & <span className="text-pitch-accent">Matches</span>
+            </h2>
+            <Link href="/schedule" className="px-5 py-2.5 bg-pitch-accent text-pitch-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-white transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.2)] group">
+              View All <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+
+          {!games || games.length === 0 ? (
+            <div className="text-center py-12 border border-white/5 rounded-sm bg-pitch-card">
+              <p className="text-xl text-pitch-secondary font-bold">No games scheduled yet.</p>
+              <p className="text-sm text-gray-500 mt-2">Check back soon for upcoming matches.</p>
+            </div>
+          ) : (
+            <div className="flex overflow-x-auto -mx-6 px-6 gap-6 md:grid md:grid-cols-3 md:pb-0 md:mx-0 md:px-0 scrollbar-hide snap-x snap-mandatory items-stretch">
+              {games.map((game: any) => {
+                const registrations = userRegistrationsMap.get(game.id) || [];
+
+                return (
+                  <div key={game.id} className="min-w-[85vw] md:min-w-0 snap-center flex flex-col h-full">
+                    {game.event_type === 'pickup' || game.event_type === 'standard' ? (
+                      <PickupCard
+                        game={game}
+                        user={user}
+                        bookingStatus={bookingStatusMap.get(game.id)}
+                        bookingId={bookingIdMap.get(game.id)}
+                      />
+                    ) : game.event_type === 'tournament' ? (
+                      <TournamentCard
+                        tournament={game}
+                        userId={user?.id}
+                        registrations={registrations}
+                      />
+                    ) : game.event_type === 'league' ? (
+                      game.league_format === 'rolling' ? (
+                        <RollingLeagueCard
+                          league={game}
+                          userId={user?.id}
+                          registrations={registrations}
+                        />
+                      ) : (
+                        <LeagueCard
+                          league={game}
+                          userId={user?.id}
+                          registrations={registrations}
+                        />
+                      )
+                    ) : (
+                      <PickupCard
+                        game={game}
+                        user={user}
+                        bookingStatus={bookingStatusMap.get(game.id)}
+                        bookingId={bookingIdMap.get(game.id)}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 3-Step How It Works Section */}
+      <section className="pt-8 pb-12 md:pb-20 px-6 bg-black/50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
             <h2 className="font-heading text-4xl md:text-5xl font-bold uppercase italic tracking-tighter text-white">
               Show Up & <span className="text-pitch-accent">Ball Out.</span>
             </h2>
@@ -172,19 +241,19 @@ export default async function Home() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Steps */}
-            <div className="space-y-8">
+            <div className="space-y-6 md:space-y-8">
               {[
                 { num: '01', title: 'Find a Match', desc: 'Browse our live schedule of local games.' },
                 { num: '02', title: 'Secure Your Spot', desc: 'RSVP in seconds and pay online or at the field.' },
                 { num: '03', title: 'Play to Win', desc: 'We bring the bibs and balls. You bring the heat.' }
               ].map((step, idx) => (
-                <div key={idx} className="flex gap-6 group">
-                  <div className="w-16 h-16 rounded bg-white/5 border border-white/10 flex items-center justify-center font-heading text-3xl font-black italic text-pitch-accent group-hover:bg-pitch-accent group-hover:text-black transition-colors shrink-0">
+                <div key={idx} className="flex gap-4 md:gap-6 group">
+                  <div className="w-12 h-12 md:w-16 md:h-16 rounded bg-white/5 border border-white/10 flex items-center justify-center font-heading text-2xl md:text-3xl font-black italic text-pitch-accent group-hover:bg-pitch-accent group-hover:text-black transition-colors shrink-0">
                     {step.num}
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold uppercase italic text-white mb-2">{step.title}</h3>
-                    <p className="text-pitch-secondary text-lg">{step.desc}</p>
+                    <h3 className="text-xl md:text-2xl font-bold uppercase italic text-white mb-1 md:mb-2">{step.title}</h3>
+                    <p className="text-pitch-secondary text-base md:text-lg">{step.desc}</p>
                   </div>
                 </div>
               ))}
@@ -206,65 +275,9 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Social Proof / Testimonial */}
-      {siteContent.testimonial_text && (
-        <section className="py-24 px-6 relative overflow-hidden">
-          {/* Background flourish */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-pitch-accent/5 blur-[100px] pointer-events-none" />
+      {/* Social Proof / Testimonials */}
+      <ReviewMarquee />
 
-          <div className="max-w-4xl mx-auto text-center relative z-10">
-            <Quote className="w-16 h-16 text-pitch-accent/40 mx-auto mb-8" />
-            <h3 className="font-heading text-3xl md:text-5xl font-bold italic text-white leading-tight mb-8">
-              "{siteContent.testimonial_text}"
-            </h3>
-            <div className="flex items-center justify-center gap-2">
-              {[1, 2, 3, 4, 5].map((s) => (
-                <Star key={s} className="w-6 h-6 fill-pitch-accent text-pitch-accent" />
-              ))}
-            </div>
-            <p className="font-bold uppercase tracking-widest text-pitch-secondary mt-4 text-sm">Verified Player</p>
-          </div>
-        </section>
-      )}
-
-      {/* Featured Games Preview */}
-      <section className="py-20 px-6 bg-pitch-black border-t border-white/5">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-end justify-between mb-12 border-b border-white/10 pb-6">
-            <h2 className="font-heading text-4xl md:text-5xl font-bold uppercase italic tracking-tighter">
-              Upcoming <span className="text-pitch-accent">Matches</span>
-            </h2>
-            <Link href="/schedule" className="flex items-center gap-2 text-pitch-accent font-bold uppercase tracking-wider hover:text-white transition-colors">
-              View All <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-
-          {!games || games.length === 0 ? (
-            <div className="text-center py-12 border border-white/5 rounded-sm bg-pitch-card">
-              <p className="text-xl text-pitch-secondary font-bold">No games scheduled yet.</p>
-              <p className="text-sm text-gray-500 mt-2">Check back soon for upcoming matches.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {games.map((game: any) => {
-                // Fetch the registrations for this specific game
-                const registrations = userRegistrationsMap.get(game.id) || [];
-
-                return (
-                  <GameCard
-                    key={game.id}
-                    game={game}
-                    user={user}
-                    bookingStatus={bookingStatusMap.get(game.id)}
-                    bookingId={bookingIdMap.get(game.id)}
-                    tournamentRegistrations={registrations}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
     </div>
   );
 }

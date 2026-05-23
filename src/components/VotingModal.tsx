@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils';
 
 interface Candidate {
     id: string; // profile id
-    full_name: string;
+    first_name: string;
+    last_name: string;
     email: string;
     team_assignment?: string;
 }
@@ -31,7 +32,7 @@ export function VotingModal({ gameId, candidates, onVoteSuccess, onClose }: Voti
         setError(null);
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await supabase.auth.getSession().then(({data}: {data: any}) => ({ data: { user: data.session?.user } }));
             if (!user) throw new Error("Not authenticated");
 
             const { error: insertError } = await supabase
@@ -107,10 +108,10 @@ export function VotingModal({ gameId, candidates, onVoteSuccess, onClose }: Voti
                                         "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
                                         selectedCandidateId === candidate.id ? "bg-black/20" : "bg-white/10"
                                     )}>
-                                        {candidate.full_name.charAt(0)}
+                                        {candidate.first_name.charAt(0)}
                                     </div>
                                     <div className="flex flex-col items-start">
-                                        <span>{candidate.full_name}</span>
+                                        <span>{candidate.first_name} {candidate.last_name}</span>
                                         {candidate.team_assignment && (
                                             <span className={cn(
                                                 "text-[10px] uppercase",

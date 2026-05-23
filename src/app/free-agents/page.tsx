@@ -27,7 +27,8 @@ async function FreeAgentData() {
             created_at,
             profiles:user_id (
                 id,
-                full_name,
+                first_name,
+                last_name,
                 avatar_url,
                 position,
                 ovr,

@@ -197,7 +197,7 @@ export function SquadsTab({ registrations, teams, gameId, game, onRefresh }: any
                                     {roster.map((p: any) => (
                                         <tr key={p.id} className="border-b border-white/5 last:border-0 hover:bg-white/5 group">
                                             <td className="py-2 px-2 text-sm text-white font-bold uppercase">
-                                                {p.profiles?.full_name}
+                                                {p.profiles?.first_name} {p.profiles?.last_name}
                                                 {team.captain_id === p.user_id && <span className="ml-2 px-1.5 py-0.5 bg-pitch-accent text-black text-[9px] rounded-sm tracking-widest font-black uppercase">C</span>}
                                             </td>
                                             <td className="py-2 px-2 text-right">
@@ -230,7 +230,7 @@ export function SquadsTab({ registrations, teams, gameId, game, onRefresh }: any
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {freeAgents.map((f: any) => (
                         <div key={f.id} className="bg-black/40 border border-white/10 p-3 rounded">
-                            <div className="text-sm text-white font-bold uppercase">{f.profiles?.full_name}</div>
+                            <div className="text-sm text-white font-bold uppercase">{f.profiles?.first_name} {f.profiles?.last_name}</div>
                             <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest">{f.payment_status}</div>
                             <button 
                                 onClick={() => setSettingsTarget({ id: f.id, currentTeamId: null, userId: f.user_id, isCaptain: false })}
@@ -271,7 +271,7 @@ export function SquadsTab({ registrations, teams, gameId, game, onRefresh }: any
                         {!isSearching && searchResults.map(u => (
                             <div key={u.id} className="flex items-center justify-between bg-black/50 border border-white/5 p-3 hover:border-white/20 transition-colors">
                                 <div>
-                                    <div className="text-sm font-bold text-white uppercase">{u.full_name}</div>
+                                    <div className="text-sm font-bold text-white uppercase">{u.first_name} {u.last_name}</div>
                                     <div className="text-[10px] font-black tracking-widest text-gray-500 uppercase">{u.email}</div>
                                 </div>
                                 <button

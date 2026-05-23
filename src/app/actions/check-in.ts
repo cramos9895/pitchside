@@ -41,7 +41,7 @@ export async function getPlayerCheckInDetails(scannedUserId: string, eventId: st
     // 1. Get Profile & Suspensions
     const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id, full_name, is_banned, banned_until, ban_reason')
+        .select('id, first_name, last_name, is_banned, banned_until, ban_reason')
         .eq('id', scannedUserId)
         .single();
 

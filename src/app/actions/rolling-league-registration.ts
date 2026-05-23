@@ -47,45 +47,83 @@ export async function registerRollingCaptain(formData: FormData) {
         throw new Error("This league is locked. Registration and team joins are closed.");
     }
 
-
-
-    // 4. Create new team linked to GAME
-    const { data: team, error: teamError } = await supabase
-        .from('teams')
-        .insert({
-            game_id: gameId,
-            name: teamName,
-            captain_id: user.id,
-            primary_color: primaryColor,
-            accepting_free_agents: false,
-            status: 'approved'
-        })
-        .select()
-        .single();
-
-    if (teamError || !team) throw new Error("Failed to create team: " + teamError?.message);
-
-    // 5. Register user to tournament_registrations linked to GAME
-    // CRITICAL: Strict upsert to handle re-joining after previous withdrawal
-    const { error: regError } = await supabase
+    // 4. Dual-Role / Duplicate Registration Check
+    const { data: existingReg } = await supabase
         .from('tournament_registrations')
-        .upsert({
-            game_id: gameId,
-            user_id: user.id,
-            team_id: team.id,
-            role: 'captain',
-            preferred_positions: positions,
-            status: 'registered'
-        }, { onConflict: 'game_id,user_id' });
+        .select('id, status, team_id')
+        .eq('user_id', user.id)
+        .eq('game_id', gameId)
+        .maybeSingle();
 
-    if (regError) {
-        await supabase.from('teams').delete().eq('id', team.id);
-        throw new Error("Failed to create registration: " + regError.message);
+    if (existingReg && 
+        existingReg.status !== 'cancelled' && 
+        existingReg.status !== 'withdrawn' &&
+        existingReg.status !== 'pending'
+    ) {
+        throw new Error("You are already registered for this league.");
+    }
+
+    // 5. Create or Update team
+    let teamId = existingReg?.team_id;
+    const teamPayload = {
+        game_id: gameId,
+        name: teamName,
+        captain_id: user.id,
+        primary_color: primaryColor,
+        accepting_free_agents: false,
+        status: 'approved'
+    };
+
+    if (teamId) {
+        await supabase.from('teams').update(teamPayload).eq('id', teamId);
+    } else {
+        const { data: team, error: teamError } = await supabase
+            .from('teams')
+            .insert(teamPayload)
+            .select()
+            .single();
+        if (teamError || !team) throw new Error("Failed to create team: " + teamError?.message);
+        teamId = team.id;
+    }
+
+    // 6. Register/Recycle user to tournament_registrations
+    const requestedStatus = (formData.get('status') as string) || 'registered';
+    const regPayload = {
+        game_id: gameId,
+        user_id: user.id,
+        team_id: teamId,
+        role: 'captain',
+        preferred_positions: positions,
+        status: requestedStatus
+    };
+
+    let regError;
+    let registrationId = existingReg?.id;
+
+    if (registrationId) {
+        const { error } = await supabase
+            .from('tournament_registrations')
+            .update(regPayload)
+            .eq('id', registrationId);
+        regError = error;
+    } else {
+        const { data: newReg, error: err } = await supabase
+            .from('tournament_registrations')
+            .insert([regPayload])
+            .select()
+            .single();
+        regError = err;
+        registrationId = newReg?.id;
+    }
+
+    if (regError || !registrationId) {
+        if (!existingReg?.team_id) await supabase.from('teams').delete().eq('id', teamId);
+        throw new Error("Failed to create registration: " + regError?.message);
     }
 
     revalidatePath(`/games/${gameId}`);
     revalidatePath(`/rolling-leagues/${gameId}`);
-    return { success: true, teamId: team.id };
+    return { success: true, teamId, registrationId, eventType: 'rolling_league' };
 }
 
 export async function registerRollingFreeAgent(formData: FormData) {
@@ -124,27 +162,60 @@ export async function registerRollingFreeAgent(formData: FormData) {
         throw new Error("This league is locked. Registration and team joins are closed.");
     }
 
-    // Register Free Agent to GAME
-    // CRITICAL: Strict upsert to handle re-joining after previous withdrawal
-    const { error: regError } = await supabase
+    // Duplicate Check
+    const { data: existingReg } = await supabase
         .from('tournament_registrations')
-        .upsert({
-            game_id: gameId,
-            user_id: user.id,
-            team_id: null, // Reset team_id to FA pool
-            role: 'player', // Reset role to standard player/FA
-            preferred_positions: positions,
-            status: 'registered'
-        }, { onConflict: 'game_id,user_id' });
+        .select('id, status')
+        .eq('user_id', user.id)
+        .eq('game_id', gameId)
+        .maybeSingle();
 
-    if (regError) {
+    if (existingReg && 
+        existingReg.status !== 'cancelled' && 
+        existingReg.status !== 'withdrawn' &&
+        existingReg.status !== 'pending'
+    ) {
+        throw new Error("You are already registered for this league.");
+    }
+
+    const requestedStatus = (formData.get('status') as string) || 'registered';
+
+    const regPayload = {
+        game_id: gameId,
+        user_id: user.id,
+        team_id: null,
+        role: 'player',
+        preferred_positions: positions,
+        status: requestedStatus
+    };
+
+    let regError;
+    let registrationId = existingReg?.id;
+
+    if (registrationId) {
+        const { error } = await supabase
+            .from('tournament_registrations')
+            .update(regPayload)
+            .eq('id', registrationId);
+        regError = error;
+    } else {
+        const { data: newReg, error: err } = await supabase
+            .from('tournament_registrations')
+            .insert([regPayload])
+            .select()
+            .single();
+        regError = err;
+        registrationId = newReg?.id;
+    }
+
+    if (regError || !registrationId) {
         console.error('Rolling Registration error:', regError);
-        throw new Error(regError.message);
+        throw new Error(regError?.message || 'Failed to finalize registration.');
     }
 
     revalidatePath(`/games/${gameId}`);
     revalidatePath(`/rolling-leagues/${gameId}`);
-    return { success: true };
+    return { success: true, registrationId, eventType: 'rolling_league' };
 }
 
 /**
@@ -225,7 +296,8 @@ export async function disbandRollingTeam(teamId: string, gameId: string) {
         .from('tournament_registrations')
         .update({ 
             team_id: null,
-            status: 'registered' 
+            status: 'registered',
+            role: 'player' // Reset captain roles back to standard player
         })
         .eq('team_id', teamId);
 

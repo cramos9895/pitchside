@@ -25,61 +25,141 @@ export async function registerCaptain(formData: FormData) {
     
     if (!leagueId || !teamName) throw new Error("Missing required fields");
 
-    // 3. Validation: Check registration cutoff
-    const { data: league, error: leagueError } = await supabase
-        .from('leagues')
-        .select('registration_cutoff, status, free_agent_price, player_registration_fee')
-        .eq('id', leagueId)
-        .single();
+    // 3. Validation: Robust League Lookup (Checks both legacy 'leagues' and unified 'games')
+    let leagueData: any = null;
 
-    if (leagueError || !league) throw new Error("League not found");
-    if (league.status === 'cancelled' || league.status === 'completed') {
+    const { data: legacyLeague } = await supabase
+        .from('leagues')
+        .select('registration_cutoff, status, price_per_free_agent, player_registration_fee')
+        .eq('id', leagueId)
+        .maybeSingle();
+
+    if (legacyLeague) {
+        leagueData = {
+            isLegacy: true, registration_cutoff: legacyLeague.registration_cutoff,
+            status: legacyLeague.status,
+            free_agent_price: Number(legacyLeague.price_per_free_agent || 0),
+            player_registration_fee: Number(legacyLeague.player_registration_fee || 0)
+        };
+    } else {
+        const { data: gameLeague } = await supabase
+            .from('games')
+            .select('registration_cutoff, status, free_agent_price, player_registration_fee')
+            .eq('id', leagueId)
+            .eq('event_type', 'league')
+            .maybeSingle();
+        
+        if (gameLeague) {
+            leagueData = {
+                isLegacy: false, registration_cutoff: gameLeague.registration_cutoff,
+                status: gameLeague.status,
+                free_agent_price: Number(gameLeague.free_agent_price || 0),
+                player_registration_fee: Number(gameLeague.player_registration_fee || 0)
+            };
+        }
+    }
+
+    if (!leagueData) throw new Error("League not found");
+    if (leagueData.status === 'cancelled' || leagueData.status === 'completed') {
         throw new Error("League is not accepting registrations");
     }
     
-    if (league.registration_cutoff) {
-        const cutoffDate = new Date(league.registration_cutoff);
+    if (leagueData.registration_cutoff) {
+        const cutoffDate = new Date(leagueData.registration_cutoff);
         if (new Date() > cutoffDate) {
             throw new Error("Registration deadline has passed for this league.");
         }
     }
 
-    // 4. Create new team
-    const { data: team, error: teamError } = await supabase
-        .from('teams')
-        .insert({
-            league_id: leagueId,
-            name: teamName,
-            captain_id: user.id,
-            primary_color: primaryColor,
-            accepting_free_agents: false,
-            status: 'approved'
-        })
-        .select()
-        .single();
-
-    if (teamError || !team) throw new Error("Failed to create team: " + teamError?.message);
-
-    // 5. Register/Recycle user to tournament_registrations
-    const { error: regError } = await supabase
+    // 4. Dual-Role / Duplicate Registration Check (Checks both league_id and game_id)
+    const { data: existingReg } = await supabase
         .from('tournament_registrations')
-        .upsert({
-            league_id: leagueId,
-            user_id: user.id,
-            team_id: team.id,
-            preferred_positions: positions,
-            status: 'registered',
-            role: 'captain'
-        }, { onConflict: 'user_id,game_id,league_id' });
+        .select('id, status, team_id')
+        .eq('user_id', user.id)
+        .or(`league_id.eq.${leagueId},game_id.eq.${leagueId}`)
+        .maybeSingle();
 
-    if (regError) {
-        // Rollback team creation if registration fails
-        await supabase.from('teams').delete().eq('id', team.id);
-        throw new Error("Failed to create registration: " + regError.message);
+    if (existingReg && 
+        existingReg.status !== 'cancelled' && 
+        existingReg.status !== 'withdrawn' &&
+        existingReg.status !== 'pending'
+    ) {
+        throw new Error("You are already registered for this league.");
+    }
+
+    // 5. Create or Update team
+    let teamId = existingReg?.team_id;
+    const teamPayload: any = {
+        name: teamName,
+        captain_id: user.id,
+        primary_color: primaryColor,
+        accepting_free_agents: false,
+        status: 'approved'
+    };
+
+    if (leagueData.isLegacy) {
+        teamPayload.league_id = leagueId;
+        teamPayload.game_id = null;
+    } else {
+        teamPayload.game_id = leagueId;
+        teamPayload.league_id = null;
+    }
+
+    if (teamId) {
+        await supabase.from('teams').update(teamPayload).eq('id', teamId);
+    } else {
+        const { data: team, error: teamError } = await supabase
+            .from('teams')
+            .insert(teamPayload)
+            .select()
+            .single();
+        if (teamError || !team) throw new Error("Failed to create team: " + teamError?.message);
+        teamId = team.id;
+    }
+
+    // 6. Register/Recycle user to tournament_registrations
+    const requestedStatus = (formData.get('status') as string) || 'registered';
+    const regPayload: any = {
+        user_id: user.id,
+        team_id: teamId,
+        preferred_positions: positions,
+        status: requestedStatus,
+        role: 'captain'
+    };
+
+    if (leagueData.isLegacy) {
+        regPayload.league_id = leagueId; regPayload.game_id = null;
+    } else {
+        regPayload.game_id = leagueId; regPayload.league_id = null;
+    }
+
+    let regError;
+    let registrationId = existingReg?.id;
+
+    if (registrationId) {
+        const { error } = await supabase
+            .from('tournament_registrations')
+            .update(regPayload)
+            .eq('id', registrationId);
+        regError = error;
+    } else {
+        const { data: newReg, error: err } = await supabase
+            .from('tournament_registrations')
+            .insert([regPayload])
+            .select()
+            .single();
+        regError = err;
+        registrationId = newReg?.id;
+    }
+
+    if (regError || !registrationId) {
+        // Rollback team creation if it was new
+        if (!existingReg?.team_id) await supabase.from('teams').delete().eq('id', teamId);
+        throw new Error("Failed to finalize registration.");
     }
 
     revalidatePath(`/leagues/${leagueId}`);
-    return { success: true, teamId: team.id };
+    return { success: true, teamId, registrationId, eventType: 'league' };
 }
 
 export async function registerFreeAgent(formData: FormData) {
@@ -104,61 +184,127 @@ export async function registerFreeAgent(formData: FormData) {
         throw new Error("Missing required fields. Please select at least one position.");
     }
 
-    // 3. Validation: Check registration cutoff
-    const { data: league, error: leagueError } = await supabase
-        .from('leagues')
-        .select('registration_cutoff, status, free_agent_price, player_registration_fee')
-        .eq('id', leagueId)
-        .single();
+    // 3. Validation: Robust League Lookup (Checks both legacy 'leagues' and unified 'games')
+    let leagueData: any = null;
 
-    if (leagueError || !league) throw new Error("League not found");
-    if (league.status === 'cancelled' || league.status === 'completed') {
+    const { data: legacyLeague } = await supabase
+        .from('leagues')
+        .select('registration_cutoff, status, price_per_free_agent, player_registration_fee')
+        .eq('id', leagueId)
+        .maybeSingle();
+
+    if (legacyLeague) {
+        leagueData = {
+            isLegacy: true, registration_cutoff: legacyLeague.registration_cutoff,
+            status: legacyLeague.status,
+            free_agent_price: Number(legacyLeague.price_per_free_agent || 0),
+            player_registration_fee: Number(legacyLeague.player_registration_fee || 0)
+        };
+    } else {
+        const { data: gameLeague } = await supabase
+            .from('games')
+            .select('registration_cutoff, status, free_agent_price, player_registration_fee')
+            .eq('id', leagueId)
+            .eq('event_type', 'league')
+            .maybeSingle();
+        
+        if (gameLeague) {
+            leagueData = {
+                isLegacy: false, registration_cutoff: gameLeague.registration_cutoff,
+                status: gameLeague.status,
+                free_agent_price: Number(gameLeague.free_agent_price || 0),
+                player_registration_fee: Number(gameLeague.player_registration_fee || 0)
+            };
+        }
+    }
+
+    if (!leagueData) throw new Error("League not found");
+    if (leagueData.status === 'cancelled' || leagueData.status === 'completed') {
         throw new Error("League is not accepting registrations");
     }
 
-    if (league.registration_cutoff) {
-        const cutoffDate = new Date(league.registration_cutoff);
+    if (leagueData.registration_cutoff) {
+        const cutoffDate = new Date(leagueData.registration_cutoff);
         if (new Date() > cutoffDate) {
             throw new Error("Registration deadline has passed for this league.");
         }
     }
 
-    // 4. Determine price and check for Credit Bypass
-    const { data: profile } = await supabase.from('profiles').select('credit_balance').eq('id', user.id).single();
-    
-    const price = (league.free_agent_price ?? league.player_registration_fee ?? 0);
-    
-    let initialStatus = 'registered';
-    const walletBalance = profile?.credit_balance || 0;
+    // 4. Dual-Role / Duplicate Registration Check (Checks both league_id and game_id)
+    const { data: existingReg } = await supabase
+        .from('tournament_registrations')
+        .select('id, status')
+        .eq('user_id', user.id)
+        .or(`league_id.eq.${leagueId},game_id.eq.${leagueId}`)
+        .maybeSingle();
 
-    if (price > 0 && walletBalance >= (price * 100)) {
-        // Deduct from wallet
-        const { error: walletError } = await supabase
-            .from('profiles')
-            .update({ credit_balance: walletBalance - (price * 100) })
-            .eq('id', user.id);
-        if (walletError) throw new Error("Credit deduction failed.");
-        initialStatus = 'registered';
-    } else if (price > 0) {
-        initialStatus = 'pending';
+    if (existingReg && 
+        existingReg.status !== 'cancelled' && 
+        existingReg.status !== 'withdrawn' &&
+        existingReg.status !== 'pending'
+    ) {
+        throw new Error("You are already registered for this league.");
     }
 
-    // 5. Register/Recycle user to tournament_registrations (Global Draft Pool)
-    const { error: regError } = await supabase
-        .from('tournament_registrations')
-        .upsert({
-            league_id: leagueId,
-            user_id: user.id,
-            team_id: null, // explicitly null for free agents
-            preferred_positions: positions,
-            status: initialStatus
-        }, { onConflict: 'user_id,game_id,league_id' });
+    // 5. Determine price and check for Credit Bypass
+    const { data: profile } = await supabase.from('profiles').select('credit_balance').eq('id', user.id).single();
+    
+    let initialStatus = (formData.get('status') as string) || 'registered';
 
-    if (regError) {
-        console.error('Registration error:', regError);
-        return { success: false, error: regError.message };
+    if (!formData.get('status')) {
+        const price = (leagueData.free_agent_price ?? leagueData.player_registration_fee ?? 0);
+        const walletBalance = profile?.credit_balance || 0;
+
+        if (price > 0 && walletBalance >= (price * 100)) {
+            const { error: walletError } = await supabase
+                .from('profiles')
+                .update({ credit_balance: walletBalance - (price * 100) })
+                .eq('id', user.id);
+            if (walletError) throw new Error("Credit deduction failed.");
+            initialStatus = 'registered';
+        } else if (price > 0) {
+            initialStatus = 'pending';
+        }
+    }
+
+    // 6. Register/Recycle user to tournament_registrations
+    const regPayload: any = {
+        user_id: user.id,
+        team_id: null,
+        preferred_positions: positions,
+        status: initialStatus,
+        role: 'player'
+    };
+
+    if (leagueData.isLegacy) {
+        regPayload.league_id = leagueId; regPayload.game_id = null;
+    } else {
+        regPayload.game_id = leagueId; regPayload.league_id = null;
+    }
+
+    let regError;
+    let registrationId = existingReg?.id;
+
+    if (registrationId) {
+        const { error } = await supabase
+            .from('tournament_registrations')
+            .update(regPayload)
+            .eq('id', registrationId);
+        regError = error;
+    } else {
+        const { data: newReg, error: err } = await supabase
+            .from('tournament_registrations')
+            .insert([regPayload])
+            .select()
+            .single();
+        regError = err;
+        registrationId = newReg?.id;
+    }
+
+    if (regError || !registrationId) {
+        throw new Error("Failed to finalize registration.");
     }
 
     revalidatePath(`/leagues/${leagueId}`);
-    return { success: true };
+    return { success: true, registrationId, eventType: 'league' };
 }

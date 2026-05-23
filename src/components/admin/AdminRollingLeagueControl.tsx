@@ -20,7 +20,8 @@ interface Registration {
         name: string;
     };
     profiles?: {
-        full_name: string;
+        first_name: string;
+        last_name: string;
         email: string;
     };
 }
@@ -303,7 +304,7 @@ export function AdminRollingLeagueControl({
                                         <div className="text-left">
                                             <h3 className="font-black uppercase tracking-wider text-lg text-white italic">{team.name}</h3>
                                             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
-                                                Captain: {captain?.profiles?.full_name || 'TBD'}
+                                                Captain: {captain?.profiles?.first_name ? `${captain.profiles.first_name} ${captain.profiles.last_name}` : 'TBD'}
                                             </p>
                                         </div>
                                     </div>
@@ -334,7 +335,7 @@ export function AdminRollingLeagueControl({
                                             <tbody>
                                                 {teamRegs.map((reg: any) => (
                                                     <tr key={reg.id} className="text-xs border-t border-white/5">
-                                                        <td className="px-4 py-3 font-bold text-white uppercase">{reg.profiles?.full_name}</td>
+                                                        <td className="px-4 py-3 font-bold text-white uppercase">{reg.profiles?.first_name} {reg.profiles?.last_name}</td>
                                                         <td className="px-4 py-3 text-gray-500 uppercase font-bold text-[10px]">{reg.role}</td>
                                                         <td className="px-4 py-3 text-gray-500 text-[10px]">{reg.profiles?.email}</td>
                                                         <td className="px-4 py-3 text-right">

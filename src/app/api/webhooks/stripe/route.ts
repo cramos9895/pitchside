@@ -29,6 +29,7 @@ export async function POST(req: Request) {
         if (event.type === 'checkout.session.completed') {
             const session = event.data.object as any;
             const bookingId = session.metadata?.booking_id;
+            const registrationId = session.metadata?.registration_id;
 
             if (bookingId) {
                 // Finalize the booking!
@@ -54,15 +55,45 @@ export async function POST(req: Request) {
                 // Notification Logic
                 await handleBookingSuccessNotification(adminSupabase, bookingId, session.amount_total);
             }
+
+            if (registrationId) {
+                // Finalize tournament/league registration
+                const { error } = await adminSupabase
+                    .from('tournament_registrations')
+                    .update({
+                        status: 'registered',
+                        payment_status: 'paid',
+                        stripe_payment_intent_id: session.payment_intent
+                    })
+                    .eq('id', registrationId);
+                
+                if (error) console.error('[WEBHOOK_DB_ERROR] Failed to finalize registration:', error);
+            }
         } 
         
         else if (event.type === 'payment_intent.succeeded') {
             const pi = event.data.object as any;
-            // Handle off-session payments (Leagues, Shortfalls, etc)
-            if (pi.metadata?.type === 'escrow_shortfall' || pi.metadata?.type === 'league_payment') {
+            const registrationId = pi.metadata?.registration_id;
+            const type = pi.metadata?.type;
+
+            // Handle registration fulfillment
+            if (registrationId && (type === 'league_payment' || type === 'league' || type === 'tournament' || type === 'pickup')) {
+                await adminSupabase
+                    .from('tournament_registrations')
+                    .update({
+                        status: 'registered',
+                        payment_status: 'paid',
+                        stripe_payment_intent_id: pi.id
+                    })
+                    .eq('id', registrationId);
+            }
+            
+            // Handle legacy off-session payments
+            else if (pi.metadata?.type === 'escrow_shortfall' || pi.metadata?.type === 'league_payment') {
                 const regId = pi.metadata?.registration_id;
                 if (regId) {
                     await adminSupabase.from('tournament_registrations').update({
+                        status: 'registered',
                         payment_status: 'paid',
                         stripe_payment_intent_id: pi.id
                     }).eq('id', regId);
@@ -118,7 +149,7 @@ async function handleBookingSuccessNotification(supabase: any, bookingId: string
             .single();
 
         if (bookingData) {
-            const { data: userProfile } = await supabase.from('profiles').select('email, full_name').eq('id', bookingData.user_id).single();
+            const { data: userProfile } = await supabase.from('profiles').select('email, first_name, last_name').eq('id', bookingData.user_id).single();
             const { data: resourceData } = await supabase.from('resources').select('name').eq('id', bookingData.resource_id).single();
 
             if (userProfile?.email) {
@@ -131,7 +162,7 @@ async function handleBookingSuccessNotification(supabase: any, bookingId: string
                     subject: `Payment Receipt: ${resourceName}`,
                     type: 'booking_receipt',
                     data: {
-                        userName: userProfile.full_name || 'Player',
+                        userName: userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name}` : 'Player',
                         resourceName,
                         gameDate: dateStr,
                         amountCharged: amountPaid

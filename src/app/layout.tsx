@@ -37,6 +37,8 @@ export const metadata: Metadata = {
 import { ToastProvider } from "@/components/ui/Toast";
 
 
+import { Footer } from "@/components/layout/Footer";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -50,7 +52,7 @@ export default function RootLayout({
         <ToastProvider>
           <Navbar />
           {children}
-
+          <Footer />
         </ToastProvider>
       </body>
     </html>

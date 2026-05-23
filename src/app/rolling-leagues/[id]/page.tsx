@@ -98,7 +98,8 @@ export default async function RollingLeaguePage({ params }: { params: Promise<{ 
                     name,
                     accepting_free_agents,
                     profiles:captain_id (
-                        full_name
+                        first_name,
+                        last_name
                     )
                 )
             `)
@@ -108,7 +109,7 @@ export default async function RollingLeaguePage({ params }: { params: Promise<{ 
 
         // Primary Host Profile
         game.host_ids?.[0] 
-            ? supabase.from('profiles').select('full_name, email').eq('id', game.host_ids[0]).maybeSingle()
+            ? supabase.from('profiles').select('first_name, last_name, email').eq('id', game.host_ids[0]).maybeSingle()
             : Promise.resolve({ data: null }),
 
         // Current User Registration
@@ -122,7 +123,7 @@ export default async function RollingLeaguePage({ params }: { params: Promise<{ 
 
     // 3. Process Primary Host
     const primaryHost = hostProfileResult.data ? {
-        name: hostProfileResult.data.full_name,
+        name: `${hostProfileResult.data.first_name} ${hostProfileResult.data.last_name}`,
         email: hostProfileResult.data.email
     } : null;
 
@@ -136,7 +137,7 @@ export default async function RollingLeaguePage({ params }: { params: Promise<{ 
             teamMap.set(team.id, {
                 id: team.id,
                 name: team.name,
-                captain_name: team.profiles?.full_name || 'Host',
+                captain_name: team.profiles?.first_name ? `${team.profiles.first_name} ${team.profiles.last_name}` : 'Host',
                 player_count: 0,
                 accepting_free_agents: team.accepting_free_agents
             });
@@ -177,10 +178,10 @@ export default async function RollingLeaguePage({ params }: { params: Promise<{ 
             lineupsRes
         ] = await Promise.all([
             supabase.from('teams').select('id, name, primary_color, accepting_free_agents, captain_id').eq('id', userTeamId).maybeSingle(),
-            supabase.from('tournament_registrations').select('id, user_id, status, preferred_positions, profiles(full_name, avatar_url)').eq('team_id', userTeamId).neq('status', 'cancelled'),
+            supabase.from('tournament_registrations').select('id, user_id, status, preferred_positions, profiles(first_name, last_name, avatar_url)').eq('team_id', userTeamId).neq('status', 'cancelled'),
             supabase.from('matches').select('*, home_team_rel:teams!home_team_id(name), away_team_rel:teams!away_team_id(name)').eq('game_id', gameId).order('start_time', { ascending: true }),
-            supabase.from('messages').select('*, profiles(full_name, avatar_url)').eq('team_id', userTeamId).order('created_at', { ascending: true }).limit(100),
-            supabase.from('tournament_registrations').select('id, user_id, status, preferred_positions, profiles(full_name, avatar_url)').is('team_id', null).neq('status', 'cancelled').or(`league_id.eq.${gameId},game_id.eq.${gameId}`),
+            supabase.from('messages').select('*, profiles(first_name, last_name, avatar_url)').eq('team_id', userTeamId).order('created_at', { ascending: true }).limit(100),
+            supabase.from('tournament_registrations').select('id, user_id, status, preferred_positions, profiles(first_name, last_name, avatar_url)').is('team_id', null).neq('status', 'cancelled').or(`league_id.eq.${gameId},game_id.eq.${gameId}`),
             supabase.from('match_lineups').select('*').eq('team_id', userTeamId)
         ]);
 

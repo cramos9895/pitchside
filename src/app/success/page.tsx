@@ -96,6 +96,8 @@ export default async function SuccessPage({ searchParams }: Props) {
         const isLeagueCaptain = session.metadata?.is_league_captain === 'true';
         const teamAssignment = session.metadata?.team_assignment || null;
         const prizeSplitPreference = session.metadata?.prize_split_preference;
+        const teamId = session.metadata?.team_id;
+        const eventType = session.metadata?.type;
 
         if (!gameId || !userId) {
             throw new Error("Missing metadata in Stripe session");
@@ -200,6 +202,7 @@ export default async function SuccessPage({ searchParams }: Props) {
                         .update({
                             status: passenger.status,
                             payment_status: passenger.payment_status,
+                            roster_status: 'confirmed',
                             stripe_payment_method_id: passenger.stripe_payment_method_id || null,
                             team_assignment: passenger.team_assignment || null,
                             note: passenger.note || null,
@@ -332,10 +335,14 @@ export default async function SuccessPage({ searchParams }: Props) {
                     </p>
 
                     <Link
-                        href="/"
+                        href={
+                            eventType === 'league' 
+                                ? (teamId ? `/leagues/${gameId}/team/${teamId}` : '/dashboard/schedule')
+                                : '/'
+                        }
                         className="inline-block w-full py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-wider rounded-sm hover:bg-white transition-colors"
                     >
-                        Back to Pitch
+                        {eventType === 'league' ? 'Go to Command Center' : 'Back to Pitch'}
                     </Link>
                 </div>
             </div>

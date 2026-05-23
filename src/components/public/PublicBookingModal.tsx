@@ -8,6 +8,7 @@ import { validatePromoCode } from '@/app/actions/payments';
 import { WaiverModal } from '../WaiverModal';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { Game, Profile } from "@/types/index";
 
 interface FacilityResource {
     id: string;
@@ -52,7 +53,7 @@ export function PublicBookingModal({
 
     if (!isOpen || !selectedSlot) return null;
 
-    const resource = resources.find(r => r.id === selectedSlot.resourceId);
+    const resource = resources.find((r: any) => r.id === selectedSlot.resourceId);
     if (!resource) return null;
 
     const rate = resource.resource_types?.default_hourly_rate || 0;
@@ -105,7 +106,7 @@ export function PublicBookingModal({
 
             if (requiredWaiverText) {
                 // 1b. Check if user already signed this facility's waiver
-                const { data: userData } = await supabase.auth.getUser();
+                const { data: userData } = await supabase.auth.getSession().then(({ data }: { data: any }) => ({ data: { user: data.session?.user } }));
                 if (userData.user) {
                     const { data: signature } = await supabase
                         .from('waiver_signatures')
@@ -133,7 +134,7 @@ export function PublicBookingModal({
 
     const handleWaiverAgree = async () => {
         setAgreeingWaiver(true);
-        const { data: userData } = await supabase.auth.getUser();
+        const { data: userData } = await supabase.auth.getSession().then(({ data }: { data: any }) => ({ data: { user: data.session?.user } }));
 
         if (userData.user) {
             await supabase

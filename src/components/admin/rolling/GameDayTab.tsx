@@ -208,7 +208,7 @@ export function GameDayTab({ registrations, teams, gameId, game, onRefresh }: an
                                                                     <div key={reg.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors group">
                                                                         <div>
                                                                             <div className="font-bold text-white uppercase text-sm flex items-center gap-2">
-                                                                                {reg.profiles.full_name || 'Unknown Player'}
+                                                                            {reg.profiles.first_name} {reg.profiles.last_name || 'Unknown Player'}
                                                                                 {isCaptain && <span className="text-[9px] bg-pitch-accent text-black px-1.5 py-0.5 rounded font-black tracking-widest">C</span>}
                                                                                 {suspendedUserIds.has(reg.user_id) && <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-black tracking-widest flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> SUSPENDED</span>}
                                                                             </div>
@@ -262,7 +262,7 @@ export function GameDayTab({ registrations, teams, gameId, game, onRefresh }: an
                                                                 <div key={reg.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors group">
                                                                     <div>
                                                                         <div className="font-bold text-white uppercase text-sm flex items-center gap-2">
-                                                                            {reg.profiles.full_name || 'Unknown Player'}
+                                                                            {reg.profiles.first_name} {reg.profiles.last_name || 'Unknown Player'}
                                                                             {suspendedUserIds.has(reg.user_id) && <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-black tracking-widest flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> SUSPENDED</span>}
                                                                         </div>
                                                                         <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">

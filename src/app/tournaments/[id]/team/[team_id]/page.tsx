@@ -151,7 +151,8 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
             status,
             preferred_positions,
             profiles (
-                full_name,
+                first_name,
+                last_name,
                 avatar_url
             )
         `)
@@ -192,7 +193,7 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
         .from('messages')
         .select(`
             *,
-            profiles(full_name, avatar_url)
+            profiles(first_name, last_name, avatar_url)
         `)
         .eq('team_id', team_id)
         .order('created_at', { ascending: true })
@@ -211,7 +212,8 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
             status,
             preferred_positions,
             profiles (
-                full_name,
+                first_name,
+                last_name,
                 avatar_url
             )
         `)

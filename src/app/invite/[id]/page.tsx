@@ -35,11 +35,11 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
     if (team.captain_id) {
         const { data: captainProfile } = await supabase
             .from('profiles')
-            .select('full_name')
+            .select('first_name, last_name')
             .eq('id', team.captain_id)
             .single();
-        if (captainProfile?.full_name) {
-            captainName = captainProfile.full_name;
+        if (captainProfile?.first_name) {
+            captainName = `${captainProfile.first_name} ${captainProfile.last_name}`;
         }
     }
 

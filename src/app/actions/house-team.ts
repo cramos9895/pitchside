@@ -26,7 +26,7 @@ export async function buildHouseTeam(gameId: string) {
         // 3. Fetch all pending free agents
         const { data: freeAgents, error: faError } = await adminSupabase
             .from('bookings')
-            .select('*, profiles:user_id(stripe_customer_id, full_name, email)')
+            .select('*, profiles:user_id(stripe_customer_id, first_name, last_name, email)')
             .eq('game_id', gameId)
             .eq('status', 'free_agent_pending');
 
@@ -66,7 +66,8 @@ export async function buildHouseTeam(gameId: string) {
 
         for (const fa of freeAgents) {
             const customerId = Array.isArray(fa.profiles) ? fa.profiles[0]?.stripe_customer_id : fa.profiles?.stripe_customer_id;
-            const faName = Array.isArray(fa.profiles) ? fa.profiles[0]?.full_name : fa.profiles?.full_name;
+            const faProfile = Array.isArray(fa.profiles) ? fa.profiles[0] : fa.profiles;
+            const faName = faProfile?.first_name ? `${faProfile.first_name} ${faProfile.last_name}` : 'Unknown';
             const paymentMethodId = fa.stripe_payment_method_id;
 
             if (!customerId || !paymentMethodId) {

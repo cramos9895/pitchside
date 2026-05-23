@@ -248,7 +248,7 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
                                                             </div>
                                                             <div>
                                                                 <p className={cn("font-bold uppercase text-sm", isMe && "text-pitch-accent")}>
-                                                                    {player.profiles?.full_name || 'Anonymous'}
+                                                                    {player.profiles?.first_name} {player.profiles?.last_name || 'Anonymous'}
                                                                 </p>
                                                                 <p className="text-[10px] font-black uppercase text-pitch-secondary tracking-widest">{player.role || 'Member'}</p>
                                                             </div>

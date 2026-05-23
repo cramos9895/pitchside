@@ -13,7 +13,8 @@ import {
     Tag,
     ChevronLeft,
     ChevronRight,
-    Menu
+    Menu,
+    MessageSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +45,12 @@ export function Sidebar({ isMasterAdmin, isSuperAdmin, pendingCount }: SidebarPr
             href: '/admin',
             label: 'Game Manager',
             icon: LayoutDashboard,
+            show: true
+        },
+        {
+            href: '/admin/reviews',
+            label: 'Reviews',
+            icon: MessageSquare,
             show: true
         },
         {

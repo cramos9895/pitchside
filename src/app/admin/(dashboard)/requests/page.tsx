@@ -36,7 +36,7 @@ export default async function RequestsDashboardPage() {
     // Fetch pending requests
     const { data: pendingUsers, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email, role, system_role, updated_at, facilities (name)')
+        .select('id, first_name, last_name, email, role, system_role, updated_at, facilities (name)')
         .eq('verification_status', 'pending')
         .order('updated_at', { ascending: true }); // Oldest first (FIFO queue)
 
@@ -110,7 +110,7 @@ export default async function RequestsDashboardPage() {
                                                 </div>
                                                 <div>
                                                     <div className="font-bold text-lg text-white group-hover:text-pitch-accent transition-colors">
-                                                        {applicant.full_name || 'Unknown User'}
+                                                        {applicant.first_name ? `${applicant.first_name} ${applicant.last_name}` : 'Unknown User'}
                                                     </div>
                                                     <div className="text-sm text-gray-400 mt-0.5">
                                                         {applicant.email}

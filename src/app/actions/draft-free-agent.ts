@@ -14,7 +14,7 @@ export async function draftFreeAgent(bookingId: string, teamAssignment: string) 
         // 1. Fetch the Booking & The Game early to find the team_id
         const { data: booking, error: bookingError } = await adminSupabase
             .from('bookings')
-            .select('*, game_id, user_id, status, stripe_payment_method_id, profiles:user_id(stripe_customer_id, full_name, email)')
+            .select('*, game_id, user_id, status, stripe_payment_method_id, profiles:user_id(stripe_customer_id, first_name, last_name, email)')
             .eq('id', bookingId)
             .single();
 

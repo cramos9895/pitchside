@@ -17,29 +17,33 @@ interface StripeCheckoutModalProps {
     onSuccess: () => void;
     title: string;
     description: string;
+    eventId: string;
+    registrationId?: string;
+    eventType?: string;
 }
 
-export function StripeCheckoutModal({ isOpen, onClose, amount, onSuccess, title, description }: StripeCheckoutModalProps) {
+export function StripeCheckoutModal({ isOpen, onClose, amount, onSuccess, title, description, eventId, registrationId, eventType }: StripeCheckoutModalProps) {
     const [clientSecret, setClientSecret] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen && amount > 0 && !clientSecret) {
             // Fetch PaymentIntent client secret from server
-            const gameId = window.location.pathname.split('/').pop();
             const supabase = createClient();
             
-            supabase.auth.getUser().then(({ data: { user } }) => {
+            supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
                 if (!user) return;
                 
                 fetch('/api/checkout/intent', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        gameId,
+                        gameId: eventId,
                         userId: user.id,
                         price: amount,
                         title: title,
-                        note: description
+                        note: description,
+                        registrationId,
+                        eventType
                     })
                 })
                     .then(res => res.json())
@@ -50,7 +54,7 @@ export function StripeCheckoutModal({ isOpen, onClose, amount, onSuccess, title,
                     .catch((err) => console.error('Stripe Intent Fetch Error:', err));
             });
         }
-    }, [isOpen, amount, clientSecret, title, description]);
+    }, [isOpen, amount, clientSecret, title, description, eventId, registrationId, eventType]);
 
     if (!isOpen) return null;
 

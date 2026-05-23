@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
     try {
-        const { gameId, userId, price, title, note, promoCodeId, teamAssignment, isFreeAgent, isLeagueCaptainVaulting } = await request.json();
+        const { gameId, userId, price, title, note, promoCodeId, teamAssignment, isFreeAgent, isLeagueCaptainVaulting, registrationId, eventType } = await request.json();
 
         const adminSupabase = createAdminClient();
         const { data: userProfile } = await adminSupabase
@@ -24,6 +24,8 @@ export async function POST(request: Request) {
             metadata: {
                 game_id: gameId,
                 user_id: userId,
+                registration_id: registrationId || '',
+                type: eventType || 'league_payment',
                 note: note || '',
                 is_free_agent: isFreeAgent ? 'true' : 'false',
                 is_league_captain: isLeagueCaptainVaulting ? 'true' : 'false',

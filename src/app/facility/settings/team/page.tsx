@@ -59,9 +59,9 @@ export default async function FacilityTeamPage() {
     const adminClient = createAdminClient();
     const { data: teamMembers, error } = await adminClient
         .from('profiles')
-        .select('id, full_name, email, role, system_role, verification_status')
+        .select('id, first_name, last_name, email, role, system_role, verification_status')
         .eq('facility_id', activeFacilityId)
-        .order('full_name', { ascending: true });
+        .order('first_name', { ascending: true });
 
     if (error) {
         console.error("Error fetching facility team members:", error);
@@ -112,11 +112,11 @@ export default async function FacilityTeamPage() {
                                         <td className="p-5">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-10 h-10 rounded-full bg-pitch-black border border-white/10 flex items-center justify-center text-gray-400">
-                                                    {member.full_name ? member.full_name.charAt(0).toUpperCase() : <Users className="w-4 h-4" />}
+                                                    {member.first_name ? member.first_name.charAt(0).toUpperCase() : <Users className="w-4 h-4" />}
                                                 </div>
                                                 <div>
                                                     <div className="font-bold text-white">
-                                                        {member.full_name || 'Pending Accept'}
+                                                        {member.first_name ? `${member.first_name} ${member.last_name}` : 'Pending Accept'}
                                                     </div>
                                                     <div className="text-sm text-gray-400 flex items-center gap-1.5 mt-0.5">
                                                         <Mail className="w-3 h-3" /> {member.email}

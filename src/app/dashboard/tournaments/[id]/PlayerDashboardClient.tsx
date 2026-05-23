@@ -6,7 +6,8 @@ import { Shield, Clock, MapPin, Trophy, Calendar, Users, AlertTriangle, ArrowRig
 
 interface Player {
     id: string;
-    full_name: string;
+    first_name: string;
+    last_name: string;
     role: string;
 }
 
@@ -201,10 +202,10 @@ export function PlayerDashboardClient({ tournament, team, registration, roster, 
                                     {roster.map(member => (
                                         <div key={member.id} className="bg-black/40 border border-white/5 rounded-lg p-5 flex items-center gap-4 hover:border-white/20 transition-colors">
                                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center text-xl font-black uppercase italic text-gray-500 shrink-0 shadow-inner">
-                                                {member.full_name.charAt(0)}
+                                                {member.first_name.charAt(0)}
                                             </div>
                                             <div>
-                                                <h4 className="font-bold text-white uppercase tracking-wider text-sm">{member.full_name}</h4>
+                                                <h4 className="font-bold text-white uppercase tracking-wider text-sm">{member.first_name} {member.last_name}</h4>
                                                 <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${member.role === 'captain' ? 'text-[#cbff00]' : 'text-gray-500'}`}>
                                                     {member.role === 'captain' ? 'Captain' : 'Player'}
                                                 </p>

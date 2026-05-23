@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Users, Calendar, MapPin, Edit, Filter, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
-import { GameForm } from '@/components/admin/GameForm';
+import { PickupForm } from '@/components/admin/PickupForm';
+import { TournamentForm } from '@/components/admin/TournamentForm';
+import { LeagueForm } from '@/components/admin/LeagueForm';
+import { RollingLeagueForm } from '@/components/admin/RollingLeagueForm';
 import { hardDeleteGame } from '@/app/actions/update-game';
 
 import { AdminPickupCard } from './AdminPickupCard';
@@ -258,21 +260,45 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
                 </button>
             </div>
 
-            {/* Games List */}
-            <div className="grid grid-cols-1 gap-6 animate-in fade-in duration-500">
-                {filteredGames.length === 0 ? (
-                    <div className="text-center py-20 border border-white/5 rounded-sm bg-pitch-card">
-                        <Filter className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                        <p className="text-pitch-secondary text-lg">No games found in this category.</p>
-                    </div>
-                ) : (
-                    filteredGames.map((game) => {
-                        const isTournament = game.event_type === 'tournament';
-                        const isLeague = game.event_type === 'league';
+            {/* List View */}
+            <div className="animate-in fade-in duration-500">
+                <div className="grid grid-cols-1 gap-6">
+                    {filteredGames.length === 0 ? (
+                        <div className="text-center py-20 border border-white/5 rounded-sm bg-pitch-card">
+                            <Filter className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                            <p className="text-pitch-secondary text-lg">No games found in this category.</p>
+                        </div>
+                    ) : (
+                        filteredGames.map((game) => {
+                            const isTournament = game.event_type === 'tournament';
+                            const isLeague = game.event_type === 'league';
 
-                        if (isTournament) {
+                            if (isTournament) {
+                                return (
+                                    <AdminTournamentCard 
+                                        key={game.id} 
+                                        game={game as any} 
+                                        onEdit={openEditModal as any} 
+                                        onCancel={openCancelModal} 
+                                        onHardDelete={openHardDeleteModal} 
+                                    />
+                                );
+                            }
+
+                            if (isLeague) {
+                                return (
+                                    <AdminLeagueCard 
+                                        key={game.id} 
+                                        game={game as any} 
+                                        onEdit={openEditModal as any} 
+                                        onCancel={openCancelModal} 
+                                        onHardDelete={openHardDeleteModal} 
+                                    />
+                                );
+                            }
+
                             return (
-                                <AdminTournamentCard 
+                                <AdminPickupCard 
                                     key={game.id} 
                                     game={game as any} 
                                     onEdit={openEditModal as any} 
@@ -280,31 +306,9 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
                                     onHardDelete={openHardDeleteModal} 
                                 />
                             );
-                        }
-
-                        if (isLeague) {
-                            return (
-                                <AdminLeagueCard 
-                                    key={game.id} 
-                                    game={game as any} 
-                                    onEdit={openEditModal as any} 
-                                    onCancel={openCancelModal} 
-                                    onHardDelete={openHardDeleteModal} 
-                                />
-                            );
-                        }
-
-                        return (
-                            <AdminPickupCard 
-                                key={game.id} 
-                                game={game as any} 
-                                onEdit={openEditModal as any} 
-                                onCancel={openCancelModal} 
-                                onHardDelete={openHardDeleteModal} 
-                            />
-                        );
-                    })
-                )}
+                        })
+                    )}
+                </div>
             </div>
 
             {/* Confirmation Modal */}
@@ -341,7 +345,17 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
                             <X className="w-6 h-6" />
                         </button>
                         <h2 className="text-2xl font-heading font-bold uppercase italic text-white mb-6">Edit <span className="text-pitch-accent">Game</span></h2>
-                        <GameForm initialData={gameToEdit} action="edit" onSuccess={handleEditSuccess} />
+                        {gameToEdit.event_type === 'tournament' ? (
+                            <TournamentForm initialData={gameToEdit as any} action="edit" onSuccess={handleEditSuccess} />
+                        ) : gameToEdit.event_type === 'league' ? (
+                            gameToEdit.game_format === 'rolling' ? (
+                                <RollingLeagueForm initialData={gameToEdit as any} action="edit" onSuccess={handleEditSuccess} />
+                            ) : (
+                                <LeagueForm initialData={gameToEdit as any} action="edit" onSuccess={handleEditSuccess} />
+                            )
+                        ) : (
+                            <PickupForm initialData={gameToEdit as any} action="edit" onSuccess={handleEditSuccess} />
+                        )}
                     </div>
                 </div>
             )}

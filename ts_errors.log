@@ -1,0 +1,84 @@
+src/app/admin/(dashboard)/games/[id]/page.tsx(1236,59): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(predicate: (value: { id: string; name: string; }, index: number, array: { id: string; name: string; }[]) => value is { id: string; name: string; }, thisArg?: any): { id: string; name: string; }[]', gave the following error.
+    Argument of type '(p: Profile) => boolean' is not assignable to parameter of type '(value: { id: string; name: string; }, index: number, array: { id: string; name: string; }[]) => value is { id: string; name: string; }'.
+      Types of parameters 'p' and 'value' are incompatible.
+        Type '{ id: string; name: string; }' is missing the following properties from type '{ avatar_url: string | null; ban_reason: string | null; banned_until: string | null; bio: string | null; credit_balance: number | null; email: string | null; facility_id: string | null; ... 14 more ...; zip_code: string | null; }': avatar_url, ban_reason, banned_until, bio, and 17 more.
+  Overload 2 of 2, '(predicate: (value: { id: string; name: string; }, index: number, array: { id: string; name: string; }[]) => unknown, thisArg?: any): { id: string; name: string; }[]', gave the following error.
+    Argument of type '(p: Profile) => boolean' is not assignable to parameter of type '(value: { id: string; name: string; }, index: number, array: { id: string; name: string; }[]) => unknown'.
+      Types of parameters 'p' and 'value' are incompatible.
+        Type '{ id: string; name: string; }' is missing the following properties from type '{ avatar_url: string | null; ban_reason: string | null; banned_until: string | null; bio: string | null; credit_balance: number | null; email: string | null; facility_id: string | null; ... 14 more ...; zip_code: string | null; }': avatar_url, ban_reason, banned_until, bio, and 17 more.
+src/app/admin/(dashboard)/games/[id]/page.tsx(1236,118): error TS2345: Argument of type '(p: Profile) => JSX.Element' is not assignable to parameter of type '(value: { id: string; name: string; }, index: number, array: { id: string; name: string; }[]) => Element'.
+  Types of parameters 'p' and 'value' are incompatible.
+    Type '{ id: string; name: string; }' is missing the following properties from type '{ avatar_url: string | null; ban_reason: string | null; banned_until: string | null; bio: string | null; credit_balance: number | null; email: string | null; facility_id: string | null; ... 14 more ...; zip_code: string | null; }': avatar_url, ban_reason, banned_until, bio, and 17 more.
+src/app/admin/(dashboard)/games/[id]/page.tsx(1256,44): error TS2345: Argument of type '(team: Team) => JSX.Element' is not assignable to parameter of type '(value: TeamConfig, index: number, array: TeamConfig[]) => Element'.
+  Types of parameters 'team' and 'value' are incompatible.
+    Type 'TeamConfig' is missing the following properties from type '{ accepting_free_agents: boolean | null; captain_id: string | null; created_at: string; game_id: string | null; id: string; league_id: string | null; name: string; primary_color: string | null; status: string; updated_at: string; }': accepting_free_agents, captain_id, created_at, game_id, and 4 more.
+src/app/admin/(dashboard)/games/[id]/page.tsx(1410,158): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/app/admin/(dashboard)/games/[id]/page.tsx(1417,80): error TS2345: Argument of type '(team: Team) => JSX.Element' is not assignable to parameter of type '(value: TeamConfig, index: number, array: TeamConfig[]) => Element'.
+  Types of parameters 'team' and 'value' are incompatible.
+    Type 'TeamConfig' is missing the following properties from type '{ accepting_free_agents: boolean | null; captain_id: string | null; created_at: string; game_id: string | null; id: string; league_id: string | null; name: string; primary_color: string | null; status: string; updated_at: string; }': accepting_free_agents, captain_id, created_at, game_id, and 4 more.
+src/app/admin/(dashboard)/games/[id]/page.tsx(1421,164): error TS2339: Property 'color' does not exist on type '{ accepting_free_agents: boolean | null; captain_id: string | null; created_at: string; game_id: string | null; id: string; league_id: string | null; name: string; primary_color: string | null; status: string; updated_at: string; }'.
+src/app/admin/(dashboard)/games/[id]/page.tsx(1618,72): error TS2345: Argument of type '(p: Profile) => JSX.Element' is not assignable to parameter of type '(value: { id: string; name: string; }, index: number, array: { id: string; name: string; }[]) => Element'.
+  Types of parameters 'p' and 'value' are incompatible.
+    Type '{ id: string; name: string; }' is missing the following properties from type '{ avatar_url: string | null; ban_reason: string | null; banned_until: string | null; bio: string | null; credit_balance: number | null; email: string | null; facility_id: string | null; ... 14 more ...; zip_code: string | null; }': avatar_url, ban_reason, banned_until, bio, and 17 more.
+src/app/dashboard/billing/page.tsx(135,81): error TS18046: 'tx' is of type 'unknown'.
+src/app/dashboard/billing/page.tsx(137,92): error TS18046: 'tx' is of type 'unknown'.
+src/app/dashboard/billing/page.tsx(144,46): error TS18046: 'tx' is of type 'unknown'.
+src/app/dashboard/page.tsx(394,127): error TS18046: 'group' is of type 'unknown'.
+src/app/dashboard/page.tsx(397,54): error TS18046: 'group' is of type 'unknown'.
+src/app/dashboard/page.tsx(397,79): error TS18046: 'group' is of type 'unknown'.
+src/app/dashboard/page.tsx(402,46): error TS18046: 'group' is of type 'unknown'.
+src/app/dashboard/page.tsx(405,54): error TS18046: 'group' is of type 'unknown'.
+src/app/dashboard/page.tsx(405,135): error TS18046: 'group' is of type 'unknown'.
+src/app/dashboard/page.tsx(417,71): error TS18046: 'group' is of type 'unknown'.
+src/app/leaderboard/page.tsx(282,98): error TS2339: Property 'id' does not exist on type '{}'.
+src/app/profile/page.tsx(201,50): error TS2339: Property 'position' does not exist on type '{}'.
+src/app/profile/page.tsx(208,31): error TS2339: Property 'avatar_url' does not exist on type '{}'.
+src/app/profile/page.tsx(224,35): error TS2339: Property 'first_name' does not exist on type '{}'.
+src/app/profile/page.tsx(224,59): error TS2339: Property 'first_name' does not exist on type '{}'.
+src/app/profile/page.tsx(224,81): error TS2339: Property 'last_name' does not exist on type '{}'.
+src/app/profile/page.tsx(255,35): error TS2339: Property 'bio' does not exist on type '{}'.
+src/app/profile/page.tsx(281,35): error TS2345: Argument of type '(booking: Booking) => JSX.Element | null' is not assignable to parameter of type '(value: unknown, index: number, array: unknown[]) => Element | null'.
+  Types of parameters 'booking' and 'value' are incompatible.
+    Type 'unknown' is not assignable to type '{ buyer_id: string | null; checked_in: boolean | null; created_at: string; game_id: string; has_physical_waiver: boolean | null; has_signed: boolean | null; id: string; is_captain: boolean | null; ... 13 more ...; user_id: string; }'.
+src/app/profile/page.tsx(332,54): error TS18046: 'b' is of type 'unknown'.
+src/app/settings/page.tsx(210,31): error TS2339: Property 'role' does not exist on type '{}'.
+src/app/settings/page.tsx(217,31): error TS2339: Property 'role' does not exist on type '{}'.
+src/components/admin/ManualAddPlayerModal.tsx(124,52): error TS2345: Argument of type '(user: Profile) => JSX.Element' is not assignable to parameter of type '(value: unknown, index: number, array: unknown[]) => Element'.
+  Types of parameters 'user' and 'value' are incompatible.
+    Type 'unknown' is not assignable to type '{ avatar_url: string | null; ban_reason: string | null; banned_until: string | null; bio: string | null; credit_balance: number | null; email: string | null; facility_id: string | null; ... 14 more ...; zip_code: string | null; }'.
+src/components/admin/ManualAddPlayerModal.tsx(132,91): error TS2339: Property 'first_name' does not exist on type '{ avatar_url: string | null; ban_reason: string | null; banned_until: string | null; bio: string | null; credit_balance: number | null; email: string | null; facility_id: string | null; ... 14 more ...; zip_code: string | null; }'.
+src/components/admin/ManualAddPlayerModal.tsx(132,109): error TS2339: Property 'last_name' does not exist on type '{ avatar_url: string | null; ban_reason: string | null; banned_until: string | null; bio: string | null; credit_balance: number | null; email: string | null; facility_id: string | null; ... 14 more ...; zip_code: string | null; }'.
+src/components/admin/MatchManager.tsx(802,9): error TS2578: Unused '@ts-expect-error' directive.
+src/components/admin/MatchManager.tsx(1026,57): error TS2578: Unused '@ts-expect-error' directive.
+src/components/admin/MatchManager.tsx(1082,49): error TS2578: Unused '@ts-expect-error' directive.
+src/components/admin/MatchManager.tsx(1084,49): error TS2578: Unused '@ts-expect-error' directive.
+src/components/admin/MatchManager.tsx(1234,89): error TS18046: 'm' is of type 'unknown'.
+src/components/admin/MatchManager.tsx(1243,81): error TS18046: 'm' is of type 'unknown'.
+src/components/admin/MatchManager.tsx(1255,62): error TS18046: 't' is of type 'unknown'.
+src/components/admin/MatchManager.tsx(1264,77): error TS18046: 'm' is of type 'unknown'.
+src/components/admin/MatchManager.tsx(1269,58): error TS18046: 'm' is of type 'unknown'.
+src/components/admin/MatchManager.tsx(1273,98): error TS18046: 'm' is of type 'unknown'.
+src/components/admin/MatchManager.tsx(1276,98): error TS18046: 'm' is of type 'unknown'.
+src/components/admin/MatchManager.tsx(1383,49): error TS2578: Unused '@ts-expect-error' directive.
+src/components/admin/PickupForm.tsx(468,28): error TS2345: Argument of type '(team: { accepting_free_agents: boolean | null; captain_id: string | null; created_at: string; game_id: string | null; id: string; league_id: string | null; name: string; primary_color: string | null; status: string; updated_at: string; }, index: number) => Element' is not assignable to parameter of type '(value: TeamConfig, index: number, array: TeamConfig[]) => Element'.
+  Types of parameters 'team' and 'value' are incompatible.
+    Type 'TeamConfig' is missing the following properties from type '{ accepting_free_agents: boolean | null; captain_id: string | null; created_at: string; game_id: string | null; id: string; league_id: string | null; name: string; primary_color: string | null; status: string; updated_at: string; }': accepting_free_agents, captain_id, created_at, game_id, and 5 more.
+src/components/admin/PickupForm.tsx(481,53): error TS2339: Property 'color' does not exist on type '{ accepting_free_agents: boolean | null; captain_id: string | null; created_at: string; game_id: string | null; id: string; league_id: string | null; name: string; primary_color: string | null; status: string; updated_at: string; }'.
+src/components/admin/PickupForm.tsx(483,78): error TS18046: 'c' is of type 'unknown'.
+src/components/admin/PickupForm.tsx(483,94): error TS18046: 'c' is of type 'unknown'.
+src/components/admin/PickupForm.tsx(483,119): error TS18046: 'c' is of type 'unknown'.
+src/components/admin/PickupForm.tsx(483,152): error TS18046: 'c' is of type 'unknown'.
+src/components/admin/PickupForm.tsx(483,164): error TS18046: 'c' is of type 'unknown'.
+src/components/admin/PickupForm.tsx(489,74): error TS2339: Property 'limit' does not exist on type '{ accepting_free_agents: boolean | null; captain_id: string | null; created_at: string; game_id: string | null; id: string; league_id: string | null; name: string; primary_color: string | null; status: string; updated_at: string; }'.
+src/components/facility/operations/OperationsCheckIn.tsx(102,40): error TS2339: Property 'title' does not exist on type '{}'.
+src/components/facility/operations/OperationsCheckIn.tsx(116,68): error TS2339: Property 'start_time' does not exist on type '{}'.
+src/components/facility/operations/OperationsCheckIn.tsx(121,52): error TS2339: Property 'resource' does not exist on type '{}'.
+src/components/JoinGameModal.tsx(609,48): error TS2339: Property 'payment_collection_type' does not exist on type '{}'.
+src/components/JoinGameModal.tsx(616,93): error TS2339: Property 'player_registration_fee' does not exist on type '{}'.
+src/components/JoinGameModal.tsx(622,67): error TS2339: Property 'cash_fee_structure' does not exist on type '{}'.
+src/components/JoinGameModal.tsx(683,40): error TS2339: Property 'strict_waiver_required' does not exist on type '{}'.
+src/components/JoinGameModal.tsx(691,51): error TS2339: Property 'waiver_details' does not exist on type '{}'.
+src/components/JoinGameModal.tsx(708,40): error TS2339: Property 'payment_collection_type' does not exist on type '{}'.
+src/components/public/CaptainDashboard.tsx(844,56): error TS2551: Property 'home_team_obj' does not exist on type '{ away_score: number | null; away_team: string; away_team_id: string | null; created_at: string | null; field_name: string | null; game_id: string; home_score: number | null; home_team: string; ... 13 more ...; tournament_stage: string | null; }'. Did you mean 'home_team'?
+src/components/public/CaptainDashboard.tsx(854,56): error TS2551: Property 'away_team_obj' does not exist on type '{ away_score: number | null; away_team: string; away_team_id: string | null; created_at: string | null; field_name: string | null; game_id: string; home_score: number | null; home_team: string; ... 13 more ...; tournament_stage: string | null; }'. Did you mean 'away_team'?

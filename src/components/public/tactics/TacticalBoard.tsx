@@ -59,7 +59,7 @@ export function TacticalBoard({
         const player = roster.find(p => p.user_id === userId);
         const rsvp = attendance.find(a => a.user_id === userId);
         return {
-            name: player?.profiles?.full_name || 'Empty',
+            name: player?.profiles?.first_name ? `${player.profiles.first_name} ${player.profiles.last_name}` : 'Empty',
             isOut: rsvp?.status === 'out',
             avatar: player?.profiles?.avatar_url
         };
@@ -159,7 +159,7 @@ export function TacticalBoard({
                                                         >
                                                             <option value="">Select Player</option>
                                                             {roster.map(p => (
-                                                                <option key={p.id} value={p.user_id}>{p.profiles.full_name}</option>
+                                                                <option key={p.id} value={p.user_id}>{p.profiles.first_name} {p.profiles.last_name}</option>
                                                             ))}
                                                         </select>
                                                     )}
