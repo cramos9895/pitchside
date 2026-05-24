@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 'use client';
 
@@ -19,7 +18,7 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [user, setUser] = useState<unknown>(null);
-    const [profile, setProfile] = useState<unknown>(null);
+    const [profile, setProfile] = useState<Profile | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [uploading, setUploading] = useState(false);
 
@@ -77,7 +76,7 @@ export default function SettingsPage() {
                 setZipCode(profile.zip_code || '');
 
                 // Admin Check
-                setIsAdmin(profile.role === 'host' || profile.role === 'master_admin');
+                setIsAdmin(profile?.role === 'host' || profile?.role === 'master_admin');
 
                 // Notification Settings (Mock implementation if column missing, or real if present)
                 if (profile.notification_settings) {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // 🏗️ Architecture: [[MatchManager.md]]
 'use client';
 
@@ -289,8 +288,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                         // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                         filteredData = data.filter((m: unknown) => !m.round_number || m.round_number === 0);
                 } else if (filterMode === 'tournament') {
-                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                        filteredData = data.filter((m: unknown) => m.round_number && m.round_number > 0);
+                                        filteredData = data.filter((m: Match) => m.round_number && m.round_number > 0);
                 }
 
                 setMatches(filteredData);
@@ -303,14 +301,12 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                 }
 
                 // Determine Max Round
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                const roundNumbers = data.map((m: unknown) => m.round_number || 0).filter((r: number) => r > 0);
+                                const roundNumbers = data.map((m: Match) => m.round_number || 0).filter((r: number) => r > 0);
                 const max = roundNumbers.length > 0 ? Math.max(...roundNumbers) : 0;
                 setMaxRound(max);
 
                 // Determine Current Round (Earliest round with unfinished matches)
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                const validMatches = data.filter((m: unknown) => (m.round_number || 0) > 0);
+                                const validMatches = data.filter((m: Match) => (m.round_number || 0) > 0);
 
                 if (validMatches.length > 0) {
                                         // @ts-expect-error - Residual typing mismatch from extended schema mapping
@@ -318,8 +314,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                     
                     if (unfinishedMatches.length > 0) {
                         // Find the MINIMUM round number among all unfinished matches
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                const minUnfinishedRound = Math.min(...unfinishedMatches.map((m: unknown) => m.round_number));
+                                                const minUnfinishedRound = Math.min(...unfinishedMatches.map((m: Match) => m.round_number));
                         setCurrentRound(minUnfinishedRound);
                     } else {
                         // All matches are completed/cancelled
@@ -338,13 +333,11 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
     // Teams Sitting Out
     const teamsInActiveRound = new Set(matchesInCurrentRound.flatMap((m: any) => [m.home_team, m.away_team]));
-        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-        const sittingOutActive = teams.filter((t: unknown) => !teamsInActiveRound.has(t.name));
+        const sittingOutActive = teams.filter((t: TeamConfig) => !teamsInActiveRound.has(t.name));
 
     const matchesInNextRound = matches.filter((m: any) => m.round_number === currentRound + 1);
     const teamsInNextRound = new Set(matchesInNextRound.flatMap((m: any) => [m.home_team, m.away_team]));
-        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-        const sittingOutNext = teams.filter((t: unknown) => !teamsInNextRound.has(t.name));
+        const sittingOutNext = teams.filter((t: TeamConfig) => !teamsInNextRound.has(t.name));
 
     // If gameStatus is completed, force view to completed state unless editing
     const effectiveComplete = (isTournamentMode && currentRound > maxRound && maxRound > 0) || gameStatus === 'completed';
@@ -1231,7 +1224,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
                             {/* UP NEXT SECTION: SIDE COLUMN */}
                                                         // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                        {maxRound >= currentRound && matches.filter((m: unknown) => m.round_number === currentRound + 1).length > 0 && (
+                                                        {maxRound >= currentRound && matches.filter((m: Match) => m.round_number === currentRound + 1).length > 0 && (
                                 <div className="lg:col-span-1 space-y-4 animate-in fade-in slide-in-from-right-4 duration-500 h-full">
                                     <div className="bg-black/30 p-4 rounded border border-white/5 h-full flex flex-col">
                                         <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
@@ -1240,7 +1233,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                             </h4>
                                             <span className="text-[10px] font-bold text-pitch-secondary bg-pitch-secondary/10 px-2 py-0.5 rounded">
                                                                                                 // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                                {matches.filter((m: unknown) => m.round_number === currentRound + 1).length} Games
+                                                                                                {matches.filter((m: Match) => m.round_number === currentRound + 1).length} Games
                                             </span>
                                         </div>
 
@@ -1248,8 +1241,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                             <div className="mb-4 p-2 bg-yellow-500/5 border border-yellow-500/10 rounded">
                                                 <div className="text-[8px] font-black text-yellow-600 uppercase tracking-widest mb-1.5 px-1 text-pitch-accent">Sitting Out Next</div>
                                                 <div className="flex flex-wrap gap-1">
-                                                    {sittingOutNext.map((t: unknown) => (
-                                                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
+                                                    {sittingOutNext.map((t: TeamConfig) => (
                                                                                                                 <span key={t.name} className="text-[9px] font-bold text-gray-400 uppercase bg-black/30 px-2 py-0.5 rounded border border-white/5">
                                                                                                                         // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                                                                                                         {t.name}
@@ -1261,8 +1253,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
                                         <div className="grid grid-cols-1 gap-2 flex-1">
                                                                                         // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                        {matches.filter((m: unknown) => m.round_number === currentRound + 1).map((m: unknown) => (
-                                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
+                                                                                        {matches.filter((m: Match) => m.round_number === currentRound + 1).map((m: Match) => (
                                                                                                 <div key={m.id} className="bg-white/[0.02] border border-white/5 py-4 px-4 rounded-xl group hover:bg-white/5 transition-colors flex items-center gap-4 min-h-[88px]">
                                                     <div className="text-[9px] font-black text-pitch-accent bg-pitch-accent/5 px-2 py-1 rounded border border-pitch-accent/10 uppercase tracking-widest shrink-0 min-w-[65px] text-center">
                                                                                                                 // @ts-expect-error - Residual typing mismatch from extended schema mapping

@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useEffect, useState, use } from 'react';
@@ -22,7 +21,7 @@ import { AdminLeagueControl } from '@/components/admin/AdminLeagueControl';
 import { AdminRollingManager } from '@/components/admin/rolling/AdminRollingManager';
 import { ManualAddPlayerModal } from '@/components/admin/ManualAddPlayerModal';
 
-interface Booking {
+export type AdminGameBooking = Booking & {
     id: string;
     checked_in: boolean;
     team_assignment: string | null;
@@ -50,12 +49,17 @@ interface Booking {
     has_signed?: boolean;
     total_cash_collected?: number;
     cash_paid_current_round?: boolean;
+    candidate_id?: string;
+    team_id?: string;
+    role?: string;
+    team_color?: string;
+    payment_error?: string;
+
 }
 
 import { TeamManager } from '@/components/admin/TeamManager';
 import { generateFinalRound } from '@/app/actions/tournament';
-// @ts-expect-error - Complex schema extension bypass
-import { Game, Booking, Profile, Match, Team } from "@/types/index";
+import { Game, Booking, Profile, Team } from "@/types/index";
 
 interface TeamConfig {
     id?: string;
@@ -63,7 +67,7 @@ interface TeamConfig {
     color: string;
 }
 
-interface Game {
+export type AdminGameDetails = Game & {
     id: string;
     title: string;
     start_time: string;
@@ -151,10 +155,10 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const gameId = resolvedParams.id;
     const { success, error: toastError } = useToast();
 
-    const [bookings, setBookings] = useState<Booking[]>([]);
-    const [game, setGame] = useState<Game | null>(null);
+    const [bookings, setBookings] = useState<AdminGameBooking[]>([]);
+    const [game, setGame] = useState<AdminGameDetails | null>(null);
     const [matches, setMatches] = useState<Match[]>([]);
-    const [rollingTeams, setRollingTeams] = useState<unknown[]>([]);
+    const [rollingTeams, setRollingTeams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [finalizing, setFinalizing] = useState(false);
     const [activeTab, setActiveTab] = useState('player-manager');
@@ -216,9 +220,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             } else {
                 toastError(result.error || "Failed to execute shortfalls");
             }
-        } catch (err: unknown) {
-            // @ts-expect-error - Complex schema extension bypass
-            toastError(err.message || 'Error occurred');
+        } catch (err: any) {
+                        toastError(err.message || 'Error occurred');
         } finally {
             setIsExecutingShortfalls(false);
         }
@@ -231,9 +234,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             toast.success(res.message);
             fetchMatches();
             setRefreshKey(prev => prev + 1);
-        } catch (error: unknown) {
-            // @ts-expect-error - Complex schema extension bypass
-            toast.error(error.message);
+        } catch (error: any) {
+                        toast.error(error.message);
         }
     };
 
@@ -285,75 +287,55 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     .neq('status', 'cancelled');
 
                 if (regData && regData.length > 0) {
-                    // @ts-expect-error - Complex schema extension bypass
-                    const userIds = regData.map((r: unknown) => r.user_id);
-                    // @ts-expect-error - Complex schema extension bypass
-                    const teamIds = regData.map((r: unknown) => r.team_id).filter(Boolean);
+                                        const userIds = regData.map((r: AdminGameBooking) => r.user_id);
+                                        const teamIds = regData.map((r: AdminGameBooking) => r.team_id).filter(Boolean);
 
                     const [profilesRes, teamsRes] = await Promise.all([
                         userIds.length > 0
                             ? supabase.from('profiles').select('email, first_name, last_name, id, avatar_url').in('id', userIds)
-                            : Promise.resolve({ data: [] as unknown[], error: null }),
+                            : Promise.resolve({ data: [] as any[], error: null }),
                         teamIds.length > 0
                             ? supabase.from('teams').select('id, name, captain_id').in('id', teamIds)
-                            : Promise.resolve({ data: [] as unknown[], error: null })
+                            : Promise.resolve({ data: [] as any[], error: null })
                     ]);
 
-                    const finalBookings = regData.map((r: unknown) => {
-                        // @ts-expect-error - Complex schema extension bypass
-                        const profile = profilesRes.data?.find((p: unknown) => p.id === r.user_id);
-                        // @ts-expect-error - Complex schema extension bypass
-                        const team = teamsRes.data?.find((t: unknown) => t.id === r.team_id);
+                    const finalBookings = regData.map((r: AdminGameBooking) => {
+                                                const profile = profilesRes.data?.find((p: any) => p.id === r.user_id);
+                                                const team = teamsRes.data?.find((t: any) => t.id === r.team_id);
                         return {
-                            // @ts-expect-error - Complex schema extension bypass
-                            id: r.id || `reg_${r.user_id}`,
-                            // @ts-expect-error - Complex schema extension bypass
-                            user_id: r.user_id,
-                            // @ts-expect-error - Complex schema extension bypass
-                            team_id: r.team_id,
-                            // @ts-expect-error - Complex schema extension bypass
-                            role: r.role,
+                                                        id: r.id || `reg_${r.user_id}`,
+                                                        user_id: r.user_id,
+                                                        team_id: r.team_id,
+                                                        role: r.role,
                             team_assignment: team?.name || 'Unassigned',
-                            // @ts-expect-error - Complex schema extension bypass
-                            team_color: r.team_color,
-                            // @ts-expect-error - Complex schema extension bypass
-                            has_signed: r.has_signed,
-                            // @ts-expect-error - Complex schema extension bypass
-                            checked_in: r.checked_in,
-                            // @ts-expect-error - Complex schema extension bypass
-                            status: r.status === 'registered' ? 'paid' : r.status,
-                            // @ts-expect-error - Complex schema extension bypass
-                            payment_status: r.payment_status || 'verified',
+                                                        team_color: r.team_color,
+                                                        has_signed: r.has_signed,
+                                                        checked_in: r.checked_in,
+                                                        status: r.status === 'registered' ? 'paid' : r.status,
+                                                        payment_status: r.payment_status || 'verified',
                             payment_amount: 0,
-                            // @ts-expect-error - Complex schema extension bypass
-                            payment_error: r.payment_error,
-                            // @ts-expect-error - Complex schema extension bypass
-                            total_cash_collected: r.total_cash_collected,
-                            // @ts-expect-error - Complex schema extension bypass
-                            cash_paid_current_round: r.cash_paid_current_round,
+                                                        payment_error: r.payment_error,
+                                                        total_cash_collected: r.total_cash_collected,
+                                                        cash_paid_current_round: r.cash_paid_current_round,
                             profiles: profile || null,
                             teams: team ? { name: team.name } : null,
-                            // @ts-expect-error - Complex schema extension bypass
-                            created_at: r.created_at
+                                                        created_at: r.created_at
                         };
                     });
 
                     // Waiver enrichment
                     let signedIds = new Set<string>();
-                    if (currentGame.facility_id && finalBookings.length > 0) {
-                        // @ts-expect-error - Complex schema extension bypass
-                        const waiverUserIds = finalBookings.map((b: unknown) => b.user_id);
+                    if ((currentGame as any).facility_id && finalBookings.length > 0) {
+                                                const waiverUserIds = finalBookings.map((b: AdminGameBooking) => b.user_id);
                         const { data: waiverData } = await supabase
                             .from('waiver_signatures')
                             .select('user_id')
-                            .eq('facility_id', currentGame.facility_id)
+                            .eq('facility_id', (currentGame as any).facility_id)
                             .in('user_id', waiverUserIds);
-                        // @ts-expect-error - Complex schema extension bypass
-                        signedIds = new Set(waiverData?.map((w: unknown) => w.user_id) || []);
+                                                signedIds = new Set(waiverData?.map((w: AdminGameBooking) => w.user_id) || []);
                     }
 
-                    // @ts-expect-error - Complex schema extension bypass
-                    setBookings(finalBookings.map((b: unknown) => ({ ...b, has_signed: signedIds.has(b.user_id) })) as Profile);
+                                        setBookings(finalBookings.map((b: any) => ({ ...b, has_signed: signedIds.has(b.user_id) })) as AdminGameBooking[]);
                 } else {
                     setBookings([]);
                 }
@@ -364,8 +346,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     .select('*, profiles!bookings_user_id_fkey(email, first_name, last_name, id, avatar_url)')
                     .eq('game_id', gameId)
                     .order('created_at', { ascending: true });
-                // @ts-expect-error - Complex schema extension bypass
-                setBookings((bookingsData || []) as Booking);
+                                setBookings((bookingsData || []) as AdminGameBooking[]);
             }
         } catch (err) {
             console.error('Error refreshing registrations:', err);
@@ -382,7 +363,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
-            let fetchedGame: unknown = null;
+            let fetchedGame: AdminGameDetails | null = null;
             try {
                 // Fetch Game
                 const { data: gameData, error: gameError } = await supabase
@@ -393,18 +374,16 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                 if (gameError) throw gameError;
                 fetchedGame = gameData;
-                setGame(gameData);
+                setGame(gameData as AdminGameDetails);
 
                 if (gameData.view_mode) {
-                    // @ts-expect-error - Complex schema extension bypass
-                    setViewMode(gameData.view_mode as Game);
+                                        setViewMode(gameData.view_mode as any);
                 } else if (gameData.event_type === 'tournament' || gameData.event_type === 'league') {
                     setViewMode('tournament');
                 }
 
                 // Fetch User and Role
-                // @ts-expect-error - Complex schema extension bypass
-                const { data: { user } } = await supabase.auth.getSession().then(({data}) => ({ data: { user: data.session?.user } }));
+                                const { data: { user } } = await supabase.auth.getSession().then(({data}: any) => ({ data: { user: data.session?.user } }));
                 if (user) {
                     setCurrentUserId(user.id);
                     const { data: profile } = await supabase
@@ -428,10 +407,9 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             }
 
             try {
-                let finalBookings: unknown[] = [];
+                let finalBookings: AdminGameBooking[] = [];
                 
-                // @ts-expect-error - Complex schema extension bypass
-                if (fetchedGame?.event_type === 'tournament' || fetchedGame?.event_type === 'league') {
+                                if (fetchedGame?.event_type === 'tournament' || fetchedGame?.event_type === 'league') {
                     // Fetch relational teams for rolling leagues natively
                     const { data: dbTeams, error: dbTeamsErr } = await supabase
                         .from('teams')
@@ -454,9 +432,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     }
 
                     if (regData && regData.length > 0) {
-                        const userIds = regData.map((r: Booking) => r.user_id);
-                        // @ts-expect-error - Complex schema extension bypass
-                        const teamIds = regData.map((r: Booking) => r.team_id).filter(Boolean);
+                        const userIds = regData.map((r: any) => r.user_id);
+                                                const teamIds = regData.map((r: any) => r.team_id).filter(Boolean);
 
                         // 2. Fetch Profiles and Teams in parallel (only if IDs exist)
                         const [profilesRes, teamsRes] = await Promise.all([
@@ -475,43 +452,28 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                             console.error("[CRITICAL] Failed to fetch teams for roster:", JSON.stringify(teamsRes.error, null, 2));
                         }
 
-                        finalBookings = regData.map((r: unknown) => {
-                            // @ts-expect-error - Complex schema extension bypass
-                            const profile = profilesRes.data?.find((p: Profile) => p.id === r.user_id);
-                            // @ts-expect-error - Complex schema extension bypass
-                            const team = teamsRes.data?.find((t: Team) => t.id === r.team_id);
+                        finalBookings = regData.map((r: AdminGameBooking) => {
+                                                        const profile = profilesRes.data?.find((p: { id: string; name: string }) => p.id === r.user_id);
+                                                        const team = teamsRes.data?.find((t: Team) => t.id === r.team_id);
 
                             return {
-                                // @ts-expect-error - Complex schema extension bypass
-                                id: r.id || `reg_${r.user_id}`,
-                                // @ts-expect-error - Complex schema extension bypass
-                                user_id: r.user_id,
-                                // @ts-expect-error - Complex schema extension bypass
-                                team_id: r.team_id,
-                                // @ts-expect-error - Complex schema extension bypass
-                                role: r.role,
+                                                                id: r.id || `reg_${r.user_id}`,
+                                                                user_id: r.user_id,
+                                                                team_id: r.team_id,
+                                                                role: r.role,
                                 team_assignment: team?.name || 'Unassigned',
-                                // @ts-expect-error - Complex schema extension bypass
-                                team_color: r.team_color, // Use the color from the registration table
-                                // @ts-expect-error - Complex schema extension bypass
-                                has_signed: r.has_signed,
-                                // @ts-expect-error - Complex schema extension bypass
-                                checked_in: r.checked_in,
-                                // @ts-expect-error - Complex schema extension bypass
-                                status: r.status === 'registered' ? 'paid' : r.status,
-                                // @ts-expect-error - Complex schema extension bypass
-                                payment_status: r.payment_status || 'verified',
+                                                                team_color: r.team_color, // Use the color from the registration table
+                                                                has_signed: r.has_signed,
+                                                                checked_in: r.checked_in,
+                                                                status: r.status === 'registered' ? 'paid' : r.status,
+                                                                payment_status: r.payment_status || 'verified',
                                 payment_amount: 0,
-                                // @ts-expect-error - Complex schema extension bypass
-                                payment_error: r.payment_error,
-                                // @ts-expect-error - Complex schema extension bypass
-                                total_cash_collected: r.total_cash_collected,
-                                // @ts-expect-error - Complex schema extension bypass
-                                cash_paid_current_round: r.cash_paid_current_round,
+                                                                payment_error: r.payment_error,
+                                                                total_cash_collected: r.total_cash_collected,
+                                                                cash_paid_current_round: r.cash_paid_current_round,
                                 profiles: profile || null,
                                 teams: team ? { name: team.name } : null,
-                                // @ts-expect-error - Complex schema extension bypass
-                                created_at: r.created_at
+                                                                created_at: r.created_at
                             };
                         });
                     }
@@ -527,29 +489,22 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                 }
 
                 let signedIds = new Set<string>();
-                // @ts-expect-error - Complex schema extension bypass
-                if (fetchedGame?.facility_id && finalBookings.length > 0) {
-                    // @ts-expect-error - Complex schema extension bypass
-                    const userIds = finalBookings.map((b: unknown) => b.user_id);
+                                if (fetchedGame?.facility_id && finalBookings.length > 0) {
+                                        const userIds = finalBookings.map((b: AdminGameBooking) => b.user_id);
                     const { data: waiverData } = await supabase
                         .from('waiver_signatures')
                         .select('user_id')
-                        // @ts-expect-error - Complex schema extension bypass
-                        .eq('facility_id', fetchedGame.facility_id)
+                                                .eq('facility_id', fetchedGame.facility_id)
                         .in('user_id', userIds);
-                    // @ts-expect-error - Complex schema extension bypass
-                    signedIds = new Set(waiverData?.map((w: unknown) => w.user_id) || []);
+                                        signedIds = new Set(waiverData?.map((w: AdminGameBooking) => w.user_id) || []);
                 }
 
-                const enrichedBookings = finalBookings.map((b: unknown) => ({
-                    // @ts-expect-error - Complex schema extension bypass
-                    ...b,
-                    // @ts-expect-error - Complex schema extension bypass
-                    has_signed: signedIds.has(b.user_id)
+                const enrichedBookings = finalBookings.map((b: AdminGameBooking) => ({
+                                        ...b,
+                                        has_signed: signedIds.has(b.user_id)
                 }));
 
-                // @ts-expect-error - Complex schema extension bypass
-                setBookings(enrichedBookings as unknown);
+                                setBookings(enrichedBookings as AdminGameBooking[]);
 
                 // Fetch Votes
                 const { data: votesData, error: votesError } = await supabase
@@ -559,9 +514,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                 if (votesData) {
                     const tally: Record<string, number> = {};
-                    votesData.forEach((v: unknown) => {
-                        // @ts-expect-error - Complex schema extension bypass
-                        tally[v.candidate_id] = (tally[v.candidate_id] || 0) + 1;
+                    votesData.forEach((v: AdminGameBooking) => {
+                                                tally[(v.candidate_id as string)] = (tally[(v.candidate_id as string)] || 0) + 1;
                     });
                     setVoteTally(tally);
                 }
@@ -586,20 +540,18 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     table: 'mvp_votes',
                     filter: `game_id=eq.${gameId}`
                 },
-                (payload: Record<string, unknown>) => {
+                (payload: any) => {
                     // Re-fetch votes to be safe and simple (or optimistic update)
                     // Simple re-fetch logic:
                     supabase
                         .from('mvp_votes')
                         .select('candidate_id')
                         .eq('game_id', gameId)
-                        // @ts-expect-error - Complex schema extension bypass
-                        .then(({ data }) => {
+                                                .then(({ data }: any) => {
                             if (data) {
                                 const tally: Record<string, number> = {};
-                                data.forEach((v: unknown) => {
-                                    // @ts-expect-error - Complex schema extension bypass
-                                    tally[v.candidate_id] = (tally[v.candidate_id] || 0) + 1;
+                                data.forEach((v: AdminGameBooking) => {
+                                                                        tally[(v.candidate_id as string)] = (tally[(v.candidate_id as string)] || 0) + 1;
                                 });
                                 setVoteTally(tally);
                             }
@@ -635,12 +587,10 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             if (error) throw error;
             toast.success(`Payment marked as ${newStatus}`);
             router.refresh();
-        } catch (err: unknown) {
-            // @ts-expect-error - Complex schema extension bypass
-            toast.error(err.message);
+        } catch (err: any) {
+                        toast.error(err.message);
             // Revert
-            // @ts-expect-error - Complex schema extension bypass
-            setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, payment_status: currentStatus as unknown } : b));
+                        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, payment_status: currentStatus as any } : b));
         }
     };
 
@@ -675,9 +625,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             toast.success(`Match Finalized! Result: ${calculatedWinner.toUpperCase()} Win.`);
             router.refresh();
 
-        } catch (error: unknown) {
-            // @ts-expect-error - Complex schema extension bypass
-            toast.error("Error finalizing match: " + error.message);
+        } catch (error: any) {
+                        toast.error("Error finalizing match: " + error.message);
         } finally {
             setFinalizing(false);
             setShowFinalizeModal(false);
@@ -704,9 +653,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             router.refresh();
             toast.success("Event cancelled successfully.");
             router.push('/admin'); // Redirect back to dashboard
-        } catch (e: unknown) {
-            // @ts-expect-error - Complex schema extension bypass
-            toast.error("Error cancelling event: " + e.message);
+        } catch (e: any) {
+                        toast.error("Error cancelling event: " + e.message);
             setLoading(false);
         } finally {
             setShowCancelModal(false);
@@ -725,9 +673,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
             toast.success("Event deleted successfully.");
             router.push('/admin');
-        } catch (e: unknown) {
-            // @ts-expect-error - Complex schema extension bypass
-            toast.error("Error deleting event: " + e.message);
+        } catch (e: any) {
+                        toast.error("Error deleting event: " + e.message);
             setLoading(false);
         } finally {
             setShowDeleteModal(false);
@@ -776,8 +723,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
 
     // Calculate Counts (using only roster)
-    // @ts-expect-error - Complex schema extension bypass
-    const teamCounts = teams.reduce((acc, team: Team) => {
+        const teamCounts = (teams as any[]).reduce((acc: any, team: any) => {
         acc[team.name] = roster.filter(b => b.team_assignment === team.name).length;
         return acc;
     }, {} as Record<string, number>);
@@ -804,12 +750,10 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             router.refresh();
             // Optimistic update
             const updatedBookings = bookings.map(b => b.id === bookingId ? { ...b, status: 'active' } : b);
-            // @ts-expect-error - Complex schema extension bypass
-            setBookings(updatedBookings as unknown);
+                        setBookings(updatedBookings as AdminGameBooking[]);
 
-        } catch (error: unknown) {
-            // @ts-expect-error - Complex schema extension bypass
-            toast.error("Error promoting player: " + error.message);
+        } catch (error: any) {
+                        toast.error("Error promoting player: " + error.message);
         }
     };
 
@@ -832,9 +776,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             // Optimistic removal from view
             setBookings(prev => prev.filter(b => b.user_id !== userId));
 
-        } catch (error: unknown) {
-            // @ts-expect-error - Complex schema extension bypass
-            toast.error(error.message);
+        } catch (error: any) {
+                        toast.error(error.message);
         } finally {
             setLoading(false);
         }
@@ -909,9 +852,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                 }
                                                 toast.success("Refund status updated.");
                                                 router.refresh();
-                                            } catch (e: unknown) {
-                                                // @ts-expect-error - Complex schema extension bypass
-                                                toast.error("Error updating refund status: " + e.message);
+                                            } catch (e: any) {
+                                                                                                toast.error("Error updating refund status: " + e.message);
                                             }
                                         }}
                                         className="px-6 py-2 bg-white text-black font-bold uppercase tracking-wider rounded-sm hover:bg-gray-200 transition-colors flex items-center gap-2"
@@ -956,7 +898,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                 return valB - valA;
                                             }
                                             return 0;
-                                        }).map((booking: Booking) => {
+                                        }).map((booking: AdminGameBooking) => {
                                         const profilesData = booking.profiles;
                                         const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
                                         const name = profile?.first_name ? `${profile.first_name} ${profile.last_name}` : 'Unknown';
@@ -1039,7 +981,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
-                                        {waitlist.map((booking: Booking) => {
+                                        {waitlist.map((booking: AdminGameBooking) => {
                                             const profilesData = booking.profiles;
                                             const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
                                             const name = profile?.first_name ? `${profile.first_name} ${profile.last_name}` : 'Unknown';
@@ -1112,11 +1054,9 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         leagueId={gameId}
                         leagueTitle={game.title}
                         rosterFreezeDate={game.roster_freeze_date || null}
-                        // @ts-expect-error - Complex schema extension bypass
-                        registrations={bookings as Booking}
+                                                registrations={bookings as any}
                         matches={matches}
-                        // @ts-expect-error - Complex schema extension bypass
-                        teams={teams as unknown}
+                                                teams={teams as any}
                         facilityId={game.facility_id || ''}
                         startDate={game.start_time}
                         isLeagueCompleted={game.status === 'completed'}
@@ -1224,19 +1164,16 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                             const { error } = await supabase.from('games').update({ host_ids: newHosts }).eq('id', game.id);
                                             if (error) throw error;
                                             toast.success("Host added.");
-                                        } catch (err: unknown) {
-                                            // @ts-expect-error - Complex schema extension bypass
-                                            toast.error(err.message);
+                                        } catch (err: any) {
+                                                                                        toast.error(err.message);
                                             setGame({ ...game, host_ids: currentHosts }); // Revert
                                         }
                                         e.target.value = '';
                                     }}
                                 >
                                     <option value="">+ Assign Host</option>
-                                    // @ts-expect-error - Complex schema extension bypass
-                                    {playerOptions.filter((p: Profile) => !(game.host_ids || []).includes(p.id)).map((p: Profile) => (
-                                        // @ts-expect-error - Complex schema extension bypass
-                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                                        {playerOptions.filter((p: { id: string; name: string }) => !(game.host_ids || []).includes(p.id)).map((p: { id: string; name: string }) => (
+                                                                                <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
                                 </select>
                             </div>
@@ -1253,18 +1190,14 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         <TabsContent value="player-manager" className="mt-0">
                             {/* Live Counters */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                // @ts-expect-error - Complex schema extension bypass
-                                {teams.map((team: Team) => {
-                                    // @ts-expect-error - Complex schema extension bypass
-                                    const count = teamCounts[team.name] || 0;
-                                    // @ts-expect-error - Complex schema extension bypass
-                                    const limit = (team as unknown).limit || 11;
+                                                                {teams.map((team: TeamConfig) => {
+                                                                        const count = teamCounts[team.name] || 0;
+                                                                        const limit = (team as any).limit || 11;
                                     const isFull = count >= limit;
                                     const percentage = Math.min(100, (count / limit) * 100);
 
                                     // Determine bar color based on team config
-                                    // @ts-expect-error - Complex schema extension bypass
-                                    const barHex = HEX_COLOR_MAP[team.color] || '#3b82f6'; // Default blue-500
+                                                                        const barHex = HEX_COLOR_MAP[team.color] || '#3b82f6'; // Default blue-500
 
                                     return (
                                         <div key={team.name} className="bg-pitch-card border border-white/10 p-4 rounded-sm">
@@ -1330,7 +1263,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                                     {/* Rows */}
                                     <div className="divide-y divide-white/5">
-                                        {roster.map((booking: Booking) => {
+                                        {roster.map((booking: AdminGameBooking) => {
                                             const profilesData = booking.profiles;
                                             const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
                                             const displayName = profile?.first_name ? `${profile.first_name} ${profile.last_name}` : profile?.email || 'Unknown Player';
@@ -1407,19 +1340,16 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                                                         {/* Team Select - Flex Wrap for Mobile */}
                                                         <div className="w-full md:w-auto flex-1 flex items-center gap-2 flex-wrap md:col-span-3 md:border-l md:border-white/5 pl-0 md:pl-4">
-                                                            // @ts-expect-error - Complex schema extension bypass
-                                                            <Select value={booking.team_assignment || "none"} onValueChange={(val) => assignTeam(booking.id, val === "none" ? null as unknown : val)}>
+                                                                                                                        <Select value={booking.team_assignment || "none"} onValueChange={(val) => assignTeam(booking.id, val === "none" ? null as any : val)}>
                                                                 <SelectTrigger className="h-8 max-w-[160px] md:max-w-full">
                                                                     <SelectValue placeholder="Assign Team" />
                                                                 </SelectTrigger>
                                                                 <SelectContent>
                                                                     <SelectItem value="none">Unassigned</SelectItem>
-                                                                    // @ts-expect-error - Complex schema extension bypass
-                                                                    {teams.map((team: Team) => (
+                                                                                                                                        {teams.map((team: TeamConfig) => (
                                                                         <SelectItem key={team.name} value={team.name}>
                                                                             <div className="flex items-center gap-2">
-                                                                                // @ts-expect-error - Complex schema extension bypass
-                                                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: HEX_COLOR_MAP[team.color] || '#ffffff' }} />
+                                                                                                                                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: HEX_COLOR_MAP[team.color] || '#ffffff' }} />
                                                                                 {team.name}
                                                                             </div>
                                                                         </SelectItem>
@@ -1455,7 +1385,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                             <h3 className="font-bold uppercase text-sm text-yellow-500 tracking-wider">Waitlist ({waitlist.length})</h3>
                                         </div>
                                         <div className="divide-y divide-yellow-500/5">
-                                            {waitlist.map((booking: Booking) => {
+                                            {waitlist.map((booking: AdminGameBooking) => {
                                                 const profilesData = booking.profiles;
                                                 const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
                                                 const displayName = profile?.first_name ? `${profile.first_name} ${profile.last_name}` : profile?.email || 'Unknown Player';
@@ -1508,13 +1438,12 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 <TeamManager
                                     gameId={gameId}
                                     teams={teams}
-                                    // @ts-expect-error - Complex schema extension bypass
-                                    players={bookings.map(b => ({
+                                                                        players={bookings.map(b => ({
                                         id: b.id,
                                         userId: b.user_id,
                                         name: Array.isArray(b.profiles) ? (b.profiles[0]?.first_name ? `${b.profiles[0].first_name} ${b.profiles[0].last_name}` : 'Unknown') : (b.profiles?.first_name ? `${b.profiles.first_name} ${b.profiles.last_name}` : 'Unknown'),
                                         email: Array.isArray(b.profiles) ? b.profiles[0]?.email : b.profiles?.email || '',
-                                        team: b.team_assignment as unknown || null,
+                                        team: b.team_assignment as any || null,
                                         status: b.status,
                                         payment_status: b.payment_status
                                     }))}
@@ -1615,10 +1544,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                     className="w-full bg-black border border-white/20 rounded p-2 text-sm text-white focus:outline-none focus:border-pitch-accent"
                                                 >
                                                     <option value="">Select MVP...</option>
-                                                    // @ts-expect-error - Complex schema extension bypass
-                                                    {playerOptions.map((p: Profile) => (
-                                                        // @ts-expect-error - Complex schema extension bypass
-                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                                                                        {playerOptions.map((p: { id: string; name: string }) => (
+                                                                                                                <option key={p.id} value={p.id}>{p.name}</option>
                                                     ))}
                                                 </select>
                                                 <p className="text-[10px] text-gray-500 mt-2">Awarding MVP adds stats to player profile.</p>
@@ -1649,8 +1576,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 /* KING OF THE COURT (MANUAL & LIST) */
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                     <MatchManager
-                                        // @ts-expect-error - Complex schema extension bypass
-                                        game={game}
+                                                                                game={game}
                                         bookings={bookings}
                                         onUpdate={handleMatchUpdate}
                                         filterMode="king"
@@ -1681,8 +1607,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                     )}
                                     <MatchManager
                                         key={`tournament-${refreshKey}`}
-                                        // @ts-expect-error - Complex schema extension bypass
-                                        game={game}
+                                                                                game={game}
                                         bookings={bookings}
                                         onUpdate={handleMatchUpdate}
                                         filterMode="tournament"

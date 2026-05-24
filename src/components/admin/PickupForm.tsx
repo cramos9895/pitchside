@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -467,8 +466,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                     </div>
                 </h3>
 
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                {teams.map((team: Team, index) => (
+                {teams.map((team: TeamConfig, index) => (
                     <div key={index} className="p-4 bg-white/5 border border-white/10 rounded-sm relative group">
                         {teams.length > 1 && (
                             <button type="button" onClick={() => removeTeam(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-400 p-1 opacity-50 group-hover:opacity-100 transition-opacity" title="Remove Team"><Trash2 className="w-4 h-4" /></button>
@@ -480,16 +478,13 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                             </div>
                             <div className="col-span-1">
                                 <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">Bib Color</label>
-                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                <select value={team.color} onChange={(e) => handleTeamChange(index, 'color', e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-sm p-2 text-sm text-white">
-                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                        {COLORS.map((c: unknown) => <option key={c.value} value={c.label} style={{ color: c.value === '#ffffff' ? '#000' : c.value }}>{c.label}</option>)}
+                                <select value={team.color} onChange={(e) => handleTeamChange(index, 'color', e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-sm p-2 text-sm text-white">
+                                                                        {COLORS.map((c: { value: string, label: string }) => <option key={c.value} value={c.label} style={{ color: c.value === '#ffffff' ? '#000' : c.value }}>{c.label}</option>)}
                                 </select>
                             </div>
                             <div className="col-span-1">
                                 <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">Player Limit</label>
-                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                <input type="number" min="1" value={team.limit} onChange={(e) => handleTeamChange(index, 'limit', e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full bg-black/30 border border-white/10 rounded-sm p-2 text-sm text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
+                                <input type="number" min="1" value={team.limit} onChange={(e) => handleTeamChange(index, 'limit', e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full bg-black/30 border border-white/10 rounded-sm p-2 text-sm text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
                             </div>
                         </div>
                     </div>

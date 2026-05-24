@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 'use client';
 
@@ -9,7 +8,10 @@ import { ArrowLeft, Trophy, Loader2, Medal, Crown, Shield, Activity, TrendingUp 
 import { cn } from '@/lib/utils';
 import { Game, Booking, Profile, Match, Team } from "@/types/index";
 
-interface PlayerStats {
+
+
+
+interface LeaderboardEntry {
     id: string;
     first_name: string;
     last_name: string;
@@ -23,13 +25,14 @@ interface PlayerStats {
     matches_played: number;
     mvps: number;
     win_percentage: number;
+    [key: string]: unknown;
 }
 
 export default function LeaderboardPage() {
     const [loading, setLoading] = useState(true);
-    const [allPlayers, setAllPlayers] = useState<PlayerStats[]>([]);
+    const [allPlayers, setAllPlayers] = useState<LeaderboardEntry[]>([]);
     const [sortMode, setSortMode] = useState<'ovr' | 'games' | 'win_percentage'>('ovr');
-    const [currentUser, setCurrentUser] = useState<unknown>(null);
+    const [currentUser, setCurrentUser] = useState<any>(null);
     const [debugGames, setDebugGames] = useState<unknown[]>([]);
     const supabase = createClient();
 
@@ -38,8 +41,7 @@ export default function LeaderboardPage() {
             setLoading(true);
 
             // 1. Get Current User (for highlighting)
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        const { data: { user } } = await supabase.auth.getSession().then(({data}) => ({ data: { user: data.session?.user } }));
+                                                const { data: { user } } = await supabase.auth.getSession().then(({data}: any) => ({ data: { user: data.session?.user } }));
             setCurrentUser(user);
 
             // 2. Fetch Profiles (Base List)
@@ -77,16 +79,14 @@ export default function LeaderboardPage() {
             }
 
             // 4. Calculate Stats
-            const statsMap = new Map<string, PlayerStats>();
+            const statsMap = new Map<string, LeaderboardEntry>();
 
             // Initialize all profiles
-            profiles.forEach((p: Profile) => {
+            profiles.forEach((p: any) => {
                 statsMap.set(p.id, {
                     id: p.id,
-                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                        first_name: p.first_name || 'Anonymous',
-                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                        last_name: p.last_name || '',
+                                                                                first_name: p.first_name || 'Anonymous',
+                                                                                last_name: p.last_name || '',
                     avatar_url: p.avatar_url,
                     position: p.position,
                     ovr: 0,
@@ -101,7 +101,7 @@ export default function LeaderboardPage() {
             });
 
             // Iterate Games
-            games.forEach((game: Game) => {
+            games.forEach((game: any) => {
                 // Count MVP
                 if (game.mvp_player_id && statsMap.has(game.mvp_player_id)) {
                     statsMap.get(game.mvp_player_id)!.mvps += 1;
@@ -110,11 +110,9 @@ export default function LeaderboardPage() {
                 // REVISED APPROACH: Use explicit winning_team_assignment OR legacy is_winner
 
                 // Pre-compute if the game had any winner recorded to distinguish Losses from True Draws
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                const gameHadWinner = game.bookings.some((b: unknown) => b.is_winner === true) || !!game.winning_team_assignment;
+                                                                const gameHadWinner = game.bookings.some((b: any) => b.is_winner === true) || !!game.winning_team_assignment;
 
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                game.bookings.forEach((booking: Booking) => {
+                                                                game.bookings.forEach((booking: any) => {
                     if (booking.status !== 'paid' && booking.status !== 'active' && booking.status !== 'confirmed') return;
 
                     const pid = booking.user_id;
@@ -138,12 +136,9 @@ export default function LeaderboardPage() {
 
             // 5. Final Calculations & Sort
             const processedPlayers = Array.from(statsMap.values())
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                .filter((p: Profile) => p.matches_played > 0)
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                .map((p: Profile) => {
-                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                        const rawBonus = (p.matches_played * 0.1) + (p.draws * 0.1) + (p.wins * 0.5);
+                                                                .filter((p: any) => p.matches_played > 0)
+                                                                .map((p: any) => {
+                                                                                const rawBonus = (p.matches_played * 0.1) + (p.draws * 0.1) + (p.wins * 0.5);
                     let finalBonus = 0;
                     if (rawBonus <= 10) finalBonus = rawBonus;
                     else if (rawBonus <= 23.33) finalBonus = 10 + ((rawBonus - 10) * 0.75);
@@ -153,14 +148,12 @@ export default function LeaderboardPage() {
                         ...p,
                         ovr: Math.min(99, Math.floor(70 + finalBonus)),
                         raw_ovr: 70 + finalBonus,
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                win_percentage: p.matches_played > 0 ? (p.wins / p.matches_played) * 100 : 0
+                                                                                                win_percentage: p.matches_played > 0 ? (p.wins / p.matches_played) * 100 : 0
                     };
                 });
 
             // Make initial unsorted copy
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        setAllPlayers(processedPlayers);
+                                                setAllPlayers(processedPlayers);
             setLoading(false);
         };
 
@@ -250,26 +243,23 @@ export default function LeaderboardPage() {
                             <th className="p-4 text-center text-pitch-accent">OVR</th>
                             <th className="p-4 text-center hidden md:table-cell">Games</th>
                             <th className="p-4 text-center hidden md:table-cell">Record</th>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                             <th className="p-4 text-center hidden md:table-cell">MVPs</th>
                             <th className="p-4 text-center md:hidden">Stats</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                        {rest.map((player, index) => (
+                        {rest.map((player: LeaderboardEntry, index) => (
                             <tr
                                 key={player.id}
                                 className={cn(
                                     "hover:bg-white/5 transition-colors group",
-                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                        currentUser?.id === player.id ? "bg-pitch-accent/10 hover:bg-pitch-accent/20 border-l-4 border-l-pitch-accent" : ""
+                                                                                                                                                currentUser?.id === player.id ? "bg-pitch-accent/10 hover:bg-pitch-accent/20 border-l-4 border-l-pitch-accent" : ""
                                 )}
                             >
                                 <td className="p-4 text-center font-mono font-bold text-white/50 group-hover:text-white">
                                     {index + 4}
                                 </td>
                                 <td className="p-4">
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full bg-white/10 overflow-hidden">
                                             {player.avatar_url ? (
@@ -281,8 +271,7 @@ export default function LeaderboardPage() {
                                             )}
                                         </div>
                                         <div>
-                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                        <div className={cn("font-bold text-sm", currentUser?.id === player.id ? "text-pitch-accent" : "text-white")}>
+                                                                                                                                                                                <div className={cn("font-bold text-sm", currentUser?.id === player.id ? "text-pitch-accent" : "text-white")}>
                                                 {player.first_name} {player.last_name}
                                             </div>
                                             <div className="text-[10px] text-pitch-secondary uppercase md:hidden">
@@ -290,8 +279,7 @@ export default function LeaderboardPage() {
                                             </div>
                                         </div>
                                     </div>
-                                // @ts-expect-error - Residual typing mismatch
-                                </td>
+                                                                </td>
                                 <td className="p-4 text-center font-black italic text-lg text-pitch-accent drop-shadow-sm">{player.ovr}</td>
                                 <td className="p-4 text-center font-mono text-sm hidden md:table-cell text-white/70">
                                     {player.matches_played}
@@ -345,7 +333,7 @@ export default function LeaderboardPage() {
     );
 }
 
-function PodiumCard({ player, rank }: { player: PlayerStats, rank: number }) {
+function PodiumCard({ player, rank }: { player: LeaderboardEntry, rank: number }) {
     let order = "order-3 md:order-3"; // 3rd mapping
     let scale = "scale-90 md:scale-95";
 

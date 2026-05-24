@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,7 +8,7 @@ import { WaiverModal } from './WaiverModal';
 import { getPaymentSettings } from '@/app/actions/settings';
 import { validatePromoCode } from '@/app/actions/payments';
 import { searchProfiles } from '@/app/actions/profiles';
-import { Profile, Game, Booking, Team } from "@/types/index";
+import { ProfileWithUI, GameWithPayments, Booking, Team, TeamConfig } from "@/types/index";
 
 interface JoinGameModalProps {
     isOpen: boolean;
@@ -46,25 +45,25 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     // Squad UI State
     const [joinMode, setJoinMode] = useState<'squad' | 'free-agent'>('squad');
     const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-    const [teamsConfig, setTeamsConfig] = useState<any[]>([]);
-    const [rosters, setRosters] = useState<any[]>([]);
+    const [teamsConfig, setTeamsConfig] = useState<TeamConfig[]>([]);
+    const [rosters, setRosters] = useState<(Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })[]>([]);
 
     // Prize Pool State
     const [hasPrizePool, setHasPrizePool] = useState(false);
     const [prizeSplitPreference, setPrizeSplitPreference] = useState<'pay_captain' | 'split_evenly'>('split_evenly');
 
     // Disable free game credits locally for this user as requested
-    const [userProfile, setUserProfile] = useState<unknown>(null);
+    const [userProfile, setUserProfile] = useState<ProfileWithUI | null>(null);
     const [walletCredit, setWalletCredit] = useState(0);
 
     // Squad Checkout State
     const [guestSearch, setGuestSearch] = useState('');
-    const [searchResults, setSearchResults] = useState<any[]>([]);
-    const [selectedGuests, setSelectedGuests] = useState<any[]>([]);
+    const [searchResults, setSearchResults] = useState<ProfileWithUI[]>([]);
+    const [selectedGuests, setSelectedGuests] = useState<ProfileWithUI[]>([]);
     const [isSearching, setIsSearching] = useState(false);
 
     // Context-Aware Financials
-    const [gameData, setGameData] = useState<unknown>(null);
+    const [gameData, setGameData] = useState<GameWithPayments | null>(null);
     const [eventWaiverAccepted, setEventWaiverAccepted] = useState(false);
     const [cashAcknowledgement, setCashAcknowledgement] = useState(false);
 
@@ -117,8 +116,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             }
 
             // 3. Fetch User Waiver Status
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        const { data: { user } } = await supabase.auth.getSession().then(({data}) => ({ data: { user: data.session?.user } }));
+                                                const { data: { user } } = await supabase.auth.getSession().then(({data}: any) => ({ data: { user: data.session?.user } }));
             if (user) {
                 // Check for Platform-Wide (Global) Waiver
                 const { data: signatures, error: waiverError } = await supabase
@@ -174,9 +172,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                 const res = await searchProfiles(guestSearch);
                 if (res.success && res.profiles) {
                     // Filter out already selected guests and current user
-                    setSearchResults(res.profiles.filter((p: unknown) => 
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                p.id !== userProfile?.id && !selectedGuests.find(sg => sg.id === p.id)
+                    setSearchResults((res.profiles as ProfileWithUI[]).filter((p: ProfileWithUI) => 
+                                                                                                p.id !== userProfile?.id && !selectedGuests.find((sg) => sg.id === p.id)
                     ));
                 }
                 setIsSearching(false);
@@ -187,7 +184,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
         return () => clearTimeout(timer);
     }, [guestSearch, selectedGuests, userProfile]);
 
-    const handleAddGuest = (profile: unknown) => {
+    const handleAddGuest = (profile: ProfileWithUI) => {
         setSelectedGuests([...selectedGuests, profile]);
         setGuestSearch('');
         setSearchResults([]);
@@ -212,7 +209,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     // Phase 43: Split Payments Invite Override
     if (isLeague && selectedTeam) {
         // Find if this team has a captain (someone with a vaulted card on this team)
-        const teamCaptain = rosters.find((r: any) => r.team_assignment === selectedTeam && !!r.stripe_payment_method_id);
+        const teamCaptain = rosters.find((r: (Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })) => r.team_assignment === selectedTeam && !!r.stripe_payment_method_id);
         if (teamCaptain && teamCaptain.custom_invite_fee !== null && teamCaptain.custom_invite_fee !== undefined) {
             targetPrice = teamCaptain.custom_invite_fee;
             customFeeActive = true;
@@ -266,8 +263,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
 
         if (joinMode === 'free-agent' && !isWaitlist) {
             // Free Agents IMMEDIATELY go to Stripe to vault UNLESS it is a cash league.
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        const isCashLeague = gameData?.payment_collection_type === 'cash';
+                                                const isCashLeague = gameData?.payment_collection_type === 'cash';
             
             if (isCashLeague) {
                 // For cash leagues, Free Agents just confirm.
@@ -286,7 +282,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             return;
         }
 
-        const isCaptain = selectedTeam !== null && rosters.filter((r: any) => r.team_assignment === selectedTeam).length === 0;
+        const isCaptain = selectedTeam !== null && rosters.filter((r: (Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })) => r.team_assignment === selectedTeam).length === 0;
         const finalPrizePref = hasPrizePool && isCaptain ? prizeSplitPreference : undefined;
         const isVaultingSession = isLeague && isCaptain;
 
@@ -305,7 +301,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     const handlePaymentConfirm = () => {
         if (!paymentMethod) return;
         
-        const isCaptain = selectedTeam !== null && rosters.filter((r: any) => r.team_assignment === selectedTeam).length === 0;
+        const isCaptain = selectedTeam !== null && rosters.filter((r: (Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })) => r.team_assignment === selectedTeam).length === 0;
         const finalPrizePref = hasPrizePool && isCaptain ? prizeSplitPreference : undefined;
         const isVaultingSession = isLeague && isCaptain;
 
@@ -318,8 +314,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
 
     const handleWaiverAgree = async () => {
         setAgreeingWaiver(true);
-                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                const { data: userData } = await supabase.auth.getSession().then(({data}) => ({ data: { user: data.session?.user } }));
+                                const { data: userData } = await supabase.auth.getSession().then(({data}: any) => ({ data: { user: data.session?.user } }));
 
         if (userData.user) {
             console.log('WAIVER_DEBUG: Inserting signature for user:', userData.user.id);
@@ -337,7 +332,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             setWaiverSigned(true);
             setShowWaiver(false);
 
-            const isCaptain = selectedTeam !== null && rosters.filter((r: any) => r.team_assignment === selectedTeam).length === 0;
+            const isCaptain = selectedTeam !== null && rosters.filter((r: (Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })) => r.team_assignment === selectedTeam).length === 0;
             const finalPrizePref = hasPrizePool && isCaptain ? prizeSplitPreference : undefined;
             const isVaultingSession = isLeague && isCaptain;
 
@@ -413,13 +408,11 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                             {joinMode === 'squad' && teamsConfig.length > 0 && !isWaitlist ? (
                                 <div className="space-y-3 mb-6">
                                     <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Select Your Squad</label>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-2">
-                                        {teamsConfig.map((team: Team, i) => {
+                                        {teamsConfig.map((team: TeamConfig, i) => {
                                             const teamName = team.name || `Team ${i + 1}`;
-                                            const teamRoster = rosters.filter((r: any) => r.team_assignment === teamName);
-                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                        const maxForThisTeam = team.limit || 0;
+                                            const teamRoster = rosters.filter((r: (Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })) => r.team_assignment === teamName);
+                                                                                                                                                                                const maxForThisTeam = team.limit || 0;
                                             const isFull = maxForThisTeam > 0 && teamRoster.length >= maxForThisTeam;
                                             const isSelected = selectedTeam === teamName;
 
@@ -469,7 +462,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                         })}
                                     </div>
                                     
-                                    {hasPrizePool && selectedTeam !== null && rosters.filter((r: any) => r.team_assignment === selectedTeam).length === 0 && (
+                                    {hasPrizePool && selectedTeam !== null && rosters.filter((r: (Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })) => r.team_assignment === selectedTeam).length === 0 && (
                                         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-sm p-4 mt-4 animate-in fade-in">
                                             <h4 className="flex items-center gap-2 text-yellow-500 font-bold uppercase text-xs mb-3">
                                                 <Award className="w-4 h-4" /> Prize Distribution Preference
@@ -533,10 +526,9 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
 
                                         {searchResults.length > 0 && (
                                             <div className="absolute top-[70px] left-0 w-full bg-pitch-card border border-white/10 rounded-sm shadow-xl max-h-48 overflow-y-auto z-20 custom-scrollbar">
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                {searchResults.map((p: ProfileWithUI) => (
+                                                                                                {searchResults.map((p: ProfileWithUI) => (
                                                     <button
-                                                        key={p.id}
+                                                        key={(p as ProfileWithUI).id}
                                                         onClick={() => handleAddGuest(p)}
                                                         className="w-full text-left p-3 hover:bg-white/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0"
                                                     >
@@ -602,34 +594,26 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                         </div>
                                     )}
                                     {promoError && <p className="text-red-400 text-xs font-medium">{promoError}</p>}
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                 </div>
                             )}
 
                             {/* Free Agent Pricing Breakdown */}
                              {joinMode === 'free-agent' && !isWaitlist && isLeague && (
                                 <div className="mt-4">
-                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                        {gameData?.payment_collection_type === 'cash' ? (
+                                                                                                                                                {gameData?.payment_collection_type === 'cash' ? (
                                         <div className="bg-pitch-accent/5 border border-pitch-accent/20 rounded-sm p-4">
                                             <h4 className="font-bold text-pitch-accent mb-2 uppercase tracking-widest text-[10px]">Individual Fee Structure</h4>
                                             <div className="space-y-1.5 font-bold uppercase tracking-wider">
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                                 <div className="flex justify-between text-[11px]">
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                                     <span className="text-gray-400">Registration Fee:</span>
-                                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                                        <span className="text-white">${gameData.player_registration_fee?.toFixed(2) || '0.00'} (At Door)</span>
+                                                                                                                                                                                                                <span className="text-white">${gameData.player_registration_fee?.toFixed(2) || '0.00'} (At Door)</span>
                                                 </div>
                                                 <div className="flex justify-between text-[11px]">
                                                     <span className="text-gray-400">Match Fee:</span>
                                                     <span className="text-white">
-                                                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                                                {gameData.cash_fee_structure === 'per_match' 
-                                                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                                                        ? `$${gameData.cash_amount?.toFixed(2) || '0.00'}/match`
-                                                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                                                        : `$${gameData.cash_amount?.toFixed(2) || '0.00'} upfront`}
+                                                                                                                                                                                                                                {gameData.cash_fee_structure === 'per_match' 
+                                                                                                                                                                                                                                                ? `$${gameData.cash_amount?.toFixed(2) || '0.00'}/match`
+                                                                                                                                                                                                                                                : `$${gameData.cash_amount?.toFixed(2) || '0.00'} upfront`}
                                                     </span>
                                                 </div>
                                             </div>
@@ -674,7 +658,6 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                             <span className="text-green-400 font-medium flex items-center gap-1.5">
                                                 <DollarSign className="w-3.5 h-3.5" /> Wallet Credit
                                             </span>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                             <span className="text-green-400 font-bold">-${creditApplied.toFixed(2)}</span>
                                         </div>
                                     )}
@@ -682,24 +665,20 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                         <span className="font-bold uppercase tracking-wider text-xs">Total Due</span>
                                         <span className="font-black text-xl">${finalPrice.toFixed(2)}</span>
                                     </div>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                 </div>
                             )}
 
                             {/* Dynamic Event Waiver */}
-                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                        {gameData?.strict_waiver_required && !isWaitlist && (
+                                                                                                                {gameData?.strict_waiver_required && !isWaitlist && (
                                 <div className="space-y-4 pt-6 mt-6 border-t border-white/10">
                                     <div className="flex items-center gap-2 text-white font-black uppercase tracking-widest text-[10px]">
                                         <ScrollText className="w-3.5 h-3.5 text-pitch-accent" />
                                         Event Waiver & Rules
                                     </div>
                                     <div className="bg-black/60 border border-white/10 p-4 rounded-sm text-[11px] text-gray-400 leading-relaxed font-medium max-h-32 overflow-y-auto custom-scrollbar whitespace-pre-wrap italic">
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                {gameData.waiver_details || "No additional rules specified."}
+                                                                                                                                                                {gameData.waiver_details || "No additional rules specified."}
                                     </div>
                                     <label className="flex items-center gap-3 cursor-pointer group">
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                         <input 
                                             type="checkbox" 
                                             required
@@ -713,8 +692,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                             )}
 
                             {/* Cash Acknowledgement */}
-                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                        {gameData?.payment_collection_type === 'cash' && !isWaitlist && (
+                                                                                                                {gameData?.payment_collection_type === 'cash' && !isWaitlist && (
                                 <div className="mt-4 bg-pitch-accent/5 border border-pitch-accent/20 p-4 rounded-sm">
                                     <label className="flex items-start gap-4 cursor-pointer">
                                         <input 
@@ -726,31 +704,26 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                         />
                                         <span className="text-[10px] text-pitch-accent font-bold uppercase tracking-wider leading-relaxed">
                                             I understand that all league fees must be paid in cash at the door.
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                         </span>
                                     </label>
                                 </div>
                             )}
 
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                             <div className="sticky bottom-[-24px] -mx-6 px-6 pb-6 pt-4 bg-pitch-card border-t border-white/5 z-10 mt-auto shadow-[0_-15px_15px_-15px_rgba(0,0,0,0.5)]">
                                 <button
                                     onClick={handleNext}
-                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                        disabled={loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (gameData?.payment_collection_type === 'cash' && !cashAcknowledgement)}
+                                                                                                                                                disabled={loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (gameData?.payment_collection_type === 'cash' && !cashAcknowledgement)}
                                     className={cn(
                                         "w-full py-4 font-black uppercase tracking-wider rounded-sm transition-colors flex items-center justify-center gap-2",
                                         isWaitlist
                                             ? "bg-yellow-500 text-black hover:bg-yellow-400"
                                             : "bg-pitch-accent text-pitch-black hover:bg-white",
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                (loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (gameData?.payment_collection_type === 'cash' && !cashAcknowledgement)) && "opacity-50 cursor-not-allowed grayscale"
+                                                                                                                                                                (loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (gameData?.payment_collection_type === 'cash' && !cashAcknowledgement)) && "opacity-50 cursor-not-allowed grayscale"
                                     )}
                                 >
                                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> :
                                         isWaitlist ? "Confirm Waitlist Spot" :
-                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                        joinMode === 'free-agent' ? (gameData?.payment_collection_type === 'cash' ? "Confirm Free Agent Registration" : (isLeague ? "Vault Card & Register" : "Pay & Join Match")) :
+                                                                                                                                                                                joinMode === 'free-agent' ? (gameData?.payment_collection_type === 'cash' ? "Confirm Free Agent Registration" : (isLeague ? "Vault Card & Register" : "Pay & Join Match")) :
                                                 finalPrice === 0 ? "Confirm & Join" : `Continue to Payment ($${finalPrice.toFixed(2)})`}
                                 </button>
                             </div>

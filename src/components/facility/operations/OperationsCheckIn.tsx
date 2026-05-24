@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
@@ -8,13 +7,22 @@ import { createClient } from '@/lib/supabase/client';
 import { QRCodeSVG } from 'qrcode.react';
 import { Game, Booking, Profile, Match, Team } from "@/types/index";
 
+interface FacilityEvent {
+    id: string;
+    title: string;
+    start_time: string;
+    resource?: { name: string };
+    renter_name?: string;
+    [key: string]: unknown;
+}
+
 interface OperationsCheckInProps {
-    bookings: any[];
+    bookings: FacilityEvent[];
     facilityId: string;
 }
 
 export default function OperationsCheckIn({ bookings, facilityId }: OperationsCheckInProps) {
-    const [selectedEvent, setSelectedEvent] = useState<unknown | null>(null);
+    const [selectedEvent, setSelectedEvent] = useState<FacilityEvent | null>(null);
     const [roster, setRoster] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showQR, setShowQR] = useState(false);
@@ -28,8 +36,7 @@ export default function OperationsCheckIn({ bookings, facilityId }: OperationsCh
             setIsLoading(true);
 
             // Note: recurrings might use recurring_group_id, singles use id.
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        const groupId = selectedEvent.recurring_group_id || selectedEvent.id;
+                                                const groupId = selectedEvent.recurring_group_id || selectedEvent.id;
 
             const { data: rosterData } = await supabase
                 .from('booking_rosters')
@@ -66,8 +73,7 @@ export default function OperationsCheckIn({ bookings, facilityId }: OperationsCh
         fetchRoster();
 
         // Setup realtime listener for walk-ups
-                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                const groupId = selectedEvent.recurring_group_id || selectedEvent.id;
+                                const groupId = selectedEvent.recurring_group_id || selectedEvent.id;
         const channel = supabase.channel(`roster_${groupId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_rosters', filter: `booking_group_id=eq.${groupId}` }, () => {
                 fetchRoster(); // Reload on any changes (like walk up finishing)
@@ -87,20 +93,17 @@ export default function OperationsCheckIn({ bookings, facilityId }: OperationsCh
 
     if (selectedEvent) {
         const origin = typeof window !== 'undefined' ? window.location.origin : 'https://pitchside.io';
-                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                const inviteUrl = `${origin}/invite/${selectedEvent.recurring_group_id || selectedEvent.id}`;
+                                const inviteUrl = `${origin}/invite/${selectedEvent.recurring_group_id || selectedEvent.id}`;
 
         return (
             <div className="fixed inset-0 z-[100] bg-pitch-black flex flex-col md:relative md:inset-auto md:bg-transparent md:block md:z-auto animate-in fade-in zoom-in-95 duration-200">
                 {/* Mobile Header */}
                 <div className="bg-pitch-card border-b border-white/10 p-4 sticky top-0 z-10 flex items-center justify-between shadow-xl">
                     <button onClick={() => { setSelectedEvent(null); setShowQR(false); }} className="text-gray-400 p-2 -ml-2 hover:text-white transition-colors">
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                         <X className="w-6 h-6" />
                     </button>
                     <h2 className="text-white font-black italic uppercase truncate px-4 flex-1 text-center text-lg">
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                {selectedEvent.title}
+                                                                                                {selectedEvent.title}
                     </h2>
                     <div className="w-10"></div> {/* Spacer for centering */}
                 </div>
@@ -113,13 +116,11 @@ export default function OperationsCheckIn({ bookings, facilityId }: OperationsCh
                             <div className="flex items-center gap-4 text-sm font-bold uppercase tracking-wider text-gray-400 mb-6 bg-black/60 p-4 rounded-lg border border-white/5 shadow-inner">
                                 <div className="flex items-center gap-2">
                                     <Clock className="w-4 h-4 text-pitch-accent" />
-                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                        {format(new Date(selectedEvent.start_time), 'h:mm a')}
+                                                                                                                                                {format(new Date(selectedEvent.start_time), 'h:mm a')}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <MapPin className="w-4 h-4 text-blue-400" />
-                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                        {selectedEvent.resource?.name || 'Facility'}
+                                                                                                                                                {selectedEvent.resource?.name || 'Facility'}
                                 </div>
                             </div>
 
@@ -194,26 +195,21 @@ export default function OperationsCheckIn({ bookings, facilityId }: OperationsCh
 
     return (
         <div className="grid gap-4">
-            {bookings.map((booking: Booking) => (
+            {bookings.map((booking: FacilityEvent) => (
                 <div
                     key={booking.id}
                     onClick={() => setSelectedEvent(booking)}
                     className="bg-pitch-card border-l-4 border-l-pitch-accent border-y border-r border-white/5 p-5 rounded-r-lg shadow-md cursor-pointer hover:bg-white/5 transition-all group flex items-center justify-between hover:translate-x-1"
                 >
                     <div>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-pitch-accent mb-1.5">
-                            // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                            <Clock className="w-3.5 h-3.5" /> {format(new Date(booking.start_time), 'h:mm a')}
+                                                        <Clock className="w-3.5 h-3.5" /> {format(new Date(booking.start_time), 'h:mm a')}
                         </div>
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        <h3 className="text-lg font-bold text-white mb-1 group-hover:text-pitch-accent transition-colors">{booking.title}</h3>
+                                                <h3 className="text-lg font-bold text-white mb-1 group-hover:text-pitch-accent transition-colors">{booking.title}</h3>
                         <div className="flex items-center gap-2 text-sm text-gray-400">
                             <MapPin className="w-4 h-4 text-blue-400/80" />
-                            // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                            {booking.resource?.name || 'Facility Resource'}
-                            // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                            {booking.renter_name && <span className="text-gray-600 truncate max-w-[120px]"> • {booking.renter_name}</span>}
+                                                        {booking.resource?.name || 'Facility Resource'}
+                                                        {booking.renter_name && <span className="text-gray-600 truncate max-w-[120px]"> • {booking.renter_name}</span>}
                         </div>
                     </div>
                     <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center group-hover:bg-pitch-accent/20 transition-colors">

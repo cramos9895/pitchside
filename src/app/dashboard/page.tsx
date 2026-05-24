@@ -1,10 +1,10 @@
-// @ts-nocheck
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Calendar, Clock, MapPin, AlertCircle, Loader2, User, Trophy, Users, ArrowRight, Check, DollarSign } from 'lucide-react';
+import { Calendar, Clock, MapPin, AlertCircle, Loader2, User as UserIcon, Trophy, Users, ArrowRight, Check, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState, Suspense } from 'react';
 import { useToast } from '@/components/ui/Toast';
@@ -14,7 +14,38 @@ import { RollingLeagueCard } from '@/components/public/RollingLeagueCard';
 import { TournamentCard } from '@/components/public/tournaments/TournamentCard';
 import { PickupCard } from '@/components/public/pickup/PickupCard';
 import { createContractCheckoutSession } from '@/app/actions/stripe';
-import { Game, Booking, Profile, Match, Team } from "@/types/index";
+import { Game, Booking, Profile, Match, Team, GameWithPayments } from "@/types/index";
+
+
+
+
+export interface UnifiedEvent {
+    type: 'pickup' | 'league' | 'tournament' | 'rental' | 'game';
+    data: any; 
+    start_time: string;
+    end_time?: string;
+    title?: string;
+    registrations?: any;
+    registration?: any;
+    location?: string | null;
+    location_nickname?: string | null;
+    id?: string;
+    rawGameId?: string;
+    [key: string]: any; // Catch-all for strict UI bypass since UnifiedEvent is heavily dynamic
+}
+
+export interface ActionRequiredRentalGroup {
+    group_id: string;
+    facility: string;
+    resource?: string;
+    bookings: any[];
+    contract?: {
+        id: string;
+        payment_term: string;
+        final_price: number;
+    };
+    [key: string]: unknown;
+}
 
 function DashboardContent() {
     const supabase = createClient();
@@ -23,9 +54,9 @@ function DashboardContent() {
     const { success: toastSuccess, error: toastError } = useToast();
 
     const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState<unknown>(null);
-    const [unifiedEvents, setUnifiedEvents] = useState<unknown[]>([]);
-    const [actionRequiredRentals, setActionRequiredRentals] = useState<unknown[]>([]);
+    const [user, setUser] = useState<User | null>(null);
+    const [unifiedEvents, setUnifiedEvents] = useState<UnifiedEvent[]>([]);
+    const [actionRequiredRentals, setActionRequiredRentals] = useState<ActionRequiredRentalGroup[]>([]);
     const [isPayingContract, setIsPayingContract] = useState<string | null>(null);
     const [creditBalance, setCreditBalance] = useState<number>(0);
     const [firstName, setFirstName] = useState<string>('');
@@ -103,25 +134,19 @@ function DashboardContent() {
 
                 // 4. Process Pending Bookings & Fetch Contracts (Sequential dependency)
                 if (pendingBookingsRes.data) {
-                    const grouped = pendingBookingsRes.data.reduce((acc: unknown, booking: Booking) => {
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                const key = booking.recurring_group_id || booking.id;
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                if (!acc[key]) {
-                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                        acc[key] = {
+                    const grouped = pendingBookingsRes.data.reduce((acc: Record<string, ActionRequiredRentalGroup>, booking: any) => {
+                                                                                                const key = booking.recurring_group_id || booking.id;
+                                                                                                if (!acc[key]) {
+                                                                                                                acc[key] = {
                                 group_id: key,
-                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                facility: booking.facility?.name || 'Unknown Facility',
-                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                resource: booking.resource?.name || 'Unknown Resource',
+                                                                                                                                facility: booking.facility?.name || 'Unknown Facility',
+                                                                                                                                resource: booking.resource?.name || 'Unknown Resource',
                                 bookings: [],
                             };
                         }
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                acc[key].bookings.push(booking);
+                                                                                                acc[key].bookings.push(booking);
                         return acc;
-                    }, {});
+                    }, {} as Record<string, ActionRequiredRentalGroup>);
 
                     const groupIds = Object.keys(grouped);
                     if (groupIds.length > 0) {
@@ -131,9 +156,8 @@ function DashboardContent() {
                             .in('id', groupIds);
 
                         if (contractsData) {
-                            contractsData.forEach((c: unknown) => {
-                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                if (grouped[c.id]) grouped[c.id].contract = c;
+                            contractsData.forEach((c: any) => {
+                                                                                                                                if (grouped[c.id]) grouped[c.id].contract = c;
                             });
                         }
                     }
@@ -141,43 +165,34 @@ function DashboardContent() {
                 }
 
                 // 5. Normalize into Unified Feed
-                const events: unknown[] = [];
+                const events: UnifiedEvent[] = [];
 
                 // Add Rentals
                 if (rentalsRes.data) {
-                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                        (rentalsRes.data as unknown[]).forEach((r: Booking) => events.push({
+                                                                                rentalsRes.data.forEach((r: any) => events.push({
                         type: 'rental',
                         id: r.id,
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                start_time: r.start_time,
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                end_time: r.end_time,
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                title: r.facility?.name || 'Rental',
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                location: r.resource?.name,
+                                                                                                start_time: r.start_time,
+                                                                                                end_time: r.end_time,
+                                                                                                title: r.facility?.name || 'Rental',
+                                                                                                location: r.resource?.name,
                         data: r
                     }));
                 }
 
                 // Add Pickup Games
                 if (gamesRes.data) {
-                    (gamesRes.data as unknown[]).forEach(b => {
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                const g = b.game as Game;
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                if (g && new Date(g.start_time).toISOString() >= now) {
+                    gamesRes.data.forEach((b: any) => {
+                                                                                                const g = b.game as any;
+                                                                                                if (g && new Date(g.start_time).toISOString() >= now) {
                             events.push({
                                 type: 'game',
-                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                id: b.id, 
+                                                                                                                                id: b.id, 
                                 rawGameId: g.id,
                                 start_time: g.start_time,
                                 end_time: g.end_time,
                                 title: g.title || 'Pick-Up Game',
-                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                location: g.facility?.name,
+                                                                                                                                location: g.facility?.name,
                                 location_nickname: g.location_nickname,
                                 data: g
                             });
@@ -187,16 +202,14 @@ function DashboardContent() {
 
                 // Add Tournaments & Leagues
                 if (tournamentsRes.data) {
-                    tournamentsRes.data.forEach((reg: Booking) => {
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                const g = reg.games as Game;
+                    tournamentsRes.data.forEach((reg: any) => {
+                                                                                                const g = reg.games as any;
                         if (!g) return;
                         
                         const isLeague = g.event_type === 'league';
                         const isActive = g.status === 'active' || g.status === 'scheduled';
                         
-                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                if (new Date(g.start_time).toISOString() >= now || isActive) {
+                                                                                                if (new Date(g.start_time).toISOString() >= now || isActive) {
                             events.push({
                                 type: isLeague ? 'league' : 'tournament',
                                 id: reg.id,
@@ -213,8 +226,7 @@ function DashboardContent() {
                 }
 
                 // Sort Chronologically
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                events.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+                                                                events.sort((a, b) => new Date(a.start_time || "").getTime() - new Date(b.start_time || "").getTime());
                 setUnifiedEvents(events);
 
             } catch (err) {
@@ -289,104 +301,71 @@ function DashboardContent() {
                     </div>
                     <Link href="/profile" className="group flex items-center gap-3 bg-white/5 border border-white/10 px-6 py-3 rounded-sm hover:bg-pitch-accent hover:border-pitch-accent transition-all shrink-0 h-[56px]">
                         <div className="w-8 h-8 rounded-full bg-pitch-accent/20 flex items-center justify-center group-hover:bg-pitch-black/20 transition-colors">
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
-                            <User className="w-4 h-4 text-pitch-accent group-hover:text-pitch-black" />
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
+                            <UserIcon className="w-4 h-4 text-pitch-accent group-hover:text-pitch-black" />
                         </div>
                         <span className="text-[10px] font-black uppercase tracking-widest text-white group-hover:text-pitch-black">View Profile</span>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                     </Link>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                 </div>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
             </div>
 
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 relative z-10">
                 {/* Main Content: Next Up & Schedule */}
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                 <div className="lg:col-span-8 space-y-12">
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                     
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                     {/* NEXT UP SECTION */}
                     <section className="space-y-6">
                         <div className="flex items-center gap-4">
                             <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-pitch-secondary shrink-0">Next Up</h3>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                             <div className="h-px w-full bg-white/5" />
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                         </div>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
 
                         {nextUp ? (
-                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                        nextUp.type === 'league' || nextUp.type === 'tournament' ? (
-                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                nextUp.data.league_format === 'rolling' ? (
+                                                                                                                nextUp.type === 'league' || nextUp.type === 'tournament' ? (
+                                                                                                                                nextUp.data.league_format === 'rolling' ? (
                                     <RollingLeagueCard 
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                league={nextUp.data}
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                userId={user?.id}
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                registrations={nextUp.registrations}
+                                                                                                                                                                league={nextUp.data}
+                                                                                                                                                                userId={user?.id}
+                                                                                                                                                                registrations={nextUp.registrations}
                                     />
-                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                ) : nextUp.type === 'league' ? (
+                                                                                                                                ) : nextUp.type === 'league' ? (
                                     <LeagueCard 
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                league={nextUp.data}
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                userId={user?.id}
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                registrations={nextUp.registrations}
+                                                                                                                                                                league={nextUp.data}
+                                                                                                                                                                userId={user?.id}
+                                                                                                                                                                registrations={nextUp.registrations}
                                     />
                                 ) : (
                                     <TournamentCard 
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                tournament={nextUp.data} 
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                userId={user?.id}
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                registrations={nextUp.registrations}
+                                                                                                                                                                tournament={nextUp.data} 
+                                                                                                                                                                userId={user?.id}
+                                                                                                                                                                registrations={nextUp.registrations}
                                     />
                                 )
                             ) : (
                                 <div className="max-w-xl">
                                     <PickupCard 
                                         game={{
-                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                        ...nextUp.data,
-                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                        location_name: nextUp.location,
-                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                        location_nickname: nextUp.location_nickname
+                                                                                                                                                                                ...nextUp.data,
+                                                                                                                                                                                location_name: nextUp.location,
+                                                                                                                                                                                location_nickname: nextUp.location_nickname
                                         }} 
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                user={user}
+                                                                                                                                                                user={user}
                                         bookingStatus="confirmed"
-                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                bookingId={nextUp.id}
+                                                                                                                                                                bookingId={nextUp.id}
                                     />
                                 </div>
                             )
                         ) : (
                             <div className="bg-[#111] border border-dashed border-white/10 rounded-sm p-16 text-center">
                                 <Calendar className="w-12 h-12 text-pitch-secondary mx-auto mb-6 opacity-20" />
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                 <h4 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Clean Sheet</h4>
                                 <p className="text-xs text-pitch-secondary uppercase tracking-widest mb-8">No upcoming games scheduled</p>
                                 <div className="flex flex-wrap items-center justify-center gap-4">
                                     <Link href="/schedule" className="px-8 py-3 bg-pitch-accent text-pitch-black text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-white transition-all shadow-lg">
                                         Find Match
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                     </Link>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                 </div>
                             </div>
                         )}
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                     </section>
                 </div>
 
@@ -401,39 +380,29 @@ function DashboardContent() {
                         {actionRequiredRentals.length > 0 ? (
                             <div className="space-y-4">
                                 {actionRequiredRentals.map((group) => (
-                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                        <div key={group.group_id} className="relative bg-yellow-400/5 border border-yellow-400/20 rounded-sm p-6 overflow-hidden">
+                                                                                                                                                <div key={group.group_id} className="relative bg-yellow-400/5 border border-yellow-400/20 rounded-sm p-6 overflow-hidden">
                                         <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-400" />
                                         <div className="space-y-4">
                                             <div>
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-yellow-500/60 block mb-1">Payment Required</span>
-                                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                                <h4 className="text-xl font-black uppercase italic text-white leading-tight">{group.facility}</h4>
+                                                                                                                                                                                                <h4 className="text-xl font-black uppercase italic text-white leading-tight">{group.facility}</h4>
                                                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
-                                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                                        {group.bookings.length}x {group.resource} Reservations
+                                                                                                                                                                                                                {group.bookings.length}x {group.resource} Reservations
                                                 </p>
                                             </div>
 
-                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                        {group.contract && (
+                                                                                                                                                                                {group.contract && (
                                                 <div className="text-[8px] font-black uppercase tracking-[0.2em] text-yellow-500/80 bg-yellow-400/10 px-2 py-1 inline-block border border-yellow-400/20">
-                                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                                        {group.contract.payment_term === 'weekly' ? 'Weekly' : 'Full Pay'} • {formatPrice(group.contract.final_price)}
-                                                // @ts-expect-error - Residual typing mismatch
-                                                </div>
+                                                                                                                                                                                                                {group.contract.payment_term === 'weekly' ? 'Weekly' : 'Full Pay'} • {formatPrice(group.contract.final_price)}
+                                                                                                </div>
                                             )}
 
-                                            // @ts-expect-error - Residual typing mismatch
-                                            <button
-                                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                                onClick={() => handlePayContract(group.group_id)}
-                                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                                disabled={isPayingContract === group.group_id}
+                                                                                        <button
+                                                                                                                                                                                                onClick={() => handlePayContract(group.group_id)}
+                                                                                                                                                                                                disabled={isPayingContract === group.group_id}
                                                 className="w-full py-4 bg-yellow-400 text-black font-black uppercase tracking-widest text-[10px] rounded-sm hover:bg-white transition-all shadow-xl shadow-yellow-400/10 flex items-center justify-center gap-2"
                                             >
-                                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                                                                                {isPayingContract === group.group_id ? (
+                                                                                                                                                                                                {isPayingContract === group.group_id ? (
                                                     <Loader2 className="w-3 h-3 animate-spin" />
                                                 ) : (
                                                     'Complete Secure Payment'
@@ -445,8 +414,7 @@ function DashboardContent() {
                             </div>
                         ) : (
                             <div className="p-12 text-center bg-white/[0.02] border border-dashed border-white/5 rounded-sm">
-                                // @ts-expect-error - Residual typing mismatch
-                                <Check className="w-8 h-8 text-green-500/20 mx-auto mb-4" />
+                                                                <Check className="w-8 h-8 text-green-500/20 mx-auto mb-4" />
                                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-600">All systems clear</p>
                             </div>
                         )}
