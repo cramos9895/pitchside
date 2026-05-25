@@ -49,7 +49,7 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
     const supabase = createClient();
 
     // Real-time Sync
-    useState(() => {
+    useEffect(() => {
         const channel = supabase
             .channel('match-updates-' + game.id)
             .on('postgres_changes', { 
@@ -62,7 +62,7 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
             })
             .subscribe();
         return () => { supabase.removeChannel(channel); };
-    });
+    }, [game.id, supabase, onUpdate]);
 
     // 1. Calculations for Compliance Widget
     const activePlayers = localBookings.filter(b => 
