@@ -35,24 +35,28 @@ export const metadata: Metadata = {
 };
 
 import { ToastProvider } from "@/components/ui/Toast";
-
-
 import { Footer } from "@/components/layout/Footer";
+import { headers } from "next/headers";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read pathname from middleware to conditionally hide components server-side
+  const headersList = await headers();
+  const pathname = headersList.get('x-pathname') || '';
+  const isProjector = pathname.endsWith('/live') || pathname.includes('/display');
+
   return (
     <html lang="en">
       <body
         className={`${inter.variable} ${oswald.variable} antialiased bg-pitch-black text-white`}
       >
         <ToastProvider>
-          <Navbar />
+          {!isProjector && <Navbar />}
           {children}
-          <Footer />
+          {!isProjector && <Footer />}
         </ToastProvider>
       </body>
     </html>
