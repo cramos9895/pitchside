@@ -1,12 +1,25 @@
 
 import { createBrowserClient } from '@supabase/ssr'
-import { createClient as createVanillaClient } from '@supabase/supabase-js'
+import { createClient as createVanillaClient, SupabaseClient } from '@supabase/supabase-js'
 
-// The singular, guaranteed instance for the entire React application
-export const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// 1. Store the instance internally
+let supabaseInstance: SupabaseClient | null = null;
+
+// 2. Export a Proxy that impersonates the client
+export const supabase = new Proxy({} as SupabaseClient, {
+    get(target, prop) {
+        // Only initialize the very first time a property is accessed
+        if (!supabaseInstance) {
+            supabaseInstance = createBrowserClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+        }
+        // Forward the access to the real instance
+        const value = (supabaseInstance as any)[prop];
+        return typeof value === 'function' ? value.bind(supabaseInstance) : value;
+    }
+});
 
 // For the Projector/Live view - Pure in-memory client, touches NO locks or cookies
 export const rawSupabase = createVanillaClient(
