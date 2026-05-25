@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState, useEffect, useCallback, useMemo } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { 
     Clock, 
     Trophy, 
@@ -31,7 +31,7 @@ import { checkInPlayer, toggleManualWaiver, updatePlayerPhoto } from '@/app/acti
 
 export default function MatchControlRoom({ params }: { params: Promise<{ match_id: string }> }) {
     const { match_id: matchId } = use(params);
-    const supabase = useMemo(() => createClient(), []);
+     
     const [match, setMatch] = useState<any>(null);
     const [game, setGame] = useState<any>(null);
     const [bookings, setBookings] = useState<any[]>([]);

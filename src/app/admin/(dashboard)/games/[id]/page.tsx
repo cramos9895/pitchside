@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { ArrowLeft, Check, Shirt, User as UserIcon, Users, X, Trophy, Save, Loader2, Swords, Calendar, Trash2, Shield, MoreVertical, MonitorPlay, UserCheck, UserX, Award, Scan } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -239,7 +239,6 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         }
     };
 
-    const supabase = createClient();
     const router = useRouter();
     const toast = useToast();
 
@@ -299,7 +298,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                             : Promise.resolve({ data: [] as any[], error: null })
                     ]);
 
-                    const finalBookings = regData.map((r: AdminGameBooking) => {
+                    const finalBookings = regData.map((r: any): any => {
                                                 const profile = profilesRes.data?.find((p: any) => p.id === r.user_id);
                                                 const team = teamsRes.data?.find((t: any) => t.id === r.team_id);
                         return {
@@ -326,16 +325,16 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     // Waiver enrichment
                     let signedIds = new Set<string>();
                     if ((currentGame as any).facility_id && finalBookings.length > 0) {
-                                                const waiverUserIds = finalBookings.map((b: AdminGameBooking) => b.user_id);
+                                                const waiverUserIds = finalBookings.map((b: any) => b.user_id);
                         const { data: waiverData } = await supabase
                             .from('waiver_signatures')
                             .select('user_id')
                             .eq('facility_id', (currentGame as any).facility_id)
                             .in('user_id', waiverUserIds);
-                                                signedIds = new Set(waiverData?.map((w: AdminGameBooking) => w.user_id) || []);
+                                                signedIds = new Set(waiverData?.map((w: any) => w.user_id) || []);
                     }
 
-                                        setBookings(finalBookings.map((b: any) => ({ ...b, has_signed: signedIds.has(b.user_id) })) as AdminGameBooking[]);
+                                        setBookings(finalBookings.map((b: any) => ({ ...b, has_signed: signedIds.has(b.user_id) })) as unknown as AdminGameBooking[]);
                 } else {
                     setBookings([]);
                 }
@@ -346,7 +345,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     .select('*, profiles!bookings_user_id_fkey(email, first_name, last_name, id, avatar_url)')
                     .eq('game_id', gameId)
                     .order('created_at', { ascending: true });
-                                setBookings((bookingsData || []) as AdminGameBooking[]);
+                                setBookings((bookingsData || []) as unknown as AdminGameBooking[]);
             }
         } catch (err) {
             console.error('Error refreshing registrations:', err);
@@ -452,9 +451,9 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                             console.error("[CRITICAL] Failed to fetch teams for roster:", JSON.stringify(teamsRes.error, null, 2));
                         }
 
-                        finalBookings = regData.map((r: AdminGameBooking) => {
-                                                        const profile = profilesRes.data?.find((p: { id: string; name: string }) => p.id === r.user_id);
-                                                        const team = teamsRes.data?.find((t: Team) => t.id === r.team_id);
+                        finalBookings = regData.map((r: any): any => {
+                                                        const profile = profilesRes.data?.find((p: any) => p.id === r.user_id);
+                                                        const team = teamsRes.data?.find((t: any) => t.id === r.team_id);
 
                             return {
                                                                 id: r.id || `reg_${r.user_id}`,
@@ -490,21 +489,21 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                 let signedIds = new Set<string>();
                                 if (fetchedGame?.facility_id && finalBookings.length > 0) {
-                                        const userIds = finalBookings.map((b: AdminGameBooking) => b.user_id);
+                                        const userIds = finalBookings.map((b: any) => b.user_id);
                     const { data: waiverData } = await supabase
                         .from('waiver_signatures')
                         .select('user_id')
                                                 .eq('facility_id', fetchedGame.facility_id)
                         .in('user_id', userIds);
-                                        signedIds = new Set(waiverData?.map((w: AdminGameBooking) => w.user_id) || []);
+                                        signedIds = new Set(waiverData?.map((w: any) => w.user_id) || []);
                 }
 
-                const enrichedBookings = finalBookings.map((b: AdminGameBooking) => ({
+                const enrichedBookings = finalBookings.map((b: any) => ({
                                         ...b,
                                         has_signed: signedIds.has(b.user_id)
                 }));
 
-                                setBookings(enrichedBookings as AdminGameBooking[]);
+                                setBookings(enrichedBookings as unknown as AdminGameBooking[]);
 
                 // Fetch Votes
                 const { data: votesData, error: votesError } = await supabase
@@ -514,7 +513,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                 if (votesData) {
                     const tally: Record<string, number> = {};
-                    votesData.forEach((v: AdminGameBooking) => {
+                    votesData.forEach((v: any) => {
                                                 tally[(v.candidate_id as string)] = (tally[(v.candidate_id as string)] || 0) + 1;
                     });
                     setVoteTally(tally);
@@ -550,7 +549,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                 .then(({ data }: any) => {
                             if (data) {
                                 const tally: Record<string, number> = {};
-                                data.forEach((v: AdminGameBooking) => {
+                                data.forEach((v: any) => {
                                                                         tally[(v.candidate_id as string)] = (tally[(v.candidate_id as string)] || 0) + 1;
                                 });
                                 setVoteTally(tally);
@@ -750,7 +749,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             router.refresh();
             // Optimistic update
             const updatedBookings = bookings.map(b => b.id === bookingId ? { ...b, status: 'active' } : b);
-                        setBookings(updatedBookings as AdminGameBooking[]);
+                        setBookings(updatedBookings as unknown as AdminGameBooking[]);
 
         } catch (error: any) {
                         toast.error("Error promoting player: " + error.message);
@@ -1172,7 +1171,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                     }}
                                 >
                                     <option value="">+ Assign Host</option>
-                                                                        {playerOptions.filter((p: { id: string; name: string }) => !(game.host_ids || []).includes(p.id)).map((p: { id: string; name: string }) => (
+                                                                        {playerOptions.filter((p: any) => !(game.host_ids || []).includes(p.id)).map((p: any) => (
                                                                                 <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
                                 </select>
@@ -1544,7 +1543,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                     className="w-full bg-black border border-white/20 rounded p-2 text-sm text-white focus:outline-none focus:border-pitch-accent"
                                                 >
                                                     <option value="">Select MVP...</option>
-                                                                                                        {playerOptions.map((p: { id: string; name: string }) => (
+                                                                                                        {playerOptions.map((p: any) => (
                                                                                                                 <option key={p.id} value={p.id}>{p.name}</option>
                                                     ))}
                                                 </select>

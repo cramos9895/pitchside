@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Calendar, Clock, Save, MapPin, Trash2, Plus, DollarSign, Users, Loader2 } from 'lucide-react';
 import usePlacesAutocomplete, { getGeocode, getLatLng } from 'use-places-autocomplete';
 import { useLoadScript } from '@react-google-maps/api';
@@ -40,7 +40,6 @@ interface PickupFormProps {
 
 export function PickupForm({ initialData, action = 'create', onSuccess }: PickupFormProps) {
     const router = useRouter();
-    const supabase = createClient();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -263,7 +262,6 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
             };
 
             if (action === 'create') {
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                 const { data: { user } } = await supabase.auth.getSession().then(({data}) => ({ data: { user: data.session?.user } }));
                 if (!user) throw new Error("You must be logged in.");
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Calendar, Clock, Save, Trophy, MapPin, DollarSign, Loader2, ShieldCheck } from 'lucide-react';
 import usePlacesAutocomplete, { getGeocode, getLatLng } from 'use-places-autocomplete';
 import { useLoadScript } from '@react-google-maps/api';
@@ -19,7 +19,6 @@ interface TournamentFormProps {
 
 export function TournamentForm({ initialData, action = 'create', onSuccess }: TournamentFormProps) {
     const router = useRouter();
-    const supabase = createClient();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -228,7 +227,6 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
             };
 
             if (action === 'create') {
-                // @ts-expect-error - Requires complex schema extension
                 const { data: { user } } = await supabase.auth.getSession().then(({data}) => ({ data: { user: data.session?.user } }));
                 if (!user) throw new Error("You must be logged in.");
 

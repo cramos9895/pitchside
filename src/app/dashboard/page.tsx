@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -48,7 +48,6 @@ export interface ActionRequiredRentalGroup {
 }
 
 function DashboardContent() {
-    const supabase = createClient();
     const router = useRouter();
     const searchParams = useSearchParams();
     const { success: toastSuccess, error: toastError } = useToast();

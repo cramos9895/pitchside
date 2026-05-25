@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { Loader2, Receipt, Search, ArrowDownToLine, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -22,7 +22,6 @@ export interface Transaction {
 }
 
 export default function DashboardBillingPage() {
-    const supabase = createClient();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -75,7 +74,7 @@ export default function DashboardBillingPage() {
                         };
                     });
 
-                    setTransactions(mappedTransactions);
+                    setTransactions(mappedTransactions as unknown as Transaction[]);
                 }
 
             } catch (err) {

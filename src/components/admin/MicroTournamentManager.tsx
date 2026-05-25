@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Users, AlertTriangle, CheckCircle2, XCircle, ChevronDown, ChevronUp, Trophy, Clock, MapPin, Pencil, Save, ExternalLink, Play, Pause, RotateCcw, Monitor } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/Toast';
 import { StandingsTable } from './StandingsTable';
 import { seedTournament } from '@/app/actions/seed-tournament';
@@ -46,7 +46,6 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
     const hasStarted = matches.some(m => m.status === 'completed' || (m.home_score || 0) > 0 || (m.away_score || 0) > 0);
     
     const { success, error: toastError } = useToast();
-    const supabase = createClient();
 
     // Real-time Sync
     useEffect(() => {

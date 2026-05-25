@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Calendar, MapPin, DollarSign, Users, UserPlus, Check, ArrowRight, Zap } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { User } from '@supabase/supabase-js';
 import { JoinGameModal } from '../../JoinGameModal';
@@ -46,7 +46,6 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
     const [currentPlayers, setCurrentPlayers] = useState(game.current_players);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
-    const supabase = createClient();
 
     const gameDate = new Date(game.start_time);
 

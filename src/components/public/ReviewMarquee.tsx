@@ -2,7 +2,7 @@
 
 import { Star, ArrowRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { ReviewModal } from './ReviewModal';
 import { useToast } from '@/components/ui/Toast';
 
@@ -19,7 +19,6 @@ export function ReviewMarquee() {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { success } = useToast();
-    const supabase = createClient();
 
     useEffect(() => {
         async function fetchReviews() {

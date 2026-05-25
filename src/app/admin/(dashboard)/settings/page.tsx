@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
 import { Loader2, Settings, Mail, BellOff, Bell, DollarSign, Users } from 'lucide-react';
 import Link from 'next/link';
@@ -31,7 +31,6 @@ export default function AdminSettingsPage() {
     const [loading, setLoading] = useState(true);
     const [savingPayment, setSavingPayment] = useState(false);
     const [isMasterAdmin, setIsMasterAdmin] = useState(false);
-    const supabase = createClient();
     const { success, error } = useToast();
 
     useEffect(() => {
@@ -39,7 +38,6 @@ export default function AdminSettingsPage() {
     }, []);
 
     const checkRoleAndFetch = async () => {
-        // @ts-expect-error - Complex schema extension bypass
         const { data: { user } } = await supabase.auth.getSession().then(({data}) => ({ data: { user: data.session?.user } }));
         if (!user) {
             setLoading(false);

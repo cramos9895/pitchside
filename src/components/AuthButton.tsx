@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { LogOut, User as UserIcon, QrCode } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -14,7 +14,6 @@ export function AuthButton() {
     const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null } | null>(null);
     const [passportOpen, setPassportOpen] = useState(false);
     const router = useRouter();
-    const supabase = createClient();
 
     useEffect(() => {
         const fetchSession = async () => {

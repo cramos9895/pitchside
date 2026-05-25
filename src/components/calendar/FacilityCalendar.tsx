@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { FacilityCalendar as CalendarUI, BookingEvent } from '@/components/facility/FacilityCalendar';
 import { Loader2 } from 'lucide-react';
 import { AdminClaimModal } from '@/components/admin/AdminClaimModal';
@@ -42,8 +42,6 @@ export function FacilityCalendar({
         }
 
         async function fetchUserFacility() {
-            const supabase = createClient();
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
                         const { data: { user } } = await supabase.auth.getSession().then(({data}) => ({ data: { user: data.session?.user } }));
             if (user) {
                 const { data: profile } = await supabase
@@ -64,7 +62,6 @@ export function FacilityCalendar({
 
         async function fetchFacilityData() {
             setIsLoading(true);
-            const supabase = createClient();
 
             // 1. Fetch facility resources
             const { data: resourcesData, error: resourceError } = await supabase
@@ -133,7 +130,6 @@ export function FacilityCalendar({
 
         if (!activeFacilityId) return;
 
-        const supabase = createClient();
         const channel = supabase
             .channel('bookings_realtime')
             .on(

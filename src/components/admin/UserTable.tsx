@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Search, Loader2, Shield, User, Ban, ArrowUp, ArrowDown, DollarSign, Trophy, UserCog } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ManageUserModal from './ManageUserModal';
@@ -51,11 +51,9 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
     const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
 
     const toast = useToast();
-    const supabase = createClient();
     const router = useRouter();
 
     useEffect(() => {
-        // @ts-expect-error - Requires complex schema extension
         supabase.auth.getUser().then(({ data: { user } }) => {
             if (user) setCurrentUserId(user.id);
         });

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { createClient as createRawClient } from '@supabase/supabase-js';
+import { rawSupabase as supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { StandingsTable } from '@/components/admin/StandingsTable';
@@ -38,17 +38,6 @@ export default function LiveProjectorPage() {
     const gameId = (params?.id as string) || (typeof window !== 'undefined' ? window.location.pathname.split('/')[2] : '');
     
     // Create a RAW client that completely bypasses locks.js and SSR auth contention
-    const supabase = useMemo(() => createRawClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            auth: {
-                persistSession: false,
-                autoRefreshToken: false,
-                detectSessionInUrl: false
-            }
-        }
-    ), []);
 
     const [game, setGame] = useState<Game | null>(null);
     const [matches, setMatches] = useState<Match[]>([]);

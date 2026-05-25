@@ -15,7 +15,7 @@ import { upsertAttendance, getAttendanceForMatch } from '@/app/actions/attendanc
 import { getGameSuspensions } from '@/app/actions/suspensions';
 import { leaveRollingTeam, disbandRollingTeam } from '@/app/actions/rolling-league-registration';
 import { useTransition } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { PitchSideConfirmModal } from './PitchSideConfirmModal';
 import { StandingsTable } from '@/components/admin/StandingsTable';
 import { cn } from '@/lib/utils';
@@ -108,7 +108,6 @@ export function CaptainDashboard({
     currentUserId 
 }: CaptainDashboardProps) {
     const router = useRouter();
-    const supabase = createClient();
     const [copied, setCopied] = useState(false);
     const [isAcceptingAgents, setIsAcceptingAgents] = useState(team.accepting_free_agents);
     const [isProcessing, setIsProcessing] = useState<string | null>(null);

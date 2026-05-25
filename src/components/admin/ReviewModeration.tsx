@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Check, Trash2, Star, MessageSquare, Clock, User, BarChart3, TrendingUp, Filter, ArrowUpDown } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
@@ -26,7 +26,6 @@ export function ReviewModeration() {
     const [sortBy, setSortBy] = useState<SortOption>('newest');
     const [filterRating, setFilterRating] = useState<FilterRating>('all');
     
-    const supabase = createClient();
     const toast = useToast();
 
     const fetchReviews = async () => {

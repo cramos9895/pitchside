@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Calendar, Save, Loader2, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -31,7 +31,6 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
     const [loading, setLoading] = useState(false);
 
     const router = useRouter();
-    const supabase = createClient();
 
     // 1. Auto-Calculate Duration (The 'Smart' Input)
     useEffect(() => {

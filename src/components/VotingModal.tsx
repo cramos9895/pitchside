@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Loader2, Trophy, X, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -24,7 +24,6 @@ export function VotingModal({ gameId, candidates, onVoteSuccess, onClose }: Voti
     const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const supabase = createClient();
 
     const handleVote = async () => {
         if (!selectedCandidateId) return;

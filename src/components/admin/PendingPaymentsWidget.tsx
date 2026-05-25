@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Loader2, DollarSign, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -31,7 +31,6 @@ export function PendingPaymentsWidget() {
     const [loading, setLoading] = useState(true);
     const [verifying, setVerifying] = useState<string | null>(null); // booking_id or 'all'
 
-    const supabase = createClient();
     const router = useRouter();
     const { success, error: toastError } = useToast();
 

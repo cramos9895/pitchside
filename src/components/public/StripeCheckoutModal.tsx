@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { X, Lock, CheckCircle2 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { createDepositPaymentIntent } from '@/app/actions/stripe-payment';
 
 // Initialize Stripe outside of component to avoid recreating it
@@ -28,7 +28,6 @@ export function StripeCheckoutModal({ isOpen, onClose, amount, onSuccess, title,
     useEffect(() => {
         if (isOpen && amount > 0 && !clientSecret) {
             // Fetch PaymentIntent client secret from server
-            const supabase = createClient();
             
             supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
                 if (!user) return;

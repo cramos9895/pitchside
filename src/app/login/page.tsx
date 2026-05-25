@@ -5,7 +5,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 
 function LoginForm() {
     const router = useRouter();
@@ -27,7 +27,6 @@ function LoginForm() {
 
         try {
             // 1. Authenticate the Browser Client (Populates LocalStorage for Realtime/Client hooks)
-            const supabase = createClient();
             const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
                 email,
                 password,

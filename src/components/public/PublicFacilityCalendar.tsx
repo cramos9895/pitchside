@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Calendar, dateFnsLocalizer, Event as CalendarEvent, Views, SlotInfo, View } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { CalendarToolbar } from '@/components/facility/CalendarToolbar';
 import { PublicBookingModal } from './PublicBookingModal';
@@ -59,7 +59,6 @@ export function PublicFacilityCalendar({ facilityId, facilityName, isAuthenticat
 
         async function fetchPublicData() {
             setIsLoading(true);
-            const supabase = createClient();
 
             // Resources
             const { data: resourcesData, error: resourceError } = await supabase
@@ -116,7 +115,6 @@ export function PublicFacilityCalendar({ facilityId, facilityName, isAuthenticat
         fetchPublicData();
 
         // Setup Realtime for the public view (Keep it fully up to date)
-        const supabase = createClient();
         const channel = supabase
             .channel('public_bookings_realtime')
             .on(

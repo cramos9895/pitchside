@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { ArrowLeft, Edit2, Save, Trophy, Loader2, Upload, Camera, Shield, User, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -28,7 +28,6 @@ export default function ProfilePage() {
     const [profile, setProfile] = useState<ProfileWithUI | null>(null);
     const [bookings, setBookings] = useState<BookingWithGame[]>([]);
     const [stats, setStats] = useState({ caps: 0, wins: 0, draws: 0, losses: 0 });
-    const supabase = createClient();
     const router = useRouter();
 
     useEffect(() => {

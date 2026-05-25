@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState, useEffect, useMemo } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Trophy, Clock, MapPin, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StandingsTable } from '@/components/admin/StandingsTable';
@@ -10,7 +10,7 @@ export default function TournamentDisplay({ params }: { params: Promise<{ id: st
     // Robust parameter extraction with client-side fallback
     const resolvedParams = use(params);
     const gameId = resolvedParams?.id || (typeof window !== 'undefined' ? window.location.pathname.split('/')[3] : '');
-    const supabase = useMemo(() => createClient(), []);
+     
     const [game, setGame] = useState<any>(null);
     const [matches, setMatches] = useState<any[]>([]);
     const [view, setView] = useState<'standings' | 'matches'>('standings');

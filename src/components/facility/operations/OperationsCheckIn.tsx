@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Clock, MapPin, ChevronRight, X, UserCheck, UserX, QrCode } from 'lucide-react';
 import { toggleCheckIn } from '@/app/actions/facility';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { QRCodeSVG } from 'qrcode.react';
 import { Game, Booking, Profile, Match, Team } from "@/types/index";
 
@@ -27,7 +27,6 @@ export default function OperationsCheckIn({ bookings, facilityId }: OperationsCh
     const [isLoading, setIsLoading] = useState(false);
     const [showQR, setShowQR] = useState(false);
 
-    const supabase = createClient();
 
     useEffect(() => {
         if (!selectedEvent) return;

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Plus, Trash2, Tag, Percent, DollarSign, Calendar, Clock } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { generateRandomPromoCode } from '@/lib/utils';
 
@@ -30,7 +30,6 @@ export default function PromotionsClient({ initialPromos, facilityId, isGlobal }
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [isGeneratedCode, setIsGeneratedCode] = useState(false);
-    const supabase = createClient();
     const router = useRouter();
 
     const [formData, setFormData] = useState({

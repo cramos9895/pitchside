@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Send, User as UserIcon, Loader2, Megaphone, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Game, Booking, Profile, Match, Team } from "@/types/index";
@@ -35,7 +35,6 @@ export function ChatInterface({ gameId, currentUserId, isParticipant, isHost }: 
     const [sending, setSending] = useState(false);
     const [loading, setLoading] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
-    const supabase = createClient();
 
     // Auto-scroll to bottom
     useEffect(() => {

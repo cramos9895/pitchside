@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Calendar, MapPin, Clock, Users, MessageSquare, Info, Shirt, DollarSign, Award, Share2, Zap, Trophy, AlertTriangle, Crown, Shield, Activity, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -138,7 +138,6 @@ export function GameClientPage({
 
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
-    const supabase = createClient();
     const router = useRouter();
 
     useEffect(() => {

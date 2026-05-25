@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, X, UserPlus, DollarSign, CreditCard, Copy, Check, Award, ScrollText } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { WaiverModal } from './WaiverModal';
 import { getPaymentSettings } from '@/app/actions/settings';
 import { validatePromoCode } from '@/app/actions/payments';
@@ -67,7 +67,6 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     const [eventWaiverAccepted, setEventWaiverAccepted] = useState(false);
     const [cashAcknowledgement, setCashAcknowledgement] = useState(false);
 
-    const supabase = createClient();
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -90,7 +89,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                     .single();
 
                 if (gameData) {
-                    setGameData(gameData);
+                    setGameData(gameData as any);
                     if (gameData.allowed_payment_methods) {
                         setAllowedMethods(gameData.allowed_payment_methods);
                     }
@@ -110,7 +109,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                             .neq('status', 'cancelled')
                             .not('team_assignment', 'is', null);
 
-                        if (activeBookings) setRosters(activeBookings);
+                        if (activeBookings) setRosters(activeBookings as any);
                     }
                 }
             }
@@ -146,7 +145,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                     .single();
                 
                 if (profile) {
-                    setUserProfile(profile);
+                    setUserProfile(profile as any);
                     setWalletCredit(profile.credit_balance || 0); // Wallet logic
                     if (profile.email === 'christian.ramos9895@gmail.com') {
                         // Keep popup suppressed for the user

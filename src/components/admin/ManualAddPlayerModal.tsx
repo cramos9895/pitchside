@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { manualAddPlayerAction } from '@/app/actions/manual-add-player';
 import { UserPlus, Search, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
@@ -29,7 +29,6 @@ export function ManualAddPlayerModal({ gameId, basePrice, onSuccess }: Props) {
     const [submitting, setSubmitting] = useState(false);
     
     const { success, error: toastError } = useToast();
-    const supabase = createClient();
 
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -44,9 +43,9 @@ export function ManualAddPlayerModal({ gameId, basePrice, onSuccess }: Props) {
                 .limit(10);
             
             if (error) throw error;
-            setSearchResults(data || []);
+            setSearchResults(data as unknown as ExtendedProfile[] || []);
             // Only unselect if we searched a new term and the user isn't in results
-            if (selectedUser && !data?.find((u: Profile) => u.id === selectedUser.id)) {
+            if (selectedUser && !data?.find((u: any) => u.id === selectedUser.id)) {
                 setSelectedUser(null);
             }
         } catch (err: any) {

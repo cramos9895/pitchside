@@ -6,7 +6,7 @@ import { submitBookingRequest, executeFreePromoBooking } from '@/app/actions/pub
 import { createCheckoutSession } from '@/app/actions/stripe';
 import { validatePromoCode } from '@/app/actions/payments';
 import { WaiverModal } from '../WaiverModal';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { Game, Profile } from "@/types/index";
 
@@ -49,7 +49,6 @@ export function PublicBookingModal({
     const [showWaiver, setShowWaiver] = useState(false);
     const [agreeingWaiver, setAgreeingWaiver] = useState(false);
     const [facilityWaiverText, setFacilityWaiverText] = useState<string | null>(null);
-    const supabase = createClient();
 
     if (!isOpen || !selectedSlot) return null;
 

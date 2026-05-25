@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { ArrowLeft, Trophy, Loader2, Medal, Crown, Shield, Activity, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -34,7 +34,6 @@ export default function LeaderboardPage() {
     const [sortMode, setSortMode] = useState<'ovr' | 'games' | 'win_percentage'>('ovr');
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [debugGames, setDebugGames] = useState<unknown[]>([]);
-    const supabase = createClient();
 
     useEffect(() => {
         const fetchData = async () => {

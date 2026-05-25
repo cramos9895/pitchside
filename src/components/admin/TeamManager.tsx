@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { User, Shuffle, Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 
 interface Player {
     id: string; // booking_id
@@ -155,7 +155,6 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
             }
 
             if (updates.length > 0) {
-                const supabase = createClient();
                 const promises = updates.map(u => 
                     supabase.from('bookings').update({ team_assignment: u.team_assignment }).eq('id', u.id)
                 );

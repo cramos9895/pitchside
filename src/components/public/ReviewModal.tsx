@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X, Star, Send, MessageSquare } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 
 interface ReviewModalProps {
@@ -29,7 +29,6 @@ export function ReviewModal({ isOpen, onClose, onSuccess }: ReviewModalProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const supabase = createClient();
 
     if (!isOpen) return null;
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { Loader2, CalendarRange, Clock, MapPin, RefreshCw, Trophy } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -27,7 +27,6 @@ interface UnifiedEvent {
 }
 
 export default function DashboardSchedulePage() {
-    const supabase = createClient();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<unknown>(null); // Added user state
@@ -38,7 +37,6 @@ export default function DashboardSchedulePage() {
         const fetchSchedule = async () => {
             setLoading(true);
             try {
-                // @ts-expect-error - Complex schema extension bypass
                 const { data: { user } } = await supabase.auth.getSession().then(({data}) => ({ data: { user: data.session?.user } }));
                 if (!user) {
                     router.push('/login');
@@ -149,7 +147,7 @@ export default function DashboardSchedulePage() {
                 });
 
                 // 4. Normalize Tournaments
-                const myTournaments: UnifiedEvent[] = (tournamentsRes.data || []).map((reg: Booking) => {
+                const myTournaments: UnifiedEvent[] = (tournamentsRes.data as any || []).map((reg: Booking) => {
                     // @ts-expect-error - Complex schema extension bypass
                     const g = reg.games;
                     if (!g) return null as unknown;

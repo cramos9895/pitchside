@@ -17,7 +17,7 @@ const TEXT_COLOR_MAP: Record<string, string> = {
 };
 
 import { useState, useEffect, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Plus, Save, Loader2, Trash2, Layers, CheckCircle2, Trophy, ArrowRight, PlayCircle, Edit, PauseCircle, Square, Clock, PlusCircle, MinusCircle, MonitorPlay } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -52,7 +52,6 @@ interface MatchManagerProps {
 
 export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchManagerProps) {
     const router = useRouter();
-    const supabase = createClient();
 
     const gameId = game.id;
         // @ts-expect-error - Residual typing mismatch from extended schema mapping

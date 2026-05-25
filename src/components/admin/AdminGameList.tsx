@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Users, Calendar, MapPin, Edit, Filter, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -60,7 +60,6 @@ export function AdminGameList({ initialGames }: AdminGameListProps) {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [gameToEdit, setGameToEdit] = useState<Game | null>(null);
 
-    const supabase = createClient();
     const router = useRouter();
     const toast = useToast();
 

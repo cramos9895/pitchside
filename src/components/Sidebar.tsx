@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { X, LogOut, User, Home, LayoutDashboard, Settings, Trophy, Building, Bell, MapPin, ClipboardList, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -15,7 +15,6 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
     const router = useRouter();
-    const supabase = createClient();
     const [isAdmin, setIsAdmin] = useState(false);
     const [isMasterAdmin, setIsMasterAdmin] = useState(false);
     const [isFacilityAdmin, setIsFacilityAdmin] = useState(false);

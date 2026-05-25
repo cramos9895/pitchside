@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { useEffect, useState, useRef } from 'react';
 import { Loader2, Save, Image as ImageIcon, LayoutTemplate } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
@@ -26,7 +26,6 @@ export function SiteEditor() {
     const [uploadingHero, setUploadingHero] = useState(false);
     const [uploadingHow, setUploadingHow] = useState(false);
 
-    const supabase = createClient();
     const { success, error: toastError } = useToast();
 
     useEffect(() => {

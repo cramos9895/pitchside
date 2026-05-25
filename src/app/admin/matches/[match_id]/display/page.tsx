@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState, useEffect, useMemo } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Clock, Trophy, MapPin, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -9,7 +9,7 @@ export default function FieldProjector({ params }: { params: Promise<{ match_id:
     // Robust parameter extraction with client-side fallback
     const resolvedParams = use(params);
     const matchId = resolvedParams?.match_id || (typeof window !== 'undefined' ? window.location.pathname.split('/')[3] : '');
-    const supabase = useMemo(() => createClient(), []);
+     
     const [match, setMatch] = useState<any>(null);
     const [game, setGame] = useState<any>(null);
     const [loading, setLoading] = useState(true);

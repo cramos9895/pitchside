@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { 
     Calendar, 
     Clock, 
@@ -30,7 +30,6 @@ interface RollingLeagueFormProps {
 
 export function RollingLeagueForm({ initialData, action = 'create', onSuccess }: RollingLeagueFormProps) {
     const router = useRouter();
-    const supabase = createClient();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -237,7 +236,6 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
             };
 
             if (action === 'create') {
-                // @ts-expect-error - Requires complex schema extension
                 const { data: { user } } = await supabase.auth.getSession().then(({data}) => ({ data: { user: data.session?.user } }));
                 if (!user) throw new Error("You must be logged in.");
                 const { error: insertError } = await supabase.from('games').insert([{ ...payload, host_ids: [user.id] }]);

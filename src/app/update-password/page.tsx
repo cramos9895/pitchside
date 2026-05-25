@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { Loader2, Lock } from 'lucide-react';
 
@@ -12,7 +12,6 @@ export default function UpdatePassword() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
-    const supabase = createClient();
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();

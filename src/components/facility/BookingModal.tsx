@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Calendar, Clock, MapPin, Tag, User, Trash2, Edit2, CheckCircle2, XCircle, ChevronDown, Repeat, Users, UserCheck } from 'lucide-react';
 import { createBooking, updateBooking, deleteBooking, updateBookingStatus, createRecurringBooking, deleteRecurringSeries, approveContract, cancelBooking } from '@/app/actions/facility';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { format, parseISO, isBefore, isAfter, isEqual } from 'date-fns';
 import { BookingEvent } from './FacilityCalendar';
 import { useRouter } from 'next/navigation';
@@ -57,7 +57,6 @@ export function BookingModal({ isOpen, onClose, selectedSlot, selectedEvent, res
 
         async function fetchRoster() {
             setIsLoadingRoster(true);
-            const supabase = createClient();
 
             // The relevant ID is likely the recurring group ID or the booking ID
             const groupId = selectedEvent?.recurringGroupId || selectedEvent?.id;

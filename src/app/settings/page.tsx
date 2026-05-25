@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
     User, Mail, Phone, Lock, Save, Loader2, Shield, Settings, Camera, LogOut, CheckCircle, AlertTriangle
@@ -44,12 +44,10 @@ export default function SettingsPage() {
     const [announcements, setAnnouncements] = useState(true);
     const [debugMode, setDebugMode] = useState(false);
 
-    const supabase = createClient();
     const router = useRouter();
 
     useEffect(() => {
         const fetchUser = async () => {
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
                         const { data: { user } } = await supabase.auth.getSession().then(({ data }) => ({ data: { user: data.session?.user } }));
 
             if (!user) {

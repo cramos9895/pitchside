@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { Loader2, Mail, ArrowLeft } from 'lucide-react';
 
@@ -11,7 +11,6 @@ export default function ForgotPassword() {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const supabase = createClient();
 
     const handleReset = async (e: React.FormEvent) => {
         e.preventDefault();

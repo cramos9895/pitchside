@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { isLeagueLocked } from '@/lib/league-utils';
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 
 interface LeagueData {
     id: string;
@@ -111,7 +111,6 @@ export function RollingLeagueCard({ league, userId, registrations }: RollingLeag
 
         const fetchMatches = async () => {
             setLoadingStats(true);
-            const supabase = createClient();
             const { data: matches } = await supabase
                 .from('matches')
                 .select('*')
