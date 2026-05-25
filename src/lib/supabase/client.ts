@@ -16,7 +16,6 @@ export const rawSupabase = createBrowserClient(
             persistSession: false,
             autoRefreshToken: false,
             detectSessionInUrl: false,
-            multiTab: false,
             storageKey: 'isolated-projector-key'
         } 
     }
