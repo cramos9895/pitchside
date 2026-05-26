@@ -29,7 +29,11 @@ export const rawSupabase = createVanillaClient(
         auth: { 
             persistSession: false,
             autoRefreshToken: false,
-            detectSessionInUrl: false
+            detectSessionInUrl: false,
+            // The VIP Bypass: Instantly execute auth callbacks without touching the browser's lock queue
+            lock: async (name, acquireTimeout, fn) => {
+                return await fn();
+            }
         } 
     }
 );
