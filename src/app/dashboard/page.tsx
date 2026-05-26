@@ -76,8 +76,12 @@ function DashboardContent() {
         const fetchOverviewData = async () => {
             setLoading(true);
             try {
-                // 1. Fetch User Sequentially (Dependency Root)
-                const { data: { user } } = await supabase.auth.getUser();
+                // 1. Fetch Session Sequentially (Dependency Root)
+                // Using getSession() instead of getUser() to avoid network round-trips and lock collisions
+                // on hard refresh, since Middleware already guarantees the user is authenticated.
+                const { data: { session } } = await supabase.auth.getSession();
+                const user = session?.user;
+                
                 if (!user) {
                     // Middleware handles the actual redirect, but we return here to satisfy TypeScript
                     // and prevent the client from executing queries with a null user.id
