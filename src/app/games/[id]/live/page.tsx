@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { rawSupabase as supabase } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { StandingsTable } from '@/components/admin/StandingsTable';

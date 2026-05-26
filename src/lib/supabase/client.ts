@@ -21,30 +21,7 @@ export const supabase = new Proxy({} as SupabaseClient, {
     }
 });
 
-// For the Projector/Live view - Pure in-memory client, touches NO locks or cookies
-export const rawSupabase = createVanillaClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { 
-        auth: { 
-            persistSession: false,
-            autoRefreshToken: false,
-            detectSessionInUrl: false,
-            // 1. Give it a fake name so it creates an isolated BroadcastChannel
-            storageKey: 'isolated-projector-key',
-            // 2. Provide a dummy memory storage so it physically cannot touch the browser's localStorage
-            storage: {
-                getItem: () => null,
-                setItem: () => {},
-                removeItem: () => {}
-            },
-            // 3. The VIP Bypass: Instantly execute auth callbacks without touching the browser's lock queue
-            lock: async (name, acquireTimeout, fn) => {
-                return await fn();
-            }
-        } 
-    }
-);
+
 
 // Legacy factory function (kept for backward compatibility during transition if needed, though we will refactor all)
 // Or better, just export createClient that returns the singleton to not break files we haven't found.
