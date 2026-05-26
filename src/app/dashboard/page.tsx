@@ -79,7 +79,8 @@ function DashboardContent() {
                 // 1. Fetch User Sequentially (Dependency Root)
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) {
-                    router.push('/login');
+                    // Middleware handles the actual redirect, but we return here to satisfy TypeScript
+                    // and prevent the client from executing queries with a null user.id
                     return;
                 }
                 setUser(user);

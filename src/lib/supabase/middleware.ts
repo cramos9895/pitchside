@@ -36,11 +36,24 @@ export async function updateSession(request: NextRequest) {
     // refreshing the auth token
     const { data: { user } } = await supabase.auth.getUser()
 
-    // 0. Verification Gatekeeper Check
+    const path = request.nextUrl.pathname;
+    const isAuthRoute = path.startsWith('/login') || path.startsWith('/signup') || path.startsWith('/auth');
+
+    // Strict Gatekeeper: Redirect unauthenticated users from protected routes
+    if (!user) {
+        const isProtectedRoute = path.startsWith('/dashboard') || 
+                                 path.startsWith('/admin') || 
+                                 path.startsWith('/facility') || 
+                                 path.startsWith('/profile') || 
+                                 path === '/pending';
+                                 
+        if (isProtectedRoute) {
+            return NextResponse.redirect(new URL('/login', request.url));
+        }
+    }
+
+    // 0. Verification Gatekeeper Check (Authenticated Users)
     if (user) {
-        const path = request.nextUrl.pathname;
-        const isAuthRoute = path.startsWith('/login') || path.startsWith('/signup') || path.startsWith('/auth');
-        
         // Only fetch profile for routes that require role/status validation
         const requiresValidation = path.startsWith('/admin') || path.startsWith('/facility') || path === '/' || path === '/pending';
 
