@@ -30,7 +30,15 @@ export const rawSupabase = createVanillaClient(
             persistSession: false,
             autoRefreshToken: false,
             detectSessionInUrl: false,
-            // The VIP Bypass: Instantly execute auth callbacks without touching the browser's lock queue
+            // 1. Give it a fake name so it creates an isolated BroadcastChannel
+            storageKey: 'isolated-projector-key',
+            // 2. Provide a dummy memory storage so it physically cannot touch the browser's localStorage
+            storage: {
+                getItem: () => null,
+                setItem: () => {},
+                removeItem: () => {}
+            },
+            // 3. The VIP Bypass: Instantly execute auth callbacks without touching the browser's lock queue
             lock: async (name, acquireTimeout, fn) => {
                 return await fn();
             }
