@@ -1,9 +1,14 @@
 
 // 🏗️ Architecture: [[Identity & Session Flow.md]]
-import { type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
+    // 1. Bypass CORS pre-flight requests completely
+    if (request.method === 'OPTIONS') {
+        return NextResponse.next();
+    }
+    
     return await updateSession(request)
 }
 
@@ -14,7 +19,7 @@ export const config = {
          * - _next/static (static files)
          * - _next/image (image optimization files)
          * - favicon.ico (favicon file)
-         * Feel free to modify this pattern to include more paths.
+         * - images - .svg, .png, .jpg, .jpeg, .gif, .webp
          */
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
