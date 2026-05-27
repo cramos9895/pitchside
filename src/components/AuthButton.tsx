@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, startTransition } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { LogOut, User as UserIcon, QrCode } from 'lucide-react';
@@ -44,7 +44,9 @@ export function AuthButton() {
                 }
 
                 if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
-                    router.refresh();
+                    startTransition(() => {
+                        router.refresh();
+                    });
                 }
             }
         );

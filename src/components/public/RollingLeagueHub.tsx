@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { RollingSalesView } from './RollingSalesView';
 import { RollingFreeAgentView } from './RollingFreeAgentView';
 import { RollingCommandCenterView } from './RollingCommandCenterView';
@@ -67,19 +67,21 @@ export function RollingLeagueHub({
             const tournamentUrlBase = `${protocol}://${host}/rolling-leagues/${game.id}`;
 
             return (
-                <RollingCommandCenterView 
-                    team={team}
-                    tournament={game}
-                    roster={roster || []}
-                    freeAgents={freeAgents || []}
-                    matches={matches || []}
-                    teams={allTeams || []}
-                    initialMessages={initialMessages || []}
-                    tournamentUrlBase={tournamentUrlBase}
-                    isCaptain={userRole === 'captain'}
-                    currentUserId={currentUser.id}
-                    lineups={lineups || []}
-                />
+                <Suspense fallback={<div className="animate-pulse border border-[#cbff00] bg-black h-96 w-full rounded-md" />}>
+                    <RollingCommandCenterView 
+                        team={team}
+                        tournament={game}
+                        roster={roster || []}
+                        freeAgents={freeAgents || []}
+                        matches={matches || []}
+                        teams={allTeams || []}
+                        initialMessages={initialMessages || []}
+                        tournamentUrlBase={tournamentUrlBase}
+                        isCaptain={userRole === 'captain'}
+                        currentUserId={currentUser.id}
+                        lineups={lineups || []}
+                    />
+                </Suspense>
             );
         default:
             return <div className="min-h-screen bg-pitch-black flex items-center justify-center text-white">Invalid State</div>;

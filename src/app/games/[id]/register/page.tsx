@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Zap, AlertTriangle } from 'lucide-react';
 import { RollingRegistrationClient } from '@/components/public/RollingRegistrationClient';
+import { Suspense } from 'react';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -89,10 +90,12 @@ export default async function RollingLeagueRegistrationPage({
 
                 <div className="bg-pitch-card border border-white/10 rounded-sm p-6 md:p-10 shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-pitch-accent/5 blur-3xl -mr-16 -mt-16 rounded-full" />
-                    <RollingRegistrationClient 
-                        league={gameData as any} 
-                        type={type as any} 
-                    />
+                    <Suspense fallback={<div className="animate-pulse border border-[#cbff00] bg-black h-96 w-full rounded-md" />}>
+                        <RollingRegistrationClient 
+                            league={gameData as any} 
+                            type={type as any} 
+                        />
+                    </Suspense>
                 </div>
             </div>
         </div>

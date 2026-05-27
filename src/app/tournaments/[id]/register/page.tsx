@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import { TournamentRegistrationClient } from './TournamentRegistrationClient';
+import { Suspense } from 'react';
 
 export const revalidate = 0; // Dynamic data
 
@@ -100,14 +101,16 @@ export default async function TournamentRegistrationPage({ params, searchParams 
     return (
         <main className="bg-pitch-black min-h-screen pt-32 px-4 pb-24">
             <div className="max-w-3xl mx-auto border-t-4 pt-8" style={{ borderColor: '#cbff00' }}>
-                <TournamentRegistrationClient 
-                    tournamentId={tournamentId}
-                    tournamentName={tournamentName}
-                    teamPrice={teamPrice}
-                    faPrice={faPrice}
-                    dbDepositAmount={deposit}
-                    {...details}
-                />
+                <Suspense fallback={<div className="animate-pulse border border-[#cbff00] bg-black h-96 w-full rounded-md" />}>
+                    <TournamentRegistrationClient 
+                        tournamentId={tournamentId}
+                        tournamentName={tournamentName}
+                        teamPrice={teamPrice}
+                        faPrice={faPrice}
+                        dbDepositAmount={deposit}
+                        {...details}
+                    />
+                </Suspense>
             </div>
         </main>
     );
