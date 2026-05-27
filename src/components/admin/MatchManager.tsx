@@ -853,8 +853,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
             router.refresh();
             if (onUpdate) onUpdate();
         } catch (e: unknown) {
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        alert("Error finalizing early: " + e.message);
+            alert("Error finalizing early: " + (e instanceof Error ? e.message : String(e)));
         } finally {
             setLoading(false);
         }
@@ -1161,7 +1160,6 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                                     <div className="flex-1 text-left flex justify-start items-center px-4">
                                                         <span className="text-base font-black uppercase tracking-tight text-white">{match.away_team}</span>
                                                     </div>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                                 </div>
                                             );
                                         })}
@@ -1170,7 +1168,6 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                         )}
                                     </div>
 
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                     {/* Controls */}
                                     <div className="mt-6">
                                         {isEditing ? (
@@ -1180,9 +1177,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                                     className="px-4 py-2 text-gray-400 hover:text-white text-sm"
                                                 >
                                                     Cancel
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                                 </button>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                                 <button
                                                     onClick={reFinalize}
                                                     disabled={loading}
@@ -1191,7 +1186,6 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                                     Update & Re-Finalize
                                                 </button>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                                             </div>
                                         ) : (
                                             !isTournamentComplete && (
@@ -1222,7 +1216,6 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                             </div>
 
                             {/* UP NEXT SECTION: SIDE COLUMN */}
-                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                                         {maxRound >= currentRound && matches.filter((m: Match) => m.round_number === currentRound + 1).length > 0 && (
                                 <div className="lg:col-span-1 space-y-4 animate-in fade-in slide-in-from-right-4 duration-500 h-full">
                                     <div className="bg-black/30 p-4 rounded border border-white/5 h-full flex flex-col">
@@ -1231,7 +1224,6 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                                 <Clock className="w-3 h-3 text-pitch-secondary" /> Up Next (Round {currentRound + 1})
                                             </h4>
                                             <span className="text-[10px] font-bold text-pitch-secondary bg-pitch-secondary/10 px-2 py-0.5 rounded">
-                                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                                                                                 {matches.filter((m: Match) => m.round_number === currentRound + 1).length} Games
                                             </span>
                                         </div>
@@ -1242,7 +1234,6 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                                 <div className="flex flex-wrap gap-1">
                                                     {sittingOutNext.map((t: TeamConfig) => (
                                                                                                                 <span key={t.name} className="text-[9px] font-bold text-gray-400 uppercase bg-black/30 px-2 py-0.5 rounded border border-white/5">
-                                                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                                                                                                         {t.name}
                                                         </span>
                                                     ))}
@@ -1251,23 +1242,18 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                         )}
 
                                         <div className="grid grid-cols-1 gap-2 flex-1">
-                                                                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                                                                         {matches.filter((m: Match) => m.round_number === currentRound + 1).map((m: Match) => (
                                                                                                 <div key={m.id} className="bg-white/[0.02] border border-white/5 py-4 px-4 rounded-xl group hover:bg-white/5 transition-colors flex items-center gap-4 min-h-[88px]">
                                                     <div className="text-[9px] font-black text-pitch-accent bg-pitch-accent/5 px-2 py-1 rounded border border-pitch-accent/10 uppercase tracking-widest shrink-0 min-w-[65px] text-center">
-                                                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                                                                                                 {m.field_name || 'TBD'}
                                                     </div>
                                                     <div className="flex-1 flex items-center justify-center gap-3 text-[12px] font-black uppercase tracking-tight text-gray-300">
-                                                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                                                                                                 <span className="truncate max-w-[80px]">{m.home_team}</span>
                                                         <span className="text-gray-600 text-[9px] font-black shrink-0">VS</span>
-                                                                                                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                                                                                                 <span className="truncate max-w-[80px]">{m.away_team}</span>
                                                     </div>
                                                 </div>
                                             ))}
-                                        // @ts-expect-error - Residual typing mismatch
                                         </div>
                                     </div>
                                 </div>
@@ -1289,7 +1275,6 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                                                 {teams.map((t: any) => <option key={t.name} value={t.name}>{t.name}</option>)}
                             </select>
                         </div>
-                        // @ts-expect-error - Residual typing mismatch
                         <div className="md:col-span-1">
                             <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Score</label>
                             <input
@@ -1299,13 +1284,11 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                 className="w-full bg-black border border-white/20 p-2 text-center text-white"
                             />
                         </div>
-// @ts-expect-error - Residual typing mismatch
 
                         <div className="flex items-center justify-center text-gray-500 font-bold">VS</div>
 
                         <div className="md:col-span-1">
                             <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Away Team</label>
-                            // @ts-expect-error - Residual typing mismatch
                             <select
                                 value={newMatch.away_team}
                                 onChange={(e) => handleLiveMatchUpdate('away_team', e.target.value)}
@@ -1313,7 +1296,6 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                             >
                                                                 {teams.map((t: any) => <option key={t.name} value={t.name}>{t.name}</option>)}
                             </select>
-                        // @ts-expect-error - Residual typing mismatch
                         </div>
                         <div className="md:col-span-1">
                             <label className="text-[10px] uppercase text-gray-500 font-bold block mb-1">Score</label>
