@@ -111,10 +111,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         };
     }, [isOpen, supabase]);
     const handleSignOut = async () => {
-        onClose();
-        await supabase.auth.signOut();
-        // Trigger the native server-authoritative logout route
-        window.location.href = '/auth/logout';
+        try {
+            onClose();
+            await supabase.auth.signOut();
+        } finally {
+            // Trigger the native server-authoritative logout route
+            window.location.href = '/auth/logout';
+        }
     };
 
     return (

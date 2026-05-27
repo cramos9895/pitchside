@@ -57,9 +57,12 @@ export function AuthButton() {
     }, [router, supabase.auth]);
 
     const handleSignOut = async () => {
-        await supabase.auth.signOut();
-        // Trigger the native server-authoritative logout route
-        window.location.href = '/auth/logout';
+        try {
+            await supabase.auth.signOut();
+        } finally {
+            // Trigger the native server-authoritative logout route
+            window.location.href = '/auth/logout';
+        }
     };
 
     if (!user) {
