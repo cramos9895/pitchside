@@ -75,8 +75,29 @@ BEGIN
 END;
 $$;
 
--- 4. Drop the deprecated column
+-- 4. Drop dependent policies on booking_rosters
+DROP POLICY IF EXISTS "Captains can remove players from their roster" ON public.booking_rosters;
+DROP POLICY IF EXISTS "Captains can view their own booking rosters" ON public.booking_rosters;
+
+-- 5. Drop the deprecated column
 -- We drop it now as requested, but the data is safely moved.
 ALTER TABLE public.profiles DROP COLUMN IF EXISTS full_name;
+
+-- 6. Recreate the policies using first_name and last_name
+CREATE POLICY "Captains can remove players from their roster" ON "public"."booking_rosters" FOR DELETE USING (((EXISTS ( SELECT 1
+   FROM "public"."resource_bookings" "rb"
+  WHERE (("rb"."id" = "booking_rosters"."booking_group_id") AND ("rb"."renter_name" = ( SELECT trim(coalesce("profiles"."first_name",'') || ' ' || coalesce("profiles"."last_name",''))
+           FROM "public"."profiles"
+          WHERE ("profiles"."id" = "auth"."uid"())))))) OR (EXISTS ( SELECT 1
+   FROM "public"."recurring_booking_groups" "rbg"
+  WHERE (("rbg"."id" = "booking_rosters"."booking_group_id") AND ("rbg"."user_id" = "auth"."uid"()))))));
+
+CREATE POLICY "Captains can view their own booking rosters" ON "public"."booking_rosters" FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM "public"."resource_bookings" "rb"
+  WHERE (("rb"."id" = "booking_rosters"."booking_group_id") AND ("rb"."renter_name" = ( SELECT trim(coalesce("profiles"."first_name",'') || ' ' || coalesce("profiles"."last_name",''))
+           FROM "public"."profiles"
+          WHERE ("profiles"."id" = "auth"."uid"())))))) OR (EXISTS ( SELECT 1
+   FROM "public"."recurring_booking_groups" "rbg"
+  WHERE (("rbg"."id" = "booking_rosters"."booking_group_id") AND ("rbg"."user_id" = "auth"."uid"()))))));
 
 COMMIT;
