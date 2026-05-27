@@ -190,8 +190,9 @@ function SignUpForm() {
                         {/* Row 1: Name */}
                         {accountType === 'facility' && (
                             <div className="md:col-span-2">
-                                <label className={labelClasses}>Organization Name</label>
+                                <label htmlFor="organizationName" className={labelClasses}>Organization Name</label>
                                 <input
+                                    id="organizationName"
                                     name="organizationName"
                                     type="text"
                                     value={formData.organizationName}
@@ -204,8 +205,9 @@ function SignUpForm() {
                         )}
 
                         <div>
-                            <label className={labelClasses}>First Name</label>
+                            <label htmlFor="firstName" className={labelClasses}>First Name</label>
                             <input
+                                id="firstName"
                                 name="firstName"
                                 type="text"
                                 value={formData.firstName}
@@ -216,8 +218,9 @@ function SignUpForm() {
                             />
                         </div>
                         <div>
-                            <label className={labelClasses}>Last Name</label>
+                            <label htmlFor="lastName" className={labelClasses}>Last Name</label>
                             <input
+                                id="lastName"
                                 name="lastName"
                                 type="text"
                                 value={formData.lastName}
@@ -230,8 +233,9 @@ function SignUpForm() {
 
                         {/* Row 2: Auth */}
                         <div className="md:col-span-2">
-                            <label className={labelClasses}>{accountType === 'facility' ? 'Work Email' : 'Email Address'}</label>
+                            <label htmlFor="email" className={labelClasses}>{accountType === 'facility' ? 'Work Email' : 'Email Address'}</label>
                             <input
+                                id="email"
                                 name="email"
                                 type="email"
                                 value={formData.email}
@@ -243,8 +247,9 @@ function SignUpForm() {
                         </div>
 
                         <div className="md:col-span-2 relative">
-                            <label className={labelClasses}>Password</label>
+                            <label htmlFor="password" className={labelClasses}>Password</label>
                             <input
+                                id="password"
                                 name="password"
                                 type={showPassword ? "text" : "password"}
                                 value={formData.password}
@@ -265,8 +270,9 @@ function SignUpForm() {
                         {/* Row 3: Details */}
                         {accountType !== 'facility' && (
                             <div>
-                                <label className={labelClasses}>Date of Birth</label>
+                                <label htmlFor="dob" className={labelClasses}>Date of Birth</label>
                                 <input
+                                    id="dob"
                                     name="dob"
                                     type="date"
                                     value={formData.dob}
@@ -278,8 +284,9 @@ function SignUpForm() {
                         )}
 
                         <div>
-                            <label className={labelClasses}>Phone Number</label>
+                            <label htmlFor="phone" className={labelClasses}>Phone Number</label>
                             <input
+                                id="phone"
                                 name="phone"
                                 type="tel"
                                 value={formData.phone}
@@ -291,49 +298,51 @@ function SignUpForm() {
                         </div>
 
                         <div>
-                            <label className={labelClasses}>{accountType === 'facility' ? 'Facility Zip Code' : 'Zip Code'}</label>
+                            <label htmlFor="zip" className={labelClasses}>{accountType === 'facility' ? 'Facility Zip Code' : 'Zip Code'}</label>
                             <input
+                                id="zip"
                                 name="zip"
                                 type="text"
                                 value={formData.zip}
                                 onChange={handleChange}
                                 required
                                 className={inputClasses}
-                            placeholder="60102"
-                                />
-                            </div>
+                                placeholder="60102"
+                            />
+                        </div>
 
-                            {/* Sports Selection (Player Only) */}
-                            {accountType === 'player' && (
-                                <div className="md:col-span-2">
-                                    <label className={labelClasses}>What sports do you play?</label>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-                                        {ALL_SPORTS.map(sport => (
-                                            <button
-                                                key={sport}
-                                                type="button"
-                                                onClick={() => toggleSport(sport)}
-                                                className={cn(
-                                                    "px-1.5 sm:px-3 py-2 sm:py-2.5 rounded-sm border text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all text-center flex items-center justify-center break-words min-h-[44px]",
-                                                    formData.primarySports.includes(sport)
-                                                        ? "bg-pitch-accent text-pitch-black border-pitch-accent shadow-[0_0_15px_rgba(204,255,0,0.2)]"
-                                                        : "bg-black/40 border-white/5 text-gray-500 hover:border-white/20"
-                                                )}
-                                            >
-                                                {sport}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <p className="text-[9px] text-gray-600 mt-3 font-bold uppercase tracking-widest italic">
-                                        Select all that apply to customize your feed.
-                                    </p>
+                        {/* Sports Selection (Player Only) */}
+                        {accountType === 'player' && (
+                            <div className="md:col-span-2">
+                                <label className={labelClasses}>What sports do you play?</label>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                                    {ALL_SPORTS.map(sport => (
+                                        <button
+                                            key={sport}
+                                            type="button"
+                                            onClick={() => toggleSport(sport)}
+                                            className={cn(
+                                                "px-1.5 sm:px-3 py-2 sm:py-2.5 rounded-sm border text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all text-center flex items-center justify-center break-words min-h-[44px]",
+                                                formData.primarySports.includes(sport)
+                                                    ? "bg-pitch-accent text-pitch-black border-pitch-accent shadow-[0_0_15px_rgba(204,255,0,0.2)]"
+                                                    : "bg-black/40 border-white/5 text-gray-500 hover:border-white/20"
+                                            )}
+                                        >
+                                            {sport}
+                                        </button>
+                                    ))}
                                 </div>
-                            )}
+                                <p className="text-[9px] text-gray-600 mt-3 font-bold uppercase tracking-widest italic">
+                                    Select all that apply to customize your feed.
+                                </p>
+                            </div>
+                        )}
 
                         {accountType === 'facility' && (
                             <div>
-                                <label className={labelClasses}>Job Title</label>
+                                <label htmlFor="jobTitle" className={labelClasses}>Job Title</label>
                                 <select
+                                    id="jobTitle"
                                     name="jobTitle"
                                     value={formData.jobTitle}
                                     onChange={handleChange}
@@ -349,8 +358,9 @@ function SignUpForm() {
 
                         {accountType === 'referee' && (
                             <div className="md:col-span-2">
-                                <label className={labelClasses}>Certification Level</label>
+                                <label htmlFor="certLevel" className={labelClasses}>Certification Level</label>
                                 <select
+                                    id="certLevel"
                                     name="certLevel"
                                     value={formData.certLevel}
                                     onChange={handleChange}

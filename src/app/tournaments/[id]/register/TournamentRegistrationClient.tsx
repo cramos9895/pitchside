@@ -280,9 +280,10 @@ export function TournamentRegistrationClient({
 
                             {!isCashLeague && (
                                 <div className="mt-6 p-4 bg-orange-500/5 border border-orange-500/30 rounded-lg">
-                                    <label className="flex items-start gap-4 cursor-pointer group">
+                                    <label htmlFor="liability_acknowledged" className="flex items-start gap-4 cursor-pointer group">
                                         <div className="relative flex items-center justify-center mt-1">
                                             <input 
+                                                id="liability_acknowledged"
                                                 type="checkbox" 
                                                 name="liability_acknowledged" 
                                                 required 
@@ -306,8 +307,10 @@ export function TournamentRegistrationClient({
 
                             {isCashLeague && (
                                 <div className="mt-6 p-4 bg-pitch-accent/5 border border-pitch-accent/20 rounded-lg">
-                                    <label className="flex items-start gap-4 cursor-pointer">
+                                    <label htmlFor="cash_ack_team" className="flex items-start gap-4 cursor-pointer">
                                         <input 
+                                            id="cash_ack_team"
+                                            name="cash_ack_team"
                                             type="checkbox" 
                                             required
                                             checked={cashAcknowledgement}
@@ -395,9 +398,9 @@ export function TournamentRegistrationClient({
                             
                             <div className="grid grid-cols-2 gap-3 mt-4">
                                 {['Forward', 'Midfield', 'Defense', 'Goalie'].map(pos => (
-                                    <label key={pos} className="flex items-center gap-3 cursor-pointer group bg-black/40 p-3 rounded border border-white/5 hover:border-pitch-accent/40 transition-colors">
+                                    <label htmlFor={`pos-${pos}`} key={pos} className="flex items-center gap-3 cursor-pointer group bg-black/40 p-3 rounded border border-white/5 hover:border-pitch-accent/40 transition-colors">
                                         <div className="relative flex items-center justify-center">
-                                            <input type="checkbox" name="positions" value={pos} className="sr-only peer" />
+                                            <input id={`pos-${pos}`} type="checkbox" name="positions" value={pos} className="sr-only peer" />
                                             <div className="w-5 h-5 border-2 border-white/20 rounded flex items-center justify-center peer-checked:bg-pitch-accent peer-checked:border-pitch-accent transition-colors">
                                                 <svg className="w-3 h-3 text-pitch-black font-bold scale-0 peer-checked:scale-100 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -412,8 +415,10 @@ export function TournamentRegistrationClient({
 
                         {isCashLeague && (
                              <div className="bg-pitch-accent/5 border border-pitch-accent/20 p-5 rounded-sm">
-                             <label className="flex items-start gap-4 cursor-pointer">
+                             <label htmlFor="cash_ack_fa" className="flex items-start gap-4 cursor-pointer">
                                  <input 
+                                     id="cash_ack_fa"
+                                     name="cash_ack_fa"
                                      type="checkbox" 
                                      required 
                                      checked={cashAcknowledgement}
@@ -545,8 +550,10 @@ function RulesAndTerms({
             </div>
 
             {strictWaiverRequired && (
-                <label className="flex items-center gap-3 cursor-pointer group pt-2">
+                <label htmlFor="waiver_accepted" className="flex items-center gap-3 cursor-pointer group pt-2">
                     <input 
+                        id="waiver_accepted"
+                        name="waiver_accepted"
                         type="checkbox" 
                         required
                         checked={waiverAccepted}

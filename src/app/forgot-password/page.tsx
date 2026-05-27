@@ -51,10 +51,12 @@ export default function ForgotPassword() {
 
                 <form onSubmit={handleReset} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary mb-2">Email Address</label>
+                        <label htmlFor="email" className="block text-xs font-bold uppercase tracking-widest text-pitch-secondary mb-2">Email Address</label>
                         <div className="relative">
                             <Mail className="absolute left-3 top-3.5 w-4 h-4 text-gray-500" />
                             <input
+                                id="email"
+                                name="email"
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
