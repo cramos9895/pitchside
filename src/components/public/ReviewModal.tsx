@@ -133,8 +133,10 @@ export function ReviewModal({ isOpen, onClose, onSuccess }: ReviewModalProps) {
                         {/* Name Inputs */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">First Name *</label>
+                                <label htmlFor="firstName" className="block text-[10px] font-black uppercase tracking-widest text-gray-400">First Name *</label>
                                 <input
+                                    id="firstName"
+                                    name="firstName"
                                     required
                                     type="text"
                                     value={firstName}
@@ -144,8 +146,10 @@ export function ReviewModal({ isOpen, onClose, onSuccess }: ReviewModalProps) {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Last Name *</label>
+                                <label htmlFor="lastName" className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Last Name *</label>
                                 <input
+                                    id="lastName"
+                                    name="lastName"
                                     required
                                     type="text"
                                     value={lastName}
@@ -158,9 +162,11 @@ export function ReviewModal({ isOpen, onClose, onSuccess }: ReviewModalProps) {
 
                         {/* Role Selection */}
                         <div className="space-y-2">
-                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Your Role *</label>
+                            <label htmlFor="role" className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Your Role *</label>
                             <div className="relative">
                                 <select
+                                    id="role"
+                                    name="role"
                                     value={role}
                                     onChange={(e) => setRole(e.target.value)}
                                     className="w-full bg-black/50 border border-white/10 rounded px-4 py-3 text-white text-sm focus:outline-none focus:border-pitch-accent transition-colors appearance-none cursor-pointer"
@@ -177,8 +183,10 @@ export function ReviewModal({ isOpen, onClose, onSuccess }: ReviewModalProps) {
 
                         {/* Review Text */}
                         <div className="space-y-2">
-                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Feedback *</label>
+                            <label htmlFor="text" className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Feedback *</label>
                             <textarea
+                                id="text"
+                                name="text"
                                 required
                                 rows={4}
                                 value={text}

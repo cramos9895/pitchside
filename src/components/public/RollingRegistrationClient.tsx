@@ -169,8 +169,10 @@ export function RollingRegistrationClient({
                         {type === 'team' && (
                             <div className="space-y-6">
                                 <div>
-                                    <label className="block text-xs font-black uppercase text-gray-500 tracking-widest mb-3">The Squad Name</label>
+                                    <label htmlFor="teamName" className="block text-xs font-black uppercase text-gray-500 tracking-widest mb-3">The Squad Name</label>
                                     <input 
+                                        id="teamName"
+                                        name="teamName"
                                         type="text"
                                         required
                                         value={teamName}
@@ -180,8 +182,10 @@ export function RollingRegistrationClient({
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-black uppercase text-gray-500 tracking-widest mb-3">Primary Jersey Color</label>
+                                    <label htmlFor="primaryColor" className="block text-xs font-black uppercase text-gray-500 tracking-widest mb-3">Primary Jersey Color</label>
                                     <input 
+                                        id="primaryColor"
+                                        name="primaryColor"
                                         type="text"
                                         value={primaryColor}
                                         onChange={e => setPrimaryColor(e.target.value)}
@@ -257,8 +261,10 @@ export function RollingRegistrationClient({
 
                             {isCashLeague && (
                                 <div className="bg-pitch-accent/5 border border-pitch-accent/20 p-6 rounded-sm">
-                                    <label className="flex items-start gap-4 cursor-pointer">
+                                    <label htmlFor="cashAcknowledgement" className="flex items-start gap-4 cursor-pointer">
                                         <input 
+                                            id="cashAcknowledgement"
+                                            name="cashAcknowledgement"
                                             type="checkbox" 
                                             required 
                                             checked={cashAcknowledgement}
@@ -358,9 +364,11 @@ function RulesAndTerms({
                             {waiverDetails || "Standard liability waiver apply."}
                         </div>
                         <div className="mt-6 p-4 bg-pitch-accent/5 border border-pitch-accent/20 rounded-sm">
-                            <label className="flex items-center gap-4 cursor-pointer group">
+                            <label htmlFor="waiverAccepted" className="flex items-center gap-4 cursor-pointer group">
                                 <div className="relative flex items-center justify-center">
                                     <input 
+                                        id="waiverAccepted"
+                                        name="waiverAccepted"
                                         type="checkbox" 
                                         required
                                         checked={waiverAccepted}

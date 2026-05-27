@@ -86,10 +86,12 @@ export function FacilityProfileForm({ initialData }: FacilityProfileFormProps) {
                 <h3 className="text-xl font-heading font-black italic uppercase text-white mb-4">Marketing Profile</h3>
 
                 <div>
-                    <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
+                    <label htmlFor="heroUrl" className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
                         Hero Image URL
                     </label>
                     <input
+                        id="heroUrl"
+                        name="heroUrl"
                         type="url"
                         value={heroUrl}
                         onChange={(e) => setHeroUrl(e.target.value)}
@@ -100,10 +102,12 @@ export function FacilityProfileForm({ initialData }: FacilityProfileFormProps) {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
+                    <label htmlFor="description" className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
                         Public Description
                     </label>
                     <textarea
+                        id="description"
+                        name="description"
                         rows={4}
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
@@ -119,10 +123,12 @@ export function FacilityProfileForm({ initialData }: FacilityProfileFormProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
+                        <label htmlFor="email" className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
                             Booking Email
                         </label>
                         <input
+                            id="email"
+                            name="email"
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
@@ -131,10 +137,12 @@ export function FacilityProfileForm({ initialData }: FacilityProfileFormProps) {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
+                        <label htmlFor="phone" className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
                             Facility Phone
                         </label>
                         <input
+                            id="phone"
+                            name="phone"
                             type="tel"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}

@@ -1329,8 +1329,9 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                                                         {/* Check In */}
                                                         <div className="w-1/3 md:w-auto md:col-span-2 flex justify-center md:border-l md:border-white/5 pl-2 gap-2">
-                                                            <label className="text-xs font-bold uppercase text-gray-500 md:hidden flex items-center">In:</label>
+                                                            <label htmlFor={`check-in-${booking.id}`} className="text-xs font-bold uppercase text-gray-500 md:hidden flex items-center">In:</label>
                                                             <Switch
+                                                                id={`check-in-${booking.id}`}
                                                                 checked={booking.checked_in}
                                                                 onCheckedChange={() => toggleCheckIn(booking.id, booking.checked_in)}
                                                                 className={booking.checked_in ? "bg-green-500" : "bg-gray-600"}

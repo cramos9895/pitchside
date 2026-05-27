@@ -52,8 +52,9 @@ export default async function MasterResourceTypesPage() {
                     await createResourceType(formData);
                 }} className="flex gap-4 items-end mb-8 p-4 bg-black/20 rounded border border-white/5">
                     <div className="flex-1 space-y-2">
-                        <label className="text-xs font-bold uppercase text-pitch-secondary">Type Name</label>
+                        <label htmlFor="name" className="text-xs font-bold uppercase text-pitch-secondary">Type Name</label>
                         <input
+                            id="name"
                             name="name"
                             required
                             placeholder="e.g. Tennis Court"
@@ -61,8 +62,9 @@ export default async function MasterResourceTypesPage() {
                         />
                     </div>
                     <div className="flex-1 space-y-2">
-                        <label className="text-xs font-bold uppercase text-pitch-secondary">Description (Optional)</label>
+                        <label htmlFor="description" className="text-xs font-bold uppercase text-pitch-secondary">Description (Optional)</label>
                         <input
+                            id="description"
                             name="description"
                             placeholder="Brief description"
                             className="w-full bg-black/40 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"

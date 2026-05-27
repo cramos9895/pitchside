@@ -149,7 +149,7 @@ export default function PromotionsClient({ initialPromos, facilityId, isGlobal }
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <div className="flex justify-between items-center mb-1.5">
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Code String</label>
+                                    <label htmlFor="promoCode" className="block text-xs font-bold uppercase tracking-wider text-gray-400">Code String</label>
                                     <button
                                         type="button"
                                         onClick={handleGenerateRandom}
@@ -159,6 +159,8 @@ export default function PromotionsClient({ initialPromos, facilityId, isGlobal }
                                     </button>
                                 </div>
                                 <input
+                                    id="promoCode"
+                                    name="promoCode"
                                     required
                                     type="text"
                                     placeholder="e.g. SUMMER26"
@@ -169,8 +171,10 @@ export default function PromotionsClient({ initialPromos, facilityId, isGlobal }
                             </div>
                             <div className="flex gap-4">
                                 <div className="flex-1">
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Type</label>
+                                    <label htmlFor="discountType" className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Type</label>
                                     <select
+                                        id="discountType"
+                                        name="discountType"
                                         value={formData.discount_type}
                                         onChange={e => setFormData({ ...formData, discount_type: e.target.value as 'percentage' | 'fixed_amount' })}
                                         className="w-full bg-black/60 border border-white/10 rounded px-4 py-3 text-white focus:ring-1 focus:ring-pitch-accent focus:border-pitch-accent outline-none text-sm appearance-none"
@@ -180,8 +184,10 @@ export default function PromotionsClient({ initialPromos, facilityId, isGlobal }
                                     </select>
                                 </div>
                                 <div className="flex-1">
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Value</label>
+                                    <label htmlFor="discountValue" className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Value</label>
                                     <input
+                                        id="discountValue"
+                                        name="discountValue"
                                         required
                                         type="number"
                                         min="1"
@@ -197,8 +203,10 @@ export default function PromotionsClient({ initialPromos, facilityId, isGlobal }
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Max Uses (Optional)</label>
+                                <label htmlFor="maxUses" className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Max Uses (Optional)</label>
                                 <input
+                                    id="maxUses"
+                                    name="maxUses"
                                     type="number"
                                     min="1"
                                     placeholder="Leave blank for infinite"
@@ -210,8 +218,10 @@ export default function PromotionsClient({ initialPromos, facilityId, isGlobal }
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Expiration Date (Optional)</label>
+                                <label htmlFor="expiresAt" className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Expiration Date (Optional)</label>
                                 <input
+                                    id="expiresAt"
+                                    name="expiresAt"
                                     type="date"
                                     value={formData.expires_at}
                                     onChange={e => setFormData({ ...formData, expires_at: e.target.value })}

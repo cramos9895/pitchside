@@ -289,8 +289,10 @@ export default function SettingsPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">First Name</label>
+                                            <label htmlFor="firstName" className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">First Name</label>
                                             <input
+                                                id="firstName"
+                                                name="firstName"
                                                 type="text"
                                                 value={firstName}
                                                 onChange={(e) => setFirstName(e.target.value)}
@@ -299,8 +301,10 @@ export default function SettingsPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Last Name</label>
+                                            <label htmlFor="lastName" className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Last Name</label>
                                             <input
+                                                id="lastName"
+                                                name="lastName"
                                                 type="text"
                                                 value={lastName}
                                                 onChange={(e) => setLastName(e.target.value)}
@@ -310,8 +314,10 @@ export default function SettingsPage() {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Primary Position</label>
+                                        <label htmlFor="position" className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Primary Position</label>
                                         <select
+                                            id="position"
+                                            name="position"
                                             value={position}
                                             onChange={(e) => setPosition(e.target.value)}
                                             className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
@@ -324,8 +330,10 @@ export default function SettingsPage() {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Zip Code</label>
+                                        <label htmlFor="zipCode" className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Zip Code</label>
                                         <input
+                                            id="zipCode"
+                                            name="zipCode"
                                             type="text"
                                             value={zipCode}
                                             onChange={(e) => setZipCode(e.target.value)}
@@ -357,9 +365,11 @@ export default function SettingsPage() {
                                         <Mail className="w-5 h-5 text-pitch-accent" /> Update Email
                                     </h3>
                                     <div>
-                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Email Address</label>
+                                        <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Email Address</label>
                                         <div className="flex gap-4">
                                             <input
+                                                id="email"
+                                                name="email"
                                                 type="email"
                                                 value={email}
                                                 onChange={(e) => setEmail(e.target.value)}
@@ -384,8 +394,10 @@ export default function SettingsPage() {
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
-                                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">New Password</label>
+                                            <label htmlFor="newPassword" className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">New Password</label>
                                             <input
+                                                id="newPassword"
+                                                name="newPassword"
                                                 type="password"
                                                 value={newPassword}
                                                 onChange={(e) => setNewPassword(e.target.value)}
@@ -394,8 +406,10 @@ export default function SettingsPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Confirm Password</label>
+                                            <label htmlFor="confirmPassword" className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Confirm Password</label>
                                             <input
+                                                id="confirmPassword"
+                                                name="confirmPassword"
                                                 type="password"
                                                 value={confirmPassword}
                                                 onChange={(e) => setConfirmPassword(e.target.value)}

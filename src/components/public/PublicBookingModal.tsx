@@ -341,10 +341,12 @@ export function PublicBookingModal({
                             )}
 
                             <div>
-                                <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
+                                <label htmlFor="title" className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
                                     Request Title *
                                 </label>
                                 <input
+                                    id="title"
+                                    name="title"
                                     type="text"
                                     required
                                     value={title}
@@ -355,10 +357,12 @@ export function PublicBookingModal({
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
+                                <label htmlFor="email" className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">
                                     Contact Email (For Facility)
                                 </label>
                                 <input
+                                    id="email"
+                                    name="email"
                                     type="email"
                                     required
                                     value={email}
@@ -373,7 +377,7 @@ export function PublicBookingModal({
 
                     {isAuthenticated && !successMsg && rate > 0 && (
                         <div className="mt-6 pt-6 border-t border-white/5 space-y-3">
-                            <label className="block text-sm font-bold uppercase tracking-wider text-gray-400">Promo Code</label>
+                            <label htmlFor="promoCode" className="block text-sm font-bold uppercase tracking-wider text-gray-400">Promo Code</label>
 
                             {appliedPromo ? (
                                 <div className="flex items-center justify-between bg-pitch-accent/10 border border-pitch-accent/30 rounded px-4 py-3">
@@ -391,6 +395,8 @@ export function PublicBookingModal({
                             ) : (
                                 <div className="flex gap-2">
                                     <input
+                                        id="promoCode"
+                                        name="promoCode"
                                         type="text"
                                         placeholder="Enter code"
                                         value={promoCode}

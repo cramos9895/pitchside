@@ -597,9 +597,11 @@ export function CaptainDashboard({
                                     </div>
                                     
                                     {/* Toggle Switch */}
-                                    <label className="flex items-center cursor-pointer">
+                                    <label htmlFor="acceptingFreeAgents" className="flex items-center cursor-pointer">
                                         <div className="relative">
                                             <input 
+                                                id="acceptingFreeAgents"
+                                                name="acceptingFreeAgents"
                                                 type="checkbox" 
                                                 className="sr-only" 
                                                 checked={isAcceptingAgents}

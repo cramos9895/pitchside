@@ -194,8 +194,10 @@ export function LeagueRegistrationForm({ league, type, isRolling = false }: Regi
                 {type === 'team' && (
                     <div className="space-y-6">
                         <div>
-                            <label className="block text-xs font-black uppercase text-pitch-secondary tracking-widest mb-2">Team Name</label>
+                            <label htmlFor="teamName" className="block text-xs font-black uppercase text-pitch-secondary tracking-widest mb-2">Team Name</label>
                             <input
+                                id="teamName"
+                                name="teamName"
                                 type="text"
                                 required
                                 value={teamName}
@@ -206,8 +208,10 @@ export function LeagueRegistrationForm({ league, type, isRolling = false }: Regi
                         </div>
                         
                         <div>
-                            <label className="block text-xs font-black uppercase text-pitch-secondary tracking-widest mb-2">Team Jersey Preferred Color</label>
+                            <label htmlFor="primaryColor" className="block text-xs font-black uppercase text-pitch-secondary tracking-widest mb-2">Team Jersey Preferred Color</label>
                             <input
+                                id="primaryColor"
+                                name="primaryColor"
                                 type="text"
                                 required
                                 value={primaryColor}
@@ -255,8 +259,10 @@ export function LeagueRegistrationForm({ league, type, isRolling = false }: Regi
 
                         {paymentChoice === 'split' && !isCashLeague && (
                             <div className="bg-[#111] border border-yellow-500/30 p-4 rounded-sm">
-                                <label className="flex items-start gap-4 cursor-pointer">
+                                <label htmlFor="liabilityAccepted" className="flex items-start gap-4 cursor-pointer">
                                     <input 
+                                        id="liabilityAccepted"
+                                        name="liabilityAccepted"
                                         type="checkbox" 
                                         required 
                                         checked={liabilityAccepted}
@@ -386,8 +392,10 @@ export function LeagueRegistrationForm({ league, type, isRolling = false }: Regi
                         </div>
 
                         {league.strict_waiver_required && (
-                            <label className="flex items-center gap-3 cursor-pointer group pt-2">
+                            <label htmlFor="waiverAccepted" className="flex items-center gap-3 cursor-pointer group pt-2">
                                 <input 
+                                    id="waiverAccepted"
+                                    name="waiverAccepted"
                                     type="checkbox" 
                                     required
                                     checked={waiverAccepted}
@@ -403,8 +411,10 @@ export function LeagueRegistrationForm({ league, type, isRolling = false }: Regi
                 {/* Universal Cash League Acknowledgement */}
                 {isCashLeague && (
                     <div className="bg-pitch-accent/5 border border-pitch-accent/20 p-5 rounded-sm">
-                        <label className="flex items-start gap-4 cursor-pointer">
+                        <label htmlFor="cashAcknowledgement" className="flex items-start gap-4 cursor-pointer">
                             <input 
+                                id="cashAcknowledgement"
+                                name="cashAcknowledgement"
                                 type="checkbox" 
                                 required 
                                 checked={cashAcknowledgement}
