@@ -22,6 +22,7 @@ import { Plus, Save, Loader2, Trash2, Layers, CheckCircle2, Trophy, ArrowRight, 
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { finalizeGame } from '@/app/actions/finalize-game';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 // @ts-expect-error - Residual typing mismatch from extended schema mapping
 import { Game, Booking, Profile, Match, Team } from "@/types/index";
 
@@ -74,6 +75,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(false);
+    const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
     // Live Tournament State
     const [currentRound, setCurrentRound] = useState<number>(1);
@@ -971,11 +973,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                             </button>
                         )}
                         <button
-                            onClick={() => {
-                                if (confirm(`Reset Timer to ${Math.floor(standardDuration / 60)}:00?`)) {
-                                    updateTimerDB('stopped', standardDuration);
-                                }
-                            }}
+                            onClick={() => setIsResetModalOpen(true)}
                             disabled={timerLoading}
                             className="p-2 border border-red-500/30 text-red-500 hover:bg-red-500/10 rounded transition-colors"
                             title="Stop & Reset"
@@ -1379,6 +1377,21 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
                 </div>
             )}
+            
+            {/* --- MODALS --- */}
+            <ConfirmationModal
+                isOpen={isResetModalOpen}
+                onClose={() => setIsResetModalOpen(false)}
+                onConfirm={() => {
+                    updateTimerDB('stopped', standardDuration);
+                    setIsResetModalOpen(false);
+                }}
+                title="Reset Match Timer?"
+                message={`Are you sure you want to reset the timer to ${Math.floor(standardDuration / 60)}:00? This action cannot be undone and will reset the clock for everyone.`}
+                confirmText="Reset Timer"
+                isDestructive={true}
+                isLoading={timerLoading}
+            />
         </div>
     );
 }
