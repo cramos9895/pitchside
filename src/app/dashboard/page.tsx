@@ -239,7 +239,7 @@ function DashboardContent() {
         };
 
         fetchOverviewData();
-    }, [router, supabase]);
+    }, [supabase]);
 
 
     const handlePayContract = async (groupId: string) => {

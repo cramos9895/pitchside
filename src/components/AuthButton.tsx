@@ -46,20 +46,14 @@ export function AuthButton() {
                     setProfile(null);
                 }
 
-                // KILL-SWITCH: Prevent router.refresh() from firing infinitely due to stale server caches
-                const now = Date.now();
-                if (event === 'SIGNED_OUT' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                    if (now - lastRefreshRef.current > 5000) {
-                        lastRefreshRef.current = now;
-                        if (event === 'SIGNED_OUT') {
-                            prevUserId.current = null;
-                        } else {
-                            prevUserId.current = currentUser?.id ?? null;
-                        }
-                        startTransition(() => {
-                            router.refresh();
-                        });
-                    }
+                // STRICT EVENT GATE: Only fire router.refresh() if the session actually changes
+                // to prevent Vercel Client/Server hydration loops.
+                const currentId = currentUser?.id ?? null;
+                if (prevUserId.current !== currentId) {
+                    prevUserId.current = currentId;
+                    startTransition(() => {
+                        router.refresh();
+                    });
                 }
             }
         );
