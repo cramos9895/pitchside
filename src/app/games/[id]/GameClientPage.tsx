@@ -809,7 +809,7 @@ export function GameClientPage({
                                                             </div>
                                                             {player.team_assignment && (
                                                                 <div className="text-xs text-gray-400 uppercase font-bold mt-0.5 max-w-[120px] truncate">
-                                                                    Squad: {player.team_assignment}
+                                                                    {player.team_assignment}
                                                                 </div>
                                                             )}
                                                         </div>
