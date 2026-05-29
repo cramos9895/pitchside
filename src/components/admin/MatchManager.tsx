@@ -978,10 +978,10 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                         <button
                             onClick={() => setIsResetModalOpen(true)}
                             disabled={timerLoading}
-                            className="p-2 border border-red-500/30 text-red-500 hover:bg-red-500/10 rounded transition-colors"
-                            title="Stop & Reset"
+                            className="px-4 py-2 border border-red-500/30 text-red-500 hover:bg-red-500/10 font-bold uppercase text-xs shrink-0 rounded transition-colors"
+                            title="Reset Timer"
                         >
-                            <Square className="w-5 h-5" />
+                            Reset Timer
                         </button>
                     </div>
                 </div>
