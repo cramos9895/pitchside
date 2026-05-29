@@ -77,7 +77,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
     };
 
     return (
-        <div className="min-h-screen bg-pitch-black text-white font-sans pb-24 relative overflow-x-hidden">
+        <div className="min-h-screen bg-pitch-black text-white font-sans pb-8 relative overflow-x-hidden">
             {/* Glossy Header Background */}
             <div className="absolute inset-x-0 top-0 h-[60vh] bg-gradient-to-b from-pitch-accent/10 via-transparent to-transparent pointer-events-none" />
             
