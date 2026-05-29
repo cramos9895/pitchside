@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Shuffle, Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
@@ -77,13 +77,20 @@ const TEXT_COLOR_MAP: Record<string, string> = {
 export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerProps) {
     const { success, error: toastError } = useToast();
     const [loading, setLoading] = useState(false);
+    const [localPlayers, setLocalPlayers] = useState<Player[]>(players);
+
+    useEffect(() => {
+        setLocalPlayers(players);
+    }, [players]);
 
     // Filter only active/paid players for team assignment
-    const activePlayers = players.filter(p => p.status === 'active' || p.status === 'paid');
+    const activePlayers = localPlayers.filter(p => p.status === 'active' || p.status === 'paid');
 
     const unassigned = activePlayers.filter(p => !p.team);
 
     const handleMovePlayer = async (bookingId: string, newTeam: string | null) => {
+        // Optimistic update
+        setLocalPlayers(prev => prev.map(p => p.id === bookingId ? { ...p, team: newTeam as any } : p));
         try {
             setLoading(true);
             const { error } = await supabase
@@ -95,6 +102,8 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
             success(`Player moved successfully.`);
             onUpdate();
         } catch (err: any) {
+            // Revert on failure
+            setLocalPlayers(players);
             toastError(err.message);
         } finally {
             setLoading(false);
@@ -174,6 +183,16 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
             }
 
             if (updates.length > 0) {
+                // Optimistic update
+                setLocalPlayers(prev => {
+                    const next = [...prev];
+                    for (const u of updates) {
+                        const p = next.find(x => x.id === u.id);
+                        if (p) p.team = u.team_assignment as any;
+                    }
+                    return next;
+                });
+                
                 const promises = updates.map(u => 
                     supabase.from('bookings').update({ team_assignment: u.team_assignment }).eq('id', u.id)
                 );
