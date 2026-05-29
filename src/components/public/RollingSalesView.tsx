@@ -45,6 +45,9 @@ interface RollingLeague {
     half_length?: number;
     field_type?: string;
     player_registration_fee?: number;
+    max_teams?: number;
+    min_players_per_team?: number;
+    max_players_per_team?: number;
 }
 
 interface RollingSalesViewProps {
@@ -170,27 +173,29 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                 {/* Row 2 */}
                                 <div className="space-y-2">
                                     <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-2">
-                                        <Clock className="w-4 h-4 text-pitch-accent" /> Half Length
-                                    </span>
-                                    <p className="text-lg font-bold text-white uppercase italic">
-                                        {game.half_length || '0'} Min
-                                    </p>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-2">
                                         <Zap className="w-4 h-4 text-pitch-accent" /> Total Game Time
                                     </span>
                                     <p className="text-lg font-bold text-white uppercase italic">
                                         {(game.half_length || 0) * 2} Min
                                     </p>
                                 </div>
+
+                                <div className="space-y-2">
+                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-2">
+                                        <Clock className="w-4 h-4 text-pitch-accent" /> Teams
+                                    </span>
+                                    <p className="text-lg font-bold text-white uppercase italic">
+                                        {registeredTeams.length} / {game.max_teams || '∞'} Signed Up
+                                    </p>
+                                </div>
                                 
                                 <div className="space-y-2">
                                     <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-2">
-                                        <Shield className="w-4 h-4 text-pitch-accent" /> Match Style
+                                        <Shield className="w-4 h-4 text-pitch-accent" /> Roster Size
                                     </span>
-                                    <p className="text-lg font-bold text-white uppercase italic">{game.match_style || 'Standard'}</p>
+                                    <p className="text-lg font-bold text-white uppercase italic">
+                                        {game.min_players_per_team || 5}-{game.max_players_per_team ? game.max_players_per_team : '∞'} Players
+                                    </p>
                                 </div>
 
                                 {/* Row 3 */}
@@ -198,7 +203,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                     <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-2">
                                         <Footprints className="w-4 h-4 text-pitch-accent" /> Shoe Types
                                     </span>
-                                    <p className="text-lg font-bold text-white uppercase italic truncate">
+                                    <p className="text-base md:text-lg font-bold text-white uppercase italic leading-tight">
                                         {game.shoe_types?.join(' / ') || 'Cleats / Turf'}
                                     </p>
                                 </div>

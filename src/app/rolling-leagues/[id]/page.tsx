@@ -32,7 +32,7 @@ export default async function RollingLeaguePage({ params }: { params: Promise<{ 
             lifecycle_end_date, skipped_dates, teams_config, event_type, status,
             prize_type, prize_pool_percentage, fixed_prize_amount, reward,
             game_format_type, field_size, surface_type, half_length,
-            match_style, shoe_types, allow_free_agents, free_agent_price
+            match_style, shoe_types, allow_free_agents, free_agent_price, max_teams
         `)
         .eq('id', gameId)
         .single();
