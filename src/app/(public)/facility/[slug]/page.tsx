@@ -89,16 +89,16 @@ export default async function PublicFacilityPage({ params }: { params: Promise<{
             </div>
 
             {/* Main Content Area */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 md:mt-12 space-y-8 md:space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-500">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-500">
 
                 {/* Description & Amenities Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Left Col: Description */}
-                    <div className="md:col-span-2 space-y-4 md:space-y-6">
+                    <div className="md:col-span-2 space-y-6">
                         {(facility.public_description || facility.description) && (
                             <div className="bg-black/40 border border-white/10 rounded-lg p-6 md:p-8">
                                 <h2 className="text-xl font-bold text-white mb-4 uppercase tracking-wider">About this Facility</h2>
-                                <p className="text-gray-300 leading-snug md:leading-relaxed max-w-4xl whitespace-pre-wrap">
+                                <p className="text-gray-300 leading-relaxed max-w-4xl whitespace-pre-wrap">
                                     {facility.public_description || facility.description}
                                 </p>
                             </div>
@@ -106,7 +106,7 @@ export default async function PublicFacilityPage({ params }: { params: Promise<{
                     </div>
 
                     {/* Right Col: Amenities Sidebar */}
-                    <div className="space-y-4 md:space-y-6">
+                    <div className="space-y-6">
                         {facility.amenities && facility.amenities.length > 0 && (
                             <div className="bg-pitch-card border border-white/5 rounded-lg p-6">
                                 <h3 className="text-lg font-heading font-black italic uppercase text-white mb-4">Facility Features</h3>
@@ -126,7 +126,7 @@ export default async function PublicFacilityPage({ params }: { params: Promise<{
                 </div>
 
                 {/* Calendar Booking Section */}
-                <div className="space-y-4 md:space-y-6">
+                <div className="space-y-6">
                     <div className="flex items-center gap-3 border-b border-white/10 pb-4">
                         <Calendar className="w-8 h-8 text-pitch-accent" />
                         <div>
