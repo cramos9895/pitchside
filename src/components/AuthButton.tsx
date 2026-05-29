@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, startTransition } from 'react';
+import { useEffect, useState, startTransition, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { LogOut, User as UserIcon, QrCode } from 'lucide-react';
@@ -14,12 +14,14 @@ export function AuthButton() {
     const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null } | null>(null);
     const [passportOpen, setPassportOpen] = useState(false);
     const router = useRouter();
+    const prevUserId = useRef<string | null>(null);
 
     useEffect(() => {
         const fetchSession = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             const currentUser = user ?? null;
             setUser(currentUser);
+            prevUserId.current = currentUser?.id ?? null;
             
             if (currentUser) {
                 const { data } = await supabase.from('profiles').select('first_name, last_name').eq('id', currentUser.id).single();
@@ -43,10 +45,18 @@ export function AuthButton() {
                     setProfile(null);
                 }
 
-                if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
+                if (event === 'SIGNED_OUT') {
+                    prevUserId.current = null;
                     startTransition(() => {
                         router.refresh();
                     });
+                } else if (event === 'SIGNED_IN') {
+                    if (currentUser && prevUserId.current !== currentUser.id) {
+                        prevUserId.current = currentUser.id;
+                        startTransition(() => {
+                            router.refresh();
+                        });
+                    }
                 }
             }
         );
