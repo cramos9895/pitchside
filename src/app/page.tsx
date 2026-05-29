@@ -125,12 +125,11 @@ export default async function Home() {
     <div className="min-h-screen bg-pitch-black text-white font-sans selection:bg-pitch-accent selection:text-pitch-black pb-20">
 
       {/* Hero Section */}
-      <section className="relative px-6 pt-32 pb-12 md:pb-20 text-center overflow-hidden">
+      <section className="relative px-6 pt-16 pb-12 md:pb-20 text-center overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-pitch-accent/10 blur-[120px] rounded-full pointer-events-none" />
 
         <div className="relative z-10 max-w-5xl mx-auto space-y-8">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs font-bold uppercase tracking-widest text-pitch-accent mb-4">
-            <span className="w-2 h-2 rounded-full bg-pitch-accent animate-pulse" />
             Live in NW Chicago Suburbs
           </div>
 
