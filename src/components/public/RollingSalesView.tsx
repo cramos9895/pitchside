@@ -84,8 +84,8 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                 </Link>
 
                 {/* Hero Sales Pitch Section */}
-                <div className="mb-20 text-center md:text-left">
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-8">
+                <div className="mb-10 md:mb-20 text-center md:text-left">
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-6 md:mb-8">
                         <div className="bg-pitch-accent text-pitch-black text-[10px] font-black px-3 py-1 rounded uppercase tracking-[0.2em]">
                             Rolling League
                         </div>
@@ -96,11 +96,11 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                         )}
                     </div>
                     
-                    <h1 className="text-5xl md:text-7xl lg:text-8xl font-black italic uppercase tracking-tighter text-white leading-[0.85] mb-12 drop-shadow-2xl">
+                    <h1 className="text-5xl md:text-7xl lg:text-8xl font-black italic uppercase tracking-tighter text-white leading-[0.85] mb-8 md:mb-12 drop-shadow-2xl">
                         {game.title}
                     </h1>
 
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-16 gap-y-6">
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-16 gap-y-4 md:gap-y-6">
                         <div className="space-y-1">
                             <span className="text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] block">
                                 Season Kickoff
@@ -129,18 +129,18 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 mb-20">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 mb-10 md:mb-20">
                     {/* Primary Content: Intelligence Matrix */}
-                    <div className="lg:col-span-8 space-y-12">
+                    <div className="lg:col-span-8 space-y-8 md:space-y-12">
                         
-                        <section className="bg-pitch-card border border-white/5 p-10 rounded-sm relative overflow-hidden">
+                        <section className="bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm relative overflow-hidden">
                              <div className="absolute top-0 right-0 w-64 h-64 bg-pitch-accent/5 blur-[100px] -mr-32 -mt-32 rounded-full" />
                             
-                            <h3 className="font-heading text-2xl font-black italic uppercase mb-12 flex items-center gap-3 text-pitch-accent">
-                                <Shield className="w-6 h-6" /> League Specs
+                            <h3 className="font-heading text-xl md:text-2xl font-black italic uppercase mb-8 md:mb-12 flex items-center gap-3 text-pitch-accent">
+                                <Shield className="w-5 h-5 md:w-6 md:h-6" /> League Specs
                             </h3>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative z-10">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-12 relative z-10">
                                 {/* Row 1 */}
                                 <div className="space-y-2">
                                     <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-2">
@@ -212,18 +212,18 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                             </div>
                         </section>
 
-                        <section className="bg-pitch-card border border-white/5 p-10 rounded-sm">
-                            <h3 className="font-heading text-2xl font-black italic uppercase mb-8 flex items-center gap-3 text-white">
-                                <ScrollText className="w-6 h-6 text-pitch-accent" /> Terms & Rules
+                        <section className="bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm">
+                            <h3 className="font-heading text-xl md:text-2xl font-black italic uppercase mb-6 md:mb-8 flex items-center gap-3 text-white">
+                                <ScrollText className="w-5 h-5 md:w-6 md:h-6 text-pitch-accent" /> Terms & Rules
                             </h3>
-                            <div className="bg-black/40 border border-white/10 p-8 rounded-sm text-sm text-gray-400 leading-relaxed font-medium whitespace-pre-wrap max-h-[400px] overflow-y-auto custom-scrollbar italic tracking-wide">
+                            <div className="bg-black/40 border border-white/10 p-6 md:p-8 rounded-sm text-sm text-gray-400 leading-relaxed font-medium whitespace-pre-wrap max-h-[400px] overflow-y-auto custom-scrollbar italic tracking-wide">
                                 {game.waiver_details || "Players must adhere to the facility rules. No dangerous play allowed. Respect the referee decision. All registrations are final once the season begins."}
                             </div>
                         </section>
 
-                        <section className="bg-pitch-card border border-white/5 p-10 rounded-sm">
-                            <h3 className="font-heading text-2xl font-black italic uppercase mb-8 flex items-center gap-3 text-white">
-                                <Users className="w-6 h-6 text-pitch-accent" /> Competing Squads
+                        <section className="bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm">
+                            <h3 className="font-heading text-xl md:text-2xl font-black italic uppercase mb-6 md:mb-8 flex items-center gap-3 text-white">
+                                <Users className="w-5 h-5 md:w-6 md:h-6 text-pitch-accent" /> Competing Squads
                             </h3>
                             
                             {!registeredTeams || registeredTeams.length === 0 ? (
