@@ -67,7 +67,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
         // Handle descriptive strings from GameForm
         if (!game.prize_type || type?.includes('no official') || type === 'none') return 'Bragging Rights';
         if (type?.includes('percentage pool') || type === 'pool') return `${game.prize_pool_percentage}% Pool`;
-        if (type?.includes('fixed cash bounty') || type === 'fixed') return `$${game.fixed_prize_amount} Bounty`;
+        if (type?.includes('fixed cash bounty') || type === 'fixed') return `$${game.fixed_prize_amount}`;
         if (type?.includes('physical item') || type === 'physical') return game.reward || 'Trophy';
         
         return 'Competitive Glory';
