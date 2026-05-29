@@ -51,7 +51,7 @@ export default async function RootLayout({
   const isProjector = pathname.endsWith('/live') || pathname.includes('/display');
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${oswald.variable} antialiased bg-pitch-black text-white`}
       >
