@@ -101,10 +101,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         initSession();
 
         // 2. Real-time Auth Synchronization (Solves the desync bug!)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
             const currentUser = session?.user ?? null; console.log("Sidebar session:", session); 
             setUser(currentUser);
-            await fetchUserData(currentUser);
+            // Fire and forget fetchUserData so we don't hold the lock
+            fetchUserData(currentUser);
         });
 
         return () => {

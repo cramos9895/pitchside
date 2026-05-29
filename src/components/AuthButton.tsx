@@ -36,13 +36,14 @@ export function AuthButton() {
         fetchSession();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event: any, session: any) => {
+            (event: any, session: any) => {
                 const currentUser = session?.user ?? null;
                 setUser(currentUser);
                 
+                // Fire and forget so we don't hold the lock
                 if (currentUser) {
-                    const { data } = await supabase.from('profiles').select('first_name, last_name').eq('id', currentUser.id).single();
-                    setProfile(data);
+                    supabase.from('profiles').select('first_name, last_name').eq('id', currentUser.id).single()
+                        .then(({ data }) => setProfile(data));
                 } else {
                     setProfile(null);
                 }
