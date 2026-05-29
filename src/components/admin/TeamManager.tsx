@@ -79,9 +79,11 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
     const [loading, setLoading] = useState(false);
     const [localPlayers, setLocalPlayers] = useState<Player[]>(players);
 
+    const playersJson = JSON.stringify(players);
+
     useEffect(() => {
         setLocalPlayers(players);
-    }, [players]);
+    }, [playersJson]);
 
     // Filter only active/paid players for team assignment
     const activePlayers = localPlayers.filter(p => p.status === 'active' || p.status === 'paid');
