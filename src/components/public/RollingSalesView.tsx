@@ -289,14 +289,11 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                 {/* 1. Team Registration Fee */}
                                 <div className="space-y-2">
                                     <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
-                                        <Users className="w-3 h-3" /> Team Registration
+                                        <Users className="w-3 h-3" /> Team Registration Fee
                                     </p>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-4xl font-black italic">
                                             ${game.team_registration_fee || 0}
-                                        </span>
-                                        <span className="text-[10px] font-black uppercase opacity-60">
-                                            Upfront Entry
                                         </span>
                                     </div>
                                     <p className="text-[9px] font-black uppercase tracking-wider opacity-40 mt-1">
@@ -327,7 +324,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                 {/* 3. Player Game Fee (Standard) */}
                                 <div className="space-y-2 pt-6 border-t border-black/10">
                                     <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
-                                        <Activity className="w-3 h-3" /> Player Game Fee
+                                        <Activity className="w-3 h-3" /> Players
                                     </p>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-4xl font-black italic">
@@ -346,7 +343,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                 {game.allow_free_agents && (game.free_agent_price ?? 0) > 0 && (
                                     <div className="space-y-2 pt-6 border-t border-black/10">
                                         <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
-                                            <UserPlus className="w-3 h-3" /> Free Agent Pool
+                                            <UserPlus className="w-3 h-3" /> Free Agents
                                         </p>
                                         <div className="flex items-baseline gap-2">
                                             <span className="text-4xl font-black italic">
@@ -357,7 +354,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                             </span>
                                         </div>
                                         <p className="text-[9px] font-black uppercase tracking-wider opacity-40 mt-1">
-                                            Upfront registration for draft
+                                            Registration fee to join the free agent pool
                                         </p>
                                     </div>
                                 )}
