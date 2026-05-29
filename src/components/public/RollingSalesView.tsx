@@ -297,7 +297,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                         </span>
                                     </div>
                                     <p className="text-[9px] font-black uppercase tracking-wider opacity-40 mt-1">
-                                        Per Team Registration Fee
+                                        One time fee to register a team
                                     </p>
                                 </div>
 
