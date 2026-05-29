@@ -78,7 +78,8 @@ function DashboardContent() {
             try {
                 // 1. Fetch Session Sequentially (Dependency Root)
                 // Using getUser() to guarantee fresh session metadata, preventing Vercel stale cache loops
-                const { data: { user } } = await supabase.auth.getUser();
+                const { data: { session } } = await supabase.auth.getSession();
+                const user = session?.user;
                 
                 if (!user) {
                     // Middleware handles the actual redirect, but we return here to satisfy TypeScript

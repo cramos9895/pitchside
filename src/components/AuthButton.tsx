@@ -19,7 +19,8 @@ export function AuthButton() {
 
     useEffect(() => {
         const fetchSession = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user;
             const currentUser = user ?? null;
             setUser(currentUser);
             prevUserId.current = currentUser?.id ?? null;

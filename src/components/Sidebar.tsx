@@ -89,8 +89,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         // 1. Initial Session Fetch
         const initSession = async () => { 
             console.log("[Sidebar] initSession called"); 
-            const { data: { user }, error } = await supabase.auth.getUser();
-            console.log("[Sidebar] getUser() result:", { user, error });
+            const { data: { session }, error } = await supabase.auth.getSession();
+            const user = session?.user;
+            console.log("[Sidebar] getSession() result:", { user, error });
             const currentUser = user ?? null; 
             setUser(currentUser);
             if (isOpen || currentUser) {
