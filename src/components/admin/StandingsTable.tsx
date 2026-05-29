@@ -134,7 +134,41 @@ export function StandingsTable({
                         <Trophy className="w-5 h-5" /> {groupNames.length > 1 ? `${groupName} Standings` : 'Tournament Standings'}
                     </h2>
 
-                    <div className="overflow-x-auto">
+                    {/* Mobile Cards View */}
+                    <div className="md:hidden space-y-3 mt-4">
+                        {groupStats[groupName].map((team, index) => {
+                            const isHighlighted = highlightTeamId && (team.id === highlightTeamId);
+                            return (
+                                <div key={team.name} className={cn(
+                                    "bg-black/40 border rounded p-4 relative",
+                                    isHighlighted ? "bg-pitch-accent/10 border-pitch-accent" : "border-white/5"
+                                )}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono text-gray-500">{index + 1}.</span>
+                                            <span className={cn("font-bold uppercase", isHighlighted ? "text-pitch-accent" : "text-white")}>{team.name}</span>
+                                        </div>
+                                        <div className="text-xl font-black text-pitch-accent">
+                                            {team.pts} <span className="text-[10px] text-gray-500 font-sans uppercase tracking-wider">Pts</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4 text-xs font-mono text-gray-400">
+                                        <div>
+                                            <span className="text-[10px] text-gray-500 font-sans font-bold uppercase mr-1">Rec:</span>
+                                            {team.w}-{team.d}-{team.l}
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] text-gray-500 font-sans font-bold uppercase mr-1">GD:</span>
+                                            {team.gd > 0 ? `+${team.gd}` : team.gd}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-sm text-left whitespace-nowrap">
                             <thead className={cn("uppercase bg-black/50 border-b border-white/10 px-4", viewOnly ? "text-xs lg:text-sm text-gray-400" : "text-xs text-gray-400")}>
                                 <tr>
