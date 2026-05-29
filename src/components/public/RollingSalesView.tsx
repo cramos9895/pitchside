@@ -3,7 +3,7 @@
 import React from 'react';
 import { 
     Calendar, MapPin, Clock, DollarSign, Trophy, Shield, 
-    Activity, Layers, ArrowRight, ScrollText, Zap, Footprints,
+    Activity, Layers, ArrowRight, ArrowLeft, ScrollText, Zap, Footprints,
     XCircle, ShieldCheck, UserPlus, Users, Crown, Lock
 } from 'lucide-react';
 import Link from 'next/link';
@@ -79,6 +79,10 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
             <div className="absolute inset-x-0 top-0 h-[60vh] bg-gradient-to-b from-pitch-accent/10 via-transparent to-transparent pointer-events-none" />
             
             <div className="max-w-6xl mx-auto px-6 pt-16 relative z-10">
+                <Link href="/dashboard" className="group inline-flex items-center text-pitch-secondary hover:text-white mb-8 transition-colors uppercase text-[10px] font-black tracking-[0.2em]">
+                    <ArrowLeft className="w-3 h-3 mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Dashboard
+                </Link>
+
                 {/* Hero Sales Pitch Section */}
                 <div className="mb-20 text-center md:text-left">
                     <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-8">

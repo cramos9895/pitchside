@@ -433,6 +433,16 @@ export function GameClientPage({
                                         {game.location_nickname || game.location_name || game.location.split(',')[0]}
                                     </p>
                                 </div>
+                                {primaryHost && (
+                                    <div className="space-y-1">
+                                        <span className="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] flex items-center gap-1">
+                                            <Crown className="w-3 h-3 text-pitch-accent" /> Host
+                                        </span>
+                                        <p className="text-sm font-bold text-white uppercase truncate max-w-[200px]">
+                                            {primaryHost.name}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

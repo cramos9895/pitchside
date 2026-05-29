@@ -45,10 +45,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     .from('profiles')
                     .select('role, system_role')
                     .eq('id', currentUser.id)
-                    .single();
+                    .maybeSingle();
 
                 if (error) {
-                    console.error("[Sidebar] Error fetching profile:", error);
+                    console.error("[Sidebar] Error fetching profile:", error.message || error);
                 } else {
                     console.log("[Sidebar] Fetched profile successfully:", profile);
                 }
