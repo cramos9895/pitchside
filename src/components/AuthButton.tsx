@@ -15,6 +15,7 @@ export function AuthButton() {
     const [passportOpen, setPassportOpen] = useState(false);
     const router = useRouter();
     const prevUserId = useRef<string | null>(null);
+    const lastRefreshRef = useRef<number>(0);
 
     useEffect(() => {
         const fetchSession = async () => {
@@ -45,14 +46,16 @@ export function AuthButton() {
                     setProfile(null);
                 }
 
-                if (event === 'SIGNED_OUT') {
-                    prevUserId.current = null;
-                    startTransition(() => {
-                        router.refresh();
-                    });
-                } else if (event === 'SIGNED_IN') {
-                    if (currentUser && prevUserId.current !== currentUser.id) {
-                        prevUserId.current = currentUser.id;
+                // KILL-SWITCH: Prevent router.refresh() from firing infinitely due to stale server caches
+                const now = Date.now();
+                if (event === 'SIGNED_OUT' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                    if (now - lastRefreshRef.current > 5000) {
+                        lastRefreshRef.current = now;
+                        if (event === 'SIGNED_OUT') {
+                            prevUserId.current = null;
+                        } else {
+                            prevUserId.current = currentUser?.id ?? null;
+                        }
                         startTransition(() => {
                             router.refresh();
                         });

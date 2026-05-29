@@ -5,6 +5,8 @@ import "./globals.css";
 import "@/styles/calendar.css";
 import { Navbar } from "@/components/Navbar";
 
+export const dynamic = 'force-dynamic';
+
 // Use Inter for clean, readable body text
 const inter = Inter({
   variable: "--font-inter",
