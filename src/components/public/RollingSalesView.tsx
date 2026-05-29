@@ -77,7 +77,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
     };
 
     return (
-        <div className="min-h-screen bg-pitch-black text-white font-sans pb-32 relative overflow-x-hidden">
+        <div className="min-h-screen bg-pitch-black text-white font-sans pb-24 relative overflow-x-hidden">
             {/* Glossy Header Background */}
             <div className="absolute inset-x-0 top-0 h-[60vh] bg-gradient-to-b from-pitch-accent/10 via-transparent to-transparent pointer-events-none" />
             
@@ -150,7 +150,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                     </div>
                 </div>
 
-                <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 md:gap-12 mb-4 md:mb-8">
+                <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 md:gap-12 mb-0 md:mb-4">
                     
                     {/* Primary Content: League Specs */}
                     <section className="order-1 lg:order-none lg:col-span-8 bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm relative overflow-hidden">
