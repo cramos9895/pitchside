@@ -1197,9 +1197,9 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     )}
 
                     <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-                        <TabsList className="bg-black/40 border border-white/10 mb-6 h-12 flex w-full max-w-sm ml-0">
-                            <TabsTrigger value="player-manager" className="flex-1">Player Manager</TabsTrigger>
-                            <TabsTrigger value="game-management" className="flex-1">Game Management</TabsTrigger>
+                        <TabsList className="bg-black/40 border border-white/10 mb-6 h-12 flex w-full md:max-w-sm ml-0 overflow-hidden">
+                            <TabsTrigger value="player-manager" className="flex-1">Check in</TabsTrigger>
+                            <TabsTrigger value="game-management" className="flex-1">Game Manager</TabsTrigger>
                         </TabsList>
 
                         {/* TAB 1: PLAYER MANAGER */}
