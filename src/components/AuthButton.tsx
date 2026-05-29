@@ -47,13 +47,19 @@ export function AuthButton() {
                 }
 
                 // STRICT EVENT GATE: Only fire router.refresh() if the session actually changes
-                // to prevent Vercel Client/Server hydration loops.
+                // AND it's not the initial component mount, to prevent Vercel hydration loops.
                 const currentId = currentUser?.id ?? null;
+                
                 if (prevUserId.current !== currentId) {
+                    const wasInitial = prevUserId.current === null;
                     prevUserId.current = currentId;
-                    startTransition(() => {
-                        router.refresh();
-                    });
+                    
+                    // Only refresh if it's an actual state change, NOT the initial load recovery
+                    if (!wasInitial || event === 'SIGNED_OUT') {
+                        startTransition(() => {
+                            router.refresh();
+                        });
+                    }
                 }
             }
         );
