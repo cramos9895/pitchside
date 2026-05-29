@@ -361,9 +361,11 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
     useEffect(() => {
         const fetchData = async () => {
+            console.log("[fetchData] Starting");
             setLoading(true);
             let fetchedGame: AdminGameDetails | null = null;
             try {
+                console.log("[fetchData] Fetching game");
                 // Fetch Game
                 const { data: gameData, error: gameError } = await supabase
                     .from('games')
@@ -374,6 +376,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                 if (gameError) throw gameError;
                 fetchedGame = gameData;
                 setGame(gameData as AdminGameDetails);
+                console.log("[fetchData] Game fetched");
 
                 if (gameData.view_mode) {
                                         setViewMode(gameData.view_mode as any);
@@ -381,16 +384,20 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     setViewMode('tournament');
                 }
 
+                console.log("[fetchData] Fetching session");
                 // Fetch User and Role
                                 const { data: { user } } = await supabase.auth.getSession().then(({data}: any) => ({ data: { user: data.session?.user } }));
+                console.log("[fetchData] Session fetched");
                 if (user) {
                     setCurrentUserId(user.id);
+                    console.log("[fetchData] Fetching profile");
                     const { data: profile } = await supabase
                         .from('profiles')
                         .select('role')
                         .eq('id', user.id)
                         .single();
                     if (profile) setCurrentUserRole(profile.role);
+                    console.log("[fetchData] Profile fetched");
                 }
 
                 // Initialize Control States
@@ -399,16 +406,20 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                 setMatchStatus(gameData.status || 'scheduled');
                 setMvpId(gameData.mvp_player_id || '');
 
+                console.log("[fetchData] Fetching matches");
                 await fetchMatches();
+                console.log("[fetchData] Matches fetched");
 
             } catch (err) {
-                console.error("Error fetching data:", err);
+                console.error("[fetchData] Error fetching data:", err);
             }
 
             try {
+                console.log("[fetchData] Starting second block");
                 let finalBookings: AdminGameBooking[] = [];
                 
                                 if (fetchedGame?.event_type === 'tournament' || fetchedGame?.event_type === 'league') {
+                    console.log("[fetchData] Fetching dbTeams");
                     // Fetch relational teams for rolling leagues natively
                     const { data: dbTeams, error: dbTeamsErr } = await supabase
                         .from('teams')
@@ -419,6 +430,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         setRollingTeams(dbTeams);
                     }
 
+                    console.log("[fetchData] Fetching tournament_registrations");
                     // 1. Fetch Registrations
                     const { data: regData, error: regError } = await supabase
                         .from('tournament_registrations')
@@ -434,6 +446,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         const userIds = regData.map((r: any) => r.user_id);
                                                 const teamIds = regData.map((r: any) => r.team_id).filter(Boolean);
 
+                        console.log("[fetchData] Fetching profiles and teams");
                         // 2. Fetch Profiles and Teams in parallel (only if IDs exist)
                         const [profilesRes, teamsRes] = await Promise.all([
                             userIds.length > 0 
@@ -477,6 +490,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         });
                     }
                 } else {
+                    console.log("[fetchData] Fetching bookings");
                     const { data: bookingsData, error: bookingsError } = await supabase
                         .from('bookings')
                         .select('*, profiles!bookings_user_id_fkey(email, first_name, last_name, id, avatar_url)')
@@ -490,6 +504,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                 let signedIds = new Set<string>();
                                 if (fetchedGame?.facility_id && finalBookings.length > 0) {
                                         const userIds = finalBookings.map((b: any) => b.user_id);
+                    console.log("[fetchData] Fetching waiver_signatures");
                     const { data: waiverData } = await supabase
                         .from('waiver_signatures')
                         .select('user_id')
@@ -505,6 +520,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                                 setBookings(enrichedBookings as unknown as AdminGameBooking[]);
 
+                console.log("[fetchData] Fetching mvp_votes");
                 // Fetch Votes
                 const { data: votesData, error: votesError } = await supabase
                     .from('mvp_votes')
@@ -520,8 +536,9 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                 }
 
             } catch (err) {
-                console.error("Error fetching roster/votes:", err);
+                console.error("[fetchData] Error fetching roster/votes:", err);
             } finally {
+                console.log("[fetchData] Finally block reached. Setting loading false.");
                 setLoading(false);
             }
         };
