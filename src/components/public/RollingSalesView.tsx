@@ -185,7 +185,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                         <Clock className="w-4 h-4 text-pitch-accent" /> Teams
                                     </span>
                                     <p className="text-lg font-bold text-white uppercase italic">
-                                        {registeredTeams.length} / {game.max_teams || '∞'} Signed Up
+                                        {registeredTeams.length} / {game.max_teams || '∞'}
                                     </p>
                                 </div>
                                 
@@ -194,7 +194,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                         <Shield className="w-4 h-4 text-pitch-accent" /> Roster Size
                                     </span>
                                     <p className="text-lg font-bold text-white uppercase italic">
-                                        {game.min_players_per_team || 5}-{game.max_players_per_team ? game.max_players_per_team : '∞'} Players
+                                        {game.min_players_per_team || 5}-{game.max_players_per_team ? game.max_players_per_team : '∞'}
                                     </p>
                                 </div>
 
