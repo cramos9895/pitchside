@@ -3,6 +3,7 @@ import { User, Shuffle, Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import { supabase } from '@/lib/supabase/client';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface Player {
     id: string; // booking_id
@@ -81,6 +82,24 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
     const activePlayers = players.filter(p => p.status === 'active' || p.status === 'paid');
 
     const unassigned = activePlayers.filter(p => !p.team);
+
+    const handleMovePlayer = async (bookingId: string, newTeam: string | null) => {
+        try {
+            setLoading(true);
+            const { error } = await supabase
+                .from('bookings')
+                .update({ team_assignment: newTeam })
+                .eq('id', bookingId);
+            
+            if (error) throw error;
+            success(`Player moved successfully.`);
+            onUpdate();
+        } catch (err: any) {
+            toastError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleRandomize = async () => {
         if (!confirm('This will reshuffle ALL active players into random teams. Current assignments will be overwritten. Continue?')) return;
@@ -208,6 +227,7 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
                     colorClass="border-gray-700 bg-gray-900/50"
                     headerColor="text-gray-400"
                     allTeams={teams}
+                    onMovePlayer={handleMovePlayer}
                 />
 
                 {/* DYNAMIC TEAMS */}
@@ -224,6 +244,7 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
                             colorClass={colorClass}
                             headerColor={headerColor}
                             allTeams={teams}
+                            onMovePlayer={handleMovePlayer}
                         />
                     );
                 })}
@@ -238,12 +259,14 @@ function TeamColumn({
     colorClass,
     headerColor,
     allTeams,
+    onMovePlayer
 }: {
     title: string,
     players: Player[],
     colorClass: string,
     headerColor: string,
     allTeams: TeamConfig[],
+    onMovePlayer: (id: string, team: string | null) => void;
 }) {
     // Find the team config for this column to get limit/color info
     const currentTeamConfig = allTeams.find(t => t.name === title);
@@ -275,15 +298,35 @@ function TeamColumn({
 
             <div className="p-2 space-y-1">
                 {players.map(p => (
-                    <div key={p.id} className="bg-black/40 px-2 py-1.5 rounded border border-white/5 flex items-center gap-2 group hover:border-white/20 transition-colors">
-                        <div className={cn(
-                            "w-1.5 h-1.5 rounded-full shrink-0",
-                            p.payment_status === 'verified' ? "bg-green-500" :
-                                p.payment_status === 'pending' ? "bg-yellow-500" : "bg-red-500"
-                        )} title={`Payment: ${p.payment_status}`} />
+                    <DropdownMenu key={p.id}>
+                        <DropdownMenuTrigger asChild>
+                            <div className="bg-black/40 px-2 py-1.5 rounded border border-white/5 flex items-center gap-2 group hover:border-white/20 hover:bg-white/5 transition-colors cursor-pointer">
+                                <div className={cn(
+                                    "w-1.5 h-1.5 rounded-full shrink-0",
+                                    p.payment_status === 'verified' ? "bg-green-500" :
+                                        p.payment_status === 'pending' ? "bg-yellow-500" : "bg-red-500"
+                                )} title={`Payment: ${p.payment_status}`} />
 
-                        <div className="text-xs text-gray-200 truncate">{p.name}</div>
-                    </div>
+                                <div className="text-xs text-gray-200 truncate flex-1 text-left">{p.name}</div>
+                            </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-48">
+                            <div className="text-xs text-gray-500 font-bold px-2 py-1.5 uppercase tracking-wider">Move to...</div>
+                            {title !== "Unassigned" && (
+                                <DropdownMenuItem onClick={() => onMovePlayer(p.id, null)} className="font-bold cursor-pointer">
+                                    Unassigned
+                                </DropdownMenuItem>
+                            )}
+                            {allTeams.map(t => {
+                                if (t.name === title) return null;
+                                return (
+                                    <DropdownMenuItem key={t.name} onClick={() => onMovePlayer(p.id, t.name)} className="font-bold cursor-pointer">
+                                        {t.name}
+                                    </DropdownMenuItem>
+                                )
+                            })}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 ))}
                 {players.length === 0 && (
                     <div className="text-center text-gray-600 text-[10px] italic py-4">Empty</div>
