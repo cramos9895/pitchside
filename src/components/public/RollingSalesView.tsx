@@ -82,9 +82,27 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
             <div className="absolute inset-x-0 top-0 h-[60vh] bg-gradient-to-b from-pitch-accent/10 via-transparent to-transparent pointer-events-none" />
             
             <div className="max-w-6xl mx-auto px-6 pt-16 relative z-10">
-                <Link href="/dashboard" className="group inline-flex items-center text-pitch-secondary hover:text-white mb-8 transition-colors uppercase text-[10px] font-black tracking-[0.2em]">
-                    <ArrowLeft className="w-3 h-3 mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Dashboard
-                </Link>
+                <div className="flex justify-between items-center mb-8">
+                    <Link href="/dashboard" className="group inline-flex items-center text-pitch-secondary hover:text-white transition-colors uppercase text-[10px] font-black tracking-[0.2em]">
+                        <ArrowLeft className="w-3 h-3 mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Dashboard
+                    </Link>
+
+                    {primaryHost ? (
+                        <a 
+                            href={`mailto:${primaryHost.email}?subject=${encodeURIComponent("PitchSide Support: " + game.title)}`}
+                            className="group inline-flex items-center text-pitch-secondary hover:text-pitch-accent transition-colors uppercase text-[10px] font-black tracking-[0.2em]"
+                        >
+                            Contact Host
+                        </a>
+                    ) : (
+                        <Link 
+                            href="/support" 
+                            className="group inline-flex items-center text-pitch-secondary hover:text-pitch-accent transition-colors uppercase text-[10px] font-black tracking-[0.2em]"
+                        >
+                            Contact Commissioner
+                        </Link>
+                    )}
+                </div>
 
                 {/* Hero Sales Pitch Section */}
                 <div className="mb-10 md:mb-20 text-center md:text-left">
@@ -356,21 +374,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                             </div>
                         </section>
 
-                        <div className="bg-white/5 border border-white/5 p-8 rounded-sm text-center">
-                            <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">Questions about this league?</p>
-                            {primaryHost ? (
-                                <a 
-                                    href={`mailto:${primaryHost.email}?subject=${encodeURIComponent("PitchSide Support: " + game.title)}`}
-                                    className="text-xs font-black text-white hover:text-pitch-accent transition-colors uppercase tracking-[0.2em] border-b-2 border-pitch-accent inline-block"
-                                >
-                                    Contact Host
-                                </a>
-                            ) : (
-                                <Link href="/support" className="text-xs font-black text-white hover:text-pitch-accent transition-colors uppercase tracking-[0.2em] border-b-2 border-pitch-accent">
-                                    Contact Commissioner
-                                </Link>
-                            )}
-                        </div>
+
                     </div>
                 </div>
             </div>
