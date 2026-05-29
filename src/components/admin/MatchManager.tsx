@@ -956,13 +956,16 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                         </div>
 
                         {timerStatus === 'running' ? (
-                            <button
-                                onClick={() => updateTimerDB('paused')} {/* Logic handles remaining duration calc */}
-                                disabled={timerLoading}
-                                className="px-6 py-2 bg-yellow-600 text-white font-bold uppercase rounded flex items-center gap-2 hover:bg-yellow-500 transition-colors"
-                            >
-                                <PauseCircle className="w-4 h-4" /> Pause
-                            </button>
+                            <>
+                                {/* Logic handles remaining duration calc */}
+                                <button
+                                    onClick={() => updateTimerDB('paused')}
+                                    disabled={timerLoading}
+                                    className="px-6 py-2 bg-yellow-600 text-white font-bold uppercase rounded flex items-center gap-2 hover:bg-yellow-500 transition-colors"
+                                >
+                                    <PauseCircle className="w-4 h-4" /> Pause
+                                </button>
+                            </>
                         ) : (
                             <button
                                 onClick={() => updateTimerDB('running')}

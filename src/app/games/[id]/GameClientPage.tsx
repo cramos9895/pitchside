@@ -450,11 +450,11 @@ export function GameClientPage({
 
             <div className="max-w-6xl mx-auto px-6 mt-12 relative z-10">
                 {/* Modern Navigation Tabs */}
-                <div className="flex items-center gap-2 mb-12 p-1 bg-white/5 border border-white/5 rounded-sm w-fit overflow-x-auto scrollbar-hide">
+                <div className="flex items-center justify-between md:justify-start mb-12 p-1 bg-white/5 border border-white/5 rounded-sm w-full md:w-fit overflow-x-auto scrollbar-hide">
                     {[
-                        { id: 'details', label: 'Match Details', icon: Info },
-                        { id: 'roster', label: `Squad Roster (${activeRoster.length})`, icon: Users },
-                        { id: 'chat', label: 'Match Chat', icon: MessageSquare, hasUnread: hasUnreadChat },
+                        { id: 'details', label: 'Details', icon: Info },
+                        { id: 'roster', label: `Players (${activeRoster.length})`, icon: Users },
+                        { id: 'chat', label: 'Chat', icon: MessageSquare, hasUnread: hasUnreadChat },
                         ...(game.event_type === 'tournament' ? [{ id: 'tournament-hub', label: 'Tournament Hub', icon: Trophy }] : [])
                     ].map((tab: any) => (
                         <button
@@ -470,15 +470,15 @@ export function GameClientPage({
                                 }
                             }}
                             className={cn(
-                                "flex items-center gap-2 px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all rounded-sm",
+                                "flex flex-1 md:flex-none items-center justify-center gap-1.5 md:gap-2 px-2 md:px-6 py-2 md:py-3 text-[10px] font-black uppercase tracking-widest transition-all rounded-sm whitespace-nowrap",
                                 activeTab === tab.id 
                                     ? "bg-pitch-accent text-pitch-black shadow-lg" 
                                     : "text-gray-400 hover:text-white hover:bg-white/5"
                             )}
                         >
-                            <tab.icon className="w-3 h-3" />
-                            {tab.label}
-                            {tab.hasUnread && <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />}
+                            <tab.icon className="w-4 h-4 shrink-0" />
+                            <span>{tab.label}</span>
+                            {tab.hasUnread && <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shrink-0" />}
                         </button>
                     ))}
                 </div>
