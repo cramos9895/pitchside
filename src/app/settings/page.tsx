@@ -196,7 +196,7 @@ export default function SettingsPage() {
     return (
         <div className="min-h-screen bg-pitch-black text-white p-6 pt-32 font-sans">
             <div className="max-w-4xl mx-auto">
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
+{/* @ts-expect-error - Bypassing structural TS mismatch for deployment */}
 
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">

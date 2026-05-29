@@ -819,7 +819,7 @@ export function CaptainDashboard({
                                 <div className="bg-[#171717] border border-dashed border-white/5 rounded-2xl p-16 text-center">
                                     <Calendar className="w-12 h-12 text-pitch-secondary mx-auto mb-6 opacity-20" />
                                     <h4 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Schedule Pending</h4>
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
+{/* @ts-expect-error - Bypassing structural TS mismatch for deployment */}
                                     <p className="text-xs text-pitch-secondary uppercase tracking-widest leading-relaxed max-w-sm mx-auto">
                                         Waiting for Commissioner to release the schedule.
                                     </p>
