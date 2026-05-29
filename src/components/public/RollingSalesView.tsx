@@ -262,19 +262,19 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                         </section>
                     {/* Sidebar: Financial Breakdown */}
                     <div className="order-2 lg:order-none lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:row-span-3 space-y-6">
-                        <section className="bg-pitch-accent text-pitch-black p-10 rounded-sm relative shadow-[0_0_50px_rgba(204,255,0,0.1)]">
-                            <h3 className="text-xs font-black uppercase tracking-[0.3em] mb-10 border-b border-black/10 pb-4">
+                        <section className="bg-pitch-accent text-pitch-black p-6 md:p-8 rounded-sm relative shadow-[0_0_50px_rgba(204,255,0,0.1)]">
+                            <h3 className="text-xs font-black uppercase tracking-[0.3em] mb-6 border-b border-black/10 pb-4">
                                 Season Pricing
                             </h3>
                             
-                            <div className="space-y-10">
+                            <div className="space-y-6">
                                 {/* 1. Team Registration Fee */}
                                 <div className="space-y-2">
                                     <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
                                         <Users className="w-3 h-3" /> Team Registration
                                     </p>
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-5xl font-black italic">
+                                        <span className="text-4xl font-black italic">
                                             ${game.team_registration_fee || 0}
                                         </span>
                                         <span className="text-[10px] font-black uppercase opacity-60">
@@ -288,12 +288,12 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
 
                                 {/* 2. Player Registration Fee (Optional) */}
                                 {(game.player_registration_fee ?? 0) > 0 && (
-                                    <div className="space-y-2 pt-10 border-t border-black/10">
+                                    <div className="space-y-2 pt-6 border-t border-black/10">
                                         <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
                                             <ShieldCheck className="w-3 h-3" /> Player Registration
                                         </p>
                                         <div className="flex items-baseline gap-2">
-                                            <span className="text-5xl font-black italic">
+                                            <span className="text-4xl font-black italic">
                                                 ${game.player_registration_fee}
                                             </span>
                                             <span className="text-[10px] font-black uppercase opacity-60">
@@ -307,12 +307,12 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                 )}
 
                                 {/* 3. Player Game Fee (Standard) */}
-                                <div className="space-y-2 pt-10 border-t border-black/10">
+                                <div className="space-y-2 pt-6 border-t border-black/10">
                                     <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
                                         <Activity className="w-3 h-3" /> Player Game Fee
                                     </p>
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-5xl font-black italic">
+                                        <span className="text-4xl font-black italic">
                                             ${isCash ? (game.cash_amount || 0) : (game.price || 0)}
                                         </span>
                                         <span className="text-[10px] font-black uppercase opacity-60">
@@ -326,12 +326,12 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
 
                                 {/* 4. Free Agent Pool Entry (If fee exists) */}
                                 {game.allow_free_agents && (game.free_agent_price ?? 0) > 0 && (
-                                    <div className="space-y-2 pt-10 border-t border-black/10">
+                                    <div className="space-y-2 pt-6 border-t border-black/10">
                                         <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
                                             <UserPlus className="w-3 h-3" /> Free Agent Pool
                                         </p>
                                         <div className="flex items-baseline gap-2">
-                                            <span className="text-5xl font-black italic">
+                                            <span className="text-4xl font-black italic">
                                                 ${game.free_agent_price}
                                             </span>
                                             <span className="text-[10px] font-black uppercase opacity-60">
@@ -345,7 +345,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                 )}
                             </div>
 
-                            <div className="mt-12 pt-8 border-t border-black/10">
+                            <div className="mt-8 pt-6 border-t border-black/10">
                                 <p className="text-[10px] font-black uppercase leading-relaxed tracking-widest flex items-center gap-3">
                                     <Zap className="w-5 h-5 shrink-0" />
                                     {isCash 
