@@ -428,7 +428,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                         <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Amount of Fields</label>
                         <select value={amountOfFields} onChange={(e) => setAmountOfFields(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors">
                             {[1, 2, 3, 4, 5, 6].map(amt => <option key={amt} value={amt}>{amt}</option>)}
-{/* @ts-expect-error - Bypassing structural TS mismatch for deployment */}
+
                         </select>
                     </div>
                     <div>
@@ -441,9 +441,9 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
 
                 <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-sm">
                     <h3 className="font-bold uppercase text-sm text-white flex items-center gap-2"><span className="text-xl">👟</span> Allowed Shoe Types</h3>
-{/* @ts-expect-error - Bypassing structural TS mismatch for deployment */}
+
                     <div className="flex gap-4 flex-wrap">
-{/* @ts-expect-error - Bypassing structural TS mismatch for deployment */}
+
                         {['FG Cleats', 'SG Cleats', 'AG Cleats', 'Turf Shoes', 'Court Shoes'].map(shoe => (
                             <label key={shoe} className="flex items-center gap-2 cursor-pointer select-none bg-black/20 px-3 py-2 rounded border border-white/5 hover:border-white/20 transition-colors">
                                 <input type="checkbox" checked={shoeTypes.includes(shoe)} onChange={(e) => { if (e.target.checked) setShoeTypes([...shoeTypes, shoe]); else setShoeTypes(shoeTypes.filter((s: unknown) => s !== shoe)); }} className="w-4 h-4 accent-[#cbff00] rounded" />
