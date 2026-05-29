@@ -1106,7 +1106,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                 {/* LEFT COLUMN: Main Roster Manager */}
                 <div className="flex-1">
-                    <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-start md:items-center justify-between gap-4 mb-8">
                         <div>
                             <Link href="/admin" className="flex items-center text-pitch-secondary hover:text-white mb-2 transition-colors">
                                 <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
@@ -1114,9 +1114,9 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                             <h1 className="font-heading text-3xl md:text-4xl font-bold italic uppercase tracking-tighter">
                                 <span className="text-pitch-accent">{game.title}</span>
                             </h1>
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-2">
                                 <p className="text-pitch-secondary">{dateStr} • {startTimeStr} - {endTimeStr} • <span className={cn("uppercase font-bold", matchStatus === 'completed' ? 'text-green-500' : 'text-yellow-500')}>{matchStatus}</span></p>
-                                <span className="text-sm font-bold bg-white/10 px-2 py-1 rounded text-white flex items-center gap-2">
+                                <span className="text-sm font-bold bg-white/10 px-2 py-1 rounded text-white flex items-center gap-2 shrink-0">
                                     <Users className="w-4 h-4" /> {roster.length} / {game.max_players} Players
                                 </span>
                             </div>
