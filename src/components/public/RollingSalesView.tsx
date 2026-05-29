@@ -132,11 +132,10 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 mb-10 md:mb-20">
-                    {/* Primary Content: Intelligence Matrix */}
-                    <div className="lg:col-span-8 space-y-8 md:space-y-12">
-                        
-                        <section className="bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm relative overflow-hidden">
+                <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 md:gap-12 mb-10 md:mb-20">
+                    
+                    {/* Primary Content: League Specs */}
+                    <section className="order-1 lg:order-none lg:col-span-8 bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm relative overflow-hidden">
                              <div className="absolute top-0 right-0 w-64 h-64 bg-pitch-accent/5 blur-[100px] -mr-32 -mt-32 rounded-full" />
                             
                             <h3 className="font-heading text-xl md:text-2xl font-black italic uppercase mb-8 md:mb-12 flex items-center gap-3 text-pitch-accent">
@@ -217,7 +216,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                             </div>
                         </section>
 
-                        <section className="bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm">
+                        <section className="order-3 lg:order-none lg:col-span-8 lg:col-start-1 bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm">
                             <h3 className="font-heading text-xl md:text-2xl font-black italic uppercase mb-6 md:mb-8 flex items-center gap-3 text-white">
                                 <ScrollText className="w-5 h-5 md:w-6 md:h-6 text-pitch-accent" /> Terms & Rules
                             </h3>
@@ -226,7 +225,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                             </div>
                         </section>
 
-                        <section className="bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm">
+                        <section className="order-4 lg:order-none lg:col-span-8 lg:col-start-1 bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm">
                             <h3 className="font-heading text-xl md:text-2xl font-black italic uppercase mb-6 md:mb-8 flex items-center gap-3 text-white">
                                 <Users className="w-5 h-5 md:w-6 md:h-6 text-pitch-accent" /> Competing Squads
                             </h3>
@@ -261,10 +260,8 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                 </div>
                             )}
                         </section>
-                    </div>
-
                     {/* Sidebar: Financial Breakdown */}
-                    <div className="lg:col-span-4 space-y-6">
+                    <div className="order-2 lg:order-none lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:row-span-3 space-y-6">
                         <section className="bg-pitch-accent text-pitch-black p-10 rounded-sm relative shadow-[0_0_50px_rgba(204,255,0,0.1)]">
                             <h3 className="text-xs font-black uppercase tracking-[0.3em] mb-10 border-b border-black/10 pb-4">
                                 Season Pricing
