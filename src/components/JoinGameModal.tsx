@@ -406,6 +406,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
         setAgreeingWaiver(false);
     };
 
+    const showRequestFields = !isWaitlist && ( (isLeague && selectedTeam === 'free_agent') || (!isLeague) );
+
     if (!isOpen) return null;
 
     return (
@@ -436,7 +438,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                         <div className="space-y-4">
                             
 
-                            {teamsConfig.length > 0 && !isWaitlist ? (
+                            {teamsConfig.length > 0 && !isWaitlist && (
                                 <div className="space-y-3 mb-6">
                                     <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Select Your Squad</label>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-2">
@@ -543,19 +545,6 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                         </div>
                                     )}
                                 </div>
-                            ) : (
-                                <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">
-                                        Teammate Request (Optional)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. Mike Johnson"
-                                        value={note}
-                                        onChange={(e) => setNote(e.target.value)}
-                                        className="w-full bg-black/50 border border-white/20 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors"
-                                    />
-                                </div>
                             )}
 
                             {/* SQUAD / GUEST CHECKOUT */}
@@ -608,48 +597,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 </div>
                             )}
 
-                            {!isWaitlist && gamePrice > 0 && (
-                                <div className="space-y-3 pb-3 border-b border-white/10">
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">Promo Code</label>
-
-                                    {appliedPromo ? (
-                                        <div className="flex items-center justify-between bg-pitch-accent/10 border border-pitch-accent/30 rounded-sm px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full bg-pitch-accent animate-pulse"></div>
-                                                <span className="text-pitch-accent font-bold uppercase tracking-widest text-sm">{appliedPromo.code}</span>
-                                                <span className="text-white text-xs ml-2 border-l border-white/20 pl-2">
-                                                    {appliedPromo.discount_type === 'percentage' ? `${appliedPromo.discount_value}% OFF` : `$${(appliedPromo.discount_value / 100).toFixed(2)} OFF`}
-                                                </span>
-                                            </div>
-                                            <button onClick={() => setAppliedPromo(null)} className="text-gray-400 hover:text-white transition-colors">
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                placeholder="Enter code"
-                                                value={promoCode}
-                                                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                                                className="flex-1 bg-black/50 border border-white/20 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent uppercase placeholder:normal-case font-bold"
-                                            />
-                                            <button
-                                                onClick={handleApplyPromo}
-                                                disabled={!promoCode || isApplyingPromo}
-                                                className="bg-white/10 hover:bg-white/20 text-white font-bold uppercase tracking-wider px-6 rounded-sm transition-colors disabled:opacity-50"
-                                            >
-                                                Apply
-                                            </button>
-                                        </div>
-                                    )}
-                                    {promoError && <p className="text-red-400 text-xs font-medium">{promoError}</p>}
-                                </div>
-                            )}
-
-                            {/* Free Agent Pricing Breakdown */}
-                                                         {selectedTeam === 'free_agent' && !isWaitlist && isLeague && (
-                                <div className="mt-4 space-y-4">
+                            {showRequestFields && (
+                                <div className="space-y-4 pt-1 mt-4">
                                     {/* TEAMMATE AND TEAM REQUESTS */}
                                     <div className="space-y-3 pb-4 border-b border-white/10 relative">
                                         <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">Teammate Request (Optional)</label>
@@ -720,6 +669,52 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                             </select>
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {!isWaitlist && gamePrice > 0 && (
+                                <div className="space-y-3 pb-3 border-b border-white/10">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">Promo Code</label>
+
+                                    {appliedPromo ? (
+                                        <div className="flex items-center justify-between bg-pitch-accent/10 border border-pitch-accent/30 rounded-sm px-4 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-pitch-accent animate-pulse"></div>
+                                                <span className="text-pitch-accent font-bold uppercase tracking-widest text-sm">{appliedPromo.code}</span>
+                                                <span className="text-white text-xs ml-2 border-l border-white/20 pl-2">
+                                                    {appliedPromo.discount_type === 'percentage' ? `${appliedPromo.discount_value}% OFF` : `$${(appliedPromo.discount_value / 100).toFixed(2)} OFF`}
+                                                </span>
+                                            </div>
+                                            <button onClick={() => setAppliedPromo(null)} className="text-gray-400 hover:text-white transition-colors">
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Enter code"
+                                                value={promoCode}
+                                                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                                                className="flex-1 bg-black/50 border border-white/20 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent uppercase placeholder:normal-case font-bold"
+                                            />
+                                            <button
+                                                onClick={handleApplyPromo}
+                                                disabled={!promoCode || isApplyingPromo}
+                                                className="bg-white/10 hover:bg-white/20 text-white font-bold uppercase tracking-wider px-6 rounded-sm transition-colors disabled:opacity-50"
+                                            >
+                                                Apply
+                                            </button>
+                                        </div>
+                                    )}
+                                    {promoError && <p className="text-red-400 text-xs font-medium">{promoError}</p>}
+                                </div>
+                            )}
+
+                            {/* Free Agent Pricing Breakdown */}
+                                                         {selectedTeam === 'free_agent' && !isWaitlist && isLeague && (
+                                <div className="mt-4 space-y-4">
+
                                     
                                     {gameData?.payment_collection_type === 'cash' ? (
                                         <div className="bg-pitch-accent/5 border border-pitch-accent/20 rounded-sm p-4">
