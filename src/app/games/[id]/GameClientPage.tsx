@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { ChatInterface } from '@/components/ChatInterface';
 import { VotingModal } from '@/components/VotingModal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { useToast } from '@/components/ui/Toast';
 // Removed duplicate imports
 import { FreeAgentCard } from '@/components/FreeAgentCard';
 import { draftFreeAgent } from '@/app/actions/draft-free-agent';
@@ -45,6 +46,8 @@ interface Game {
     prize_pool_percentage?: number;
     roster_lock_date?: string;
     refund_cutoff_date?: string;
+    refund_cutoff_hours?: number;
+    is_refundable?: boolean;
     strict_waiver_required?: boolean;
     mercy_rule_cap?: number;
     teams_config?: { name: string; color: string }[];
@@ -107,6 +110,8 @@ export function GameClientPage({
     const { id: gameId } = params;
     const [activeTab, setActiveTab] = useState<'details' | 'roster' | 'chat' | 'tournament-hub'>('details');
     const [game, setGame] = useState<Game>(initialGame);
+    
+    const { success, error: toastError } = useToast();
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -1030,12 +1035,12 @@ export function GameClientPage({
                         });
                         const result = await response.json();
                         if (!response.ok) throw new Error(result.error || 'Failed to leave');
-                        alert(result.message || 'You have left the game.');
+                        success(result.message || 'You have successfully cancelled your spot.');
                         router.push('/dashboard');
                         setLeaveModalOpen(false);
                     } catch (err: any) {
                         console.error(err);
-                        alert(err.message || 'Failed to cancel registration.');
+                        toastError(err.message || 'Failed to cancel registration.');
                     } finally {
                         setLoading(false);
                     }
@@ -1045,16 +1050,26 @@ export function GameClientPage({
                     userBooking?.status === 'waitlist'
                         ? "Are you sure you want to leave the waitlist?"
                         : (() => {
+                            if (game.is_refundable === false) {
+                                return (
+                                    <span className="text-red-500 font-bold block bg-red-500/10 p-4 rounded border border-red-500/20">
+                                        ⚠️ Warning: Refunds are disabled for this game. You will NOT receive a refund if you cancel.
+                                    </span>
+                                );
+                            }
+
                             const hours = (new Date(game.start_time).getTime() - new Date().getTime()) / (1000 * 60 * 60);
-                            return hours > 6
+                            const cutoff = game.refund_cutoff_hours ?? 6;
+                            
+                            return hours > cutoff
                                 ? (
-                                    <span className="text-green-400 font-medium">
-                                        You will be removed from the roster and your credit will be refunded.
+                                    <span className="text-green-400 font-medium block bg-green-500/10 p-4 rounded border border-green-500/20">
+                                        You will be removed from the roster and the purchase price will be refunded to your PitchSide wallet.
                                     </span>
                                 )
                                 : (
                                     <span className="text-red-500 font-bold block bg-red-500/10 p-4 rounded border border-red-500/20">
-                                        ⚠️ Warning: This game starts in less than 6 hours. You will NOT receive a refund.
+                                        ⚠️ Warning: This game starts in less than {cutoff} hours. You are beyond the refund window and will NOT receive a refund if you cancel.
                                     </span>
                                 );
                         })()
