@@ -92,10 +92,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, message: 'Already joined' });
         }
 
-        if (existing) {
-            return NextResponse.json({ success: true, message: 'Already joined' });
-        }
-
         // 3. Determine Status based on Waitlist logic
         const partySize = 1 + (guestIds?.length || 0);
         const isFull = (game.current_players + partySize) > game.max_players;
