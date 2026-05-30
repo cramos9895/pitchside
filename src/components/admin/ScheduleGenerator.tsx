@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Calendar, Save, Loader2, RefreshCw } from 'lucide-react';
+import { Calendar, Save, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface TeamConfig {
@@ -23,6 +23,8 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
     const [duration, setDuration] = useState(60);
     const [warmup, setWarmup] = useState(10);
     const [gameLength, setGameLength] = useState(10);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [successMsg, setSuccessMsg] = useState("");
     const [fields, setFields] = useState(1);
 
     // Preview State
@@ -219,7 +221,8 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
             const { error } = await supabase.from('matches').insert(matchesToInsert);
             if (error) throw error;
 
-            alert(`Schedule Created! ${matchesToInsert.length} Matches added.`);
+            setSuccessMsg(`Schedule Created! ${matchesToInsert.length} Matches added.`);
+            setShowSuccessModal(true);
             router.refresh();
             if (onScheduleSaved) onScheduleSaved();
 
@@ -231,6 +234,7 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
     };
 
     return (
+        <>
         <div className="bg-gray-900 border border-gray-800 rounded-sm p-6 mb-6">
             <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2 mb-4">
                 <Calendar className="w-5 h-5 text-pitch-accent" /> Auto-Schedule Generator
@@ -336,5 +340,24 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                 </div>
             )}
         </div>
+
+        {showSuccessModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-pitch-card border border-white/10 p-6 rounded-sm max-w-sm w-full text-center animate-in zoom-in-95 duration-200">
+                    <div className="w-12 h-12 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-xl font-heading font-bold uppercase italic text-white mb-2">Success</h3>
+                    <p className="text-sm text-gray-400 mb-6">{successMsg}</p>
+                    <button
+                        onClick={() => { setShowSuccessModal(false); if (onScheduleSaved) onScheduleSaved(); }}
+                        className="w-full bg-pitch-accent text-black font-bold uppercase py-3 rounded-sm hover:bg-white transition-colors"
+                    >
+                        Continue
+                    </button>
+                </div>
+            </div>
+        )}
+        </>
     );
 }

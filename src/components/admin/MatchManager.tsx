@@ -1126,14 +1126,14 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                             if (match.status === 'scheduled' && isEditing) return null;
 
                                             return (
-                                                <div key={match.id} className="relative group flex items-center bg-white/5 py-5 px-6 rounded-xl border border-white/5 hover:bg-white/[0.07] transition-all min-h-[88px]">
+                                                <div key={match.id} className="relative group flex flex-col md:flex-row items-center bg-white/5 py-4 px-3 md:py-5 md:px-6 rounded-xl border border-white/5 hover:bg-white/[0.07] transition-all min-h-[88px] gap-3 md:gap-0">
                                                     {/* Left: Home */}
-                                                    <div className="flex-1 text-right flex justify-end items-center px-4">
-                                                        <span className="text-base font-black uppercase tracking-tight text-white">{match.home_team}</span>
+                                                    <div className="w-full md:flex-1 text-center md:text-right flex justify-center md:justify-end items-center px-2 md:px-4">
+                                                        <span className="text-sm md:text-base font-black uppercase tracking-tight text-white">{match.home_team}</span>
                                                     </div>
 
                                                     {/* Center: Score & Field */}
-                                                    <div className="flex items-center justify-center gap-6 px-6 border-x border-white/10 min-w-[280px]">
+                                                    <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6 px-4 md:px-6 py-3 md:py-0 w-full md:w-auto border-y md:border-y-0 md:border-x border-white/10">
                                                         <div className="text-[10px] font-black text-pitch-secondary bg-pitch-secondary/10 px-3 py-1 rounded border border-pitch-secondary/10 uppercase tracking-widest shrink-0">
                                                             {match.field_name || 'FIELD TBD'}
                                                         </div>
@@ -1154,12 +1154,12 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                                                 className={cn("w-14 bg-black border py-2 text-center text-white rounded font-mono text-xl font-bold focus:ring-1 focus:ring-pitch-accent transition-all", isDone ? "border-transparent text-gray-400" : "border-pitch-accent/50")}
                                                             />
                                                         </div>
-                                                        {isDone && <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />}
+                                                        {isDone && <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 hidden md:block" />}
                                                     </div>
 
                                                     {/* Right: Away */}
-                                                    <div className="flex-1 text-left flex justify-start items-center px-4">
-                                                        <span className="text-base font-black uppercase tracking-tight text-white">{match.away_team}</span>
+                                                    <div className="w-full md:flex-1 text-center md:text-left flex justify-center md:justify-start items-center px-2 md:px-4">
+                                                        <span className="text-sm md:text-base font-black uppercase tracking-tight text-white">{match.away_team}</span>
                                                     </div>
                                                 </div>
                                             );
@@ -1190,19 +1190,19 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                             </div>
                                         ) : (
                                             !isTournamentComplete && (
-                                                <div className="flex justify-between items-center w-full">
+                                                <div className="flex flex-col md:flex-row justify-between items-center w-full gap-3">
                                                     <button
                                                         onClick={handleConcludeEarly}
                                                         disabled={loading || matches.filter((m: any) => m.status === 'completed').length === 0}
-                                                        className="px-4 py-3 bg-red-900/40 hover:bg-red-900/60 text-red-500 font-bold uppercase rounded-sm flex items-center gap-2 transition-colors border border-red-500/20 disabled:opacity-50 text-xs tracking-wider"
+                                                        className="w-full md:w-auto justify-center px-4 py-3 bg-red-900/40 hover:bg-red-900/60 text-red-500 font-bold uppercase rounded-sm flex items-center gap-2 transition-colors border border-red-500/20 disabled:opacity-50 text-xs tracking-wider"
                                                     >
                                                         Conclude Event (Early)
                                                     </button>
-                                                    <div className="flex justify-end gap-3 flex-1">
+                                                    <div className="flex justify-end gap-3 w-full md:w-auto md:flex-1">
                                                         <button
                                                             onClick={submitRound}
                                                             disabled={loading || matchesInCurrentRound.length === 0}
-                                                            className="bg-pitch-accent hover:bg-white text-black font-bold uppercase px-6 py-3 rounded-sm flex items-center gap-2 transition-colors disabled:opacity-50"
+                                                            className="w-full md:w-auto justify-center bg-pitch-accent hover:bg-white text-black font-bold uppercase px-6 py-3 rounded-sm flex items-center gap-2 transition-colors disabled:opacity-50 text-xs md:text-sm"
                                                         >
                                                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
                                                             Submit Round & Next
@@ -1248,10 +1248,10 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                                     <div className="text-[9px] font-black text-pitch-accent bg-pitch-accent/5 px-2 py-1 rounded border border-pitch-accent/10 uppercase tracking-widest shrink-0 min-w-[65px] text-center">
                                                                                                                 {m.field_name || 'TBD'}
                                                     </div>
-                                                    <div className="flex-1 flex items-center justify-center gap-3 text-[12px] font-black uppercase tracking-tight text-gray-300">
-                                                                                                                <span className="truncate max-w-[80px]">{m.home_team}</span>
+                                                    <div className="flex-1 flex items-center justify-between gap-2 text-[11px] md:text-[12px] font-black uppercase tracking-tight text-gray-300">
+                                                                                                                <span className="break-words text-center flex-1 leading-tight">{m.home_team}</span>
                                                         <span className="text-gray-600 text-[9px] font-black shrink-0">VS</span>
-                                                                                                                <span className="truncate max-w-[80px]">{m.away_team}</span>
+                                                                                                                <span className="break-words text-center flex-1 leading-tight">{m.away_team}</span>
                                                     </div>
                                                 </div>
                                             ))}
