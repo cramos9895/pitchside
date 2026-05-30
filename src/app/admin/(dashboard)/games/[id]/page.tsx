@@ -54,6 +54,9 @@ export type AdminGameBooking = Booking & {
     role?: string;
     team_color?: string;
     payment_error?: string;
+    requested_team_id?: string | null;
+    requested_teammate_ids?: string[] | null;
+    requested_team_name?: string | null;
 
 }
 
@@ -163,6 +166,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const [finalizing, setFinalizing] = useState(false);
     const [activeTab, setActiveTab] = useState('player-manager');
     const [rosterSort, setRosterSort] = useState('alphabetical');
+    const [resolvedTeammateNames, setResolvedTeammateNames] = useState<Record<string, string>>({});
 
     // Sync tab state with localStorage to survive hard refreshes
     useEffect(() => {
@@ -255,6 +259,33 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         }
     }
 
+    const fetchTeammateNames = async (bookingsList: AdminGameBooking[]) => {
+        try {
+            const allIds = new Set<string>();
+            bookingsList.forEach(b => {
+                if (b.requested_teammate_ids && Array.isArray(b.requested_teammate_ids)) {
+                    b.requested_teammate_ids.forEach(id => allIds.add(id));
+                }
+            });
+            const uniqueIds = Array.from(allIds);
+            if (uniqueIds.length === 0) return;
+
+            const { data } = await supabase.from('profiles').select('id, first_name, last_name').in('id', uniqueIds);
+            if (data) {
+                setResolvedTeammateNames(prev => {
+                    const next = { ...prev };
+                    data.forEach(p => {
+                        next[p.id] = p.first_name ? `${p.first_name} ${p.last_name || ''}`.trim() : 'Unknown';
+                    });
+                    return next;
+                });
+            }
+        } catch (e) {
+            console.error("Failed to fetch teammate names", e);
+        }
+    };
+
+
     // Standalone re-fetch for bookings, registrations, teams, AND the game object
     // Called by onRefresh so all tabs (Game Day, Squads, Financials) show live data
     const fetchRegistrations = async () => {
@@ -346,6 +377,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     .eq('game_id', gameId)
                     .order('created_at', { ascending: true });
                                 setBookings((bookingsData || []) as unknown as AdminGameBooking[]);
+                                fetchTeammateNames(bookingsData as unknown as AdminGameBooking[]);
             }
         } catch (err) {
             console.error('Error refreshing registrations:', err);
@@ -519,6 +551,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                 }));
 
                                 setBookings(enrichedBookings as unknown as AdminGameBooking[]);
+                                fetchTeammateNames(enrichedBookings as unknown as AdminGameBooking[]);
 
                 console.log("[fetchData] Fetching mvp_votes");
                 // Fetch Votes
@@ -1306,6 +1339,16 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                                 {booking.note && (
                                                                     <div className="text-[10px] text-pitch-accent italic truncate max-w-[200px] md:max-w-[120px]">
                                                                         Request: {booking.note}
+                                                                    </div>
+                                                                )}
+                                                                {(booking.requested_team_name || (booking.requested_teammate_ids && booking.requested_teammate_ids.length > 0)) && (
+                                                                    <div className="text-[10px] text-[#ccff00] font-medium leading-tight mt-1 max-w-[250px]">
+                                                                        {booking.requested_team_name && <div className="truncate">Team Req: {booking.requested_team_name}</div>}
+                                                                        {booking.requested_teammate_ids && booking.requested_teammate_ids.length > 0 && (
+                                                                            <div className="truncate opacity-90">
+                                                                                With: {booking.requested_teammate_ids.map(id => resolvedTeammateNames[id] || '...').join(', ')}
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 )}
                                                             </div>

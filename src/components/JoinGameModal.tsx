@@ -13,7 +13,7 @@ import { ProfileWithUI, GameWithPayments, Booking, Team, TeamConfig } from "@/ty
 interface JoinGameModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; guestIds?: string[] }) => Promise<void>;
+    onConfirm: (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; guestIds?: string[]; requestedTeamId?: string | null; requestedTeammateIds?: string[]; requestedTeamName?: string | null }) => Promise<void>;
     gamePrice: number;
     loading: boolean;
     isWaitlist: boolean;
@@ -43,8 +43,16 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     const [appliedPromo, setAppliedPromo] = useState<{ id: string; discount_type: string; discount_value: number; code: string } | null>(null);
     const [promoError, setPromoError] = useState<string | null>(null);
 
+    const [requestedTeamId, setRequestedTeamId] = useState<string | null>(null);
+    const [requestedTeamName, setRequestedTeamName] = useState<string | null>(null);
+    const [requestedTeammates, setRequestedTeammates] = useState<ProfileWithUI[]>([]);
+    const [teammateSearch, setTeammateSearch] = useState('');
+    const [isSearchingTeammate, setIsSearchingTeammate] = useState(false);
+    const [teammateSearchResults, setTeammateSearchResults] = useState<ProfileWithUI[]>([]);
+
+
     // Squad UI State
-    const [joinMode, setJoinMode] = useState<'squad' | 'free-agent'>('squad');
+    
     const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
     const [teamsConfig, setTeamsConfig] = useState<TeamConfig[]>([]);
     const [rosters, setRosters] = useState<(Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })[]>([]);
@@ -190,6 +198,41 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
         setSearchResults([]);
     };
 
+        useEffect(() => {
+        if (!teammateSearch.trim()) {
+            setTeammateSearchResults([]);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            setIsSearchingTeammate(true);
+            const res = await searchProfiles(teammateSearch);
+            // Filter out current user, existing guests, and already requested teammates
+            if (res.success && res.profiles) {
+                setTeammateSearchResults((res.profiles as unknown as ProfileWithUI[]).filter((p: any) => 
+                p.id !== userProfile?.id && 
+                !selectedGuests.some(g => g.id === p.id) &&
+                !requestedTeammates.some(t => t.id === p.id)
+            ));
+            } else {
+                setTeammateSearchResults([]);
+            }
+            setIsSearchingTeammate(false);
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [teammateSearch, userProfile, selectedGuests, requestedTeammates]);
+    
+    const handleAddTeammateRequest = (profile: ProfileWithUI) => {
+        setRequestedTeammates(prev => [...prev, profile]);
+        setTeammateSearch('');
+        setTeammateSearchResults([]);
+    };
+
+    const handleRemoveTeammateRequest = (id: string) => {
+        setRequestedTeammates(prev => prev.filter(p => p.id !== id));
+    };
+
     const handleRemoveGuest = (id: string) => {
         setSelectedGuests(selectedGuests.filter((g: any) => g.id !== id));
     };
@@ -256,12 +299,12 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     };
 
     const handleNext = () => {
-        if (joinMode === 'squad' && teamsConfig.length > 0 && selectedTeam === null && !isWaitlist) {
+        if (teamsConfig.length > 0 && selectedTeam === null && !isWaitlist) {
             alert("Please select a squad to join.");
             return;
         }
 
-        if (joinMode === 'free-agent' && !isWaitlist) {
+        if (selectedTeam === 'free_agent' && !isWaitlist) {
             // Free Agents IMMEDIATELY go to Stripe to vault UNLESS it is a cash league.
                                                 const isCashLeague = gameData?.payment_collection_type === 'cash';
             
@@ -286,14 +329,20 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
         const finalPrizePref = hasPrizePool && isCaptain ? prizeSplitPreference : undefined;
         const isVaultingSession = isLeague && isCaptain;
 
-        if (finalPrice > 0 && !isWaitlist) {
+                if (finalPrice > 0 && !isWaitlist) {
             setStep('payment');
         } else {
             // Free game or waitlist
             if (!waiverSigned) {
                 setShowWaiver(true);
             } else {
-                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
+                let determinedMethod = null;
+                if (!isWaitlist && finalPrice === 0 && gamePrice > 0) {
+                    if (subtotalAfterPromo === 0) determinedMethod = 'promo';
+                    else if (creditApplied > 0 && creditApplied >= subtotalAfterPromo) determinedMethod = 'wallet';
+                }
+                
+                onConfirm({ note, paymentMethod: determinedMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
             }
         }
     };
@@ -308,7 +357,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
         if (!waiverSigned) {
             setShowWaiver(true);
         } else {
-            onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
+            onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
         }
     };
 
@@ -337,10 +386,10 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             const isVaultingSession = isLeague && isCaptain;
 
             // Phase 46: Auto-open Stripe modal upon waiver return if that was the intent
-            if (joinMode === 'free-agent') {
-                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, isFreeAgent: true, teamAssignment: selectedTeam !== null && selectedTeam !== 'unassigned' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
+            if (selectedTeam === 'free_agent') {
+                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, isFreeAgent: true, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
             } else if (step === 'payment' && paymentMethod) {
-                onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'unassigned' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
+                onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
             } else if (finalPrice === 0 || isWaitlist) {
                 let determinedMethod = null;
                 if (!isWaitlist && finalPrice === 0) {
@@ -348,7 +397,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                     else if (creditApplied > 0 && creditApplied >= subtotalAfterPromo) determinedMethod = 'wallet';
                     else if (baseSubtotal === 0) determinedMethod = 'promo';
                 }
-                onConfirm({ note, paymentMethod: determinedMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'unassigned' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
+                onConfirm({ note, paymentMethod: determinedMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
             } else {
                 // Default fallback - go to payment step if not there
                 setStep('payment');
@@ -385,36 +434,29 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                         </div>
 
                         <div className="space-y-4">
-                            {teamsConfig.length > 0 && !isWaitlist && (
-                                <div className="mb-6 space-y-3">
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">How are you joining?</label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button
-                                            onClick={() => setJoinMode('squad')}
-                                            className={cn(
-                                                "p-3 rounded-sm border transition-all text-center",
-                                                joinMode === 'squad' ? "bg-pitch-accent/10 border-pitch-accent text-white font-bold" : "bg-black/60 border-white/10 hover:border-white/30 text-gray-400"
-                                            )}
-                                        >
-                                            Pick a Squad
-                                        </button>
-                                        <button
-                                            onClick={() => setJoinMode('free-agent')}
-                                            className={cn(
-                                                "p-3 rounded-sm border transition-all text-center",
-                                                joinMode === 'free-agent' ? "bg-pitch-accent/10 border-pitch-accent text-white font-bold" : "bg-black/60 border-white/10 hover:border-white/30 text-gray-400"
-                                            )}
-                                        >
-                                            Free Agent
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                            
 
-                            {joinMode === 'squad' && teamsConfig.length > 0 && !isWaitlist ? (
+                            {teamsConfig.length > 0 && !isWaitlist ? (
                                 <div className="space-y-3 mb-6">
                                     <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Select Your Squad</label>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-2">
+                                                                                <button
+                                            key="free_agent"
+                                            onClick={() => { setSelectedTeam('free_agent'); setRequestedTeamId(null); setRequestedTeamName(null); setRequestedTeammates([]); }}
+                                            className={cn(
+                                                "text-left p-4 rounded-sm border transition-all relative overflow-hidden group sm:col-span-2",
+                                                selectedTeam === 'free_agent' ? "bg-pitch-accent/10 border-pitch-accent" : "bg-black/60 border-white/10 hover:border-white/30"
+                                            )}
+                                        >
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h4 className={cn("font-black italic uppercase tracking-wider", selectedTeam === 'free_agent' ? "text-pitch-accent" : "text-white")}>
+                                                    Free Agent
+                                                </h4>
+                                            </div>
+                                            <p className="text-xs text-gray-400 font-medium leading-relaxed">
+                                                Choose this if your team is full. You can request specific teammates or teams below.
+                                            </p>
+                                        </button>
                                         {teamsConfig.map((team: TeamConfig, i) => {
                                             const teamName = team.name || `Team ${i + 1}`;
                                             const teamRoster = rosters.filter((r: (Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })) => r.team_assignment === teamName);
@@ -467,27 +509,10 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                             );
                                         })}
                                         
-                                        {/* Unassigned / Pool Option */}
-                                        <button
-                                            key="unassigned"
-                                            onClick={() => setSelectedTeam('unassigned')}
-                                            className={cn(
-                                                "text-left p-4 rounded-sm border transition-all relative overflow-hidden group sm:col-span-2",
-                                                selectedTeam === 'unassigned' ? "bg-pitch-accent/10 border-pitch-accent" : "bg-black/60 border-white/10 hover:border-white/30"
-                                            )}
-                                        >
-                                            <div className="flex justify-between items-start mb-1">
-                                                <h4 className={cn("font-black italic uppercase tracking-wider", selectedTeam === 'unassigned' ? "text-pitch-accent" : "text-white")}>
-                                                    Unassigned / Group Pool
-                                                </h4>
-                                            </div>
-                                            <p className="text-xs text-gray-400 font-medium leading-relaxed">
-                                                Select this to stay together if your party size exceeds the remaining spots on a single team.
-                                            </p>
-                                        </button>
+                                        
                                     </div>
                                     
-                                    {hasPrizePool && selectedTeam !== null && selectedTeam !== 'unassigned' && rosters.filter((r: (Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })) => r.team_assignment === selectedTeam).length === 0 && (
+                                    {hasPrizePool && selectedTeam !== null && selectedTeam !== 'free_agent' && rosters.filter((r: (Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })) => r.team_assignment === selectedTeam).length === 0 && (
                                         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-sm p-4 mt-4 animate-in fade-in">
                                             <h4 className="flex items-center gap-2 text-yellow-500 font-bold uppercase text-xs mb-3">
                                                 <Award className="w-4 h-4" /> Prize Distribution Preference
@@ -534,7 +559,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                             )}
 
                             {/* SQUAD / GUEST CHECKOUT */}
-                            {!isWaitlist && joinMode === 'squad' && (
+                            {!isWaitlist &&  (
                                 <div className="space-y-3 pb-3 border-b border-white/10 relative">
                                     <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">Bring Friends</label>
                                     <p className="text-[10px] text-gray-500 font-medium mb-2">Pay for a player, or players, that have a Pitch Side Account</p>
@@ -623,7 +648,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                             )}
 
                             {/* Free Agent Pricing Breakdown */}
-                             {joinMode === 'free-agent' && !isWaitlist && isLeague && (
+                             {selectedTeam === 'free_agent' && !isWaitlist && isLeague && (
                                 <div className="mt-4">
                                                                                                                                                 {gameData?.payment_collection_type === 'cash' ? (
                                         <div className="bg-pitch-accent/5 border border-pitch-accent/20 rounded-sm p-4">
@@ -757,7 +782,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 >
                                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> :
                                         isWaitlist ? "Confirm Waitlist Spot" :
-                                                                                                                                                                                joinMode === 'free-agent' ? (gameData?.payment_collection_type === 'cash' ? "Confirm Free Agent Registration" : (isLeague ? "Vault Card & Register" : "Pay & Join Match")) :
+                                                                                                                                                                                selectedTeam === 'free_agent' ? (gameData?.payment_collection_type === 'cash' ? "Confirm Free Agent Registration" : (isLeague ? "Vault Card & Register" : "Pay & Join Match")) :
                                                 finalPrice === 0 ? "Confirm & Join" : `Continue to Payment ($${finalPrice.toFixed(2)})`}
                                 </button>
                             </div>

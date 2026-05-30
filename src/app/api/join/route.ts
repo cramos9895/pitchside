@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         }
         // ---------------------------
 
-        const { gameId, note = '', paymentMethod, promoCodeId, teamAssignment, prizeSplitPreference, guestIds = [] } = await request.json();
+        const { gameId, note = '', paymentMethod, promoCodeId, teamAssignment, prizeSplitPreference, guestIds = [], requestedTeamId, requestedTeammateIds, requestedTeamName } = await request.json();
 
         if (!gameId) {
             return NextResponse.json({ error: 'Game ID required' }, { status: 400 });
@@ -99,16 +99,16 @@ export async function POST(request: NextRequest) {
         // 3. Determine Status based on Waitlist logic
         const partySize = 1 + (guestIds?.length || 0);
         const isFull = (game.current_players + partySize) > game.max_players;
-        const isManualPayment = !!paymentMethod && paymentMethod !== 'promo';
+                const isManualPayment = !!paymentMethod && paymentMethod !== 'promo' && paymentMethod !== 'wallet';
 
         let initialStatus = isFull ? 'waitlist' : 'paid'; // Legacy status
         let initialPaymentStatus = isFull ? 'unpaid' : (isManualPayment ? 'pending' : 'verified');
 
         const adminSupabase = createAdminClient();
 
-        // 4. Wallet Math Integration (Mirroring Stripe Flow)
+                // 4. Wallet Math Integration (Mirroring Stripe Flow)
         let appliedCreditUnits = 0;
-        if (!isFull && game.price > 0 && isManualPayment) {
+        if (!isFull && game.price > 0 && (isManualPayment || paymentMethod === 'wallet')) {
             const subtotalUnits = game.price * partySize;
             const walletBalanceCredits = (profile?.credit_balance || 0) / 100;
             
@@ -130,10 +130,13 @@ export async function POST(request: NextRequest) {
                 game_id: gameId,
                 status: initialStatus,
                 payment_status: initialPaymentStatus,
-                payment_method: paymentMethod || 'free',
-                payment_amount: isManualPayment ? game.price : 0,
+                                payment_method: paymentMethod || 'free',
+                payment_amount: (isManualPayment || paymentMethod === 'wallet') ? game.price : 0,
                 checked_in: false,
                 team_assignment: teamAssignment !== undefined ? teamAssignment : null,
+                requested_team_id: requestedTeamId || null,
+                requested_teammate_ids: requestedTeammateIds || [],
+                requested_team_name: requestedTeamName || null,
                 note: note,
                 linked_booking_id: linkedBookingId
             }
@@ -146,10 +149,13 @@ export async function POST(request: NextRequest) {
                 game_id: gameId,
                 status: initialStatus,
                 payment_status: initialPaymentStatus,
-                payment_method: paymentMethod || 'free',
-                payment_amount: isManualPayment ? game.price : 0,
+                                payment_method: paymentMethod || 'free',
+                payment_amount: (isManualPayment || paymentMethod === 'wallet') ? game.price : 0,
                 checked_in: false,
                 team_assignment: teamAssignment !== undefined ? teamAssignment : null,
+                requested_team_id: requestedTeamId || null,
+                requested_teammate_ids: requestedTeammateIds || [],
+                requested_team_name: requestedTeamName || null,
                 linked_booking_id: linkedBookingId
             });
         }
