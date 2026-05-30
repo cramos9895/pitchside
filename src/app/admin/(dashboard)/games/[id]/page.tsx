@@ -1458,6 +1458,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                                         players={bookings.map(b => ({
                                         id: b.id,
                                         userId: b.user_id,
+                                        linked_booking_id: b.linked_booking_id,
                                         name: Array.isArray(b.profiles) ? (b.profiles[0]?.first_name ? `${b.profiles[0].first_name} ${b.profiles[0].last_name}` : 'Unknown') : (b.profiles?.first_name ? `${b.profiles.first_name} ${b.profiles.last_name}` : 'Unknown'),
                                         email: Array.isArray(b.profiles) ? b.profiles[0]?.email : b.profiles?.email || '',
                                         team: b.team_assignment as any || null,

@@ -19,9 +19,10 @@ interface JoinGameModalProps {
     isWaitlist: boolean;
     gameId: string;
     isLeague?: boolean;
+    remainingSpots?: number | null;
 }
 
-export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, isWaitlist, gameId, isLeague }: JoinGameModalProps) {
+export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, isWaitlist, gameId, isLeague, remainingSpots }: JoinGameModalProps) {
     const [step, setStep] = useState<'details' | 'payment'>('details');
     const [note, setNote] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<'venmo' | 'zelle' | 'cash' | 'stripe' | null>(null);
@@ -337,11 +338,11 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
 
             // Phase 46: Auto-open Stripe modal upon waiver return if that was the intent
             if (joinMode === 'free-agent') {
-                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, isFreeAgent: true, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
+                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, isFreeAgent: true, teamAssignment: selectedTeam !== null && selectedTeam !== 'unassigned' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
             } else if (step === 'payment' && paymentMethod) {
-                onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
+                onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'unassigned' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
             } else if (finalPrice === 0 || isWaitlist) {
-                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
+                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'unassigned' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
             } else {
                 // Default fallback - go to payment step if not there
                 setStep('payment');
@@ -459,9 +460,28 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                                 </button>
                                             );
                                         })}
+                                        
+                                        {/* Unassigned / Pool Option */}
+                                        <button
+                                            key="unassigned"
+                                            onClick={() => setSelectedTeam('unassigned')}
+                                            className={cn(
+                                                "text-left p-4 rounded-sm border transition-all relative overflow-hidden group sm:col-span-2",
+                                                selectedTeam === 'unassigned' ? "bg-pitch-accent/10 border-pitch-accent" : "bg-black/60 border-white/10 hover:border-white/30"
+                                            )}
+                                        >
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h4 className={cn("font-black italic uppercase tracking-wider", selectedTeam === 'unassigned' ? "text-pitch-accent" : "text-white")}>
+                                                    Unassigned / Group Pool
+                                                </h4>
+                                            </div>
+                                            <p className="text-xs text-gray-400 font-medium leading-relaxed">
+                                                Select this to stay together if your party size exceeds the remaining spots on a single team.
+                                            </p>
+                                        </button>
                                     </div>
                                     
-                                    {hasPrizePool && selectedTeam !== null && rosters.filter((r: (Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })) => r.team_assignment === selectedTeam).length === 0 && (
+                                    {hasPrizePool && selectedTeam !== null && selectedTeam !== 'unassigned' && rosters.filter((r: (Booking & { custom_invite_fee?: number | null, user?: { first_name: string | null, last_name: string | null, avatar_url: string | null } })) => r.team_assignment === selectedTeam).length === 0 && (
                                         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-sm p-4 mt-4 animate-in fade-in">
                                             <h4 className="flex items-center gap-2 text-yellow-500 font-bold uppercase text-xs mb-3">
                                                 <Award className="w-4 h-4" /> Prize Distribution Preference
@@ -708,16 +728,25 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 </div>
                             )}
 
+                            {/* Capacity Error */}
+                            {remainingSpots !== null && remainingSpots !== undefined && (1 + selectedGuests.length) > remainingSpots && !isWaitlist && (
+                                <div className="mt-4 p-3 rounded bg-red-500/10 border border-red-500/30">
+                                    <p className="text-xs text-red-400 font-bold text-center">
+                                        Not enough total spots remaining for your party of {1 + selectedGuests.length}. (Only {remainingSpots} left)
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="sticky bottom-[-24px] -mx-6 px-6 pb-6 pt-4 bg-pitch-card border-t border-white/5 z-10 mt-auto shadow-[0_-15px_15px_-15px_rgba(0,0,0,0.5)]">
                                 <button
                                     onClick={handleNext}
-                                                                                                                                                disabled={loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (gameData?.payment_collection_type === 'cash' && !cashAcknowledgement)}
+                                    disabled={loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (gameData?.payment_collection_type === 'cash' && !cashAcknowledgement) || (remainingSpots !== null && remainingSpots !== undefined && (1 + selectedGuests.length) > remainingSpots && !isWaitlist)}
                                     className={cn(
                                         "w-full py-4 font-black uppercase tracking-wider rounded-sm transition-colors flex items-center justify-center gap-2",
                                         isWaitlist
                                             ? "bg-yellow-500 text-black hover:bg-yellow-400"
                                             : "bg-pitch-accent text-pitch-black hover:bg-white",
-                                                                                                                                                                (loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (gameData?.payment_collection_type === 'cash' && !cashAcknowledgement)) && "opacity-50 cursor-not-allowed grayscale"
+                                                                                                                                                                (loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (gameData?.payment_collection_type === 'cash' && !cashAcknowledgement) || (remainingSpots !== null && remainingSpots !== undefined && (1 + selectedGuests.length) > remainingSpots && !isWaitlist)) && "opacity-50 cursor-not-allowed grayscale"
                                     )}
                                 >
                                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> :

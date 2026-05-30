@@ -1073,6 +1073,7 @@ export function GameClientPage({
                 loading={joinLoading}
                 isWaitlist={game.max_players != null && activeRoster.length >= game.max_players}
                 gameId={game.id}
+                remainingSpots={game.max_players != null ? Math.max(0, game.max_players - activeRoster.length) : null}
             />
 
             {/* Stripe Embedded Checkout */}

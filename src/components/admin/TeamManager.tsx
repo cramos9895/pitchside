@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { User, Shuffle, Crown } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { User, Shuffle, Crown, Link as LinkIcon, AlertTriangle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import { supabase } from '@/lib/supabase/client';
@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 interface Player {
     id: string; // booking_id
     userId: string;
+    linked_booking_id?: string | null;
     name: string;
     email: string;
     team: 'A' | 'B' | null;
@@ -78,6 +79,8 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
     const { success, error: toastError } = useToast();
     const [loading, setLoading] = useState(false);
     const [localPlayers, setLocalPlayers] = useState<Player[]>(players);
+    const [hoveredLinkId, setHoveredLinkId] = useState<string | null>(null);
+    const [groupMoveState, setGroupMoveState] = useState<{bookingId: string, newTeam: string | null, linkedBookingId: string, limit: number, count: number, exceedsCapacity: boolean} | null>(null);
 
     const playersJson = JSON.stringify(players);
 
@@ -88,10 +91,19 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
     // Filter only active/paid players for team assignment
     const activePlayers = localPlayers.filter(p => p.status === 'active' || p.status === 'paid');
 
+    const linkedGroups = useMemo(() => {
+        const counts: Record<string, number> = {};
+        activePlayers.forEach(p => {
+            if (p.linked_booking_id) {
+                counts[p.linked_booking_id] = (counts[p.linked_booking_id] || 0) + 1;
+            }
+        });
+        return counts;
+    }, [activePlayers]);
+
     const unassigned = activePlayers.filter(p => !p.team);
 
-    const handleMovePlayer = async (bookingId: string, newTeam: string | null) => {
-        // Optimistic update
+    const executeMoveSingle = async (bookingId: string, newTeam: string | null) => {
         setLocalPlayers(prev => prev.map(p => p.id === bookingId ? { ...p, team: newTeam as any } : p));
         try {
             setLoading(true);
@@ -104,13 +116,62 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
             success(`Player moved successfully.`);
             onUpdate();
         } catch (err: any) {
-            // Revert on failure
             setLocalPlayers(players);
             toastError(err.message);
         } finally {
             setLoading(false);
+            setGroupMoveState(null);
         }
     };
+
+    const executeMoveGroup = async (linkedBookingId: string, newTeam: string | null) => {
+        setLocalPlayers(prev => prev.map(p => p.linked_booking_id === linkedBookingId ? { ...p, team: newTeam as any } : p));
+        try {
+            setLoading(true);
+            const { error } = await supabase
+                .from('bookings')
+                .update({ team_assignment: newTeam })
+                .eq('linked_booking_id', linkedBookingId)
+                .eq('game_id', gameId);
+            
+            if (error) throw error;
+            success(`Group moved successfully.`);
+            onUpdate();
+        } catch (err: any) {
+            setLocalPlayers(players);
+            toastError(err.message);
+        } finally {
+            setLoading(false);
+            setGroupMoveState(null);
+        }
+    };
+
+    const handleMovePlayerRequest = async (bookingId: string, newTeam: string | null) => {
+        const player = activePlayers.find(p => p.id === bookingId);
+        if (player?.linked_booking_id && linkedGroups[player.linked_booking_id] > 1) {
+            let limit = 11;
+            let count = 0;
+            if (newTeam) {
+                const teamConfig = teams.find(t => t.name === newTeam);
+                limit = teamConfig?.limit || 11;
+                count = activePlayers.filter(p => p.team === newTeam).length;
+            }
+            const groupSize = linkedGroups[player.linked_booking_id];
+            const exceedsCapacity = newTeam ? (count + groupSize > limit) : false;
+            
+            setGroupMoveState({
+                bookingId,
+                newTeam,
+                linkedBookingId: player.linked_booking_id,
+                limit,
+                count,
+                exceedsCapacity
+            });
+        } else {
+            executeMoveSingle(bookingId, newTeam);
+        }
+    };
+
 
     const handleRandomize = async () => {
         if (!confirm('This will reshuffle ALL active players into random teams. Current assignments will be overwritten. Continue?')) return;
@@ -245,10 +306,13 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
                 <TeamColumn
                     title="Unassigned"
                     players={unassigned}
-                    colorClass="border-gray-700 bg-gray-900/50"
+                    colorClass="border-gray-500/30 bg-gray-900/50"
                     headerColor="text-gray-400"
                     allTeams={teams}
-                    onMovePlayer={handleMovePlayer}
+                    onMovePlayer={handleMovePlayerRequest}
+                    hoveredLinkId={hoveredLinkId}
+                    setHoveredLinkId={setHoveredLinkId}
+                    linkedGroups={linkedGroups}
                 />
 
                 {/* DYNAMIC TEAMS */}
@@ -265,11 +329,70 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
                             colorClass={colorClass}
                             headerColor={headerColor}
                             allTeams={teams}
-                            onMovePlayer={handleMovePlayer}
+                            onMovePlayer={handleMovePlayerRequest}
+                            hoveredLinkId={hoveredLinkId}
+                            setHoveredLinkId={setHoveredLinkId}
+                            linkedGroups={linkedGroups}
                         />
                     );
                 })}
             </div>
+
+            {/* Custom Group Move Modal */}
+            {groupMoveState && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setGroupMoveState(null)} />
+                    <div className="relative bg-pitch-card border border-white/10 rounded-sm shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+                        <button onClick={() => setGroupMoveState(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors">
+                            <X className="w-4 h-4" />
+                        </button>
+                        
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 bg-pitch-accent/10 text-pitch-accent">
+                                <LinkIcon className="w-6 h-6" />
+                            </div>
+                            <h3 className="text-xl font-heading font-bold uppercase italic text-white mb-2">
+                                Group Move Detected
+                            </h3>
+                            <p className="text-gray-400 mb-6 text-sm leading-relaxed">
+                                This player is registered in a group. Do you want to move the entire group or just this individual?
+                            </p>
+
+                            {groupMoveState.exceedsCapacity && groupMoveState.newTeam && (
+                                <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-sm flex items-start gap-3">
+                                    <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                                    <div className="text-left">
+                                        <p className="text-red-400 text-xs font-bold uppercase tracking-wider mb-1">Capacity Warning</p>
+                                        <p className="text-red-400/80 text-xs">Moving this group exceeds the capacity limit for {groupMoveState.newTeam}. You may force the move anyway.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex flex-col gap-3 w-full">
+                                <button
+                                    onClick={() => executeMoveGroup(groupMoveState.linkedBookingId, groupMoveState.newTeam)}
+                                    className={cn(
+                                        "w-full py-3 rounded-sm text-sm font-bold uppercase tracking-widest transition-colors",
+                                        groupMoveState.exceedsCapacity 
+                                            ? "bg-red-600 hover:bg-red-500 text-white" 
+                                            : "bg-pitch-accent hover:bg-white text-pitch-black"
+                                    )}
+                                    disabled={loading}
+                                >
+                                    {groupMoveState.exceedsCapacity ? 'Force Move Entire Group' : 'Move Entire Group'}
+                                </button>
+                                <button
+                                    onClick={() => executeMoveSingle(groupMoveState.bookingId, groupMoveState.newTeam)}
+                                    className="w-full py-3 border border-white/10 rounded-sm text-sm font-bold uppercase tracking-widest text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                                    disabled={loading}
+                                >
+                                    Just This Player
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -280,7 +403,10 @@ function TeamColumn({
     colorClass,
     headerColor,
     allTeams,
-    onMovePlayer
+    onMovePlayer,
+    hoveredLinkId,
+    setHoveredLinkId,
+    linkedGroups
 }: {
     title: string,
     players: Player[],
@@ -288,6 +414,9 @@ function TeamColumn({
     headerColor: string,
     allTeams: TeamConfig[],
     onMovePlayer: (id: string, team: string | null) => void;
+    hoveredLinkId: string | null;
+    setHoveredLinkId: (id: string | null) => void;
+    linkedGroups: Record<string, number>;
 }) {
     // Find the team config for this column to get limit/color info
     const currentTeamConfig = allTeams.find(t => t.name === title);
@@ -318,19 +447,36 @@ function TeamColumn({
             </div>
 
             <div className="p-2 space-y-1">
-                {players.map(p => (
-                    <DropdownMenu key={p.id}>
-                        <DropdownMenuTrigger asChild>
-                            <div className="bg-black/40 px-2 py-1.5 rounded border border-white/5 flex items-center gap-2 group hover:border-white/20 hover:bg-white/5 transition-colors cursor-pointer">
-                                <div className={cn(
-                                    "w-1.5 h-1.5 rounded-full shrink-0",
-                                    p.payment_status === 'verified' ? "bg-green-500" :
-                                        p.payment_status === 'pending' ? "bg-yellow-500" : "bg-red-500"
-                                )} title={`Payment: ${p.payment_status}`} />
+                {players.map(p => {
+                    const isGrouped = p.linked_booking_id && linkedGroups[p.linked_booking_id] > 1;
+                    const isHovered = isGrouped && hoveredLinkId === p.linked_booking_id;
+                    
+                    return (
+                        <DropdownMenu key={p.id}>
+                            <DropdownMenuTrigger asChild>
+                                <div 
+                                    className={cn(
+                                        "px-2 py-1.5 rounded border flex items-center gap-2 group transition-all cursor-pointer duration-200",
+                                        isHovered 
+                                            ? "bg-[#ccff00]/10 border-[#ccff00] ring-1 ring-[#ccff00] scale-[1.02]" 
+                                            : "bg-black/40 border-white/5 hover:border-white/20 hover:bg-white/5"
+                                    )}
+                                    onMouseEnter={() => { if (isGrouped) setHoveredLinkId(p.linked_booking_id!); }}
+                                    onMouseLeave={() => setHoveredLinkId(null)}
+                                >
+                                    <div className={cn(
+                                        "w-1.5 h-1.5 rounded-full shrink-0",
+                                        p.payment_status === 'verified' ? "bg-green-500" :
+                                            p.payment_status === 'pending' ? "bg-yellow-500" : "bg-red-500"
+                                    )} title={`Payment: ${p.payment_status}`} />
+                                    
+                                    {isGrouped && (
+                                        <LinkIcon className={cn("w-3 h-3 shrink-0", isHovered ? "text-[#ccff00]" : "text-[#ccff00] opacity-80")} />
+                                    )}
 
-                                <div className="text-xs text-gray-200 truncate flex-1 text-left">{p.name}</div>
-                            </div>
-                        </DropdownMenuTrigger>
+                                    <div className={cn("text-xs truncate flex-1 text-left", isHovered ? "text-white font-bold" : "text-gray-200")}>{p.name}</div>
+                                </div>
+                            </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-48">
                             <div className="text-xs text-gray-500 font-bold px-2 py-1.5 uppercase tracking-wider">Move to...</div>
                             {title !== "Unassigned" && (
@@ -348,7 +494,8 @@ function TeamColumn({
                             })}
                         </DropdownMenuContent>
                     </DropdownMenu>
-                ))}
+                    )
+                })}
                 {players.length === 0 && (
                     <div className="text-center text-gray-600 text-[10px] italic py-4">Empty</div>
                 )}
