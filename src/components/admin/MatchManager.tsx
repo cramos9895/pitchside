@@ -1126,40 +1126,40 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                             if (match.status === 'scheduled' && isEditing) return null;
 
                                             return (
-                                                <div key={match.id} className="relative group flex flex-col md:flex-row items-center bg-white/5 py-4 px-3 md:py-5 md:px-6 rounded-xl border border-white/5 hover:bg-white/[0.07] transition-all min-h-[88px] gap-3 md:gap-0">
+                                                <div key={match.id} className="relative group flex items-center bg-white/5 py-3 px-2 md:py-5 md:px-6 rounded-xl border border-white/5 hover:bg-white/[0.07] transition-all min-h-[70px] md:min-h-[88px]">
                                                     {/* Left: Home */}
-                                                    <div className="w-full md:flex-1 text-center md:text-right flex justify-center md:justify-end items-center px-2 md:px-4">
-                                                        <span className="text-sm md:text-base font-black uppercase tracking-tight text-white">{match.home_team}</span>
+                                                    <div className="flex-1 text-right flex justify-end items-center px-1 md:px-4">
+                                                        <span className="text-xs md:text-base font-black uppercase tracking-tight text-white truncate max-w-[70px] md:max-w-none">{match.home_team}</span>
                                                     </div>
 
                                                     {/* Center: Score & Field */}
-                                                    <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6 px-4 md:px-6 py-3 md:py-0 w-full md:w-auto border-y md:border-y-0 md:border-x border-white/10">
-                                                        <div className="text-[10px] font-black text-pitch-secondary bg-pitch-secondary/10 px-3 py-1 rounded border border-pitch-secondary/10 uppercase tracking-widest shrink-0">
+                                                    <div className="flex items-center justify-center gap-2 md:gap-6 px-2 md:px-6 border-x border-white/10 shrink-0">
+                                                        <div className="hidden md:block text-[10px] font-black text-pitch-secondary bg-pitch-secondary/10 px-3 py-1 rounded border border-pitch-secondary/10 uppercase tracking-widest shrink-0">
                                                             {match.field_name || 'FIELD TBD'}
                                                         </div>
-                                                        <div className="flex items-center gap-3">
+                                                        <div className="flex items-center gap-1 md:gap-3">
                                                             <input
                                                                 type="number"
                                                                 disabled={isDone}
                                                                 value={hScore}
                                                                 onChange={(e) => handleScoreChange(match.id, 'home', Number(e.target.value))}
-                                                                className={cn("w-14 bg-black border py-2 text-center text-white rounded font-mono text-xl font-bold focus:ring-1 focus:ring-pitch-accent transition-all", isDone ? "border-transparent text-gray-400" : "border-pitch-accent/50")}
+                                                                className={cn("w-10 md:w-14 bg-black border py-1.5 md:py-2 text-center text-white rounded font-mono text-sm md:text-xl font-bold focus:ring-1 focus:ring-pitch-accent transition-all", isDone ? "border-transparent text-gray-400" : "border-pitch-accent/50")}
                                                             />
-                                                            <span className="text-gray-600 font-black text-xl">:</span>
+                                                            <span className="text-gray-600 font-black text-base md:text-xl">:</span>
                                                             <input
                                                                 type="number"
                                                                 disabled={isDone}
                                                                 value={aScore}
                                                                 onChange={(e) => handleScoreChange(match.id, 'away', Number(e.target.value))}
-                                                                className={cn("w-14 bg-black border py-2 text-center text-white rounded font-mono text-xl font-bold focus:ring-1 focus:ring-pitch-accent transition-all", isDone ? "border-transparent text-gray-400" : "border-pitch-accent/50")}
+                                                                className={cn("w-10 md:w-14 bg-black border py-1.5 md:py-2 text-center text-white rounded font-mono text-sm md:text-xl font-bold focus:ring-1 focus:ring-pitch-accent transition-all", isDone ? "border-transparent text-gray-400" : "border-pitch-accent/50")}
                                                             />
                                                         </div>
-                                                        {isDone && <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 hidden md:block" />}
+                                                        {isDone && <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />}
                                                     </div>
 
                                                     {/* Right: Away */}
-                                                    <div className="w-full md:flex-1 text-center md:text-left flex justify-center md:justify-start items-center px-2 md:px-4">
-                                                        <span className="text-sm md:text-base font-black uppercase tracking-tight text-white">{match.away_team}</span>
+                                                    <div className="flex-1 text-left flex justify-start items-center px-1 md:px-4">
+                                                        <span className="text-xs md:text-base font-black uppercase tracking-tight text-white truncate max-w-[70px] md:max-w-none">{match.away_team}</span>
                                                     </div>
                                                 </div>
                                             );
