@@ -211,7 +211,7 @@ export function GameClientPage({
         fetchUserDataAndRoster();
     }, [gameId, currentUser, game, supabase]);
 
-    const proceedToJoin = async (data: { note: string; paymentMethod: 'stripe' | 'venmo' | 'zelle' | 'cash' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; guestIds?: string[] }) => {
+    const proceedToJoin = async (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; guestIds?: string[] }) => {
         if (!game || !currentUser) {
             if (!currentUser) router.push('/login');
             return;
@@ -288,7 +288,7 @@ export function GameClientPage({
                 body: JSON.stringify({
                     gameId: game.id,
                     note: data.note,
-                    paymentMethod: (game.price === 0 && !data.paymentMethod) ? 'promo' : data.paymentMethod,
+                    paymentMethod: data.paymentMethod || ((game.price === 0) ? 'promo' : null),
                     promoCodeId: data.promoCodeId,
                     teamAssignment: data.teamAssignment,
                     guestIds: data.guestIds || []
@@ -298,14 +298,14 @@ export function GameClientPage({
             const responseData = await response.json();
             if (!response.ok) throw new Error(responseData.error || responseData.message);
             
-            alert("Successfully joined!");
+            success("Successfully joined!");
             setIsJoinModalOpen(false);
             setJoinLoading(false);
             window.location.reload();
 
         } catch (error: any) {
             console.error('Join Error:', error);
-            alert('Failed to join: ' + error.message);
+            toastError('Failed to join: ' + error.message);
             setJoinLoading(false);
         }
     };

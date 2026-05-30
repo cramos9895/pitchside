@@ -9,6 +9,7 @@ import { User } from '@supabase/supabase-js';
 import { JoinGameModal } from '../../JoinGameModal';
 import { cancelBooking } from '@/app/actions/cancel-booking';
 import { EmbeddedCheckoutModal } from '../../EmbeddedCheckoutModal';
+import { useToast } from '@/components/ui/Toast';
 import { Booking, Profile, ProfileWithUI } from "@/types/index";
 
 
@@ -46,6 +47,7 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
     const [currentPlayers, setCurrentPlayers] = useState(game.current_players);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
+    const { success, error: toastError } = useToast();
 
     const gameDate = new Date(game.start_time);
 
@@ -169,7 +171,7 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
         }
     }, [user, supabase]);
 
-    const proceedToJoin = async (data: { note: string; paymentMethod: 'stripe' | 'venmo' | 'zelle' | 'cash' | 'platform_paid' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; event_type?: string; guestIds?: string[] }) => {
+    const proceedToJoin = async (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; event_type?: string; guestIds?: string[] }) => {
         setLoading(true);
 
         try {
@@ -229,7 +231,7 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
                     body: JSON.stringify({
                         gameId: game.id,
                         note: data.note,
-                        paymentMethod: finalCost === 0 && !data.paymentMethod ? 'promo' : data.paymentMethod,
+                        paymentMethod: data.paymentMethod || ((finalCost === 0) ? 'promo' : null),
                         promoCodeId: data.promoCodeId,
                         teamAssignment: data.teamAssignment,
                         guestIds: data.guestIds || []
@@ -239,7 +241,7 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
                 const responseData = await response.json();
                 if (!response.ok) throw new Error(responseData.error || responseData.message);
                 if (responseData.message) {
-                    alert(responseData.message);
+                    toastError(responseData.message);
                     if (responseData.success === false) {
                         setLoading(false);
                         setIsModalOpen(false);
@@ -252,9 +254,10 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
                 if (!wasAlreadyFull) {
                     setStatus('paid');
                     setCurrentPlayers(prev => prev + 1);
+                    success("Successfully joined!");
                 } else {
                     setStatus('waitlist');
-                    alert("You've been added to the waitlist!");
+                    success("You've been added to the waitlist!");
                 }
 
                 setIsModalOpen(false);
@@ -284,7 +287,7 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
                     setJoined(true);
                     setStatus('paid');
                     setCurrentPlayers(prev => prev + 1);
-                    alert("Success! logic: Free credit redeemed.");
+                    success("Success! Free credit redeemed.");
                                         // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                         setUserProfile({ ...userProfile, free_game_credits: userProfile.free_game_credits - 1 });
 

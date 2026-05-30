@@ -13,7 +13,7 @@ import { ProfileWithUI, GameWithPayments, Booking, Team, TeamConfig } from "@/ty
 interface JoinGameModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (data: { note: string; paymentMethod: 'venmo' | 'zelle' | 'cash' | 'stripe' | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; guestIds?: string[] }) => Promise<void>;
+    onConfirm: (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; guestIds?: string[] }) => Promise<void>;
     gamePrice: number;
     loading: boolean;
     isWaitlist: boolean;
@@ -342,7 +342,13 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             } else if (step === 'payment' && paymentMethod) {
                 onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'unassigned' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
             } else if (finalPrice === 0 || isWaitlist) {
-                onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'unassigned' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
+                let determinedMethod = null;
+                if (!isWaitlist && finalPrice === 0) {
+                    if (subtotalAfterPromo === 0) determinedMethod = 'promo';
+                    else if (creditApplied > 0 && creditApplied >= subtotalAfterPromo) determinedMethod = 'wallet';
+                    else if (baseSubtotal === 0) determinedMethod = 'promo';
+                }
+                onConfirm({ note, paymentMethod: determinedMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'unassigned' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id) });
             } else {
                 // Default fallback - go to payment step if not there
                 setStep('payment');

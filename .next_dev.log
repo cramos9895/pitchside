@@ -1,0 +1,363 @@
+
+> pitch-side@0.1.0 dev
+> next dev --webpack
+
+▲ Next.js 16.1.6 (webpack)
+- Local:         http://localhost:3000
+- Network:       http://10.0.0.91:3000
+- Environments: .env.local
+
+✓ Starting...
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+✓ Ready in 752ms
+ GET / 200 in 2.1s (compile: 1345ms, proxy.ts: 66ms, render: 738ms)
+ GET /login 200 in 385ms (compile: 355ms, proxy.ts: 11ms, render: 19ms)
+ GET /login 200 in 11ms (compile: 1007µs, proxy.ts: 2ms, render: 8ms)
+ GET /login 200 in 205ms (compile: 6ms, proxy.ts: 177ms, render: 22ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ POST /auth/login 200 in 715ms (compile: 364ms, proxy.ts: 73ms, render: 278ms)
+ GET /login 200 in 109ms (compile: 34ms, proxy.ts: 57ms, render: 17ms)
+ GET /dashboard 200 in 596ms (compile: 526ms, proxy.ts: 52ms, render: 18ms)
+ GET /admin 200 in 881ms (compile: 452ms, proxy.ts: 116ms, render: 313ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 1160ms (compile: 1013ms, proxy.ts: 114ms, render: 33ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 335ms (compile: 226ms, proxy.ts: 56ms, render: 53ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 105ms (compile: 996µs, proxy.ts: 50ms, render: 54ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 550ms (compile: 24ms, proxy.ts: 101ms, render: 426ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 119ms (compile: 3ms, proxy.ts: 56ms, render: 60ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 392ms (compile: 21ms, proxy.ts: 109ms, render: 261ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 116ms (compile: 4ms, proxy.ts: 56ms, render: 57ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 407ms (compile: 11ms, proxy.ts: 111ms, render: 285ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 123ms (compile: 4ms, proxy.ts: 62ms, render: 57ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 366ms (compile: 11ms, proxy.ts: 105ms, render: 251ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 119ms (compile: 3ms, proxy.ts: 53ms, render: 63ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 504ms (compile: 14ms, proxy.ts: 195ms, render: 294ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 114ms (compile: 3ms, proxy.ts: 51ms, render: 60ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 358ms (compile: 10ms, proxy.ts: 110ms, render: 238ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 121ms (compile: 3ms, proxy.ts: 62ms, render: 56ms)
+ GET / 200 in 465ms (compile: 22ms, proxy.ts: 113ms, render: 330ms)
+ GET /admin 200 in 306ms (compile: 26ms, proxy.ts: 114ms, render: 167ms)
+ GET /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 145ms (compile: 12ms, proxy.ts: 118ms, render: 15ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=624951d1-f81e-4c42-97ba-0fd507775c53 200 in 388ms (compile: 4ms, proxy.ts: 332ms, render: 52ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=624951d1-f81e-4c42-97ba-0fd507775c53 200 in 111ms (compile: 3ms, proxy.ts: 53ms, render: 55ms)
+ POST /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 280ms (compile: 11ms, proxy.ts: 108ms, render: 161ms)
+ POST /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 155ms (compile: 3ms, proxy.ts: 96ms, render: 55ms)
+ GET /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 328ms (compile: 2ms, proxy.ts: 92ms, render: 234ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=624951d1-f81e-4c42-97ba-0fd507775c53 200 in 123ms (compile: 3ms, proxy.ts: 56ms, render: 64ms)
+ POST /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 168ms (compile: 9ms, proxy.ts: 105ms, render: 54ms)
+ POST /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 145ms (compile: 2ms, proxy.ts: 93ms, render: 50ms)
+ GET /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 368ms (compile: 10ms, proxy.ts: 118ms, render: 239ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=624951d1-f81e-4c42-97ba-0fd507775c53 200 in 113ms (compile: 3ms, proxy.ts: 56ms, render: 53ms)
+ POST /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 176ms (compile: 10ms, proxy.ts: 109ms, render: 57ms)
+ POST /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 144ms (compile: 2ms, proxy.ts: 93ms, render: 49ms)
+ GET /admin 200 in 199ms (compile: 6ms, proxy.ts: 110ms, render: 83ms)
+ GET /auth/logout 303 in 577ms (compile: 550ms, proxy.ts: 7ms, render: 21ms)
+ GET /login 200 in 564ms (compile: 537ms, proxy.ts: 5ms, render: 22ms)
+ GET / 200 in 186ms (compile: 5ms, proxy.ts: 2ms, render: 179ms)
+ GET /login 200 in 36ms (compile: 5ms, proxy.ts: 11ms, render: 19ms)
+ GET /login 200 in 186ms (compile: 4ms, proxy.ts: 159ms, render: 22ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ POST /auth/login 200 in 470ms (compile: 6ms, proxy.ts: 184ms, render: 280ms)
+ GET /login 200 in 92ms (compile: 4ms, proxy.ts: 67ms, render: 21ms)
+ GET /dashboard 200 in 89ms (compile: 23ms, proxy.ts: 53ms, render: 13ms)
+ GET /admin 200 in 474ms (compile: 28ms, proxy.ts: 229ms, render: 217ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 173ms (compile: 53ms, proxy.ts: 112ms, render: 8ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 123ms (compile: 3ms, proxy.ts: 59ms, render: 61ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 119ms (compile: 1517µs, proxy.ts: 54ms, render: 63ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 564ms (compile: 11ms, proxy.ts: 140ms, render: 412ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 148ms (compile: 3ms, proxy.ts: 78ms, render: 67ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 382ms (compile: 12ms, proxy.ts: 120ms, render: 250ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 145ms (compile: 3ms, proxy.ts: 66ms, render: 76ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 1076ms (compile: 123ms, proxy.ts: 895ms, render: 58ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 318ms (compile: 82ms, proxy.ts: 181ms, render: 54ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 279ms (compile: 68ms, proxy.ts: 167ms, render: 43ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 361ms (compile: 80ms, proxy.ts: 219ms, render: 62ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 990ms (compile: 16ms, proxy.ts: 477ms, render: 497ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 681ms (compile: 549ms, proxy.ts: 60ms, render: 72ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 699ms (compile: 74ms, proxy.ts: 178ms, render: 446ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 126ms (compile: 3ms, proxy.ts: 62ms, render: 62ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 392ms (compile: 11ms, proxy.ts: 133ms, render: 248ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 118ms (compile: 4ms, proxy.ts: 54ms, render: 60ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 904ms (compile: 126ms, proxy.ts: 724ms, render: 54ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 414ms (compile: 77ms, proxy.ts: 292ms, render: 45ms)
+⨯ ./src/components/admin/MatchManager.tsx
+Error:   x Expected '</', got '}'
+     ,-[/Users/christianramos/Desktop/PitchSide/src/components/admin/MatchManager.tsx:960:1]
+ 957 | 
+ 958 |                         {timerStatus === 'running' ? (
+ 959 |                             <button
+ 960 |                                 onClick={() => updateTimerDB('paused')} {/* Logic handles remaining duration calc */}
+     :                                                                                                                     ^
+ 961 |                                 disabled={timerLoading}
+ 962 |                                 className="px-6 py-2 bg-yellow-600 text-white font-bold uppercase rounded flex items-center gap-2 hover:bg-yellow-500 transition-colors"
+ 963 |                             >
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/admin/MatchManager.tsx
+./src/app/admin/(dashboard)/games/[id]/page.tsx
+⨯ ./src/components/admin/MatchManager.tsx
+Error:   x Expected '</', got '}'
+     ,-[/Users/christianramos/Desktop/PitchSide/src/components/admin/MatchManager.tsx:960:1]
+ 957 | 
+ 958 |                         {timerStatus === 'running' ? (
+ 959 |                             <button
+ 960 |                                 onClick={() => updateTimerDB('paused')} {/* Logic handles remaining duration calc */}
+     :                                                                                                                     ^
+ 961 |                                 disabled={timerLoading}
+ 962 |                                 className="px-6 py-2 bg-yellow-600 text-white font-bold uppercase rounded flex items-center gap-2 hover:bg-yellow-500 transition-colors"
+ 963 |                             >
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/admin/MatchManager.tsx
+./src/app/admin/(dashboard)/games/[id]/page.tsx
+ GET / 500 in 2.0s (compile: 1986ms, proxy.ts: 10ms, render: 50ms)
+ GET / 500 in 6ms (compile: 1229µs, proxy.ts: 2ms, render: 3ms)
+○ Compiling /_error ...
+⨯ ./src/components/admin/MatchManager.tsx
+Error:   x Expected '</', got '}'
+     ,-[/Users/christianramos/Desktop/PitchSide/src/components/admin/MatchManager.tsx:960:1]
+ 957 | 
+ 958 |                         {timerStatus === 'running' ? (
+ 959 |                             <button
+ 960 |                                 onClick={() => updateTimerDB('paused')} {/* Logic handles remaining duration calc */}
+     :                                                                                                                     ^
+ 961 |                                 disabled={timerLoading}
+ 962 |                                 className="px-6 py-2 bg-yellow-600 text-white font-bold uppercase rounded flex items-center gap-2 hover:bg-yellow-500 transition-colors"
+ 963 |                             >
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/admin/MatchManager.tsx
+./src/app/admin/(dashboard)/games/[id]/page.tsx
+ GET / 500 in 28ms (compile: 5ms, proxy.ts: 8ms, render: 16ms)
+ GET / 500 in 21ms (compile: 5ms, proxy.ts: 6ms, render: 9ms)
+ GET / 500 in 26ms (compile: 6ms, proxy.ts: 13ms, render: 7ms)
+ GET / 500 in 16ms (compile: 5ms, proxy.ts: 5ms, render: 6ms)
+⨯ ./src/components/admin/MatchManager.tsx
+Error:   x Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     ,-[/Users/christianramos/Desktop/PitchSide/src/components/admin/MatchManager.tsx:976:1]
+ 973 |                             >
+ 974 |                                 <PlayCircle className="w-4 h-4" /> Start
+ 975 |                             </button>
+ 976 |                         )}
+     :                          ^
+ 977 |                         <button
+ 978 |                             onClick={() => setIsResetModalOpen(true)}
+ 979 |                             disabled={timerLoading}
+     `----
+  x Expected '</', got 'ident'
+     ,-[/Users/christianramos/Desktop/PitchSide/src/components/admin/MatchManager.tsx:985:1]
+ 982 |                         >
+ 983 |                             <Square className="w-5 h-5" />
+ 984 |                         </button>
+ 985 |                     </div>
+     :                       ^^^
+ 986 |                 </div>
+ 987 |             </div>
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/admin/MatchManager.tsx
+./src/app/admin/(dashboard)/games/[id]/page.tsx
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET / 200 in 252ms (compile: 180ms, proxy.ts: 6ms, render: 66ms)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET / 200 in 18ms (compile: 1034µs, proxy.ts: 7ms, render: 10ms)
+ GET / 200 in 356ms (compile: 778µs, proxy.ts: 1547µs, render: 354ms)
+ GET /login 200 in 26ms (compile: 10ms, proxy.ts: 6ms, render: 11ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ POST /auth/login 200 in 939ms (compile: 508ms, proxy.ts: 137ms, render: 294ms)
+ GET /login 200 in 126ms (compile: 50ms, proxy.ts: 58ms, render: 19ms)
+ GET /dashboard 200 in 78ms (compile: 14ms, proxy.ts: 57ms, render: 7ms)
+ GET /games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 1373ms (compile: 914ms, proxy.ts: 141ms, render: 318ms)
+ GET /games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 585ms (compile: 144ms, proxy.ts: 381ms, render: 61ms)
+ GET /schedule 200 in 1572ms (compile: 859ms, proxy.ts: 264ms, render: 449ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 1263ms (compile: 839ms, proxy.ts: 65ms, render: 359ms)
+ GET /dashboard 200 in 193ms (compile: 20ms, proxy.ts: 162ms, render: 11ms)
+ GET /games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 399ms (compile: 25ms, proxy.ts: 60ms, render: 314ms)
+ GET /games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 400ms (compile: 69ms, proxy.ts: 266ms, render: 65ms)
+ GET /games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 382ms (compile: 57ms, proxy.ts: 260ms, render: 64ms)
+ GET /games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 522ms (compile: 53ms, proxy.ts: 409ms, render: 60ms)
+ GET /games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 152ms (compile: 3ms, proxy.ts: 132ms, render: 17ms)
+ GET /dashboard 200 in 508ms (compile: 301ms, proxy.ts: 138ms, render: 69ms)
+ GET /dashboard 200 in 118ms (compile: 41ms, proxy.ts: 58ms, render: 19ms)
+ GET /admin 200 in 469ms (compile: 19ms, proxy.ts: 175ms, render: 275ms)
+ GET /dashboard 200 in 61ms (compile: 1836µs, proxy.ts: 53ms, render: 6ms)
+ GET /games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 376ms (compile: 29ms, proxy.ts: 71ms, render: 275ms)
+ GET /schedule 200 in 652ms (compile: 17ms, proxy.ts: 204ms, render: 431ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 336ms (compile: 29ms, proxy.ts: 60ms, render: 247ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 295ms (compile: 9ms, proxy.ts: 234ms, render: 52ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 315ms (compile: 79ms, proxy.ts: 161ms, render: 75ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 293ms (compile: 52ms, proxy.ts: 199ms, render: 43ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 864ms (compile: 67ms, proxy.ts: 389ms, render: 409ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 287ms (compile: 53ms, proxy.ts: 189ms, render: 45ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 290ms (compile: 54ms, proxy.ts: 194ms, render: 42ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 700ms (compile: 69ms, proxy.ts: 588ms, render: 43ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 553ms (compile: 11ms, proxy.ts: 164ms, render: 378ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 250ms (compile: 46ms, proxy.ts: 158ms, render: 46ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 314ms (compile: 55ms, proxy.ts: 217ms, render: 42ms)
+ GET /schedule 200 in 828ms (compile: 19ms, proxy.ts: 170ms, render: 639ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 517ms (compile: 68ms, proxy.ts: 405ms, render: 44ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 806ms (compile: 7ms, proxy.ts: 134ms, render: 664ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 577ms (compile: 51ms, proxy.ts: 155ms, render: 372ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 643ms (compile: 68ms, proxy.ts: 530ms, render: 44ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 165ms (compile: 49ms, proxy.ts: 69ms, render: 47ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 451ms (compile: 54ms, proxy.ts: 350ms, render: 46ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 1015ms (compile: 5ms, proxy.ts: 270ms, render: 740ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 625ms (compile: 62ms, proxy.ts: 517ms, render: 46ms)
+ GET /rolling-leagues/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 302ms (compile: 47ms, proxy.ts: 208ms, render: 46ms)
+ GET /dashboard 200 in 203ms (compile: 20ms, proxy.ts: 173ms, render: 9ms)
+ GET /profile 200 in 1037ms (compile: 870ms, proxy.ts: 148ms, render: 19ms)
+ GET /profile 200 in 81ms (compile: 1525µs, proxy.ts: 72ms, render: 8ms)
+ GET /leaderboard 200 in 515ms (compile: 376ms, proxy.ts: 126ms, render: 12ms)
+ GET / 200 in 1069ms (compile: 540ms, proxy.ts: 208ms, render: 322ms)
+ GET / 200 in 526ms (compile: 58ms, proxy.ts: 318ms, render: 150ms)
+ GET /admin 200 in 1028ms (compile: 473ms, proxy.ts: 282ms, render: 273ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 1178ms (compile: 878ms, proxy.ts: 266ms, render: 34ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 569ms (compile: 429ms, proxy.ts: 62ms, render: 78ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 121ms (compile: 1460µs, proxy.ts: 58ms, render: 62ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 134ms (compile: 4ms, proxy.ts: 64ms, render: 66ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 136ms (compile: 4ms, proxy.ts: 64ms, render: 69ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 862ms (compile: 77ms, proxy.ts: 358ms, render: 427ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 137ms (compile: 3ms, proxy.ts: 71ms, render: 62ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 902ms (compile: 140ms, proxy.ts: 728ms, render: 34ms)
+ GET /admin 200 in 359ms (compile: 21ms, proxy.ts: 211ms, render: 127ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 154ms (compile: 12ms, proxy.ts: 127ms, render: 15ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 495ms (compile: 384ms, proxy.ts: 51ms, render: 60ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 108ms (compile: 998µs, proxy.ts: 53ms, render: 54ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 782ms (compile: 56ms, proxy.ts: 311ms, render: 415ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 138ms (compile: 5ms, proxy.ts: 70ms, render: 64ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 1170ms (compile: 135ms, proxy.ts: 706ms, render: 329ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 497ms (compile: 274ms, proxy.ts: 152ms, render: 70ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 111ms (compile: 1562µs, proxy.ts: 52ms, render: 58ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 948ms (compile: 130ms, proxy.ts: 784ms, render: 34ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 615ms (compile: 264ms, proxy.ts: 201ms, render: 150ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 136ms (compile: 3ms, proxy.ts: 59ms, render: 75ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 466ms (compile: 128ms, proxy.ts: 296ms, render: 41ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 685ms (compile: 11ms, proxy.ts: 431ms, render: 243ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 503ms (compile: 11ms, proxy.ts: 111ms, render: 382ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 382ms (compile: 270ms, proxy.ts: 54ms, render: 59ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 117ms (compile: 4ms, proxy.ts: 56ms, render: 57ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 108ms (compile: 3ms, proxy.ts: 52ms, render: 52ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 643ms (compile: 128ms, proxy.ts: 481ms, render: 34ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 630ms (compile: 12ms, proxy.ts: 331ms, render: 286ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 523ms (compile: 12ms, proxy.ts: 131ms, render: 380ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 518ms (compile: 393ms, proxy.ts: 66ms, render: 58ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 130ms (compile: 2ms, proxy.ts: 71ms, render: 57ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 118ms (compile: 4ms, proxy.ts: 51ms, render: 63ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 519ms (compile: 66ms, proxy.ts: 212ms, render: 241ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 430ms (compile: 56ms, proxy.ts: 336ms, render: 38ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 631ms (compile: 12ms, proxy.ts: 369ms, render: 250ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 368ms (compile: 10ms, proxy.ts: 105ms, render: 253ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 598ms (compile: 104ms, proxy.ts: 461ms, render: 33ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 673ms (compile: 91ms, proxy.ts: 534ms, render: 48ms)
+ GET /admin/games/9ca0420e-98b7-4355-a6cf-6d24f7c40ccd 200 in 938ms (compile: 72ms, proxy.ts: 836ms, render: 29ms)
+ GET /admin 200 in 1120ms (compile: 43ms, proxy.ts: 911ms, render: 166ms)
+ GET /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 245ms (compile: 12ms, proxy.ts: 221ms, render: 13ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=624951d1-f81e-4c42-97ba-0fd507775c53 200 in 510ms (compile: 388ms, proxy.ts: 58ms, render: 64ms)
+[SUPABASE ADMIN STAGE]: Initializing with key prefix: eyJhbGciOiJIUzI...
+ GET /api/matches?gameId=624951d1-f81e-4c42-97ba-0fd507775c53 200 in 105ms (compile: 1471µs, proxy.ts: 56ms, render: 47ms)
+ POST /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 265ms (compile: 64ms, proxy.ts: 100ms, render: 102ms)
+ POST /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 152ms (compile: 2ms, proxy.ts: 97ms, render: 53ms)
+ POST /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 369ms (compile: 7ms, proxy.ts: 277ms, render: 85ms)
+ POST /admin/games/624951d1-f81e-4c42-97ba-0fd507775c53 200 in 151ms (compile: 3ms, proxy.ts: 98ms, render: 50ms)
+ GET /admin 200 in 316ms (compile: 33ms, proxy.ts: 197ms, render: 85ms)
+ GET /admin/create 200 in 1057ms (compile: 791ms, proxy.ts: 231ms, render: 36ms)
+ GET /admin/create/pickup 200 in 720ms (compile: 462ms, proxy.ts: 236ms, render: 22ms)
+ GET /admin/create/pickup 200 in 716ms (compile: 70ms, proxy.ts: 606ms, render: 40ms)
+ GET /admin/create/pickup 200 in 340ms (compile: 32ms, proxy.ts: 276ms, render: 32ms)
+ GET /admin/create/pickup 200 in 279ms (compile: 5ms, proxy.ts: 242ms, render: 31ms)
+ GET /admin 200 in 1294ms (compile: 35ms, proxy.ts: 998ms, render: 262ms)
+ GET /admin 200 in 361ms (compile: 4ms, proxy.ts: 172ms, render: 186ms)
+ GET /admin 200 in 377ms (compile: 38ms, proxy.ts: 292ms, render: 47ms)
+ GET /admin 200 in 275ms (compile: 43ms, proxy.ts: 193ms, render: 38ms)
+ GET /admin 200 in 560ms (compile: 10ms, proxy.ts: 524ms, render: 26ms)
+ GET /admin 200 in 210ms (compile: 3ms, proxy.ts: 180ms, render: 28ms)
+ GET /admin 200 in 219ms (compile: 21ms, proxy.ts: 167ms, render: 31ms)
+ GET /admin 200 in 695ms (compile: 6ms, proxy.ts: 306ms, render: 383ms)
+ GET /admin 200 in 1252ms (compile: 41ms, proxy.ts: 919ms, render: 292ms)
+ GET /admin 200 in 234ms (compile: 30ms, proxy.ts: 169ms, render: 36ms)
+ GET /admin 200 in 538ms (compile: 27ms, proxy.ts: 470ms, render: 41ms)
+ GET /admin 200 in 829ms (compile: 39ms, proxy.ts: 749ms, render: 42ms)
+ GET /admin 200 in 358ms (compile: 36ms, proxy.ts: 281ms, render: 41ms)
+ GET /admin 200 in 1213ms (compile: 7ms, proxy.ts: 916ms, render: 290ms)
+ GET /admin 200 in 884ms (compile: 39ms, proxy.ts: 803ms, render: 42ms)
+ GET /admin 200 in 369ms (compile: 37ms, proxy.ts: 292ms, render: 40ms)
+ GET /admin 200 in 842ms (compile: 42ms, proxy.ts: 764ms, render: 36ms)
+ GET /admin 200 in 310ms (compile: 40ms, proxy.ts: 225ms, render: 45ms)
+⨯ ./src/app/games/[id]/GameClientPage.tsx
+Module parse failed: Identifier 'activeRoster' has already been declared (276:10)
+|     const validBookings = bookings.filter((b)=>b.roster_status !== 'dropped' && b.status !== 'cancelled');
+|     // Active Roster
+>     const activeRoster = validBookings.filter((b)=>b.roster_status === 'confirmed' || !b.roster_status && [
+|             'paid',
+|             'active'
+
+Import trace for requested module:
+./src/app/games/[id]/GameClientPage.tsx
+⨯ ./src/app/games/[id]/GameClientPage.tsx
+Module parse failed: Identifier 'activeRoster' has already been declared (276:10)
+|     const validBookings = bookings.filter((b)=>b.roster_status !== 'dropped' && b.status !== 'cancelled');
+|     // Active Roster
+>     const activeRoster = validBookings.filter((b)=>b.roster_status === 'confirmed' || !b.roster_status && [
+|             'paid',
+|             'active'
+
+Import trace for requested module:
+./src/app/games/[id]/GameClientPage.tsx
+ GET /admin 200 in 441ms (compile: 4ms, proxy.ts: 406ms, render: 31ms)
+ GET /admin 200 in 1230ms (compile: 62ms, proxy.ts: 1119ms, render: 49ms)
+ GET /admin 200 in 254ms (compile: 3ms, proxy.ts: 216ms, render: 34ms)
+ GET /admin 200 in 427ms (compile: 46ms, proxy.ts: 350ms, render: 31ms)
