@@ -648,9 +648,80 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                             )}
 
                             {/* Free Agent Pricing Breakdown */}
-                             {selectedTeam === 'free_agent' && !isWaitlist && isLeague && (
-                                <div className="mt-4">
-                                                                                                                                                {gameData?.payment_collection_type === 'cash' ? (
+                                                         {selectedTeam === 'free_agent' && !isWaitlist && isLeague && (
+                                <div className="mt-4 space-y-4">
+                                    {/* TEAMMATE AND TEAM REQUESTS */}
+                                    <div className="space-y-3 pb-4 border-b border-white/10 relative">
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">Teammate Request (Optional)</label>
+                                        <p className="text-[10px] text-gray-500 font-medium mb-2">Search for players you want to be drafted with.</p>
+                                        
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                placeholder="Search by name or email..."
+                                                value={teammateSearch}
+                                                onChange={(e) => setTeammateSearch(e.target.value)}
+                                                className="w-full bg-black/50 border border-white/20 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors text-sm"
+                                            />
+                                            {isSearchingTeammate && <Loader2 className="w-4 h-4 animate-spin text-pitch-secondary absolute right-3 top-3.5" />}
+
+                                            {teammateSearchResults.length > 0 && (
+                                                <div className="absolute top-[50px] left-0 w-full bg-pitch-card border border-white/10 rounded-sm shadow-xl max-h-48 overflow-y-auto z-20 custom-scrollbar">
+                                                    {teammateSearchResults.map((p) => (
+                                                        <button
+                                                            key={p.id}
+                                                            onClick={() => handleAddTeammateRequest(p)}
+                                                            className="w-full text-left p-3 hover:bg-white/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0"
+                                                        >
+                                                            <span className="font-bold text-sm text-white">{p.first_name} {p.last_name || 'Anonymous'}</span>
+                                                            <UserPlus className="w-4 h-4 text-pitch-accent" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {requestedTeammates.length > 0 && (
+                                            <div className="mt-2 space-y-2">
+                                                {requestedTeammates.map((t) => (
+                                                    <div key={t.id} className="flex items-center justify-between bg-white/5 border border-white/10 p-2 rounded-sm">
+                                                        <span className="text-sm text-gray-300 font-bold truncate pr-2">{t.first_name} {t.last_name}</span>
+                                                        <button
+                                                            onClick={() => handleRemoveTeammateRequest(t.id)}
+                                                            className="text-red-400 hover:text-red-300 transition-colors p-1"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="pt-3">
+                                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">Team Request (Optional)</label>
+                                            <p className="text-[10px] text-gray-500 font-medium mb-2">Request to be placed on a specific team.</p>
+                                            <select
+                                                value={requestedTeamName || ''}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (!val) {
+                                                        setRequestedTeamName(null);
+                                                        setRequestedTeamId(null);
+                                                        return;
+                                                    }
+                                                    setRequestedTeamName(val);
+                                                }}
+                                                className="w-full bg-black/50 border border-white/20 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors text-sm appearance-none"
+                                            >
+                                                <option value="">No Preference</option>
+                                                {teamsConfig.filter(t => t.name).map((team, idx) => (
+                                                    <option key={idx} value={team.name}>{team.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    {gameData?.payment_collection_type === 'cash' ? (
                                         <div className="bg-pitch-accent/5 border border-pitch-accent/20 rounded-sm p-4">
                                             <h4 className="font-bold text-pitch-accent mb-2 uppercase tracking-widest text-[10px]">Individual Fee Structure</h4>
                                             <div className="space-y-1.5 font-bold uppercase tracking-wider">
