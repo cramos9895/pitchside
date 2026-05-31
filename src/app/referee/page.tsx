@@ -37,10 +37,11 @@ export default async function RefereeDashboardPage() {
         .eq('status', 'Confirmed');
 
     // Fetch Open Market: All upcoming matches (for now, simply querying matches limit 20)
-    // In a real app we'd filter by start_time > now(), but we'll fetch general matches
+    // Filter out 'pickup' games
     const { data: openMarket } = await supabase
         .from('matches')
-        .select('*, match_officials(*)')
+        .select('*, match_officials(*), games!inner(event_type)')
+        .neq('games.event_type', 'pickup')
         .order('created_at', { ascending: false })
         .limit(20);
 

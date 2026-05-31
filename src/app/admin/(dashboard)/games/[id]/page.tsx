@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminLeagueControl } from '@/components/admin/AdminLeagueControl';
 import { AdminRollingManager } from '@/components/admin/rolling/AdminRollingManager';
 import { ManualAddPlayerModal } from '@/components/admin/ManualAddPlayerModal';
+import { AdminOfficialsManager } from '@/components/admin/AdminOfficialsManager';
 
 export type AdminGameBooking = Booking & {
     id: string;
@@ -1230,9 +1231,12 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     )}
 
                     <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-                        <TabsList className="bg-black/40 border border-white/10 mb-6 h-12 flex w-full md:max-w-sm ml-0 overflow-hidden">
+                        <TabsList className="bg-black/40 border border-white/10 mb-6 h-12 flex w-full md:max-w-md ml-0 overflow-hidden">
                             <TabsTrigger value="player-manager" className="flex-1">Check in</TabsTrigger>
                             <TabsTrigger value="game-management" className="flex-1">Game Manager</TabsTrigger>
+                            {game.event_type !== 'pickup' && (
+                                <TabsTrigger value="officials-manager" className="flex-1">Officials</TabsTrigger>
+                            )}
                         </TabsList>
 
                         {/* TAB 1: PLAYER MANAGER */}
@@ -1703,6 +1707,13 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                 </div>
                             )}
                         </TabsContent>
+                        
+                        {/* TAB 3: OFFICIALS MANAGER */}
+                        {game.event_type !== 'pickup' && (
+                            <TabsContent value="officials-manager" className="mt-0">
+                                <AdminOfficialsManager gameId={game.id} />
+                            </TabsContent>
+                        )}
                     </Tabs>
                 </div>
 
