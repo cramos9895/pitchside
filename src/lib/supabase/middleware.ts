@@ -44,6 +44,7 @@ export async function updateSession(request: NextRequest) {
         const isProtectedRoute = path.startsWith('/dashboard') || 
                                  path.startsWith('/admin') || 
                                  path.startsWith('/facility') || 
+                                 path.startsWith('/referee') ||
                                  path.startsWith('/profile') || 
                                  path === '/pending';
                                  
@@ -55,7 +56,7 @@ export async function updateSession(request: NextRequest) {
     // 0. Verification Gatekeeper Check (Authenticated Users)
     if (user) {
         // Only fetch profile for routes that require role/status validation
-        const requiresValidation = path.startsWith('/admin') || path.startsWith('/facility') || path === '/' || path === '/pending';
+        const requiresValidation = path.startsWith('/admin') || path.startsWith('/facility') || path.startsWith('/referee') || path === '/' || path === '/pending';
 
         if (requiresValidation) {
             const { data: profile } = await supabase
@@ -113,6 +114,13 @@ export async function updateSession(request: NextRequest) {
                     if (profile?.role !== 'master_admin') {
                         return NextResponse.redirect(new URL('/admin', request.url)) // Redirect to Dashboard
                     }
+                }
+            }
+
+            if (path.startsWith('/referee')) {
+                // Referee Hub Access: Must be 'referee', 'admin', or 'master_admin'
+                if (profile?.role !== 'referee' && profile?.role !== 'admin' && profile?.role !== 'master_admin') {
+                    return NextResponse.redirect(new URL('/dashboard', request.url))
                 }
             }
         }
