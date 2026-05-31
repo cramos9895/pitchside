@@ -468,10 +468,10 @@ export function GameClientPage({
                 <div className="flex items-center justify-between md:justify-start mb-12 p-1 bg-white/5 border border-white/5 rounded-sm w-full md:w-fit overflow-x-auto scrollbar-hide">
                     {[
                         { id: 'details', label: 'Details', icon: Info },
-                        { id: 'rules', label: 'Rules/Policy', icon: Shield },
                         { id: 'roster', label: `Players (${activeRoster.length})`, icon: Users },
-                        { id: 'chat', label: 'Chat', icon: MessageSquare, hasUnread: hasUnreadChat },
-                        ...((game.event_type === 'tournament' || game.match_style === 'Tourney' || game.match_style === 'King') ? [{ id: 'game-time', label: 'Game Time', icon: Trophy }] : [])
+                        ...((game.event_type === 'tournament' || game.match_style === 'Tourney' || game.match_style === 'King') ? [{ id: 'game-time', label: 'Game Time', icon: Trophy }] : []),
+                        { id: 'rules', label: 'Rules/Policy', icon: Shield },
+                        { id: 'chat', label: 'Chat', icon: MessageSquare, hasUnread: hasUnreadChat }
                     ].map((tab: any) => (
                         <button
                             key={tab.id}
