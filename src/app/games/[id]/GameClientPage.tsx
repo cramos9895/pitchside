@@ -798,7 +798,7 @@ export function GameClientPage({
                             {/* General Match Rules */}
                             <section className="bg-black border border-white/10 p-8 rounded-sm">
                                 <h3 className="font-heading text-2xl font-black italic uppercase mb-6 flex items-center gap-3 text-pitch-accent border-b border-white/10 pb-4">
-                                    <Shield className="w-6 h-6" /> General Rules
+                                    <Shield className="w-6 h-6" /> Event Rundown
                                 </h3>
                                 <div className="text-gray-300 leading-relaxed font-medium whitespace-pre-wrap text-sm md:text-base">
                                     {game.rules_description || 'No specific rules have been provided for this game.'}
