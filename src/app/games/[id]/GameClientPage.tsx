@@ -108,7 +108,7 @@ export function GameClientPage({
     isFreeAgentServer = false
 }: GameClientPageProps) {
     const { id: gameId } = params;
-    const [activeTab, setActiveTab] = useState<'details' | 'roster' | 'chat' | 'tournament-hub'>('details');
+    const [activeTab, setActiveTab] = useState<'details' | 'rules' | 'roster' | 'chat' | 'tournament-hub'>('details');
     const [game, setGame] = useState<Game>(initialGame);
     
     const { success, error: toastError } = useToast();
@@ -468,6 +468,7 @@ export function GameClientPage({
                 <div className="flex items-center justify-between md:justify-start mb-12 p-1 bg-white/5 border border-white/5 rounded-sm w-full md:w-fit overflow-x-auto scrollbar-hide">
                     {[
                         { id: 'details', label: 'Details', icon: Info },
+                        { id: 'rules', label: 'Rules/Policy', icon: Shield },
                         { id: 'roster', label: `Players (${activeRoster.length})`, icon: Users },
                         { id: 'chat', label: 'Chat', icon: MessageSquare, hasUnread: hasUnreadChat },
                         ...(game.event_type === 'tournament' ? [{ id: 'tournament-hub', label: 'Tournament Hub', icon: Trophy }] : [])
@@ -593,6 +594,40 @@ export function GameClientPage({
                                     </section>
                                 )}
 
+                                {/* Team Assignment (if joined and assigned) */}
+                                {userBooking?.team_assignment && (
+                                    <section className="bg-gradient-to-r from-pitch-card to-white/5 border border-white/10 p-6 rounded-sm">
+                                        <h3 className="font-heading text-lg font-bold italic uppercase mb-4 flex items-center gap-2 text-pitch-accent border-b border-white/10 pb-2">
+                                            <Shirt className="w-5 h-5" /> Active Squad
+                                        </h3>
+                                        <div className="mb-4">
+                                            <p className="text-3xl font-black text-white uppercase italic tracking-wider">{assignedTeamName}</p>
+                                        </div>
+
+                                        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                                            {teammates.length > 0 ? (
+                                                teammates.map(mate => {
+                                                    const isMe = mate.user_id === currentUser?.id;
+                                                    const fullName = mate.profiles?.first_name ? `${mate.profiles.first_name} ${mate.profiles.last_name}` : mate.profiles?.email || 'Player';
+
+                                                    return (
+                                                        <div key={mate.id} className={cn("text-sm font-medium flex items-center gap-2 p-2 rounded", isMe ? "bg-pitch-accent/10 border border-pitch-accent/20" : "bg-black/30 border border-white/5")}>
+                                                            <div className="w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-[10px] text-gray-400 font-bold shrink-0">
+                                                                {fullName.charAt(0)}
+                                                            </div>
+                                                            <span className={cn("truncate", isMe ? "text-pitch-accent" : "text-gray-300")}>
+                                                                {fullName} {isMe && "(You)"}
+                                                            </span>
+                                                        </div>
+                                                    )
+                                                })
+                                            ) : (
+                                                <div className="text-sm text-gray-500 italic">No teammates yet.</div>
+                                            )}
+                                        </div>
+                                    </section>
+                                )}
+
                                 <section className="bg-pitch-card border border-white/10 p-8 rounded-sm overflow-hidden relative">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-pitch-accent/5 blur-3xl -mr-16 -mt-16 rounded-full" />
                                     
@@ -637,47 +672,7 @@ export function GameClientPage({
                                         </div>
                                     </div>
 
-                                    <div className="mt-10 pt-8 border-t border-white/5">
-                                        <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest block mb-4 italic underline decoration-pitch-accent/30 underline-offset-4">Event Rules & Regulations</span>
-                                        <p className="text-sm text-gray-400 leading-relaxed font-medium whitespace-pre-wrap">
-                                            {game.rules_description || 'No additional rules or description provided.'}
-                                        </p>
-                                    </div>
                                 </section>
-
-                                {/* Team Assignment (if joined and assigned) */}
-                                {userBooking?.team_assignment && (
-                                    <section className="bg-gradient-to-r from-pitch-card to-white/5 border border-white/10 p-6 rounded-sm">
-                                        <h3 className="font-heading text-lg font-bold italic uppercase mb-4 flex items-center gap-2 text-pitch-accent border-b border-white/10 pb-2">
-                                            <Shirt className="w-5 h-5" /> Active Squad
-                                        </h3>
-                                        <div className="mb-4">
-                                            <p className="text-3xl font-black text-white uppercase italic tracking-wider">{assignedTeamName}</p>
-                                        </div>
-
-                                        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                                            {teammates.length > 0 ? (
-                                                teammates.map(mate => {
-                                                    const isMe = mate.user_id === currentUser?.id;
-                                                    const fullName = mate.profiles?.first_name ? `${mate.profiles.first_name} ${mate.profiles.last_name}` : mate.profiles?.email || 'Player';
-
-                                                    return (
-                                                        <div key={mate.id} className={cn("text-sm font-medium flex items-center gap-2 p-2 rounded", isMe ? "bg-pitch-accent/10 border border-pitch-accent/20" : "bg-black/30 border border-white/5")}>
-                                                            <div className="w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-[10px] text-gray-400 font-bold shrink-0">
-                                                                {fullName.charAt(0)}
-                                                            </div>
-                                                            <span className={cn("truncate", isMe ? "text-pitch-accent" : "text-gray-300")}>
-                                                                {fullName} {isMe && "(You)"}
-                                                            </span>
-                                                        </div>
-                                                    )
-                                                })
-                                            ) : (
-                                                <div className="text-sm text-gray-500 italic">No teammates yet.</div>
-                                            )}
-                                        </div>
-                                    </section>
-                                )}
                             </div>
 
                             {/* Side Panel (Map placeholder or rules) */}
@@ -793,6 +788,46 @@ export function GameClientPage({
                                         </button>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* RULES/POLICY TAB */}
+                    {activeTab === 'rules' && (
+                        <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in">
+                            {/* General Match Rules */}
+                            <section className="bg-black border border-white/10 p-8 rounded-sm">
+                                <h3 className="font-heading text-2xl font-black italic uppercase mb-6 flex items-center gap-3 text-pitch-accent border-b border-white/10 pb-4">
+                                    <Shield className="w-6 h-6" /> General Rules
+                                </h3>
+                                <div className="text-gray-300 leading-relaxed font-medium whitespace-pre-wrap text-sm md:text-base">
+                                    {game.rules_description || 'No specific rules have been provided for this game.'}
+                                </div>
+                            </section>
+
+                            {/* Policies Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <section className="bg-white/5 border border-white/10 p-6 rounded-sm hover:border-pitch-accent/50 transition-colors">
+                                    <h4 className="font-bold uppercase text-lg mb-4 text-white flex items-center gap-2">
+                                        <DollarSign className="w-5 h-5 text-pitch-accent" /> Refund Policy
+                                    </h4>
+                                    <div className="text-gray-400 text-sm leading-relaxed whitespace-pre-wrap">
+                                        {/* @ts-expect-error dynamic column */}
+                                        {game.refund_policy || (game.is_refundable 
+                                            ? `Refunds are permitted up to ${game.refund_cutoff_hours || 24} hours before kickoff.` 
+                                            : 'No refunds allowed for this game.')}
+                                    </div>
+                                </section>
+
+                                <section className="bg-white/5 border border-white/10 p-6 rounded-sm hover:border-pitch-accent/50 transition-colors">
+                                    <h4 className="font-bold uppercase text-lg mb-4 text-white flex items-center gap-2">
+                                        <AlertTriangle className="w-5 h-5 text-pitch-accent" /> Conduct Policy
+                                    </h4>
+                                    <div className="text-gray-400 text-sm leading-relaxed whitespace-pre-wrap">
+                                        {/* @ts-expect-error dynamic column */}
+                                        {game.conduct_policy || 'Strict zero tolerance policy for violence, aggressive behavior, or verbal abuse towards referees or players. Violators will be permanently banned.'}
+                                    </div>
+                                </section>
                             </div>
                         </div>
                     )}

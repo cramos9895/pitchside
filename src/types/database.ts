@@ -511,6 +511,8 @@ export type Database = {
           waiver_details: string | null
           weekly_field_rental_cost: number | null
           winning_team_assignment: string | null
+          refund_policy: string | null
+          conduct_policy: string | null
         }
         Insert: {
           accepting_registrations?: boolean | null
@@ -523,6 +525,7 @@ export type Database = {
           cash_amount?: number | null
           cash_fee_structure?: string | null
           charge_team_registration_fee?: boolean | null
+          conduct_policy?: string | null
           created_at?: string
           current_players?: number | null
           deduct_team_reg_fee?: boolean | null
@@ -580,6 +583,7 @@ export type Database = {
           ref_fee_per_game?: number | null
           refund_cutoff_date?: string | null
           refund_cutoff_hours?: number | null
+          refund_policy?: string | null
           refund_processed?: boolean | null
           registration_cutoff?: string | null
           regular_season_start?: string | null
@@ -713,6 +717,8 @@ export type Database = {
           waiver_details?: string | null
           weekly_field_rental_cost?: number | null
           winning_team_assignment?: string | null
+          refund_policy?: string | null
+          conduct_policy?: string | null
         }
         Relationships: [
           {

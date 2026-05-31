@@ -73,7 +73,13 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
         const [gameFormatType, setGameFormatType] = useState(initialData?.game_format_type || '7 v 7');
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
-        const [matchStyle, setMatchStyle] = useState(initialData?.match_style || 'Full Length');
+        const [matchStyle, setMatchStyle] = useState(initialData?.match_style || 'Tourney');
+    
+    // Policies
+        // @ts-expect-error - Residual typing mismatch from extended schema mapping
+        const [refundPolicy, setRefundPolicy] = useState(initialData?.refund_policy || '');
+        // @ts-expect-error - Residual typing mismatch from extended schema mapping
+        const [conductPolicy, setConductPolicy] = useState(initialData?.conduct_policy || '');
     
     // Payments & Refunds
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
@@ -255,6 +261,8 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                 price: price === '' ? 0 : price,
                 max_players: maxPlayers === '' ? 22 : maxPlayers,
                 teams_config: teams,
+                refund_policy: refundPolicy,
+                conduct_policy: conductPolicy,
                 is_refundable: isRefundable,
                 refund_cutoff_hours: isRefundable ? (refundCutoffHours === '' ? null : refundCutoffHours) : null,
                 refund_cutoff_date: isRefundable && refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null,
@@ -305,6 +313,11 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                 <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Event Rules & Description</label>
                     <textarea value={rulesDescription} onChange={(e) => setRulesDescription(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" rows={4} />
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Conduct Policy</label>
+                    <textarea placeholder="e.g. Zero tolerance for fighting." value={conductPolicy} onChange={(e) => setConductPolicy(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" rows={2} />
                 </div>
 
                 <div>
@@ -368,7 +381,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                     <div>
                         <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Match Style</label>
                         <select value={matchStyle} onChange={(e) => setMatchStyle(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors">
-                            {['Full Length', 'King', 'Tourney'].map(style => <option key={style} value={style}>{style}</option>)}
+                            {['King', 'Tourney'].map(style => <option key={style} value={style}>{style}</option>)}
                         </select>
                     </div>
                 </div>
@@ -412,6 +425,10 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                             </div>
                             <div>
                                 <input type="datetime-local" value={refundCutoffDate} onChange={(e) => { setRefundCutoffDate(e.target.value); if (e.target.value !== '') setRefundCutoffHours(''); }} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 mt-4">Refund Policy Details</label>
+                                <textarea placeholder="e.g. Must cancel 24 hours prior for a full refund." value={refundPolicy} onChange={(e) => setRefundPolicy(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" rows={3} />
                             </div>
                         </div>
                     )}

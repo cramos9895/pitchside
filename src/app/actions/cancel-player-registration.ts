@@ -24,6 +24,8 @@ export async function cancelPlayerRegistration(bookingId: string) {
                 user_id, 
                 stripe_payment_intent_id, 
                 payment_status, 
+                payment_method,
+                payment_amount,
                 game_id,
                 games (
                     is_refundable,
@@ -97,6 +99,26 @@ export async function cancelPlayerRegistration(bookingId: string) {
                     } catch (stripeErr: any) {
                         console.error('Stripe Refund Error:', stripeErr);
                         throw new Error(`Could not process your refund. Please contact support. Error: ${stripeErr.message}`);
+                    }
+                } else if (booking.payment_method === 'wallet' && booking.payment_amount > 0) {
+                    // Wallet Refund Logic
+                    const { data: userProfile, error: profileError } = await adminSupabase
+                        .from('profiles')
+                        .select('credit_balance')
+                        .eq('id', booking.user_id)
+                        .single();
+
+                    if (!profileError && userProfile) {
+                        const refundCents = Math.round(booking.payment_amount * 100);
+                        const newBalance = (userProfile.credit_balance || 0) + refundCents;
+                        const { error: walletError } = await adminSupabase
+                            .from('profiles')
+                            .update({ credit_balance: newBalance })
+                            .eq('id', booking.user_id);
+                            
+                        if (walletError) {
+                            throw new Error(`Failed to refund wallet credit: ${walletError.message}`);
+                        }
                     }
                 }
 
