@@ -14,7 +14,8 @@ import {
     ChevronLeft,
     ChevronRight,
     Menu,
-    MessageSquare
+    MessageSquare,
+    ShieldAlert
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +46,12 @@ export function Sidebar({ isMasterAdmin, isSuperAdmin, pendingCount }: SidebarPr
             href: '/admin',
             label: 'Game Manager',
             icon: LayoutDashboard,
+            show: true
+        },
+        {
+            href: '/admin/staffing',
+            label: 'Staffing',
+            icon: ShieldAlert,
             show: true
         },
         {
