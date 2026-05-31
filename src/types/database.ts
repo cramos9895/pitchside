@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -93,6 +118,9 @@ export type Database = {
           payment_amount: number | null
           payment_method: string | null
           payment_status: string | null
+          requested_team_id: string | null
+          requested_team_name: string | null
+          requested_teammate_ids: string[] | null
           roster_status: string | null
           status: string | null
           stripe_payment_method_id: string | null
@@ -117,6 +145,9 @@ export type Database = {
           payment_amount?: number | null
           payment_method?: string | null
           payment_status?: string | null
+          requested_team_id?: string | null
+          requested_team_name?: string | null
+          requested_teammate_ids?: string[] | null
           roster_status?: string | null
           status?: string | null
           stripe_payment_method_id?: string | null
@@ -141,6 +172,9 @@ export type Database = {
           payment_amount?: number | null
           payment_method?: string | null
           payment_status?: string | null
+          requested_team_id?: string | null
+          requested_team_name?: string | null
+          requested_teammate_ids?: string[] | null
           roster_status?: string | null
           status?: string | null
           stripe_payment_method_id?: string | null
@@ -162,6 +196,13 @@ export type Database = {
             columns: ["game_id"]
             isOneToOne: false
             referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_requested_team_id_fkey"
+            columns: ["requested_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {
@@ -511,8 +552,6 @@ export type Database = {
           waiver_details: string | null
           weekly_field_rental_cost: number | null
           winning_team_assignment: string | null
-          refund_policy: string | null
-          conduct_policy: string | null
         }
         Insert: {
           accepting_registrations?: boolean | null
@@ -525,7 +564,6 @@ export type Database = {
           cash_amount?: number | null
           cash_fee_structure?: string | null
           charge_team_registration_fee?: boolean | null
-          conduct_policy?: string | null
           created_at?: string
           current_players?: number | null
           deduct_team_reg_fee?: boolean | null
@@ -583,7 +621,6 @@ export type Database = {
           ref_fee_per_game?: number | null
           refund_cutoff_date?: string | null
           refund_cutoff_hours?: number | null
-          refund_policy?: string | null
           refund_processed?: boolean | null
           registration_cutoff?: string | null
           regular_season_start?: string | null
@@ -717,8 +754,6 @@ export type Database = {
           waiver_details?: string | null
           weekly_field_rental_cost?: number | null
           winning_team_assignment?: string | null
-          refund_policy?: string | null
-          conduct_policy?: string | null
         }
         Relationships: [
           {
@@ -1033,6 +1068,51 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_officials: {
+        Row: {
+          created_at: string
+          id: string
+          match_id: string
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          match_id: string
+          role: string
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          match_id?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_officials_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_officials_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1394,6 +1474,39 @@ export type Database = {
           },
         ]
       }
+      platform_reviews: {
+        Row: {
+          author_name: string
+          created_at: string | null
+          id: string
+          is_approved: boolean | null
+          rating: number
+          role: string
+          text: string
+          user_id: string | null
+        }
+        Insert: {
+          author_name: string
+          created_at?: string | null
+          id?: string
+          is_approved?: boolean | null
+          rating: number
+          role: string
+          text: string
+          user_id?: string | null
+        }
+        Update: {
+          author_name?: string
+          created_at?: string | null
+          id?: string
+          is_approved?: boolean | null
+          rating?: number
+          role?: string
+          text?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       platform_settings: {
         Row: {
           fee_fixed: number | null
@@ -1424,18 +1537,25 @@ export type Database = {
           ban_reason: string | null
           banned_until: string | null
           bio: string | null
+          certification_level: string | null
           credit_balance: number | null
+          dob: string | null
           email: string | null
           facility_id: string | null
+          first_name: string | null
           free_game_credits: number | null
-          full_name: string | null
           id: string
           is_banned: boolean | null
           is_free_agent: boolean | null
           jersey_number: number | null
+          job_title: string | null
+          last_name: string | null
           mvp_awards: number | null
           notification_settings: Json | null
+          organization_name: string | null
+          phone_number: string | null
           position: string | null
+          primary_sports: string[] | null
           role: string | null
           stripe_customer_id: string | null
           system_role: string | null
@@ -1448,18 +1568,25 @@ export type Database = {
           ban_reason?: string | null
           banned_until?: string | null
           bio?: string | null
+          certification_level?: string | null
           credit_balance?: number | null
+          dob?: string | null
           email?: string | null
           facility_id?: string | null
+          first_name?: string | null
           free_game_credits?: number | null
-          full_name?: string | null
           id: string
           is_banned?: boolean | null
           is_free_agent?: boolean | null
           jersey_number?: number | null
+          job_title?: string | null
+          last_name?: string | null
           mvp_awards?: number | null
           notification_settings?: Json | null
+          organization_name?: string | null
+          phone_number?: string | null
           position?: string | null
+          primary_sports?: string[] | null
           role?: string | null
           stripe_customer_id?: string | null
           system_role?: string | null
@@ -1472,18 +1599,25 @@ export type Database = {
           ban_reason?: string | null
           banned_until?: string | null
           bio?: string | null
+          certification_level?: string | null
           credit_balance?: number | null
+          dob?: string | null
           email?: string | null
           facility_id?: string | null
+          first_name?: string | null
           free_game_credits?: number | null
-          full_name?: string | null
           id?: string
           is_banned?: boolean | null
           is_free_agent?: boolean | null
           jersey_number?: number | null
+          job_title?: string | null
+          last_name?: string | null
           mvp_awards?: number | null
           notification_settings?: Json | null
+          organization_name?: string | null
+          phone_number?: string | null
           position?: string | null
+          primary_sports?: string[] | null
           role?: string | null
           stripe_customer_id?: string | null
           system_role?: string | null
@@ -2119,6 +2253,8 @@ export type Database = {
         Returns: boolean
       }
       cleanup_security_logs: { Args: never; Returns: undefined }
+      get_my_role: { Args: never; Returns: string }
+      get_my_system_role: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_admin_or_master: { Args: never; Returns: boolean }
       is_master_admin: { Args: never; Returns: boolean }
@@ -2251,6 +2387,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       event_type_enum: ["rolling", "tournament", "pickup"],
