@@ -108,7 +108,7 @@ export function GameClientPage({
     isFreeAgentServer = false
 }: GameClientPageProps) {
     const { id: gameId } = params;
-    const [activeTab, setActiveTab] = useState<'details' | 'rules' | 'roster' | 'chat' | 'tournament-hub'>('details');
+    const [activeTab, setActiveTab] = useState<'details' | 'rules' | 'roster' | 'chat' | 'game-time'>('details');
     const [game, setGame] = useState<Game>(initialGame);
     
     const { success, error: toastError } = useToast();
@@ -162,7 +162,7 @@ export function GameClientPage({
                     .select('*, profiles!bookings_user_id_fkey(id, first_name, last_name, email)')
                     .eq('game_id', gameId)
                     .neq('status', 'cancelled'),
-                game.event_type === 'tournament' 
+                (game.event_type === 'tournament' || game.match_style === 'Tourney' || game.match_style === 'King')
                     ? supabase.from('matches').select('*').eq('game_id', gameId).order('created_at', { ascending: true })
                     : Promise.resolve({ data: [] })
             ]);
@@ -471,7 +471,7 @@ export function GameClientPage({
                         { id: 'rules', label: 'Rules/Policy', icon: Shield },
                         { id: 'roster', label: `Players (${activeRoster.length})`, icon: Users },
                         { id: 'chat', label: 'Chat', icon: MessageSquare, hasUnread: hasUnreadChat },
-                        ...(game.event_type === 'tournament' ? [{ id: 'tournament-hub', label: 'Tournament Hub', icon: Trophy }] : [])
+                        ...((game.event_type === 'tournament' || game.match_style === 'Tourney' || game.match_style === 'King') ? [{ id: 'game-time', label: 'Game Time', icon: Trophy }] : [])
                     ].map((tab: any) => (
                         <button
                             key={tab.id}
@@ -981,10 +981,10 @@ export function GameClientPage({
                         </div>
                     )}
 
-                    {/* TOURNAMENT HUB TAB */}
-                    {activeTab === 'tournament-hub' && game.event_type === 'tournament' && (
+                    {/* GAME TIME TAB */}
+                    {activeTab === 'game-time' && (game.event_type === 'tournament' || game.match_style === 'Tourney' || game.match_style === 'King') && (
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
-                            <h2 className="font-heading text-2xl font-bold italic uppercase flex items-center gap-2 text-pitch-accent border-b border-white/10 pb-4">
+                            <h2 className="font-heading text-2xl font-black italic uppercase flex items-center gap-2 text-[#cbff00] border-b border-white/10 pb-4">
                                 <Trophy className="w-6 h-6" /> Live Standings
                             </h2>
 
@@ -996,25 +996,61 @@ export function GameClientPage({
                                         matches={matches}
                                     />
 
-                                    <h2 className="font-heading text-xl font-bold italic uppercase border-b border-white/10 pb-4 mt-12 mb-6 text-pitch-secondary">
-                                        Match Schedule
+                                    {/* My Squad's Matches */}
+                                    {isParticipant && userBooking?.team_assignment && (() => {
+                                        const myMatches = matches.filter(m => m.home_team === userBooking.team_assignment || m.away_team === userBooking.team_assignment);
+                                        if (myMatches.length === 0) return null;
+                                        return (
+                                            <>
+                                                <h2 className="font-heading text-xl font-black italic uppercase border-b border-white/10 pb-4 mt-12 mb-6 text-[#cbff00]">
+                                                    My Squad
+                                                </h2>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    {myMatches.map(m => (
+                                                        <div key={m.id} className={cn("bg-[#0a0a0a] border rounded-sm p-4 flex flex-col justify-between", ['active', 'scheduled'].includes(m.status) ? "border-[#cbff00] shadow-[0_0_15px_rgba(204,255,0,0.15)]" : "border-white/10")}>
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <span className="text-xs font-bold uppercase text-gray-400">Round {m.round_number} • {m.tournament_stage}</span>
+                                                                <span className={cn("text-[10px] uppercase font-black px-2 py-0.5 rounded",
+                                                                    m.status === 'completed' ? "bg-white/10 text-white" :
+                                                                        m.status === 'active' ? "bg-[#cbff00] text-black animate-pulse shadow-[0_0_10px_rgba(204,255,0,0.4)]" :
+                                                                            "bg-[#cbff00]/20 text-[#cbff00]"
+                                                                )}>
+                                                                    {m.status}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-lg font-black">
+                                                                <span className={cn("truncate max-w-[40%]", m.home_team === userBooking.team_assignment ? "text-[#cbff00]" : "text-white")}>{m.home_team}</span>
+                                                                <div className="bg-black/40 px-3 py-1 rounded-sm text-white border border-white/20">
+                                                                    {m.status === 'scheduled' ? 'VS' : `${m.home_score} - ${m.away_score}`}
+                                                                </div>
+                                                                <span className={cn("truncate max-w-[40%] text-right", m.away_team === userBooking.team_assignment ? "text-[#cbff00]" : "text-white")}>{m.away_team}</span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
+
+                                    <h2 className="font-heading text-xl font-black italic uppercase border-b border-white/10 pb-4 mt-12 mb-6 text-white">
+                                        Full Schedule
                                     </h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {matches.map(m => (
-                                            <div key={m.id} className="bg-pitch-card border border-white/5 rounded p-4 flex flex-col justify-between">
+                                            <div key={m.id} className={cn("bg-[#0a0a0a] border rounded-sm p-4 flex flex-col justify-between", ['active', 'scheduled'].includes(m.status) ? "border-[#cbff00] shadow-[0_0_15px_rgba(204,255,0,0.15)]" : "border-white/10")}>
                                                 <div className="flex items-center justify-between mb-4">
                                                     <span className="text-xs font-bold uppercase text-gray-400">Round {m.round_number} • {m.tournament_stage}</span>
                                                     <span className={cn("text-[10px] uppercase font-black px-2 py-0.5 rounded",
-                                                        m.status === 'completed' ? "bg-pitch-accent/20 text-pitch-accent" :
-                                                            m.status === 'active' ? "bg-green-500/20 text-green-500 animate-pulse" :
-                                                                "bg-white/10 text-gray-300"
+                                                        m.status === 'completed' ? "bg-white/10 text-white" :
+                                                            m.status === 'active' ? "bg-[#cbff00] text-black animate-pulse shadow-[0_0_10px_rgba(204,255,0,0.4)]" :
+                                                                "bg-[#cbff00]/20 text-[#cbff00]"
                                                     )}>
                                                         {m.status}
                                                     </span>
                                                 </div>
-                                                <div className="flex items-center justify-between text-lg font-black">
+                                                <div className="flex items-center justify-between text-lg font-black text-white">
                                                     <span className="truncate max-w-[40%]">{m.home_team}</span>
-                                                    <div className="bg-black/40 px-3 py-1 rounded text-pitch-accent border border-pitch-accent/20">
+                                                    <div className="bg-black/40 px-3 py-1 rounded-sm text-white border border-white/20">
                                                         {m.status === 'scheduled' ? 'VS' : `${m.home_score} - ${m.away_score}`}
                                                     </div>
                                                     <span className="truncate max-w-[40%] text-right">{m.away_team}</span>
@@ -1027,7 +1063,7 @@ export function GameClientPage({
                                 <div className="bg-white/5 border border-white/10 p-8 rounded-sm text-center">
                                     <Crown className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                                     <h3 className="text-xl font-bold text-gray-300 mb-2">Schedule Not Generated</h3>
-                                    <p className="text-gray-500">The tournament schedule will be available closer to the event launch.</p>
+                                    <p className="text-gray-500">The match schedule will be available closer to the event launch.</p>
                                 </div>
                             )}
                         </div>
