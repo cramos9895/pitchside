@@ -523,6 +523,7 @@ export type Database = {
           refund_processed: boolean | null
           registration_cutoff: string | null
           regular_season_start: string | null
+          requires_officials: boolean | null
           resource_id: string | null
           reward: string | null
           roster_freeze_date: string | null
@@ -624,6 +625,7 @@ export type Database = {
           refund_processed?: boolean | null
           registration_cutoff?: string | null
           regular_season_start?: string | null
+          requires_officials?: boolean | null
           resource_id?: string | null
           reward?: string | null
           roster_freeze_date?: string | null
@@ -725,6 +727,7 @@ export type Database = {
           refund_processed?: boolean | null
           registration_cutoff?: string | null
           regular_season_start?: string | null
+          requires_officials?: boolean | null
           resource_id?: string | null
           reward?: string | null
           roster_freeze_date?: string | null

@@ -30,7 +30,7 @@ export default async function StaffingDispatchBoard() {
             away_team,
             start_time,
             scheduled_time,
-            games!inner(event_type, title),
+            games!inner(event_type, title, requires_officials),
             match_officials(
                 id,
                 role,
@@ -39,6 +39,7 @@ export default async function StaffingDispatchBoard() {
             )
         `)
         .neq('games.event_type', 'pickup')
+        .eq('games.requires_officials', true)
         .order('scheduled_time', { ascending: true, nullsFirst: false });
 
     if (error) {

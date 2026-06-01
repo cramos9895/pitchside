@@ -40,8 +40,9 @@ export default async function RefereeDashboardPage() {
     // Filter out 'pickup' games
     const { data: openMarket } = await supabase
         .from('matches')
-        .select('*, match_officials(*), games!inner(event_type)')
+        .select('*, match_officials(*), games!inner(event_type, requires_officials)')
         .neq('games.event_type', 'pickup')
+        .eq('games.requires_officials', true)
         .order('created_at', { ascending: false })
         .limit(20);
 

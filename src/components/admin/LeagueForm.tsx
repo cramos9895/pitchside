@@ -30,6 +30,8 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
     // Core Match Info
     // @ts-expect-error - Requires complex schema extension
     const [title, setTitle] = useState(initialData?.title || '');
+        // @ts-expect-error - Requires complex schema extension
+    const [requiresOfficials, setRequiresOfficials] = useState(initialData?.requires_officials || false);
     // @ts-expect-error - Requires complex schema extension
     const [rulesDescription, setRulesDescription] = useState(initialData?.rules_description || '');
     // @ts-expect-error - Requires complex schema extension
@@ -189,7 +191,7 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
             let endDateTime = playoffStartDate ? new Date(playoffStartDate) : null;
 
             const payload = {
-                title, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
+                title, requires_officials: requiresOfficials, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
                 latitude: coords.lat, longitude: coords.lng,
                 start_time: startDateTime ? startDateTime.toISOString() : null,
                 end_time: null,

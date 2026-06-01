@@ -1234,7 +1234,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         <TabsList className="bg-black/40 border border-white/10 mb-6 h-12 flex w-full md:max-w-md ml-0 overflow-hidden">
                             <TabsTrigger value="player-manager" className="flex-1">Check in</TabsTrigger>
                             <TabsTrigger value="game-management" className="flex-1">Game Manager</TabsTrigger>
-                            {game.event_type !== 'pickup' && (
+                            {game.event_type !== 'pickup' && game.requires_officials === true && (
                                 <TabsTrigger value="officials-manager" className="flex-1">Officials</TabsTrigger>
                             )}
                         </TabsList>
@@ -1709,7 +1709,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         </TabsContent>
                         
                         {/* TAB 3: OFFICIALS MANAGER */}
-                        {game.event_type !== 'pickup' && (
+                        {game.event_type !== 'pickup' && game.requires_officials === true && (
                             <TabsContent value="officials-manager" className="mt-0">
                                 <AdminOfficialsManager gameId={game.id} />
                             </TabsContent>

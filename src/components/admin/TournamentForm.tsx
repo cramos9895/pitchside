@@ -30,6 +30,8 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
     // Match Info State
     // @ts-expect-error - Requires complex schema extension
     const [title, setTitle] = useState(initialData?.title || '');
+        // @ts-expect-error - Requires complex schema extension
+    const [requiresOfficials, setRequiresOfficials] = useState(initialData?.requires_officials || false);
     // @ts-expect-error - Requires complex schema extension
     const [rulesDescription, setRulesDescription] = useState(initialData?.rules_description || '');
     // @ts-expect-error - Requires complex schema extension
@@ -190,7 +192,7 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
                 ? (endTime.length === 5 ? `${endTime}:00` : endTime) : null;
 
             const payload = {
-                title, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
+                title, requires_officials: requiresOfficials, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
                 latitude: coords.lat, longitude: coords.lng,
                 start_time: startDateTime ? startDateTime.toISOString() : null,
                 end_time: formattedEndTime,
@@ -305,6 +307,20 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
                 <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Location Nick Name</label>
                     <input type="text" value={locationNickname} onChange={(e) => setLocationNickname(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
+                </div>
+
+                
+                <div className="flex items-center gap-3 bg-white/5 border border-white/10 p-4 rounded-sm">
+                    <input 
+                        type="checkbox" 
+                        id="requires_officials"
+                        checked={requiresOfficials}
+                        onChange={(e) => setRequiresOfficials(e.target.checked)}
+                        className="w-5 h-5 accent-[#cbff00] cursor-pointer"
+                    />
+                    <label htmlFor="requires_officials" className="text-white font-bold tracking-wide cursor-pointer select-none">
+                        Requires Pitchside Officials?
+                    </label>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
