@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import RefereeDashboardClient from './RefereeDashboardClient';
 
 export default async function RefereeDashboardPage() {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

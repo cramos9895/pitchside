@@ -9,8 +9,8 @@ import { Game, Booking, Profile, Match, Team } from "@/types/index";
 
 
 interface ExtendedProfile extends Profile {
-    first_name?: string | null;
-    last_name?: string | null;
+    first_name: string | null;
+    last_name: string | null;
 }
 
 interface Props {

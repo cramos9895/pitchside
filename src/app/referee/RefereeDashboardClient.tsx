@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Calendar, MapPin, Trophy, ChevronRight, ShieldAlert } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
 
 export default function RefereeDashboardClient({
     upcomingMatches,
@@ -103,12 +104,13 @@ export default function RefereeDashboardClient({
                                             <MapPin className="w-4 h-4" /> {match.field_name || 'TBD'}
                                         </div>
                                     </div>
-                                    <button 
+                                    <Link 
+                                        href={`/referee/matches/${match.id}`}
                                         className="w-full py-3 flex items-center justify-center gap-2 rounded-sm font-black uppercase tracking-widest text-sm transition-transform hover:scale-[1.02]"
                                         style={{ backgroundImage: 'linear-gradient(to right, #cbff00, #cbff00)', color: '#000000' }}
                                     >
                                         Check In <ChevronRight className="w-4 h-4" />
-                                    </button>
+                                    </Link>
                                 </div>
                             )})
                         )}
