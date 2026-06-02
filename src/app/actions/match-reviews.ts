@@ -31,6 +31,6 @@ export async function approveMatchReport(matchId: string, finalPayout: number) {
     
     // TODO: Execute Stripe Connect Transfer payload for final_payout (if payment_method === 'digital')
 
-    revalidatePath('/admin/reviews');
+    revalidatePath('/admin/match-reviews');
     revalidatePath(`/admin/games/${matchId}`);
 }

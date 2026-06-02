@@ -55,8 +55,14 @@ export function Sidebar({ isMasterAdmin, isSuperAdmin, pendingCount }: SidebarPr
             show: true
         },
         {
+            href: '/admin/match-reviews',
+            label: 'Match Reviews',
+            icon: ShieldAlert,
+            show: true
+        },
+        {
             href: '/admin/reviews',
-            label: 'Reviews',
+            label: 'Testimonials',
             icon: MessageSquare,
             show: true
         },
