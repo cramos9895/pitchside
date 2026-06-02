@@ -205,6 +205,15 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const [showFinalizeModal, setShowFinalizeModal] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
 
+
+    const handleUpdateJerseyAdmin = async (id: string, value: string) => {
+        try {
+            await supabase.from('bookings').update({ jersey_number: value }).eq('id', id);
+        } catch (err) {
+            console.error('Failed to update jersey', err);
+        }
+    };
+
     const handleMatchUpdate = () => {
         setRefreshKey(prev => prev + 1);
         fetchMatches(); // Also re-fetch matches locally
@@ -1330,7 +1339,17 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                                 <UserIcon className="w-4 h-4" />
                                                             </div>
                                                             <div className="min-w-0 flex-1">
-                                                                <div className="font-bold truncate text-sm">{displayName}</div>
+                                                                <div className="font-bold truncate text-sm flex items-center gap-2">
+                                                                    {displayName}
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="#"
+                                                                        defaultValue={booking.jersey_number || ''}
+                                                                        onBlur={(e) => handleUpdateJerseyAdmin(booking.id, e.target.value)}
+                                                                        className="w-12 h-6 bg-white/10 border border-white/20 rounded px-1 text-xs text-center font-black uppercase placeholder:text-gray-600 focus:outline-none focus:border-[#ccff00] transition-colors"
+                                                                        maxLength={3}
+                                                                    />
+                                                                </div>
                                                                 {game.facility_id && (
                                                                     <div className="text-[10px] uppercase font-bold tracking-wider mt-1 mb-1">
                                                                         {booking.has_signed ? (

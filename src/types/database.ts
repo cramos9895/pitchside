@@ -112,6 +112,7 @@ export type Database = {
           id: string
           is_captain: boolean | null
           is_winner: boolean | null
+          jersey_number: string | null
           last_read_at: string | null
           linked_booking_id: string | null
           note: string | null
@@ -139,6 +140,7 @@ export type Database = {
           id?: string
           is_captain?: boolean | null
           is_winner?: boolean | null
+          jersey_number?: string | null
           last_read_at?: string | null
           linked_booking_id?: string | null
           note?: string | null
@@ -166,6 +168,7 @@ export type Database = {
           id?: string
           is_captain?: boolean | null
           is_winner?: boolean | null
+          jersey_number?: string | null
           last_read_at?: string | null
           linked_booking_id?: string | null
           note?: string | null
@@ -1035,6 +1038,8 @@ export type Database = {
           created_at: string
           event_type: string
           id: string
+          incident_note: string | null
+          jersey_number: string | null
           match_id: string
           minute_mark: number | null
           player_id: string | null
@@ -1044,6 +1049,8 @@ export type Database = {
           created_at?: string
           event_type: string
           id?: string
+          incident_note?: string | null
+          jersey_number?: string | null
           match_id: string
           minute_mark?: number | null
           player_id?: string | null
@@ -1053,6 +1060,8 @@ export type Database = {
           created_at?: string
           event_type?: string
           id?: string
+          incident_note?: string | null
+          jersey_number?: string | null
           match_id?: string
           minute_mark?: number | null
           player_id?: string | null
@@ -1170,6 +1179,7 @@ export type Database = {
           created_at: string
           id: string
           is_checked_in: boolean | null
+          jersey_number: string | null
           match_id: string | null
           user_id: string | null
         }
@@ -1177,6 +1187,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_checked_in?: boolean | null
+          jersey_number?: string | null
           match_id?: string | null
           user_id?: string | null
         }
@@ -1184,6 +1195,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_checked_in?: boolean | null
+          jersey_number?: string | null
           match_id?: string | null
           user_id?: string | null
         }
@@ -1200,6 +1212,44 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_reports: {
+        Row: {
+          conduct_rating: number | null
+          created_at: string
+          facility_notes: string | null
+          id: string
+          match_id: string
+          match_notes: string | null
+          referee_id: string
+        }
+        Insert: {
+          conduct_rating?: number | null
+          created_at?: string
+          facility_notes?: string | null
+          id?: string
+          match_id: string
+          match_notes?: string | null
+          referee_id: string
+        }
+        Update: {
+          conduct_rating?: number | null
+          created_at?: string
+          facility_notes?: string | null
+          id?: string
+          match_id?: string
+          match_notes?: string | null
+          referee_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_reports_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
             referencedColumns: ["id"]
           },
         ]
@@ -1221,6 +1271,7 @@ export type Database = {
           match_phase: string | null
           match_style: string | null
           paused_elapsed_seconds: number | null
+          review_status: string | null
           round_number: number | null
           scheduled_time: string | null
           start_time: string | null
@@ -1245,6 +1296,7 @@ export type Database = {
           match_phase?: string | null
           match_style?: string | null
           paused_elapsed_seconds?: number | null
+          review_status?: string | null
           round_number?: number | null
           scheduled_time?: string | null
           start_time?: string | null
@@ -1269,6 +1321,7 @@ export type Database = {
           match_phase?: string | null
           match_style?: string | null
           paused_elapsed_seconds?: number | null
+          review_status?: string | null
           round_number?: number | null
           scheduled_time?: string | null
           start_time?: string | null
@@ -2053,6 +2106,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          jersey_number: string | null
           role: string
           status: string
           team_id: string
@@ -2061,6 +2115,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          jersey_number?: string | null
           role?: string
           status?: string
           team_id: string
@@ -2069,6 +2124,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          jersey_number?: string | null
           role?: string
           status?: string
           team_id?: string
@@ -2159,6 +2215,7 @@ export type Database = {
           created_at: string
           game_id: string | null
           id: string
+          jersey_number: string | null
           league_id: string | null
           payment_status: string | null
           preferred_positions: string[] | null
@@ -2176,6 +2233,7 @@ export type Database = {
           created_at?: string
           game_id?: string | null
           id?: string
+          jersey_number?: string | null
           league_id?: string | null
           payment_status?: string | null
           preferred_positions?: string[] | null
@@ -2193,6 +2251,7 @@ export type Database = {
           created_at?: string
           game_id?: string | null
           id?: string
+          jersey_number?: string | null
           league_id?: string | null
           payment_status?: string | null
           preferred_positions?: string[] | null

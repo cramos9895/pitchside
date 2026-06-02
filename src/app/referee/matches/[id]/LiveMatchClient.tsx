@@ -10,6 +10,30 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
     const router = useRouter();
     const [match, setMatch] = useState(initialMatch);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [activeEventModal, setActiveEventModal] = useState<{ teamSide: 'home' | 'away', teamId: string | null, eventType: string } | null>(null);
+    const [activeJerseys, setActiveJerseys] = useState<string[]>([]);
+    
+    const fetchJerseysForTeam = async (teamId: string | null) => {
+        if (!teamId) return [];
+        // Try team_players first
+        const { data: tpData } = await supabase.from('team_players').select('jersey_number').eq('team_id', teamId).not('jersey_number', 'is', null);
+        let jerseys = (tpData || []).map(p => p.jersey_number).filter(Boolean);
+        if (jerseys.length === 0) {
+            // Try tournament_registrations
+            const { data: trData } = await supabase.from('tournament_registrations').select('jersey_number').eq('team_id', teamId).not('jersey_number', 'is', null);
+            jerseys = (trData || []).map(p => p.jersey_number).filter(Boolean);
+        }
+        return Array.from(new Set(jerseys)) as string[];
+    };
+
+    const triggerEventModal = async (teamSide: 'home' | 'away', teamId: string | null, eventType: string) => {
+        setIsProcessing(true);
+        const jerseys = await fetchJerseysForTeam(teamId);
+        setActiveJerseys(jerseys);
+        setActiveEventModal({ teamSide, teamId, eventType });
+        setIsProcessing(false);
+    };
+
 
     const isScheduled = match.status === 'scheduled';
     const isInProgress = match.status === 'in_progress';
@@ -32,16 +56,18 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
         }
     };
 
+
     const handleFinalizeMatch = async () => {
         if (!confirm('Are you sure you want to finalize this match? The score will be locked.')) return;
         setIsProcessing(true);
         try {
             const { error } = await supabase
                 .from('matches')
-                .update({ status: 'finalized', is_final: true })
+                .update({ status: 'finalized', is_final: true, review_status: 'pending_report' })
                 .eq('id', match.id);
             if (error) throw error;
             setMatch({ ...match, status: 'finalized', is_final: true });
+            router.push(`/referee/matches/${match.id}/report`);
         } catch (e) {
             console.error('Failed to finalize match', e);
             alert('Failed to finalize match');
@@ -50,7 +76,7 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
         }
     };
 
-    const logEvent = async (teamType: 'home' | 'away', teamId: string | null, eventType: string) => {
+    const logEvent = async (teamType: 'home' | 'away', teamId: string | null, eventType: string, jerseyNumber: string | null = null) => {
         if (!isInProgress) {
             alert('Match must be in progress to log events.');
             return;
@@ -65,6 +91,7 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
                     match_id: match.id,
                     team_id: teamId,
                     event_type: eventType,
+                    jersey_number: jerseyNumber,
                 });
             if (eventError) throw eventError;
 
@@ -166,7 +193,7 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
                             <div className="space-y-4">
                                 <div className="text-center font-bold uppercase tracking-widest text-gray-500 text-xs mb-2">Home Actions</div>
                                 <button 
-                                    onClick={() => logEvent('home', match.home_team_id, 'goal')}
+                                    onClick={() => triggerEventModal('home', match.home_team_id, 'goal')}
                                     disabled={isProcessing}
                                     className="w-full h-32 bg-white/10 hover:bg-white/20 active:bg-white/30 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50"
                                 >
@@ -177,7 +204,7 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
                                 </button>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button 
-                                        onClick={() => logEvent('home', match.home_team_id, 'yellow_card')}
+                                        onClick={() => triggerEventModal('home', match.home_team_id, 'yellow_card')}
                                         disabled={isProcessing}
                                         className="h-24 bg-yellow-500/20 border-2 border-yellow-500/50 hover:bg-yellow-500/30 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50"
                                     >
@@ -185,7 +212,7 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
                                         <span className="font-bold uppercase text-[10px] tracking-wider text-yellow-500">Yellow</span>
                                     </button>
                                     <button 
-                                        onClick={() => logEvent('home', match.home_team_id, 'red_card')}
+                                        onClick={() => triggerEventModal('home', match.home_team_id, 'red_card')}
                                         disabled={isProcessing}
                                         className="h-24 bg-red-500/20 border-2 border-red-500/50 hover:bg-red-500/30 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50"
                                     >
@@ -199,7 +226,7 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
                             <div className="space-y-4">
                                 <div className="text-center font-bold uppercase tracking-widest text-gray-500 text-xs mb-2">Away Actions</div>
                                 <button 
-                                    onClick={() => logEvent('away', match.away_team_id, 'goal')}
+                                    onClick={() => triggerEventModal('away', match.away_team_id, 'goal')}
                                     disabled={isProcessing}
                                     className="w-full h-32 bg-white/10 hover:bg-white/20 active:bg-white/30 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50"
                                 >
@@ -210,7 +237,7 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
                                 </button>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button 
-                                        onClick={() => logEvent('away', match.away_team_id, 'yellow_card')}
+                                        onClick={() => triggerEventModal('away', match.away_team_id, 'yellow_card')}
                                         disabled={isProcessing}
                                         className="h-24 bg-yellow-500/20 border-2 border-yellow-500/50 hover:bg-yellow-500/30 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50"
                                     >
@@ -218,7 +245,7 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
                                         <span className="font-bold uppercase text-[10px] tracking-wider text-yellow-500">Yellow</span>
                                     </button>
                                     <button 
-                                        onClick={() => logEvent('away', match.away_team_id, 'red_card')}
+                                        onClick={() => triggerEventModal('away', match.away_team_id, 'red_card')}
                                         disabled={isProcessing}
                                         className="h-24 bg-red-500/20 border-2 border-red-500/50 hover:bg-red-500/30 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50"
                                     >
@@ -242,6 +269,51 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
                         </div>
                     </section>
                 )}
+
+                {/* Event Modal */}
+                {activeEventModal && (
+                    <div className="fixed inset-0 z-50 bg-pitch-black flex flex-col">
+                        <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                            <h2 className="text-3xl font-black italic uppercase tracking-widest text-white">
+                                {activeEventModal.eventType.replace('_', ' ')}
+                            </h2>
+                            <button onClick={() => setActiveEventModal(null)} className="text-gray-500 hover:text-white">
+                                <ChevronLeft className="w-8 h-8" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                            <button
+                                onClick={() => {
+                                    logEvent(activeEventModal.teamSide, activeEventModal.teamId, activeEventModal.eventType, null);
+                                    setActiveEventModal(null);
+                                }}
+                                className="w-full py-6 bg-white/5 border-2 border-white/10 rounded-sm text-white font-black uppercase tracking-widest text-xl hover:bg-white/10 transition-colors"
+                            >
+                                Unknown / No Selection
+                            </button>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                {activeJerseys.length > 0 ? activeJerseys.map(jersey => (
+                                    <button
+                                        key={jersey}
+                                        onClick={() => {
+                                            logEvent(activeEventModal.teamSide, activeEventModal.teamId, activeEventModal.eventType, jersey);
+                                            setActiveEventModal(null);
+                                        }}
+                                        className="aspect-square bg-pitch-card border-2 border-[#cbff00]/50 hover:bg-[#cbff00]/20 rounded-sm flex items-center justify-center text-4xl font-black italic text-[#cbff00] transition-colors"
+                                    >
+                                        {jersey}
+                                    </button>
+                                )) : (
+                                    <div className="col-span-3 text-center text-gray-500 font-bold uppercase mt-8">
+                                        No active jerseys found. Use the Unknown bypass.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
             </main>
         </div>
     );

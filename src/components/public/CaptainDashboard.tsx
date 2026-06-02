@@ -166,6 +166,15 @@ export function CaptainDashboard({
         }
     }, [activeTab, tournament.id, matchDateResult.date]);
 
+
+    const handleUpdateJersey = async (id: string, value: string) => {
+        try {
+            await supabase.from('tournament_registrations').update({ jersey_number: value }).eq('id', id);
+        } catch (err) {
+            console.error('Failed to update jersey', err);
+        }
+    };
+
     const handleRsvp = async (status: 'committed' | 'out') => {
         if (!matchDateResult.date) return;
         setIsRsvping(status);
@@ -470,6 +479,14 @@ export function CaptainDashboard({
                                                 <div>
                                                     <div className="font-bold uppercase tracking-wider text-sm flex items-center gap-2">
                                                         {player.profiles.first_name} {player.profiles.last_name || 'Unknown Player'}
+                                                        <input
+                                                            type="text"
+                                                            placeholder="#"
+                                                            defaultValue={(player as any).jersey_number || ''}
+                                                            onBlur={(e) => handleUpdateJersey(player.id, e.target.value)}
+                                                            className="w-12 h-6 bg-white/10 border border-white/20 rounded px-1 text-xs text-center font-black uppercase placeholder:text-gray-600 focus:outline-none focus:border-[#ccff00] transition-colors"
+                                                            maxLength={3}
+                                                        />
                                                         {suspendedUserIds.has(player.user_id) && <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-black tracking-widest flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> SUSPENDED</span>}
                                                     </div>
                                                     <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1">
