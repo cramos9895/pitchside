@@ -462,6 +462,7 @@ export type Database = {
           allowed_payment_methods: string[] | null
           amount_of_fields: number | null
           away_score: number | null
+          base_pay: number | null
           break_between_games: number | null
           cash_amount: number | null
           cash_fee_structure: string | null
@@ -515,6 +516,7 @@ export type Database = {
           minimum_games_per_team: number | null
           mvp_player_id: string | null
           payment_collection_type: string | null
+          payment_method: string | null
           player_registration_fee: number | null
           playoff_start_date: string | null
           price: number | null
@@ -564,6 +566,7 @@ export type Database = {
           allowed_payment_methods?: string[] | null
           amount_of_fields?: number | null
           away_score?: number | null
+          base_pay?: number | null
           break_between_games?: number | null
           cash_amount?: number | null
           cash_fee_structure?: string | null
@@ -617,6 +620,7 @@ export type Database = {
           minimum_games_per_team?: number | null
           mvp_player_id?: string | null
           payment_collection_type?: string | null
+          payment_method?: string | null
           player_registration_fee?: number | null
           playoff_start_date?: string | null
           price?: number | null
@@ -666,6 +670,7 @@ export type Database = {
           allowed_payment_methods?: string[] | null
           amount_of_fields?: number | null
           away_score?: number | null
+          base_pay?: number | null
           break_between_games?: number | null
           cash_amount?: number | null
           cash_fee_structure?: string | null
@@ -719,6 +724,7 @@ export type Database = {
           minimum_games_per_team?: number | null
           mvp_player_id?: string | null
           payment_collection_type?: string | null
+          payment_method?: string | null
           player_registration_fee?: number | null
           playoff_start_date?: string | null
           price?: number | null
@@ -1261,6 +1267,7 @@ export type Database = {
           away_team_id: string | null
           created_at: string | null
           field_name: string | null
+          final_payout: number | null
           game_id: string
           home_score: number | null
           home_team: string
@@ -1286,6 +1293,7 @@ export type Database = {
           away_team_id?: string | null
           created_at?: string | null
           field_name?: string | null
+          final_payout?: number | null
           game_id: string
           home_score?: number | null
           home_team: string
@@ -1311,6 +1319,7 @@ export type Database = {
           away_team_id?: string | null
           created_at?: string | null
           field_name?: string | null
+          final_payout?: number | null
           game_id?: string
           home_score?: number | null
           home_team?: string
