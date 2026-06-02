@@ -9,9 +9,7 @@ export default async function AdminReviewsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) redirect('/login');
 
-    // Verify Admin
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    if (!profile || profile.role !== 'admin') redirect('/dashboard');
+
 
     // Fetch pending_review matches
     const { data: matches, error } = await supabase

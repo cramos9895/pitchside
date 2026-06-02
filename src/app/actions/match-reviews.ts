@@ -10,8 +10,16 @@ export async function approveMatchReport(matchId: string, finalPayout: number) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
     
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    if (!profile || profile.role !== 'admin') throw new Error('Unauthorized');
+    const { data: profile } = await supabase.from('profiles').select('system_role, role').eq('id', user.id).single();
+    if (!profile) throw new Error('Unauthorized');
+    
+    const isMasterAdmin = profile.role === 'master_admin';
+    const isSuperAdmin = profile.system_role === 'super_admin';
+    const isRegularAdmin = profile.role === 'host';
+    
+    if (!isMasterAdmin && !isSuperAdmin && !isRegularAdmin) {
+        throw new Error('Unauthorized');
+    }
 
     // Update match
     const { error } = await supabase
