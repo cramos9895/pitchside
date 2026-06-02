@@ -32,6 +32,10 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
     const [title, setTitle] = useState(initialData?.title || '');
         // @ts-expect-error - Requires complex schema extension
     const [requiresOfficials, setRequiresOfficials] = useState(initialData?.requires_officials || false);
+    // @ts-expect-error - Complex schema extension
+    const [basePay, setBasePay] = useState<number>(initialData?.base_pay || 0);
+    // @ts-expect-error - Complex schema extension
+    const [paymentMethod, setPaymentMethod] = useState<'digital' | 'manual'>(initialData?.payment_method || 'digital');
     // @ts-expect-error - Requires complex schema extension
     const [rulesDescription, setRulesDescription] = useState(initialData?.rules_description || '');
     // @ts-expect-error - Requires complex schema extension
@@ -192,7 +196,7 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
                 ? (endTime.length === 5 ? `${endTime}:00` : endTime) : null;
 
             const payload = {
-                title, requires_officials: requiresOfficials, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
+                title, requires_officials: requiresOfficials, base_pay: basePay, payment_method: paymentMethod, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
                 latitude: coords.lat, longitude: coords.lng,
                 start_time: startDateTime ? startDateTime.toISOString() : null,
                 end_time: formattedEndTime,
@@ -310,18 +314,37 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
                 </div>
 
                 
-                <div className="flex items-center gap-3 bg-white/5 border border-white/10 p-4 rounded-sm">
-                    <input 
-                        type="checkbox" 
-                        id="requires_officials"
-                        checked={requiresOfficials}
-                        onChange={(e) => setRequiresOfficials(e.target.checked)}
-                        className="w-5 h-5 accent-[#cbff00] cursor-pointer"
-                    />
-                    <label htmlFor="requires_officials" className="text-white font-bold tracking-wide cursor-pointer select-none">
-                        Requires Pitchside Officials?
-                    </label>
+                
+                <div className="flex flex-col md:flex-row gap-6 mt-4 p-4 bg-white/5 border border-white/10 rounded-sm">
+                    <div className="flex items-center gap-3">
+                        <input 
+                            type="checkbox" 
+                            id="requires_officials"
+                            checked={requiresOfficials}
+                            onChange={(e) => setRequiresOfficials(e.target.checked)}
+                            className="w-5 h-5 accent-[#cbff00] cursor-pointer"
+                        />
+                        <label htmlFor="requires_officials" className="text-white font-bold tracking-wide cursor-pointer select-none">
+                            Requires Pitchside Officials?
+                        </label>
+                    </div>
+                    {requiresOfficials && (
+                        <div className="flex flex-col md:flex-row gap-4 border-l border-white/10 pl-6 w-full">
+                            <div className="flex-1">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">Base Pay Rate ($)</label>
+                                <input type="number" value={basePay} onChange={(e) => setBasePay(Number(e.target.value))} className="w-full bg-black border border-white/10 rounded-sm p-2 text-white focus:outline-none focus:border-[#cbff00] transition-colors font-bold" min={0} />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1">Payment Method</label>
+                                <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as any)} className="w-full bg-black border border-white/10 rounded-sm p-2 text-white focus:outline-none focus:border-[#cbff00] transition-colors font-bold">
+                                    <option value="digital">Digital (Stripe Connect)</option>
+                                    <option value="manual">Manual (Zelle/Cash)</option>
+                                </select>
+                            </div>
+                        </div>
+                    )}
                 </div>
+
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="col-span-1">

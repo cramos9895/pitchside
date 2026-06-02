@@ -43,6 +43,10 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
     const [title, setTitle] = useState(initialData?.title || '');
         // @ts-expect-error - Requires complex schema extension
     const [requiresOfficials, setRequiresOfficials] = useState(initialData?.requires_officials || false);
+    // @ts-expect-error - Complex schema extension
+    const [basePay, setBasePay] = useState<number>(initialData?.base_pay || 0);
+    // @ts-expect-error - Complex schema extension
+    const [paymentMethod, setPaymentMethod] = useState<'digital' | 'manual'>(initialData?.payment_method || 'digital');
     // @ts-expect-error - Requires complex schema extension
     const [rulesDescription, setRulesDescription] = useState(initialData?.rules_description || '');
     // @ts-expect-error - Requires complex schema extension
@@ -205,7 +209,7 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
         try {
             let startDateTime = rollingStartDate ? new Date(`${rollingStartDate}T${startTime || '18:00'}`) : null;
             const payload = {
-                title, requires_officials: requiresOfficials, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
+                title, requires_officials: requiresOfficials, base_pay: basePay, payment_method: paymentMethod, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
                 latitude: coords.lat, longitude: coords.lng, start_time: startDateTime ? startDateTime.toISOString() : null,
                 event_type: 'league', is_league: true, league_format: 'rolling', game_format_type: gameFormatType,
                 surface_type: surfaceType, amount_of_fields: amountOfFields === '' ? null : amountOfFields, field_size: fieldSize,
