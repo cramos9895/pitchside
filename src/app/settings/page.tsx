@@ -203,10 +203,8 @@ export default function SettingsPage() {
                     <div>
                         <h1 className="font-heading text-4xl font-bold italic uppercase tracking-tighter">
                             Settings
-// @ts-expect-error - Bypassing structural TS mismatch for deployment
                         </h1>
                     </div>
-                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                         {profile?.role === 'host' && (
                         <div className="flex items-center gap-2 px-4 py-2 bg-red-900/30 border border-red-500/50 rounded-sm">
                             <Shield className="w-5 h-5 text-red-500" />

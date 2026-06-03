@@ -38,7 +38,7 @@ export function GlobalPassportModal({ userId, onClose }: GlobalPassportModalProp
                     <div className="bg-white p-4 rounded-xl shadow-[0_0_30px_rgba(204,255,0,0.2)] inline-block relative group">
                         {/* Scanning Laser Effect (Pure CSS) */}
                         <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
-                            <div className="w-full h-[2px] bg-pitch-accent/50 absolute top-0 left-0 animate-[scan_2s_ease-in-out_infinite] shadow-[0_0_8px_rgba(204,255,0,0.8)]" />
+
                         </div>
                         <QRCodeSVG 
                             value={payload}
