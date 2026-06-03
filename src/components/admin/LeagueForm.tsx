@@ -19,6 +19,15 @@ interface LeagueFormProps {
 
 export function LeagueForm({ initialData, action = 'create', onSuccess }: LeagueFormProps) {
     const router = useRouter();
+
+    const getLocalDatetimeString = (utcString?: string | null) => {
+        if (!utcString) return '';
+        const date = new Date(utcString);
+        if (isNaN(date.getTime())) return '';
+        const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+        return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+    };
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -51,13 +60,13 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
 
     // Season Timeline State
     // @ts-expect-error - Requires complex schema extension
-    const [rosterLockDate, setRosterLockDate] = useState(initialData?.roster_lock_date ? new Date(initialData.roster_lock_date).toISOString().slice(0, 16) : '');
+    const [rosterLockDate, setRosterLockDate] = useState(getLocalDatetimeString(initialData?.roster_lock_date));
     // @ts-expect-error - Requires complex schema extension
-    const [regularSeasonStart, setRegularSeasonStart] = useState(initialData?.regular_season_start ? new Date(initialData.regular_season_start).toISOString().slice(0, 16) : '');
+    const [regularSeasonStart, setRegularSeasonStart] = useState(getLocalDatetimeString(initialData?.regular_season_start));
     // @ts-expect-error - Requires complex schema extension
-    const [rosterFreezeDate, setRosterFreezeDate] = useState(initialData?.roster_freeze_date ? new Date(initialData.roster_freeze_date).toISOString().slice(0, 16) : '');
+    const [rosterFreezeDate, setRosterFreezeDate] = useState(getLocalDatetimeString(initialData?.roster_freeze_date));
     // @ts-expect-error - Requires complex schema extension
-    const [playoffStartDate, setPlayoffStartDate] = useState(initialData?.playoff_start_date ? new Date(initialData.playoff_start_date).toISOString().slice(0, 16) : '');
+    const [playoffStartDate, setPlayoffStartDate] = useState(getLocalDatetimeString(initialData?.playoff_start_date));
 
     // Game Windows & Duration
     // @ts-expect-error - Requires complex schema extension
@@ -91,7 +100,7 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
     // @ts-expect-error - Requires complex schema extension
     const [teamPrice, setTeamPrice] = useState<number | ''>(initialData?.team_price ?? '');
     // @ts-expect-error - Requires complex schema extension
-    const [hasRegistrationFee, setHasRegistrationFee] = useState(initialData?.team_price !== null && initialData?.team_price !== undefined);
+    const [hasRegistrationFee, setHasRegistrationFee] = useState(initialData?.deposit_amount !== null && initialData?.deposit_amount !== undefined);
     // @ts-expect-error - Requires complex schema extension
     const [depositAmount, setDepositAmount] = useState<number | ''>(initialData?.deposit_amount ?? '');
     // @ts-expect-error - Requires complex schema extension
@@ -103,7 +112,7 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
     // @ts-expect-error - Requires complex schema extension
     const [allowFreeAgents, setAllowFreeAgents] = useState<boolean>(initialData?.allow_free_agents ?? true);
     // @ts-expect-error - Requires complex schema extension
-    const [refundCutoffDate, setRefundCutoffDate] = useState(initialData?.refund_cutoff_date ? new Date(initialData.refund_cutoff_date).toISOString().slice(0, 16) : '');
+    const [refundCutoffDate, setRefundCutoffDate] = useState(getLocalDatetimeString(initialData?.refund_cutoff_date));
 
     // Teams & Playoffs
     // @ts-expect-error - Requires complex schema extension
@@ -142,10 +151,11 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
     const playoffOptions = hasPlayoffBye ? [5, 9] : [4, 8];
 
     useEffect(() => {
-        if (!playoffOptions.includes(teamsIntoPlayoffs)) {
-            setTeamsIntoPlayoffs(playoffOptions[0]);
+        const options = hasPlayoffBye ? [5, 9] : [4, 8];
+        if (!options.includes(Number(teamsIntoPlayoffs))) {
+            setTeamsIntoPlayoffs(options[0]);
         }
-    }, [hasPlayoffBye, playoffOptions, teamsIntoPlayoffs]);
+    }, [hasPlayoffBye, teamsIntoPlayoffs]);
 
     useEffect(() => {
         if (!strictWaiverRequired) setWaiverDetails('');

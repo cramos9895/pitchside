@@ -19,6 +19,15 @@ interface TournamentFormProps {
 
 export function TournamentForm({ initialData, action = 'create', onSuccess }: TournamentFormProps) {
     const router = useRouter();
+
+    const getLocalDatetimeString = (utcString?: string | null) => {
+        if (!utcString) return '';
+        const date = new Date(utcString);
+        if (isNaN(date.getTime())) return '';
+        const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+        return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+    };
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -84,7 +93,7 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
     // @ts-expect-error - Requires complex schema extension
     const [teamPrice, setTeamPrice] = useState<number | ''>(initialData?.team_price ?? '');
     // @ts-expect-error - Requires complex schema extension
-    const [hasRegistrationFee, setHasRegistrationFee] = useState(initialData?.team_price !== null && initialData?.team_price !== undefined);
+    const [hasRegistrationFee, setHasRegistrationFee] = useState(initialData?.deposit_amount !== null && initialData?.deposit_amount !== undefined);
     // @ts-expect-error - Requires complex schema extension
     const [depositAmount, setDepositAmount] = useState<number | ''>(initialData?.deposit_amount ?? '');
     // @ts-expect-error - Requires complex schema extension
@@ -94,7 +103,7 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
     // @ts-expect-error - Requires complex schema extension
     const [hasFreeAgentCredit, setHasFreeAgentCredit] = useState(initialData?.has_free_agent_credit ?? false);
     // @ts-expect-error - Requires complex schema extension
-    const [refundCutoffDate, setRefundCutoffDate] = useState(initialData?.refund_cutoff_date ? new Date(initialData.refund_cutoff_date).toISOString().slice(0, 16) : '');
+    const [refundCutoffDate, setRefundCutoffDate] = useState(getLocalDatetimeString(initialData?.refund_cutoff_date));
 
     // Brackets & Teams
     // @ts-expect-error - Requires complex schema extension
@@ -106,7 +115,7 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
     // @ts-expect-error - Requires complex schema extension
     const [maxPlayersPerTeam, setMaxPlayersPerTeam] = useState<number | ''>(initialData?.max_players_per_team ?? 12);
     // @ts-expect-error - Requires complex schema extension
-    const [rosterLockDate, setRosterLockDate] = useState(initialData?.roster_lock_date ? new Date(initialData.roster_lock_date).toISOString().slice(0, 16) : '');
+    const [rosterLockDate, setRosterLockDate] = useState(getLocalDatetimeString(initialData?.roster_lock_date));
 
     // Waivers
     // @ts-expect-error - Requires complex schema extension

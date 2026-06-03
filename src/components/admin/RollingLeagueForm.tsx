@@ -30,6 +30,15 @@ interface RollingLeagueFormProps {
 
 export function RollingLeagueForm({ initialData, action = 'create', onSuccess }: RollingLeagueFormProps) {
     const router = useRouter();
+
+    const getLocalDatetimeString = (utcString?: string | null) => {
+        if (!utcString) return '';
+        const date = new Date(utcString);
+        if (isNaN(date.getTime())) return '';
+        const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+        return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+    };
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +91,7 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
     // @ts-expect-error - Requires complex schema extension
     const [teamSignupCutoff, setTeamSignupCutoff] = useState<string>(initialData?.team_signup_cutoff ? new Date(initialData.team_signup_cutoff).toISOString().slice(0, 16) : '');
     // @ts-expect-error - Requires complex schema extension
-    const [rosterLockDate, setRosterLockDate] = useState(initialData?.roster_lock_date ? new Date(initialData.roster_lock_date).toISOString().slice(0, 16) : '');
+    const [rosterLockDate, setRosterLockDate] = useState(getLocalDatetimeString(initialData?.roster_lock_date));
     
     // Formatting & Duration
     // @ts-expect-error - Requires complex schema extension
@@ -147,10 +156,11 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
     // Playoff bye logic
     const playoffOptions = hasPlayoffBye ? [5, 9] : [4, 8];
     useEffect(() => {
-        if (!playoffOptions.includes(teamsIntoPlayoffs)) {
-            setTeamsIntoPlayoffs(playoffOptions[0]);
+        const options = hasPlayoffBye ? [5, 9] : [4, 8];
+        if (!options.includes(Number(teamsIntoPlayoffs))) {
+            setTeamsIntoPlayoffs(options[0]);
         }
-    }, [hasPlayoffBye, playoffOptions, teamsIntoPlayoffs]);
+    }, [hasPlayoffBye, teamsIntoPlayoffs]);
 
     // Phase 4 Waivers & Lifecycle Overrides
     // @ts-expect-error - Requires complex schema extension
