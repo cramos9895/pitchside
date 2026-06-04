@@ -1128,8 +1128,8 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                             return (
                                                 <div key={match.id} className="relative group flex items-center bg-white/5 py-3 px-2 md:py-5 md:px-6 rounded-xl border border-white/5 hover:bg-white/[0.07] transition-all min-h-[70px] md:min-h-[88px]">
                                                     {/* Left: Home */}
-                                                    <div className="flex-1 text-right flex justify-end items-center px-1 md:px-4">
-                                                        <span className="text-xs md:text-base font-black uppercase tracking-tight text-white truncate max-w-[70px] md:max-w-none">{match.home_team}</span>
+                                                    <div className="flex-1 min-w-0 text-right flex justify-end items-center px-1 md:px-4">
+                                                        <span className="text-xs md:text-base font-black uppercase tracking-tight text-white truncate min-w-0">{match.home_team}</span>
                                                     </div>
 
                                                     {/* Center: Score & Field */}
@@ -1158,8 +1158,8 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                                     </div>
 
                                                     {/* Right: Away */}
-                                                    <div className="flex-1 text-left flex justify-start items-center px-1 md:px-4">
-                                                        <span className="text-xs md:text-base font-black uppercase tracking-tight text-white truncate max-w-[70px] md:max-w-none">{match.away_team}</span>
+                                                    <div className="flex-1 min-w-0 text-left flex justify-start items-center px-1 md:px-4">
+                                                        <span className="text-xs md:text-base font-black uppercase tracking-tight text-white truncate min-w-0">{match.away_team}</span>
                                                     </div>
                                                 </div>
                                             );
