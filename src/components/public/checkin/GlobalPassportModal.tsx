@@ -55,14 +55,6 @@ export function GlobalPassportModal({ userId, onClose }: GlobalPassportModalProp
                 </div>
             </div>
             
-            {/* Custom Scan Animation */}
-            <style jsx global>{`
-                @keyframes scan {
-                    0% { transform: translateY(-100%); }
-                    50% { transform: translateY(220px); }
-                    100% { transform: translateY(-100%); }
-                }
-            `}</style>
         </div>
     );
 }

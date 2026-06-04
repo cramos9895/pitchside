@@ -211,14 +211,12 @@ export default function SettingsPage() {
                             <span className="text-red-500 font-bold uppercase tracking-wider text-sm">Administrator</span>
                         </div>
                     )}
-                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                         {profile?.role === 'master_admin' && (
                         <div className="flex items-center gap-2 px-4 py-2 bg-yellow-900/30 border border-yellow-500/50 rounded-sm">
                             <div className="relative">
                                 <Shield className="w-5 h-5 text-yellow-500" />
                                 <Shield className="w-5 h-5 text-yellow-500 absolute -top-1 -right-1 opacity-50 scale-75" />
                             </div>
-                            // @ts-expect-error - Residual typing mismatch
                             <span className="text-yellow-500 font-bold uppercase tracking-wider text-sm">Master Admin</span>
                         </div>
                     )}

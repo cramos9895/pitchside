@@ -250,7 +250,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                 latitude: coords.lat, longitude: coords.lng,
                 start_time: startDateTime ? startDateTime.toISOString() : null,
                 end_time: formattedEndTime,
-                event_type: 'pickup', // Hardcoded strictly to pickup
+                event_type: 'standard', // Hardcoded strictly to standard
                 is_league: false,
                 match_style: matchStyle,
                 game_format_type: gameFormatType,
