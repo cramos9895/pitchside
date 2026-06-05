@@ -18,19 +18,16 @@ ADD COLUMN IF NOT EXISTS job_title text,
 ADD COLUMN IF NOT EXISTS certification_level text;
 
 -- 2. Backfill first_name and last_name from full_name
--- Safely handles:
--- 'John' -> first: 'John', last: ''
--- 'John Doe' -> first: 'John', last: 'Doe'
--- 'John Van Doe' -> first: 'John', last: 'Van Doe'
-UPDATE public.profiles
-SET 
-  first_name = split_part(full_name, ' ', 1),
-  last_name = CASE 
-    WHEN position(' ' in full_name) > 0 
-    THEN trim(substring(full_name from position(' ' in full_name) + 1))
-    ELSE '' 
-  END
-WHERE full_name IS NOT NULL AND (first_name IS NULL OR last_name IS NULL);
+-- (Commented out because full_name column was already dropped in a previous migration)
+-- UPDATE public.profiles
+-- SET 
+--   first_name = split_part(full_name, ' ', 1),
+--   last_name = CASE 
+--     WHEN position(' ' in full_name) > 0 
+--     THEN trim(substring(full_name from position(' ' in full_name) + 1))
+--     ELSE '' 
+--   END
+-- WHERE full_name IS NOT NULL AND (first_name IS NULL OR last_name IS NULL);
 
 -- 3. Update the handle_new_user function to map new metadata
 -- This trigger runs when a user confirms their email / signs up
