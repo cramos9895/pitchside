@@ -250,7 +250,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                 latitude: coords.lat, longitude: coords.lng,
                 start_time: startDateTime ? startDateTime.toISOString() : null,
                 end_time: formattedEndTime,
-                event_type: 'standard', // Hardcoded strictly to standard
+                event_type: 'pickup', // Hardcoded strictly to standard
                 is_league: false,
                 match_style: matchStyle,
                 game_format_type: gameFormatType,
@@ -266,7 +266,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                 is_refundable: isRefundable,
                 refund_cutoff_hours: isRefundable ? (refundCutoffHours === '' ? null : refundCutoffHours) : null,
                 refund_cutoff_date: isRefundable && refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null,
-                allowed_payment_methods: allowedPaymentMethods
+                allowed_payment_methods: (price === '' || price === 0) ? [] : allowedPaymentMethods
             };
 
             if (action === 'create') {
@@ -386,18 +386,20 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                     </div>
                 </div>
 
-                <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-sm">
-                    <h3 className="font-bold uppercase text-sm text-white flex items-center gap-2"><DollarSign className="w-4 h-4 text-[#cbff00]" /> Payment Methods</h3>
-                    <div className="flex gap-4 flex-wrap">
-                        {['venmo', 'zelle', 'stripe'].map(method => (
-                            <label key={method} className="flex items-center gap-2 cursor-pointer select-none bg-black/20 px-3 py-2 rounded border border-white/5 hover:border-white/20 transition-colors">
-                                                                <input type="checkbox" checked={allowedPaymentMethods.includes(method)} onChange={(e) => { if (e.target.checked) setAllowedPaymentMethods([...allowedPaymentMethods, method]); else setAllowedPaymentMethods(allowedPaymentMethods.filter((m: string) => m !== method)); }} className="w-4 h-4 accent-[#cbff00] rounded" />
-                                <span className="uppercase text-xs font-bold">{method === 'stripe' ? 'Credit Card (Stripe)' : method}</span>
-                            </label>
-                        ))}
+                {!(price === '' || price === 0) && (
+                    <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-sm">
+                        <h3 className="font-bold uppercase text-sm text-white flex items-center gap-2"><DollarSign className="w-4 h-4 text-[#cbff00]" /> Payment Methods</h3>
+                        <div className="flex gap-4 flex-wrap">
+                            {['venmo', 'zelle', 'stripe'].map(method => (
+                                <label key={method} className="flex items-center gap-2 cursor-pointer select-none bg-black/20 px-3 py-2 rounded border border-white/5 hover:border-white/20 transition-colors">
+                                                                    <input type="checkbox" checked={allowedPaymentMethods.includes(method)} onChange={(e) => { if (e.target.checked) setAllowedPaymentMethods([...allowedPaymentMethods, method]); else setAllowedPaymentMethods(allowedPaymentMethods.filter((m: string) => m !== method)); }} className="w-4 h-4 accent-[#cbff00] rounded" />
+                                    <span className="uppercase text-xs font-bold">{method === 'stripe' ? 'Credit Card (Stripe)' : method}</span>
+                                </label>
+                            ))}
+                        </div>
+                        {allowedPaymentMethods.length === 0 && <p className="text-red-500 text-xs italic">At least one method is required.</p>}
                     </div>
-                    {allowedPaymentMethods.length === 0 && <p className="text-red-500 text-xs italic">At least one method is required.</p>}
-                </div>
+                )}
 
                 <div className="flex flex-col md:flex-row gap-6 items-start">
                     <div className="flex-1 w-full">

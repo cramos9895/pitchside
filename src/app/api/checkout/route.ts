@@ -97,13 +97,16 @@ export async function POST(request: Request) {
         let appliedCreditUnits = 0;
         let totalDueUnits = subtotalUnits;
 
-        if (!isFreeAgent && !isLeagueCaptainVaulting && subtotalUnits > 0) {
+        const eventType = gameConfig?.event_type || 'league';
+        const requiresVaulting = (isLeagueCaptainVaulting || (isFreeAgent && eventType !== 'pickup'));
+
+        if (!requiresVaulting && subtotalUnits > 0) {
             appliedCreditUnits = Math.min(walletBalanceCredits, subtotalUnits);
             totalDueUnits = Math.max(0, subtotalUnits - appliedCreditUnits);
         }
 
         // 100% BYPASS (Free or strictly covered by Wallet)
-        if (!isFreeAgent && !isLeagueCaptainVaulting && totalDueUnits === 0) {
+        if (!requiresVaulting && totalDueUnits === 0) {
             // Deduct from wallet if applicable
             if (appliedCreditUnits > 0) {
                 const newBalanceCents = Math.round((walletBalanceCredits - appliedCreditUnits) * 100);
