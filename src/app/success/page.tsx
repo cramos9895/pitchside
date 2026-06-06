@@ -161,6 +161,7 @@ export default async function SuccessPage({ searchParams }: Props) {
                 payment_status: 'verified',
                 payment_method: 'stripe',
                 payment_amount: baseAmount,
+                roster_status: 'confirmed',
                 note: note,
                 stripe_payment_method_id: paymentMethodId,
                 ...(teamAssignment && { team_assignment: teamAssignment }),
@@ -178,6 +179,7 @@ export default async function SuccessPage({ searchParams }: Props) {
                 payment_status: 'verified',
                 payment_method: 'stripe',
                 payment_amount: baseAmount,
+                roster_status: 'confirmed',
                 stripe_payment_method_id: paymentMethodId,
                 ...(teamAssignment && { team_assignment: teamAssignment })
             });
