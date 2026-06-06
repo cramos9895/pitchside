@@ -271,7 +271,7 @@ export async function POST(request: Request) {
         });
 
         // STAGE IN PENDING CHECKOUTS
-        await adminSupabase.from('pending_checkouts').insert({
+        const { error: pendingError } = await adminSupabase.from('pending_checkouts').insert({
             checkout_session_id: session.id,
             buyer_id: userId,
             game_id: gameId,
@@ -279,6 +279,10 @@ export async function POST(request: Request) {
             credit_used: Math.round(appliedCreditUnits * 100),
             ...(teamAssignment && { team_assignment: teamAssignment.toString() })
         });
+
+        if (pendingError) {
+            console.error('[CHECKOUT_API] Failed to stage pending checkout (fallback will handle this):', pendingError);
+        }
 
         return NextResponse.json({ clientSecret: session.client_secret });
     } catch (error: any) {

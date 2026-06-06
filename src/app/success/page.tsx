@@ -135,7 +135,7 @@ export default async function SuccessPage({ searchParams }: Props) {
             .from('pending_checkouts')
             .select('*')
             .eq('checkout_session_id', sessionId)
-            .single();
+            .maybeSingle();
 
         let appliedCreditUnitsCents = 0;
         let guestIdsToInsert: string[] = [];
@@ -144,6 +144,13 @@ export default async function SuccessPage({ searchParams }: Props) {
             appliedCreditUnitsCents = pendingCheckout.credit_used || pendingCheckout.applied_credit || 0;
             if (pendingCheckout.guest_ids && Array.isArray(pendingCheckout.guest_ids)) {
                 guestIdsToInsert = pendingCheckout.guest_ids;
+            }
+        } else {
+            console.warn(`[SUCCESS_WARNING] pending_checkout missing for session ${sessionId}. Falling back to Stripe metadata.`);
+            appliedCreditUnitsCents = Math.round(parseFloat(session.metadata?.appliedCreditUnits || '0') * 100);
+            const metaGuests = session.metadata?.guestIds;
+            if (metaGuests && metaGuests.trim().length > 0) {
+                guestIdsToInsert = metaGuests.split(',');
             }
         }
 
