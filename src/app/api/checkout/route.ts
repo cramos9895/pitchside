@@ -116,11 +116,11 @@ export async function POST(request: Request) {
             // Process Bookings (Check-Then-Update Pattern)
             const linkedBookingId = crypto.randomUUID();
             const passengersToProcess: any[] = [
-                { game_id: gameId, user_id: userId, status: 'paid', payment_status: 'verified', linked_booking_id: linkedBookingId, note, ...(teamAssignment && { team_assignment: teamAssignment }) }
+                { game_id: gameId, user_id: userId, status: 'paid', payment_status: 'verified', roster_status: 'confirmed', linked_booking_id: linkedBookingId, note, ...(teamAssignment && { team_assignment: teamAssignment }) }
             ];
             for (const gid of guestIds) {
                 passengersToProcess.push({
-                    game_id: gameId, user_id: gid, status: 'paid', payment_status: 'verified', linked_booking_id: linkedBookingId, buyer_id: userId, ...(teamAssignment && { team_assignment: teamAssignment })
+                    game_id: gameId, user_id: gid, status: 'paid', payment_status: 'verified', roster_status: 'confirmed', linked_booking_id: linkedBookingId, buyer_id: userId, ...(teamAssignment && { team_assignment: teamAssignment })
                 });
             }
 
