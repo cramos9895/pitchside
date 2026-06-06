@@ -174,8 +174,6 @@ export async function POST(request: Request) {
             }
         }
 
-        const eventType = gameConfig?.event_type || 'league';
-
         if (isFreeAgent && eventType !== 'pickup') {
             const session = await stripe.checkout.sessions.create({
                 mode: 'setup',
