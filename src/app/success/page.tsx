@@ -196,17 +196,21 @@ export default async function SuccessPage({ searchParams }: Props) {
 
         for (const passenger of passengersToProcess) {
             try {
+                // FALLBACK RESILIENCY: Use standard auth client for the buyer's own booking
+                // This prevents checkout failures if the admin service key on Vercel is misconfigured
+                const dbClient = passenger.user_id === userId ? supabase : adminSupabase;
+
                 // Check if passenger already has a booking row that was possibly cancelled
-                const { data: existingBooking } = await adminSupabase
+                const { data: existingBooking } = await dbClient
                     .from('bookings')
                     .select('id')
                     .eq('game_id', passenger.game_id)
                     .eq('user_id', passenger.user_id)
-                    .single();
+                    .maybeSingle();
 
                 if (existingBooking) {
                     // UPSERT: Update their cancelled row back to active
-                    const { error: updateError } = await adminSupabase
+                    const { error: updateError } = await dbClient
                         .from('bookings')
                         .update({
                             status: passenger.status,
@@ -226,7 +230,7 @@ export default async function SuccessPage({ searchParams }: Props) {
                     }
                 } else {
                     // INSERT new row
-                    const { error: insertError } = await adminSupabase
+                    const { error: insertError } = await dbClient
                         .from('bookings')
                         .insert([passenger]);
 
