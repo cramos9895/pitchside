@@ -304,8 +304,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             return;
         }
 
-        if (selectedTeam === 'free_agent' && !isWaitlist) {
-            // Free Agents IMMEDIATELY go to Stripe to vault UNLESS it is a cash league.
+        if (selectedTeam === 'free_agent' && !isWaitlist && isLeague) {
+            // League Free Agents IMMEDIATELY go to Stripe to vault UNLESS it is a cash league.
                                                 const isCashLeague = gameData?.payment_collection_type === 'cash';
             
             if (isCashLeague) {
@@ -386,7 +386,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
             const isVaultingSession = isLeague && isCaptain;
 
             // Phase 46: Auto-open Stripe modal upon waiver return if that was the intent
-            if (selectedTeam === 'free_agent') {
+            if (selectedTeam === 'free_agent' && isLeague) {
                 onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, isFreeAgent: true, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
             } else if (step === 'payment' && paymentMethod) {
                 onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
@@ -848,7 +848,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 >
                                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> :
                                         isWaitlist ? "Confirm Waitlist Spot" :
-                                                                                                                                                                                selectedTeam === 'free_agent' ? (gameData?.payment_collection_type === 'cash' ? "Confirm Free Agent Registration" : (isLeague ? "Vault Card & Register" : "Pay & Join Match")) :
+                                                                                                                                                                                (selectedTeam === 'free_agent' && isLeague) ? (gameData?.payment_collection_type === 'cash' ? "Confirm Free Agent Registration" : "Vault Card & Register") :
                                                 finalPrice === 0 ? "Confirm & Join" : `Continue to Payment ($${finalPrice.toFixed(2)})`}
                                 </button>
                             </div>
