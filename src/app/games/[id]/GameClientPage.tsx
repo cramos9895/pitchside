@@ -368,7 +368,7 @@ export function GameClientPage({
     const assignedTeamConfig = game.teams_config && userBooking?.team_assignment
         ? game.teams_config.find((t: any) => t.name === userBooking.team_assignment)
         : null;
-    const assignedTeamName = assignedTeamConfig?.name || `Team ${userBooking?.team_assignment}`;
+    const assignedTeamName = assignedTeamConfig?.name || (userBooking?.team_assignment === 'free_agent' ? 'Unassigned' : `Team ${userBooking?.team_assignment}`);
 
     const teammates = userBooking?.team_assignment
         ? validBookings.filter(b => b.team_assignment === userBooking.team_assignment)
@@ -859,7 +859,7 @@ export function GameClientPage({
                                                             </div>
                                                             {player.team_assignment && (
                                                                 <div className="text-xs text-gray-400 uppercase font-bold mt-0.5 max-w-[120px] truncate">
-                                                                    {player.team_assignment}
+                                                                    {player.team_assignment === 'free_agent' ? 'Unassigned' : player.team_assignment}
                                                                 </div>
                                                             )}
                                                         </div>

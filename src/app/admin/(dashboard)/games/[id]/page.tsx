@@ -1251,37 +1251,58 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         {/* TAB 1: PLAYER MANAGER */}
                         <TabsContent value="player-manager" className="mt-0">
                             {/* Live Counters */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                                                {teams.map((team: TeamConfig) => {
-                                                                        const count = teamCounts[team.name] || 0;
-                                                                        const limit = (team as any).limit || 11;
-                                    const isFull = count >= limit;
-                                    const percentage = Math.min(100, (count / limit) * 100);
+                            {game.event_type !== 'pickup' ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                                                    {teams.map((team: TeamConfig) => {
+                                                                            const count = teamCounts[team.name] || 0;
+                                                                            const limit = (team as any).limit || 11;
+                                        const isFull = count >= limit;
+                                        const percentage = Math.min(100, (count / limit) * 100);
 
-                                    // Determine bar color based on team config
-                                                                        const barHex = HEX_COLOR_MAP[team.color] || '#3b82f6'; // Default blue-500
+                                        // Determine bar color based on team config
+                                                                            const barHex = HEX_COLOR_MAP[team.color] || '#3b82f6'; // Default blue-500
 
-                                    return (
-                                        <div key={team.name} className="bg-pitch-card border border-white/10 p-4 rounded-sm">
-                                            <div className="flex justify-between items-end mb-2">
-                                                <h3 className="font-bold uppercase italic">{team.name}</h3>
-                                                <span className={cn("text-xl font-black", isFull ? "text-red-500" : "text-white")}>
-                                                    {count}<span className="text-gray-500 text-sm">/{limit}</span>
-                                                </span>
+                                        return (
+                                            <div key={team.name} className="bg-pitch-card border border-white/10 p-4 rounded-sm">
+                                                <div className="flex justify-between items-end mb-2">
+                                                    <h3 className="font-bold uppercase italic">{team.name}</h3>
+                                                    <span className={cn("text-xl font-black", isFull ? "text-red-500" : "text-white")}>
+                                                        {count}<span className="text-gray-500 text-sm">/{limit}</span>
+                                                    </span>
+                                                </div>
+                                                <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full transition-all duration-500"
+                                                        style={{
+                                                            width: `${percentage}%`,
+                                                            backgroundColor: barHex
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
-                                            <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full transition-all duration-500"
-                                                    style={{
-                                                        width: `${percentage}%`,
-                                                        backgroundColor: barHex
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="mb-8 mt-2">
+                                    <TeamManager
+                                        gameId={gameId}
+                                        teams={teams}
+                                        players={bookings.map(b => ({
+                                            id: b.id,
+                                            userId: b.user_id,
+                                            linked_booking_id: b.linked_booking_id,
+                                            name: Array.isArray(b.profiles) ? (b.profiles[0]?.first_name ? `${b.profiles[0].first_name} ${b.profiles[0].last_name}` : 'Unknown') : (b.profiles?.first_name ? `${b.profiles.first_name} ${b.profiles.last_name}` : 'Unknown'),
+                                            email: Array.isArray(b.profiles) ? b.profiles[0]?.email : b.profiles?.email || '',
+                                            team: b.team_assignment === 'free_agent' ? null : (b.team_assignment as any || null),
+                                            status: b.status,
+                                            payment_status: b.payment_status
+                                        }))}
+                                        onUpdate={() => router.refresh()}
+                                        onVerifyPayment={togglePaymentStatus}
+                                    />
+                                </div>
+                            )}
 
                             {/* Roster & Waitlist Container */}
                             <div className="space-y-8 mb-8">
@@ -1423,7 +1444,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                                                         {/* Team Select - Flex Wrap for Mobile */}
                                                         <div className="w-full md:w-auto flex-1 flex items-center gap-2 flex-wrap md:col-span-3 md:border-l md:border-white/5 pl-0 md:pl-4">
-                                                                                                                        <Select value={booking.team_assignment || "none"} onValueChange={(val) => assignTeam(booking.id, val === "none" ? null as any : val)}>
+                                                                                                                        <Select value={booking.team_assignment === 'free_agent' ? "none" : (booking.team_assignment || "none")} onValueChange={(val) => assignTeam(booking.id, val === "none" ? null as any : val)}>
                                                                 <SelectTrigger className="h-8 max-w-[160px] md:max-w-full">
                                                                     <SelectValue placeholder="Assign Team" />
                                                                 </SelectTrigger>
@@ -1516,25 +1537,27 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
 
 
-                            {/* TEAM BALANCING SECTION (Moved Here) */}
-                            <div className="mb-8">
-                                <TeamManager
-                                    gameId={gameId}
-                                    teams={teams}
-                                                                        players={bookings.map(b => ({
-                                        id: b.id,
-                                        userId: b.user_id,
-                                        linked_booking_id: b.linked_booking_id,
-                                        name: Array.isArray(b.profiles) ? (b.profiles[0]?.first_name ? `${b.profiles[0].first_name} ${b.profiles[0].last_name}` : 'Unknown') : (b.profiles?.first_name ? `${b.profiles.first_name} ${b.profiles.last_name}` : 'Unknown'),
-                                        email: Array.isArray(b.profiles) ? b.profiles[0]?.email : b.profiles?.email || '',
-                                        team: b.team_assignment as any || null,
-                                        status: b.status,
-                                        payment_status: b.payment_status
-                                    }))}
-                                    onUpdate={() => router.refresh()}
-                                    onVerifyPayment={togglePaymentStatus}
-                                />
-                            </div>
+                            {/* TEAM BALANCING SECTION */}
+                            {game.event_type !== 'pickup' && (
+                                <div className="mb-8">
+                                    <TeamManager
+                                        gameId={gameId}
+                                        teams={teams}
+                                                                            players={bookings.map(b => ({
+                                            id: b.id,
+                                            userId: b.user_id,
+                                            linked_booking_id: b.linked_booking_id,
+                                            name: Array.isArray(b.profiles) ? (b.profiles[0]?.first_name ? `${b.profiles[0].first_name} ${b.profiles[0].last_name}` : 'Unknown') : (b.profiles?.first_name ? `${b.profiles.first_name} ${b.profiles.last_name}` : 'Unknown'),
+                                            email: Array.isArray(b.profiles) ? b.profiles[0]?.email : b.profiles?.email || '',
+                                            team: b.team_assignment === 'free_agent' ? null : (b.team_assignment as any || null),
+                                            status: b.status,
+                                            payment_status: b.payment_status
+                                        }))}
+                                        onUpdate={() => router.refresh()}
+                                        onVerifyPayment={togglePaymentStatus}
+                                    />
+                                </div>
+                            )}
 
                             {/* LEAGUE PAYMENTS & ESCROW */}
                             {game.event_type === 'league' && (
