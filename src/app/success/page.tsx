@@ -164,7 +164,7 @@ export default async function SuccessPage({ searchParams }: Props) {
                 user_id: userId,
                 buyer_id: null,
                 linked_booking_id: linkedBookingId,
-                status: isFreeAgent ? 'free_agent_pending' : 'paid',
+                status: 'paid', // FIXED: 'free_agent_pending' violates check constraints for the bookings table
                 payment_status: 'verified',
                 payment_method: 'stripe',
                 payment_amount: baseAmount,
