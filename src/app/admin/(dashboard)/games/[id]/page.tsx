@@ -1298,7 +1298,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                             status: b.status,
                                             payment_status: b.payment_status
                                         }))}
-                                        onUpdate={() => router.refresh()}
+                                        onUpdate={() => { fetchRegistrations(); router.refresh(); }}
                                         onVerifyPayment={togglePaymentStatus}
                                     />
                                 </div>
@@ -1553,7 +1553,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                             status: b.status,
                                             payment_status: b.payment_status
                                         }))}
-                                        onUpdate={() => router.refresh()}
+                                        onUpdate={() => { fetchRegistrations(); router.refresh(); }}
                                         onVerifyPayment={togglePaymentStatus}
                                     />
                                 </div>
