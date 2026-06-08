@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Calendar, Clock, Save, MapPin, Trash2, Plus, DollarSign, Users, Loader2 } from 'lucide-react';
+import { Calendar, Clock, Save, MapPin, Trash2, Plus, DollarSign, Users, Loader2, Bookmark, BookmarkPlus } from 'lucide-react';
 import usePlacesAutocomplete, { getGeocode, getLatLng } from 'use-places-autocomplete';
 import { useLoadScript } from '@react-google-maps/api';
 import { useRouter } from 'next/navigation';
 import { updateGame } from '@/app/actions/update-game';
+import { saveTemplate, getTemplates } from '@/app/actions/template-actions';
 import { Game, Booking, Profile, Match, Team } from "@/types/index";
 
 const LIBRARIES: ("places")[] = ["places"];
@@ -63,7 +64,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
     });
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
         const [locationNickname, setLocationNickname] = useState(initialData?.location_nickname || '');
-    const [gameDate, setGameDate] = useState('');
+    const [gameDates, setGameDates] = useState<string[]>(['']);
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
@@ -74,6 +75,8 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
         const [gameFormatType, setGameFormatType] = useState(initialData?.game_format_type || '7 v 7');
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
         const [matchStyle, setMatchStyle] = useState(initialData?.match_style || 'Tourney');
+        // @ts-expect-error - Residual typing mismatch from extended schema mapping
+        const [isActive, setIsActive] = useState(initialData?.is_active ?? true);
     
     // Policies
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
@@ -115,7 +118,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                 if (initialData?.start_time) {
                         // @ts-expect-error - Residual typing mismatch from extended schema mapping
                         const start = new Date(initialData.start_time);
-            setGameDate(start.toISOString().split('T')[0]);
+            setGameDates([start.toISOString().split('T')[0]]);
             setStartTime(start.toTimeString().slice(0, 5));
         }
                 // @ts-expect-error - Residual typing mismatch from extended schema mapping
@@ -227,8 +230,8 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); setLoading(true); setError(null);
 
-        if (!gameDate || !startTime || !endTime) {
-            alert("Please fill in all time fields"); setLoading(false); return;
+        if (gameDates.length === 0 || gameDates.some(d => !d) || !startTime || !endTime) {
+            alert("Please fill in all dates and time fields"); setLoading(false); return;
         }
 
         if (price !== '' && price > 0 && allowedPaymentMethods.length === 0) {
@@ -236,20 +239,12 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
         }
 
         try {
-            let startDateTime = new Date(`${gameDate}T${startTime}`);
-            let endDateTime = new Date(`${gameDate}T${endTime}`);
-            if (endDateTime < startDateTime) {
-                endDateTime.setDate(endDateTime.getDate() + 1);
-            }
-
             const formattedEndTime = (endTime && endTime.length >= 5) 
                 ? (endTime.length === 5 ? `${endTime}:00` : endTime) : null;
 
-            const payload = {
+            const basePayload = {
                 title, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
                 latitude: coords.lat, longitude: coords.lng,
-                start_time: startDateTime ? startDateTime.toISOString() : null,
-                end_time: formattedEndTime,
                 event_type: 'pickup', // Hardcoded strictly to standard
                 is_league: false,
                 match_style: matchStyle,
@@ -266,24 +261,46 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                 is_refundable: isRefundable,
                 refund_cutoff_hours: isRefundable ? (refundCutoffHours === '' ? null : refundCutoffHours) : null,
                 refund_cutoff_date: isRefundable && refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null,
-                allowed_payment_methods: (price === '' || price === 0) ? [] : allowedPaymentMethods
+                allowed_payment_methods: (price === '' || price === 0) ? [] : allowedPaymentMethods,
+                is_active: isActive
             };
 
             if (action === 'create') {
                                 const { data: { user } } = await supabase.auth.getSession().then(({data}) => ({ data: { user: data.session?.user } }));
                 if (!user) throw new Error("You must be logged in.");
 
-                const { error: insertError } = await supabase.from('games').insert([{
-                    ...payload, host_ids: [user.id] 
-                }]);
+                const inserts = gameDates.map(date => {
+                    let startDateTime = new Date(`${date}T${startTime}`);
+                    let endDateTime = new Date(`${date}T${endTime}`);
+                    if (endDateTime < startDateTime) {
+                        endDateTime.setDate(endDateTime.getDate() + 1);
+                    }
+                    return {
+                        ...basePayload,
+                        start_time: startDateTime.toISOString(),
+                        end_time: formattedEndTime,
+                        host_ids: [user.id]
+                    };
+                });
+
+                const { error: insertError } = await supabase.from('games').insert(inserts);
                 if (insertError) throw insertError;
 
                 router.push('/admin'); router.refresh();
             } else {
                                 // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                 if (!initialData?.id) throw new Error("Missing Game ID for edit.");
+                                let startDateTime = new Date(`${gameDates[0]}T${startTime}`);
+                                let endDateTime = new Date(`${gameDates[0]}T${endTime}`);
+                                if (endDateTime < startDateTime) endDateTime.setDate(endDateTime.getDate() + 1);
+                                
+                                const updatePayload = {
+                                    ...basePayload,
+                                    start_time: startDateTime.toISOString(),
+                                    end_time: formattedEndTime
+                                };
                                 // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                await updateGame(initialData.id, payload);
+                                await updateGame(initialData.id, updatePayload);
                 if (onSuccess) onSuccess();
             }
                 // @ts-expect-error - Residual typing mismatch from extended schema mapping
@@ -300,10 +317,132 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                 </div>
             )}
 
+    // Templates State
+    const [templates, setTemplates] = useState<any[]>([]);
+    const [templateLoading, setTemplateLoading] = useState(true);
+    const [templateName, setTemplateName] = useState('');
+    const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+
+    useEffect(() => {
+        getTemplates('pickup').then(data => {
+            setTemplates(data || []);
+            setTemplateLoading(false);
+        }).catch(err => {
+            console.error(err);
+            setTemplateLoading(false);
+        });
+    }, []);
+
+    const handleLoadTemplate = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const templateId = e.target.value;
+        if (!templateId) return;
+        const template = templates.find(t => t.id === templateId);
+        if (!template) return;
+        
+        const data = template.template_data;
+        setTitle(data.title || '');
+        setRulesDescription(data.rules_description || '');
+        setLocationName(data.location || '');
+        setCoords({ lat: data.latitude || null, lng: data.longitude || null });
+        setLocationNickname(data.location_nickname || '');
+        
+        if (data.start_time) {
+            const start = new Date(data.start_time);
+            setGameDates([start.toISOString().split('T')[0]]);
+            setStartTime(start.toTimeString().slice(0, 5));
+        }
+        if (data.end_time) {
+            if (data.end_time.includes('T')) setEndTime(new Date(data.end_time).toTimeString().slice(0, 5));
+            else setEndTime(data.end_time.slice(0, 5));
+        }
+        
+        setPrice(data.price ?? 10.00);
+        setMaxPlayers(data.max_players ?? 22);
+        setGameFormatType(data.game_format_type || '7 v 7');
+        setMatchStyle(data.match_style || 'Tourney');
+        setIsActive(data.is_active ?? true);
+        setRefundPolicy(data.refund_policy || '');
+        setConductPolicy(data.conduct_policy || '');
+        setAllowedPaymentMethods(data.allowed_payment_methods || ['venmo', 'zelle']);
+        setIsRefundable(data.is_refundable ?? true);
+        setRefundCutoffHours(data.refund_cutoff_hours ?? 24);
+        if (data.refund_cutoff_date) setRefundCutoffDate(new Date(data.refund_cutoff_date).toISOString().slice(0, 16));
+        setSurfaceType(data.surface_type || 'Outdoor Turf');
+        setAmountOfFields(data.amount_of_fields ?? 1);
+        setFieldSize(data.field_size || 'Standard');
+        setShoeTypes(data.shoe_types || ['Turf Shoes', 'FG Cleats']);
+        if (data.teams_config) setTeams(data.teams_config);
+    };
+
+    const handleSaveTemplate = async () => {
+        if (!templateName) return alert('Please enter a name for the template.');
+        setIsSavingTemplate(true);
+        try {
+            const payload = {
+                title, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
+                latitude: coords.lat, longitude: coords.lng,
+                start_time: gameDates[0] && startTime ? new Date(`${gameDates[0]}T${startTime}`).toISOString() : null,
+                end_time: endTime ? (endTime.length === 5 ? `${endTime}:00` : endTime) : null,
+                event_type: 'pickup', is_league: false, match_style: matchStyle, game_format_type: gameFormatType,
+                surface_type: surfaceType, amount_of_fields: amountOfFields === '' ? null : amountOfFields,
+                field_size: fieldSize, shoe_types: shoeTypes, price: price === '' ? 0 : price,
+                max_players: maxPlayers === '' ? 22 : maxPlayers, teams_config: teams, refund_policy: refundPolicy,
+                conduct_policy: conductPolicy, is_refundable: isRefundable, refund_cutoff_hours: isRefundable ? (refundCutoffHours === '' ? null : refundCutoffHours) : null,
+                refund_cutoff_date: isRefundable && refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null,
+                allowed_payment_methods: (price === '' || price === 0) ? [] : allowedPaymentMethods, is_active: isActive
+            };
+            
+            const res = await saveTemplate(templateName, 'pickup', payload);
+            if (res.success && res.data) {
+                setTemplates([res.data, ...templates]);
+                setTemplateName('');
+                alert('Template saved successfully!');
+            }
+        } catch (err: any) {
+            alert(err.message || 'Failed to save template');
+        } finally {
+            setIsSavingTemplate(false);
+        }
+    };
+
             <div className="space-y-6">
-                <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2">
+                {/* TEMPLATES */}
+                <div className="flex flex-col md:flex-row gap-4 bg-white/5 border border-white/10 p-4 rounded-sm">
+                    <div className="flex-1">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-2">
+                            <Bookmark className="w-3 h-3" /> Load Template
+                        </label>
+                        <select onChange={handleLoadTemplate} disabled={templateLoading || templates.length === 0} className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors">
+                            <option value="">{templateLoading ? 'Loading templates...' : templates.length === 0 ? 'No templates saved' : 'Select a template...'}</option>
+                            {templates.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-2">
+                            <BookmarkPlus className="w-3 h-3" /> Save Current Form As Template
+                        </label>
+                        <div className="flex gap-2">
+                            <input type="text" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Template Name" className="flex-1 bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
+                            <button type="button" onClick={handleSaveTemplate} disabled={isSavingTemplate || !templateName} className="bg-[#cbff00] text-black font-bold uppercase text-xs px-4 rounded-sm hover:bg-white transition-colors disabled:opacity-50">Save</button>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2 mt-8">
                     <Save className="w-5 h-5 text-[#cbff00]" /> Match Info
                 </h3>
+
+                <div className="flex items-center justify-between bg-white/5 border border-white/10 p-4 rounded-sm mb-6">
+                    <div>
+                        <h4 className="font-bold text-white uppercase text-sm tracking-widest">Event Visibility</h4>
+                        <p className="text-xs text-pitch-secondary mt-1">If hidden, the event will not appear on the public marketplace and lobbies will be disabled.</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#cbff00]"></div>
+                        <span className="ml-3 text-xs font-black tracking-widest uppercase" style={{ color: isActive ? '#cbff00' : '#ef4444' }}>{isActive ? 'Active' : 'Hidden'}</span>
+                    </label>
+                </div>
 
                 <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Game Title</label>
@@ -344,8 +483,30 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="col-span-1">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1"><Calendar className="w-3 h-3" /> Date</label>
-                        <input type="date" required value={gameDate} onChange={(e) => setGameDate(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]" />
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary flex items-center gap-1"><Calendar className="w-3 h-3" /> Date(s)</label>
+                            {action === 'create' && (
+                                <button type="button" onClick={() => setGameDates([...gameDates, ''])} className="text-[10px] bg-white/10 border border-white/20 text-white px-2 py-0.5 rounded hover:bg-white/20 transition-colors uppercase font-bold flex items-center gap-1">
+                                    <Plus className="w-3 h-3" /> Duplicate Date
+                                </button>
+                            )}
+                        </div>
+                        <div className="space-y-2">
+                            {gameDates.map((date, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                    <input type="date" required value={date} onChange={(e) => {
+                                        const newDates = [...gameDates];
+                                        newDates[index] = e.target.value;
+                                        setGameDates(newDates);
+                                    }} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors [color-scheme:dark]" />
+                                    {gameDates.length > 1 && action === 'create' && (
+                                        <button type="button" onClick={() => setGameDates(gameDates.filter((_, i) => i !== index))} className="p-3 bg-red-500/10 text-red-500 rounded-sm border border-red-500/20 hover:bg-red-500/20 transition-colors">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                     <div className="col-span-1">
                         <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-1"><Clock className="w-3 h-3" /> Start</label>

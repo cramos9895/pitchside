@@ -12,12 +12,15 @@ import {
     DollarSign, 
     Zap, 
     Loader2, 
-    ShieldCheck 
+    ShieldCheck,
+    Bookmark,
+    BookmarkPlus
 } from 'lucide-react';
 import usePlacesAutocomplete, { getGeocode, getLatLng } from 'use-places-autocomplete';
 import { useLoadScript } from '@react-google-maps/api';
 import { useRouter } from 'next/navigation';
 import { updateGame } from '@/app/actions/update-game';
+import { saveTemplate, getTemplates } from '@/app/actions/template-actions';
 import { Game, Booking, Profile, Match, Team } from "@/types/index";
 
 const LIBRARIES: ("places")[] = ["places"];
@@ -50,6 +53,8 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
     // Core Info
     // @ts-expect-error - Requires complex schema extension
     const [title, setTitle] = useState(initialData?.title || '');
+        // @ts-expect-error - Requires complex schema extension
+    const [isActive, setIsActive] = useState(initialData?.is_active ?? true);
         // @ts-expect-error - Requires complex schema extension
     const [requiresOfficials, setRequiresOfficials] = useState(initialData?.requires_officials || false);
     // @ts-expect-error - Complex schema extension
@@ -249,6 +254,7 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
                 min_players_per_team: minPlayersPerTeam === '' ? null : minPlayersPerTeam, max_players_per_team: maxPlayersPerTeam === '' ? null : maxPlayersPerTeam,
                 has_playoff_bye: hasPlayoffBye, teams_into_playoffs: teamsIntoPlayoffs,
                 playoff_start_date: playoffStartDate ? new Date(playoffStartDate).toISOString() : null,
+                is_active: isActive
             };
 
             if (action === 'create') {
@@ -274,11 +280,186 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
         <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in duration-300">
              {error && <div className="mb-6 p-4 bg-red-500/10 border border-red-500 text-red-500 rounded-sm">{error}</div>}
              
+    // Templates State
+    const [templates, setTemplates] = useState<any[]>([]);
+    const [templateLoading, setTemplateLoading] = useState(true);
+    const [templateName, setTemplateName] = useState('');
+    const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+
+    useEffect(() => {
+        getTemplates('rolling_league').then(data => {
+            setTemplates(data || []);
+            setTemplateLoading(false);
+        }).catch(err => {
+            console.error(err);
+            setTemplateLoading(false);
+        });
+    }, []);
+
+    const handleLoadTemplate = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const templateId = e.target.value;
+        if (!templateId) return;
+        const template = templates.find(t => t.id === templateId);
+        if (!template) return;
+        
+        const data = template.template_data;
+        setTitle(data.title || '');
+        setIsActive(data.is_active ?? true);
+        setRequiresOfficials(data.requires_officials || false);
+        setBasePay(data.base_pay || 0);
+        setPaymentMethod(data.payment_method || 'digital');
+        setRulesDescription(data.rules_description || '');
+        setLocationName(data.location || '');
+        setCoords({ lat: data.latitude || null, lng: data.longitude || null });
+        setLocationNickname(data.location_nickname || '');
+        
+        setSurfaceType(data.surface_type || 'Outdoor Turf');
+        setAmountOfFields(data.amount_of_fields ?? 1);
+        setFieldSize(data.field_size || 'Standard');
+        setShoeTypes(data.shoe_types || ['Turf Shoes', 'FG Cleats']);
+        if (data.field_names) setFieldNames(data.field_names);
+
+        if (data.start_time) {
+            const start = new Date(data.start_time);
+            setRollingStartDate(start.toISOString().slice(0, 10));
+            setStartTime(start.toTimeString().slice(0, 5));
+        }
+        setEarliestGameStartTime(data.earliest_game_start_time || '');
+        setLatestGameStartTime(data.latest_game_start_time || '');
+        if (data.team_signup_cutoff) setTeamSignupCutoff(new Date(data.team_signup_cutoff).toISOString().slice(0, 16));
+        if (data.roster_lock_date) setRosterLockDate(new Date(data.roster_lock_date).toISOString().slice(0, 16));
+        
+        setGameFormatType(data.game_format_type || '7 v 7');
+        setHalfLength(data.half_length ?? 25);
+        setHalftimeLength(data.halftime_length ?? 5);
+        setBreakBetweenGames(data.break_between_games ?? 5);
+
+        setPaymentCollectionType(data.payment_collection_type || 'stripe');
+        setCashFeeStructure(data.cash_fee_structure || 'per_game');
+        setCashAmount(data.cash_amount ?? '');
+        setAllowFreeAgents(data.allow_free_agents || false);
+        setHasTeamRegistrationFee(data.charge_team_registration_fee || false);
+        setTeamRegistrationFee(data.team_registration_fee ?? '');
+        setDeductTeamRegFee(data.deduct_team_reg_fee ?? false);
+        setHasPlayerRegistrationFee(data.player_registration_fee !== null && data.player_registration_fee !== undefined);
+        setPlayerRegistrationFee(data.player_registration_fee ?? '');
+        setTeamPrice(data.team_price ?? '');
+        setFreeAgentPrice(data.free_agent_price ?? '');
+        setHasFreeAgentCredit(data.has_free_agent_credit ?? false);
+        setIsRefundable(data.is_refundable ?? true);
+
+        setMinTeams(data.min_teams ?? 4);
+        setMaxTourneyTeams(data.max_teams ?? 8);
+        setMinPlayersPerTeam(data.min_players_per_team ?? 5);
+        setMaxPlayersPerTeam(data.max_players_per_team ?? 12);
+        setHasSeasonEndDate(!!data.league_end_date);
+        if (data.league_end_date) setSeasonEndDate(new Date(data.league_end_date).toISOString().slice(0, 10));
+        if (data.playoff_start_date) setPlayoffStartDate(new Date(data.playoff_start_date).toISOString().slice(0, 10));
+        setHasPlayoffBye(data.has_playoff_bye ?? false);
+        setTeamsIntoPlayoffs(data.teams_into_playoffs ?? 4);
+
+        setStrictWaiverRequired(data.strict_waiver_required ?? false);
+        setWaiverDetails(data.waiver_details || '');
+        if (data.skipped_dates) setSkippedDates(data.skipped_dates);
+
+        setPrizeType(data.prize_type || 'No Official Prize');
+        setPrizePoolPercentage(data.prize_pool_percentage ?? '');
+        setFixedPrizeAmount(data.fixed_prize_amount ?? '');
+        setReward(data.reward || '');
+    };
+
+    const handleSaveTemplate = async () => {
+        if (!templateName) return alert('Please enter a name for the template.');
+        setIsSavingTemplate(true);
+        try {
+            let startDateTime = rollingStartDate ? new Date(`${rollingStartDate}T${startTime || '18:00'}`) : null;
+
+            const payload = {
+                title, requires_officials: requiresOfficials, base_pay: basePay, payment_method: paymentMethod, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
+                latitude: coords.lat, longitude: coords.lng, start_time: startDateTime ? startDateTime.toISOString() : null,
+                event_type: 'league', is_league: true, league_format: 'rolling', game_format_type: gameFormatType,
+                surface_type: surfaceType, amount_of_fields: amountOfFields === '' ? null : amountOfFields, field_size: fieldSize,
+                shoe_types: shoeTypes, payment_collection_type: paymentCollectionType,
+                cash_fee_structure: paymentCollectionType === 'cash' ? cashFeeStructure : null,
+                cash_amount: paymentCollectionType === 'cash' ? (cashAmount === '' ? null : cashAmount) : null,
+                allow_free_agents: allowFreeAgents, charge_team_registration_fee: hasTeamRegistrationFee,
+                team_registration_fee: hasTeamRegistrationFee ? (teamRegistrationFee === '' ? null : teamRegistrationFee) : null,
+                deduct_team_reg_fee: hasTeamRegistrationFee ? deductTeamRegFee : false,
+                player_registration_fee: hasPlayerRegistrationFee ? (playerRegistrationFee === '' ? null : playerRegistrationFee) : null,
+                league_end_date: hasSeasonEndDate && seasonEndDate ? new Date(seasonEndDate).toISOString() : null,
+                team_signup_cutoff: teamSignupCutoff ? new Date(teamSignupCutoff).toISOString() : null,
+                waiver_details: waiverDetails || null,
+                skipped_dates: skippedDates, max_players: null, is_refundable: paymentCollectionType === 'cash' ? false : isRefundable,
+                refund_cutoff_date: teamSignupCutoff ? new Date(teamSignupCutoff).toISOString() : null,
+                team_price: teamPrice === '' ? null : teamPrice,
+                free_agent_price: paymentCollectionType === 'cash' && cashFeeStructure === 'per_game' ? null : (freeAgentPrice === '' ? null : freeAgentPrice),
+                has_free_agent_credit: hasFreeAgentCredit, strict_waiver_required: strictWaiverRequired,
+                half_length: halfLength === '' ? null : halfLength, halftime_length: halftimeLength === '' ? null : halftimeLength,
+                total_game_time: totalGameTime === '' ? 60 : totalGameTime, earliest_game_start_time: earliestGameStartTime || null,
+                latest_game_start_time: latestGameStartTime || null, field_names: fieldNames, break_between_games: breakBetweenGames === '' ? null : breakBetweenGames,
+                prize_type: prizeType, prize_pool_percentage: prizeType === 'Percentage Pool (Scaling Pot)' ? (prizePoolPercentage === '' ? null : prizePoolPercentage) : null,
+                fixed_prize_amount: prizeType === 'Fixed Cash Bounty' ? (fixedPrizeAmount === '' ? null : fixedPrizeAmount) : null,
+                reward: prizeType === 'Physical Item' ? reward : null, has_mvp_reward: prizeType !== 'No Official Prize',
+                roster_lock_date: rosterLockDate ? new Date(rosterLockDate).toISOString() : null,
+                min_teams: minTeams === '' ? null : minTeams, max_teams: maxTourneyTeams === '' ? null : maxTourneyTeams,
+                min_players_per_team: minPlayersPerTeam === '' ? null : minPlayersPerTeam, max_players_per_team: maxPlayersPerTeam === '' ? null : maxPlayersPerTeam,
+                has_playoff_bye: hasPlayoffBye, teams_into_playoffs: teamsIntoPlayoffs,
+                playoff_start_date: playoffStartDate ? new Date(playoffStartDate).toISOString() : null,
+                is_active: isActive
+            };
+            
+            const res = await saveTemplate(templateName, 'rolling_league', payload);
+            if (res.success && res.data) {
+                setTemplates([res.data, ...templates]);
+                setTemplateName('');
+                alert('Template saved successfully!');
+            }
+        } catch (err: any) {
+            alert(err.message || 'Failed to save template');
+        } finally {
+            setIsSavingTemplate(false);
+        }
+    };
+
              <div className="space-y-6">
-                <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2">
+                {/* TEMPLATES */}
+                <div className="flex flex-col md:flex-row gap-4 bg-white/5 border border-white/10 p-4 rounded-sm">
+                    <div className="flex-1">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-2">
+                            <Bookmark className="w-3 h-3" /> Load Template
+                        </label>
+                        <select onChange={handleLoadTemplate} disabled={templateLoading || templates.length === 0} className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors">
+                            <option value="">{templateLoading ? 'Loading templates...' : templates.length === 0 ? 'No templates saved' : 'Select a template...'}</option>
+                            {templates.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-2">
+                            <BookmarkPlus className="w-3 h-3" /> Save Current Form As Template
+                        </label>
+                        <div className="flex gap-2">
+                            <input type="text" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Template Name" className="flex-1 bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
+                            <button type="button" onClick={handleSaveTemplate} disabled={isSavingTemplate || !templateName} className="bg-[#cbff00] text-black font-bold uppercase text-xs px-4 rounded-sm hover:bg-white transition-colors disabled:opacity-50">Save</button>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2 mt-8">
                     <Zap className="w-5 h-5 text-[#cbff00]" /> Rolling League Provisioning
                 </h3>
                 
+                <div className="flex items-center justify-between bg-white/5 border border-white/10 p-4 rounded-sm mb-6 mt-4">
+                    <div>
+                        <h4 className="font-bold text-white uppercase text-sm tracking-widest">Event Visibility</h4>
+                        <p className="text-xs text-pitch-secondary mt-1">If hidden, the event will not appear on the public marketplace and lobbies will be disabled.</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#cbff00]"></div>
+                        <span className="ml-3 text-xs font-black tracking-widest uppercase" style={{ color: isActive ? '#cbff00' : '#ef4444' }}>{isActive ? 'Active' : 'Hidden'}</span>
+                    </label>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 
 import { GameClientPage } from './GameClientPage';
 import { notFound, redirect } from 'next/navigation';
+import Link from 'next/link';
 
 export const revalidate = 0;
 
@@ -57,6 +58,42 @@ export default async function GameDetailsPage({ params }: { params: Promise<{ id
 
     if (gameResult.error || !game) {
         return notFound();
+    }
+
+    // 2.5. Hidden Event Authorization
+    let isAuthorized = true;
+    if (game.is_active === false) {
+        isAuthorized = false;
+        if (user) {
+            if (game.host_ids?.includes(user.id)) {
+                isAuthorized = true;
+            } else {
+                const { data: profile } = await supabase.from('profiles').select('role, system_role').eq('id', user.id).single();
+                if (profile && (profile.role === 'master_admin' || profile.system_role === 'super_admin')) {
+                    isAuthorized = true;
+                }
+            }
+        }
+    }
+
+    if (!isAuthorized) {
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+                <div className="bg-pitch-card border border-white/10 rounded-sm p-8 max-w-md w-full shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-red-900"></div>
+                    <div className="text-center">
+                        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <span className="text-3xl">🚫</span>
+                        </div>
+                        <h2 className="text-2xl font-bold uppercase italic tracking-tighter text-white mb-2">Access Denied</h2>
+                        <p className="text-pitch-secondary mb-8 font-bold">This event is hidden.</p>
+                        <Link href="/" className="inline-flex w-full justify-center items-center gap-2 px-6 py-3 bg-white text-black font-black uppercase tracking-wider rounded-sm hover:bg-[#cbff00] transition-colors">
+                            Return to Home
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     // 3. Process Primary Host

@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Calendar, Clock, Save, Trophy, MapPin, DollarSign, Loader2, ShieldCheck } from 'lucide-react';
+import { Calendar, Clock, Save, Trophy, MapPin, DollarSign, Loader2, ShieldCheck, Bookmark, BookmarkPlus } from 'lucide-react';
 import usePlacesAutocomplete, { getGeocode, getLatLng } from 'use-places-autocomplete';
 import { useLoadScript } from '@react-google-maps/api';
 import { useRouter } from 'next/navigation';
 import { updateGame } from '@/app/actions/update-game';
+import { saveTemplate, getTemplates } from '@/app/actions/template-actions';
 import { Game, Booking, Profile, Match, Team } from "@/types/index";
 
 const LIBRARIES: ("places")[] = ["places"];
@@ -39,6 +40,8 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
     // Match Info State
     // @ts-expect-error - Requires complex schema extension
     const [title, setTitle] = useState(initialData?.title || '');
+        // @ts-expect-error - Requires complex schema extension
+    const [isActive, setIsActive] = useState(initialData?.is_active ?? true);
         // @ts-expect-error - Requires complex schema extension
     const [requiresOfficials, setRequiresOfficials] = useState(initialData?.requires_officials || false);
     // @ts-expect-error - Complex schema extension
@@ -238,7 +241,8 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
                 prize_pool_percentage: prizeType === 'Percentage Pool (Scaling Pot)' ? (prizePoolPercentage === '' ? null : prizePoolPercentage) : null,
                 fixed_prize_amount: prizeType === 'Fixed Cash Bounty' ? (fixedPrizeAmount === '' ? null : fixedPrizeAmount) : null,
                 reward: prizeType === 'Physical Item' ? reward : null,
-                has_mvp_reward: prizeType !== 'No Official Prize'
+                has_mvp_reward: prizeType !== 'No Official Prize',
+                is_active: isActive
             };
 
             if (action === 'create') {
@@ -266,10 +270,190 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
         <form onSubmit={handleSubmit} className="space-y-10 animate-in fade-in duration-300">
             {error && <div className="mb-6 p-4 bg-red-500/10 border border-red-500 text-red-500 rounded-sm">{error}</div>}
 
+    // Templates State
+    const [templates, setTemplates] = useState<any[]>([]);
+    const [templateLoading, setTemplateLoading] = useState(true);
+    const [templateName, setTemplateName] = useState('');
+    const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+
+    useEffect(() => {
+        getTemplates('tournament').then(data => {
+            setTemplates(data || []);
+            setTemplateLoading(false);
+        }).catch(err => {
+            console.error(err);
+            setTemplateLoading(false);
+        });
+    }, []);
+
+    const handleLoadTemplate = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const templateId = e.target.value;
+        if (!templateId) return;
+        const template = templates.find(t => t.id === templateId);
+        if (!template) return;
+        
+        const data = template.template_data;
+        setTitle(data.title || '');
+        setIsActive(data.is_active ?? true);
+        setRequiresOfficials(data.requires_officials || false);
+        setBasePay(data.base_pay || 0);
+        setPaymentMethod(data.payment_method || 'digital');
+        setRulesDescription(data.rules_description || '');
+        setLocationName(data.location || '');
+        setCoords({ lat: data.latitude || null, lng: data.longitude || null });
+        setLocationNickname(data.location_nickname || '');
+        
+        if (data.start_time) {
+            const start = new Date(data.start_time);
+            setGameDate(start.toISOString().split('T')[0]);
+            setStartTime(start.toTimeString().slice(0, 5));
+        }
+        if (data.end_time) {
+            if (data.end_time.includes('T')) setEndTime(new Date(data.end_time).toTimeString().slice(0, 5));
+            else setEndTime(data.end_time.slice(0, 5));
+        }
+
+        setSurfaceType(data.surface_type || 'Outdoor Turf');
+        setAmountOfFields(data.amount_of_fields ?? 1);
+        setFieldSize(data.field_size || 'Standard');
+        setShoeTypes(data.shoe_types || ['Turf Shoes', 'FG Cleats']);
+        setGameFormatType(data.game_format_type || '7 v 7');
+        
+        setTournamentStyle(data.tournament_style || 'group_stage');
+        setGameStyle(data.game_style || 'Group Stage/Playoffs');
+        setMinimumGamesPerTeam(data.minimum_games_per_team ?? 3);
+        setHalfLength(data.half_length ?? 25);
+        setHalftimeLength(data.halftime_length ?? 5);
+        setBreakBetweenGames(data.break_between_games ?? 5);
+        
+        setTeamPrice(data.team_price ?? '');
+        setDepositAmount(data.deposit_amount ?? '');
+        setHasRegistrationFee(data.deposit_amount !== null);
+        setHasRegistrationFeeCredit(data.has_registration_fee_credit ?? false);
+        setFreeAgentPrice(data.free_agent_price ?? '');
+        setHasFreeAgentCredit(data.has_free_agent_credit ?? false);
+        if (data.refund_cutoff_date) setRefundCutoffDate(new Date(data.refund_cutoff_date).toISOString().slice(0, 16));
+        
+        setMinTeams(data.min_teams ?? 4);
+        setMaxTourneyTeams(data.max_teams ?? 8);
+        setMinPlayersPerTeam(data.min_players_per_team ?? 5);
+        setMaxPlayersPerTeam(data.max_players_per_team ?? 12);
+        if (data.roster_lock_date) setRosterLockDate(new Date(data.roster_lock_date).toISOString().slice(0, 16));
+        
+        setStrictWaiverRequired(data.strict_waiver_required ?? false);
+        setWaiverDetails(data.waiver_details || '');
+        
+        setPrizeType(data.prize_type || 'No Official Prize');
+        setPrizePoolPercentage(data.prize_pool_percentage ?? '');
+        setFixedPrizeAmount(data.fixed_prize_amount ?? '');
+        setReward(data.reward || '');
+    };
+
+    const handleSaveTemplate = async () => {
+        if (!templateName) return alert('Please enter a name for the template.');
+        setIsSavingTemplate(true);
+        try {
+            let startDateTime = null;
+            if (gameDate && startTime) {
+                startDateTime = new Date(`${gameDate}T${startTime}`);
+            }
+            let endDateTime = null;
+            if (gameDate && endTime) {
+                endDateTime = new Date(`${gameDate}T${endTime}`);
+                if (startDateTime && endDateTime < startDateTime) {
+                    endDateTime.setDate(endDateTime.getDate() + 1);
+                }
+            }
+
+            const payload = {
+                title, requires_officials: requiresOfficials, base_pay: basePay, payment_method: paymentMethod, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
+                latitude: coords.lat, longitude: coords.lng,
+                start_time: startDateTime ? startDateTime.toISOString() : null,
+                end_time: formattedEndTime,
+                event_type: 'tournament',
+                is_league: true,
+                league_format: 'structured',
+                game_format_type: gameFormatType,
+                surface_type: surfaceType, amount_of_fields: amountOfFields === '' ? null : amountOfFields,
+                field_size: fieldSize, shoe_types: shoeTypes,
+                team_price: teamPrice === '' ? null : teamPrice,
+                deposit_amount: hasRegistrationFee ? (depositAmount === '' ? null : depositAmount) : null,
+                has_registration_fee_credit: hasRegistrationFee ? hasRegistrationFeeCredit : false,
+                free_agent_price: freeAgentPrice === '' ? null : freeAgentPrice,
+                has_free_agent_credit: hasFreeAgentCredit,
+                refund_cutoff_date: refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null,
+                min_teams: minTeams === '' ? null : minTeams,
+                max_teams: maxTourneyTeams === '' ? null : maxTourneyTeams,
+                min_players_per_team: minPlayersPerTeam === '' ? null : minPlayersPerTeam,
+                max_players_per_team: maxPlayersPerTeam === '' ? null : maxPlayersPerTeam,
+                roster_lock_date: rosterLockDate ? new Date(rosterLockDate).toISOString() : null,
+                strict_waiver_required: strictWaiverRequired, waiver_details: waiverDetails || null,
+                tournament_style: tournamentStyle,
+                minimum_games_per_team: tournamentStyle === 'group_stage' ? (minimumGamesPerTeam === '' ? null : minimumGamesPerTeam) : null,
+                game_style: gameStyle,
+                half_length: halfLength === '' ? null : halfLength,
+                halftime_length: halftimeLength === '' ? null : halftimeLength,
+                break_between_games: breakBetweenGames === '' ? null : breakBetweenGames,
+                total_game_time: totalGameTime === '' ? null : totalGameTime,
+                prize_type: prizeType,
+                prize_pool_percentage: prizeType === 'Percentage Pool (Scaling Pot)' ? (prizePoolPercentage === '' ? null : prizePoolPercentage) : null,
+                fixed_prize_amount: prizeType === 'Fixed Cash Bounty' ? (fixedPrizeAmount === '' ? null : fixedPrizeAmount) : null,
+                reward: prizeType === 'Physical Item' ? reward : null,
+                has_mvp_reward: prizeType !== 'No Official Prize',
+                is_active: isActive
+            };
+            
+            const res = await saveTemplate(templateName, 'tournament', payload);
+            if (res.success && res.data) {
+                setTemplates([res.data, ...templates]);
+                setTemplateName('');
+                alert('Template saved successfully!');
+            }
+        } catch (err: any) {
+            alert(err.message || 'Failed to save template');
+        } finally {
+            setIsSavingTemplate(false);
+        }
+    };
+
             <div className="space-y-6">
-                <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2">
+                {/* TEMPLATES */}
+                <div className="flex flex-col md:flex-row gap-4 bg-white/5 border border-white/10 p-4 rounded-sm">
+                    <div className="flex-1">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-2">
+                            <Bookmark className="w-3 h-3" /> Load Template
+                        </label>
+                        <select onChange={handleLoadTemplate} disabled={templateLoading || templates.length === 0} className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors">
+                            <option value="">{templateLoading ? 'Loading templates...' : templates.length === 0 ? 'No templates saved' : 'Select a template...'}</option>
+                            {templates.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2 flex items-center gap-2">
+                            <BookmarkPlus className="w-3 h-3" /> Save Current Form As Template
+                        </label>
+                        <div className="flex gap-2">
+                            <input type="text" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Template Name" className="flex-1 bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
+                            <button type="button" onClick={handleSaveTemplate} disabled={isSavingTemplate || !templateName} className="bg-[#cbff00] text-black font-bold uppercase text-xs px-4 rounded-sm hover:bg-white transition-colors disabled:opacity-50">Save</button>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 className="text-xl font-bold uppercase italic border-b border-white/10 pb-2 flex items-center gap-2 mt-8">
                     <Trophy className="w-5 h-5 text-[#cbff00]" /> Tournament Configurator
                 </h3>
+
+                <div className="flex items-center justify-between bg-white/5 border border-white/10 p-4 rounded-sm mb-6 mt-4">
+                    <div>
+                        <h4 className="font-bold text-white uppercase text-sm tracking-widest">Event Visibility</h4>
+                        <p className="text-xs text-pitch-secondary mt-1">If hidden, the event will not appear on the public marketplace and lobbies will be disabled.</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#cbff00]"></div>
+                        <span className="ml-3 text-xs font-black tracking-widest uppercase" style={{ color: isActive ? '#cbff00' : '#ef4444' }}>{isActive ? 'Active' : 'Hidden'}</span>
+                    </label>
+                </div>
 
                 <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Tournament Format</label>

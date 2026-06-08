@@ -110,6 +110,7 @@ export default async function Home() {
   let query = supabase
     .from('games')
     .select('*')
+    .eq('is_active', true)
     .neq('status', 'cancelled')
     .gt('start_time', new Date().toISOString()) // Only future games
     .order('start_time', { ascending: true })

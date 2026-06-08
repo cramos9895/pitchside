@@ -41,9 +41,13 @@ export async function POST(request: Request) {
         // Fetch Global Game Config
         const { data: gameConfig } = await adminSupabase
             .from('games')
-            .select('max_players, teams_config, price, event_type')
+            .select('max_players, teams_config, price, event_type, is_active')
             .eq('id', gameId)
             .single();
+
+        if (gameConfig && gameConfig.is_active === false) {
+            return NextResponse.json({ error: "This event is currently inactive and not accepting registrations." }, { status: 400 });
+        }
 
         if (gameConfig && gameConfig.max_players !== null) {
             const { count: currentRosterSize } = await adminSupabase

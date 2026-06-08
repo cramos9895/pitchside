@@ -1,5 +1,6 @@
 
 import { createClient } from '@/lib/supabase/server';
+import { getAuthenticatedProfile } from '@/lib/auth-guards';
 import { Shield } from 'lucide-react';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
@@ -9,9 +10,10 @@ export const revalidate = 0;
 
 export default async function AdminDashboard() {
     const supabase = await createClient();
+    const profile = await getAuthenticatedProfile();
 
     // Fetch all games with their registration counts
-    const { data: games, error } = await supabase
+    let query = supabase
         .from('games')
         .select(`
             *,
@@ -24,6 +26,13 @@ export default async function AdminDashboard() {
             )
         `)
         .order('start_time', { ascending: true });
+        
+    // Host Isolation
+    if (profile.role === 'host') {
+        query = query.contains('host_ids', [profile.id]);
+    }
+
+    const { data: games, error } = await query;
 
     if (error) {
         console.error('Error fetching games:', error);

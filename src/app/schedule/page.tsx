@@ -111,6 +111,7 @@ export default async function SchedulePage({
         const res = await supabase
             .from('games')
             .select('*')
+            .eq('is_active', true)
             .neq('status', 'cancelled')
             .or('is_league.eq.false,is_league.is.null') // MUST filter out league games here
             .gt('start_time', new Date().toISOString())
@@ -127,6 +128,7 @@ export default async function SchedulePage({
             supabase
                 .from('leagues')
                 .select('*')
+                .eq('is_active', true)
                 .neq('status', 'cancelled')
                 .or('event_type.eq.league,event_type.is.null')
                 .order('start_date', { ascending: true }),
@@ -134,6 +136,7 @@ export default async function SchedulePage({
                 .from('games')
                 .select('*')
                 .eq('event_type', 'league')
+                .eq('is_active', true)
                 .neq('status', 'cancelled')
                 .or(`start_time.gt.${new Date().toISOString()},status.eq.active,status.eq.scheduled`)
                 .order('start_time', { ascending: true })
@@ -154,8 +157,9 @@ export default async function SchedulePage({
         const res = await supabase
             .from('games')
             .select('*, tournament_registrations(user_id, team_id, role)')
-            .neq('status', 'cancelled')
             .eq('event_type', 'tournament')
+            .eq('is_active', true)
+            .neq('status', 'cancelled')
             .or(`start_time.gt.${new Date().toISOString()},status.eq.active,status.eq.scheduled`)
             .order('start_time', { ascending: true });
         tournaments = res.data;

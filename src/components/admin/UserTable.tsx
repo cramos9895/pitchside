@@ -232,13 +232,23 @@ export default function UserTable({ initialProfiles }: UserTableProps) {
                                             </select>
                                         ) : (
                                             <button 
-                                                onClick={() => profile.id !== currentUserId && setEditingRoleId(profile.id)}
+                                                onClick={() => {
+                                                    if (profile.system_role === 'super_admin') {
+                                                        toast.error("System roles cannot be modified.");
+                                                        return;
+                                                    }
+                                                    if (profile.id === currentUserId) {
+                                                        toast.error("You cannot modify your own role.");
+                                                        return;
+                                                    }
+                                                    setEditingRoleId(profile.id);
+                                                }}
                                                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm transition-all ${
                                                     profile.system_role === 'super_admin' ? 'bg-red-500/10 border-red-500/50 text-red-500' :
                                                     profile.role === 'master_admin' ? 'bg-purple-500/10 border-purple-500/50 text-purple-500' :
                                                     profile.role === 'host' ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' :
                                                     'bg-green-500/20 border-green-500/50 text-green-400'
-                                                } ${profile.id !== currentUserId ? 'hover:scale-105 cursor-pointer' : 'cursor-default opacity-80'}`}
+                                                } ${profile.id !== currentUserId && profile.system_role !== 'super_admin' ? 'hover:scale-105 cursor-pointer' : 'cursor-not-allowed opacity-80'}`}
                                             >
                                                 {profile.system_role === 'super_admin' ? <Shield className="w-3 h-3" /> : <UserCog className="w-3 h-3" />}
                                                 {profile.system_role === 'super_admin' ? 'Super Admin' : profile.role}
