@@ -274,10 +274,6 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
 
     if (!isLoaded) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-[#cbff00]" /></div>;
 
-    return (
-        <form onSubmit={handleSubmit} className="space-y-10 animate-in fade-in duration-300">
-            {error && <div className="mb-6 p-4 bg-red-500/10 border border-red-500 text-red-500 rounded-sm">{error}</div>}
-
     // Templates State
     const [templates, setTemplates] = useState<any[]>([]);
     const [templateLoading, setTemplateLoading] = useState(true);
@@ -420,6 +416,11 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
             setIsSavingTemplate(false);
         }
     };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-10 animate-in fade-in duration-300">
+            {error && <div className="mb-6 p-4 bg-red-500/10 border border-red-500 text-red-500 rounded-sm">{error}</div>}
+
 
             <div className="space-y-6">
                 {/* TEMPLATES */}

@@ -266,10 +266,6 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
 
     if (!isLoaded) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-[#cbff00]" /></div>;
 
-    return (
-        <form onSubmit={handleSubmit} className="space-y-10 animate-in fade-in duration-300">
-            {error && <div className="mb-6 p-4 bg-red-500/10 border border-red-500 text-red-500 rounded-sm">{error}</div>}
-
     // Templates State
     const [templates, setTemplates] = useState<any[]>([]);
     const [templateLoading, setTemplateLoading] = useState(true);
@@ -364,6 +360,8 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
                     endDateTime.setDate(endDateTime.getDate() + 1);
                 }
             }
+            const formattedEndTime = (endTime && endTime.length >= 5) 
+                ? (endTime.length === 5 ? `${endTime}:00` : endTime) : null;
 
             const payload = {
                 title, requires_officials: requiresOfficials, base_pay: basePay, payment_method: paymentMethod, rules_description: rulesDescription, location: locationName, location_nickname: locationNickname,
@@ -415,6 +413,11 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
             setIsSavingTemplate(false);
         }
     };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-10 animate-in fade-in duration-300">
+            {error && <div className="mb-6 p-4 bg-red-500/10 border border-red-500 text-red-500 rounded-sm">{error}</div>}
+
 
             <div className="space-y-6">
                 {/* TEMPLATES */}

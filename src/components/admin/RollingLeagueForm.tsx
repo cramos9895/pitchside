@@ -276,10 +276,6 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
 
     if (!isLoaded) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin" /></div>;
 
-    return (
-        <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in duration-300">
-             {error && <div className="mb-6 p-4 bg-red-500/10 border border-red-500 text-red-500 rounded-sm">{error}</div>}
-             
     // Templates State
     const [templates, setTemplates] = useState<any[]>([]);
     const [templateLoading, setTemplateLoading] = useState(true);
@@ -420,6 +416,11 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
             setIsSavingTemplate(false);
         }
     };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in duration-300">
+             {error && <div className="mb-6 p-4 bg-red-500/10 border border-red-500 text-red-500 rounded-sm">{error}</div>}
+             
 
              <div className="space-y-6">
                 {/* TEMPLATES */}
