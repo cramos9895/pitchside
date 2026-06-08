@@ -72,7 +72,7 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
     // @ts-expect-error - Requires complex schema extension
     const [fieldSize, setFieldSize] = useState(initialData?.field_size || 'Standard');
     // @ts-expect-error - Requires complex schema extension
-    const [shoeTypes, setShoeTypes] = useState<string[]>(initialData?.shoe_types || ['Turf Shoes', 'FG Cleats']);
+    const [shoeTypes, setShoeTypes] = useState<string[]>(Array.isArray(initialData?.shoe_types) ? initialData.shoe_types : ['Turf Shoes', 'FG Cleats']);
     // @ts-expect-error - Requires complex schema extension
     const [gameFormatType, setGameFormatType] = useState(initialData?.game_format_type || '7 v 7');
 

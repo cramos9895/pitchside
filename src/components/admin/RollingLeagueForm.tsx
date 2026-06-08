@@ -80,9 +80,9 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
     // @ts-expect-error - Requires complex schema extension
     const [fieldSize, setFieldSize] = useState(initialData?.field_size || 'Standard');
     // @ts-expect-error - Requires complex schema extension
-    const [shoeTypes, setShoeTypes] = useState<string[]>(initialData?.shoe_types || ['Turf Shoes', 'FG Cleats']);
-    // @ts-expect-error - Requires complex schema extension
-    const [fieldNames, setFieldNames] = useState<string[]>(initialData?.field_names || ['']);
+    const [shoeTypes, setShoeTypes] = useState<string[]>(Array.isArray(initialData?.shoe_types) ? initialData.shoe_types : ['Turf Shoes', 'FG Cleats']);
+    // @ts-expect-error - Residual typing mismatch from extended schema mapping
+    const [fieldNames, setFieldNames] = useState<string[]>(Array.isArray(initialData?.field_names) ? initialData.field_names : ['']);
 
     // Rolling League Specific Timing
     // @ts-expect-error - Requires complex schema extension
@@ -173,7 +173,7 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
     // @ts-expect-error - Requires complex schema extension
     const [waiverDetails, setWaiverDetails] = useState(initialData?.waiver_details || '');
     // @ts-expect-error - Requires complex schema extension
-    const [skippedDates, setSkippedDates] = useState<string[]>(initialData?.skipped_dates || []);
+    const [skippedDates, setSkippedDates] = useState<string[]>(Array.isArray(initialData?.skipped_dates) ? initialData.skipped_dates : []);
     const [newSkipDate, setNewSkipDate] = useState<string>('');
 
     // Prizes

@@ -91,13 +91,13 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
     // @ts-expect-error - Requires complex schema extension
     const [amountOfFields, setAmountOfFields] = useState<number | ''>(initialData?.amount_of_fields ?? 1);
     // @ts-expect-error - Requires complex schema extension
-    const [fieldNames, setFieldNames] = useState<string[]>(initialData?.field_names || ['']);
+    const [fieldNames, setFieldNames] = useState<string[]>(Array.isArray(initialData?.field_names) ? initialData.field_names : ['']);
     // @ts-expect-error - Requires complex schema extension
     const [surfaceType, setSurfaceType] = useState(initialData?.surface_type || 'Outdoor Turf');
     // @ts-expect-error - Requires complex schema extension
     const [fieldSize, setFieldSize] = useState(initialData?.field_size || 'Standard');
     // @ts-expect-error - Requires complex schema extension
-    const [shoeTypes, setShoeTypes] = useState<string[]>(initialData?.shoe_types || ['Turf Shoes', 'FG Cleats']);
+    const [shoeTypes, setShoeTypes] = useState<string[]>(Array.isArray(initialData?.shoe_types) ? initialData.shoe_types : ['Turf Shoes', 'FG Cleats']);
 
     // Pricing & Fees
     // @ts-expect-error - Requires complex schema extension

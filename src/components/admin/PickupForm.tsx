@@ -86,13 +86,19 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
     
     // Payments & Refunds
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
-        const [allowedPaymentMethods, setAllowedPaymentMethods] = useState<string[]>(initialData?.allowed_payment_methods || ['venmo', 'zelle']);
+        const [allowedPaymentMethods, setAllowedPaymentMethods] = useState<string[]>(Array.isArray(initialData?.allowed_payment_methods) ? initialData.allowed_payment_methods : ['venmo', 'zelle']);
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
         const [isRefundable, setIsRefundable] = useState(initialData?.is_refundable ?? true);
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
         const [refundCutoffHours, setRefundCutoffHours] = useState<number | ''>(initialData?.refund_cutoff_hours ?? 24);
+        // Safe date parser
+        const safeDateString = (val: any) => {
+            if (!val) return '';
+            try { return new Date(val).toISOString().slice(0, 16); } catch { return ''; }
+        };
+
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
-        const [refundCutoffDate, setRefundCutoffDate] = useState(initialData?.refund_cutoff_date ? new Date(initialData.refund_cutoff_date).toISOString().slice(0, 16) : '');
+        const [refundCutoffDate, setRefundCutoffDate] = useState(safeDateString(initialData?.refund_cutoff_date));
     
     // Field Info
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
@@ -102,35 +108,46 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
         const [fieldSize, setFieldSize] = useState(initialData?.field_size || 'Standard');
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
-        const [shoeTypes, setShoeTypes] = useState<string[]>(initialData?.shoe_types || ['Turf Shoes', 'FG Cleats']);
+        const [shoeTypes, setShoeTypes] = useState<string[]>(Array.isArray(initialData?.shoe_types) ? initialData.shoe_types : ['Turf Shoes', 'FG Cleats']);
 
     // Team Configurator State
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
-        const [teams, setTeams] = useState<TeamConfig[]>(initialData?.teams_config || [
+        const [teams, setTeams] = useState<TeamConfig[]>(Array.isArray(initialData?.teams_config) ? initialData.teams_config : [
         { name: 'Neon Orange', color: 'Neon Orange', limit: 11 },
         { name: 'White', color: 'White', limit: 11 }
     ]);
     const [teamGeneratorCount, setTeamGeneratorCount] = useState<number | ''>('');
 
     // Load initial dates
+    // Load initial dates safely
     useEffect(() => {
+        try {
+            // @ts-expect-error - Residual typing mismatch from extended schema mapping
+            if (initialData?.start_time) {
                 // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                if (initialData?.start_time) {
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        const start = new Date(initialData.start_time);
-            setGameDates([start.toISOString().split('T')[0]]);
-            setStartTime(start.toTimeString().slice(0, 5));
-        }
-                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                if (initialData?.end_time) {
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        if (initialData.end_time.includes('T')) {
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                setEndTime(new Date(initialData.end_time).toTimeString().slice(0, 5));
-            } else {
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                setEndTime(initialData.end_time.slice(0, 5));
+                const start = new Date(initialData.start_time);
+                if (!isNaN(start.getTime())) {
+                    setGameDates([start.toISOString().split('T')[0]]);
+                    setStartTime(start.toTimeString().slice(0, 5));
+                }
             }
+            // @ts-expect-error - Residual typing mismatch from extended schema mapping
+            if (initialData?.end_time) {
+                // @ts-expect-error - Residual typing mismatch from extended schema mapping
+                if (typeof initialData.end_time === 'string') {
+                    // @ts-expect-error - Residual typing mismatch from extended schema mapping
+                    if (initialData.end_time.includes('T')) {
+                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
+                        const end = new Date(initialData.end_time);
+                        if (!isNaN(end.getTime())) setEndTime(end.toTimeString().slice(0, 5));
+                    } else {
+                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
+                        setEndTime(initialData.end_time.slice(0, 5));
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error parsing initial dates:", e);
         }
     }, [initialData]);
 
