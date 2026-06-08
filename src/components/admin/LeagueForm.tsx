@@ -272,7 +272,6 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
         } catch (err: unknown) { setError(err.message || "Failed to save game."); } finally { setLoading(false); }
     };
 
-    if (!isLoaded) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-[#cbff00]" /></div>;
 
     // Templates State
     const [templates, setTemplates] = useState<any[]>([]);
@@ -416,6 +415,8 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
             setIsSavingTemplate(false);
         }
     };
+
+    if (!isLoaded) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-[#cbff00]" /></div>;
 
     return (
         <form onSubmit={handleSubmit} className="space-y-10 animate-in fade-in duration-300">

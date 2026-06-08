@@ -274,7 +274,6 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
         } catch (err: unknown) { setError(err.message || "Failed to save game."); } finally { setLoading(false); }
     };
 
-    if (!isLoaded) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin" /></div>;
 
     // Templates State
     const [templates, setTemplates] = useState<any[]>([]);
@@ -416,6 +415,8 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
             setIsSavingTemplate(false);
         }
     };
+
+    if (!isLoaded) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin" /></div>;
 
     return (
         <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in duration-300">
