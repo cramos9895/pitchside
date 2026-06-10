@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Calendar, MapPin, Clock, Users, MessageSquare, Info, Shirt, DollarSign, Award, Share2, Zap, Trophy, AlertTriangle, Crown, Shield, Activity, Target } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar, MapPin, Clock, Users, MessageSquare, Info, Shirt, DollarSign, Award, Share2, Zap, Trophy, AlertTriangle, Crown, Shield, Activity, Target, PlayCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { ChatInterface } from '@/components/ChatInterface';
@@ -996,6 +996,119 @@ export function GameClientPage({
                                         matches={matches}
                                     />
 
+                                    {/* LIVE ROUND LOGIC */}
+                                    {(() => {
+                                        const activeMatches = matches.filter(m => m.status === 'active');
+                                        const currentRound = activeMatches.length > 0 
+                                            ? activeMatches[0].round_number 
+                                            : matches.find(m => m.status === 'scheduled')?.round_number || Math.max(...matches.map(m => m.round_number), 1);
+                                        
+                                        const matchesInCurrentRound = matches.filter(m => m.round_number === currentRound);
+                                        const matchesInNextRound = matches.filter(m => m.round_number === currentRound + 1);
+
+                                        const playingThisRound = new Set(matchesInCurrentRound.flatMap(m => [m.home_team, m.away_team]));
+                                        const sittingOutActive = game.teams_config?.filter((t: any) => !playingThisRound.has(t.name)) || [];
+
+                                        const playingNextRound = new Set(matchesInNextRound.flatMap(m => [m.home_team, m.away_team]));
+                                        const sittingOutNext = game.teams_config?.filter((t: any) => !playingNextRound.has(t.name)) || [];
+
+                                        return (
+                                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+                                                {/* ACTIVE ROUND */}
+                                                <div className="lg:col-span-2 space-y-4">
+                                                    <div className="bg-black/30 p-4 rounded border border-pitch-accent/20 h-full flex flex-col">
+                                                        <div className="flex items-center gap-4 mb-4">
+                                                            <h3 className="text-sm font-bold uppercase text-white flex items-center gap-2">
+                                                                <PlayCircle className="w-4 h-4 text-pitch-accent" />
+                                                                Active Round: {currentRound}
+                                                            </h3>
+                                                        </div>
+
+                                                        {sittingOutActive.length > 0 && (
+                                                            <div className="mb-4 p-2 bg-yellow-500/5 border border-yellow-500/10 rounded">
+                                                                <div className="text-[8px] font-black text-yellow-600 uppercase tracking-widest mb-1.5 px-1">Sitting Out This Round</div>
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {sittingOutActive.map((t: any) => (
+                                                                        <span key={t.name} className="text-[9px] font-bold text-gray-300 uppercase bg-black/30 px-2 py-0.5 rounded border border-white/5">
+                                                                            {t.name}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="grid gap-2">
+                                                            {matchesInCurrentRound.map((match: any) => (
+                                                                <div key={match.id} className="relative flex items-center bg-white/5 py-3 px-2 md:py-4 md:px-6 rounded border border-white/5 min-h-[60px] md:min-h-[70px]">
+                                                                    <div className="flex-1 min-w-0 px-1 md:px-4">
+                                                                        <span className="block w-full text-right text-xs md:text-sm font-black uppercase tracking-tight text-white truncate">{match.home_team}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center justify-center gap-2 md:gap-4 px-2 md:px-4 border-x border-white/10 shrink-0">
+                                                                        <div className="hidden md:block text-[10px] font-black text-pitch-secondary bg-pitch-secondary/10 px-2 py-1 rounded border border-pitch-secondary/10 uppercase tracking-widest shrink-0">
+                                                                            {match.field_name || 'FIELD TBD'}
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1 md:gap-2">
+                                                                            <span className="text-white font-mono text-sm md:text-lg font-bold">{match.home_score}</span>
+                                                                            <span className="text-gray-600 font-black text-sm md:text-lg">-</span>
+                                                                            <span className="text-white font-mono text-sm md:text-lg font-bold">{match.away_score}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0 px-1 md:px-4">
+                                                                        <span className="block w-full text-left text-xs md:text-sm font-black uppercase tracking-tight text-white truncate">{match.away_team}</span>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            {matchesInCurrentRound.length === 0 && (
+                                                                <p className="text-[10px] text-gray-500 italic py-4 text-center">No matches currently active.</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* UP NEXT */}
+                                                {matchesInNextRound.length > 0 && (
+                                                    <div className="lg:col-span-1 space-y-4">
+                                                        <div className="bg-black/30 p-4 rounded border border-white/5 h-full flex flex-col">
+                                                            <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
+                                                                <h4 className="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] flex items-center gap-2">
+                                                                    <Clock className="w-3 h-3 text-pitch-secondary" /> Up Next (Round {currentRound + 1})
+                                                                </h4>
+                                                            </div>
+
+                                                            {sittingOutNext.length > 0 && (
+                                                                <div className="mb-4 p-2 bg-yellow-500/5 border border-yellow-500/10 rounded">
+                                                                    <div className="text-[8px] font-black text-yellow-600 uppercase tracking-widest mb-1.5 px-1">Sitting Out Next</div>
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {sittingOutNext.map((t: any) => (
+                                                                            <span key={t.name} className="text-[9px] font-bold text-gray-400 uppercase bg-black/30 px-2 py-0.5 rounded border border-white/5">
+                                                                                {t.name}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            <div className="grid grid-cols-1 gap-2 flex-1">
+                                                                {matchesInNextRound.map((m: any) => (
+                                                                    <div key={m.id} className="bg-white/[0.02] border border-white/5 py-3 px-3 rounded flex items-center gap-3">
+                                                                        <div className="text-[9px] font-black text-pitch-accent bg-pitch-accent/5 px-2 py-1 rounded border border-pitch-accent/10 uppercase tracking-widest shrink-0 min-w-[55px] text-center">
+                                                                            {m.field_name || 'TBD'}
+                                                                        </div>
+                                                                        <div className="flex-1 flex items-center justify-between gap-2 text-[10px] md:text-[11px] font-black uppercase tracking-tight text-gray-300">
+                                                                            <span className="break-words text-center flex-1 leading-tight">{m.home_team}</span>
+                                                                            <span className="text-gray-600 text-[9px] font-black shrink-0">VS</span>
+                                                                            <span className="break-words text-center flex-1 leading-tight">{m.away_team}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+
                                     {/* My Squad's Matches */}
                                     {isParticipant && userBooking?.team_assignment && (() => {
                                         const myMatches = matches.filter(m => m.home_team === userBooking.team_assignment || m.away_team === userBooking.team_assignment);
@@ -1009,7 +1122,7 @@ export function GameClientPage({
                                                     {myMatches.map(m => (
                                                         <div key={m.id} className={cn("bg-[#0a0a0a] border rounded-sm p-4 flex flex-col justify-between", ['active', 'scheduled'].includes(m.status) ? "border-[#cbff00] shadow-[0_0_15px_rgba(204,255,0,0.15)]" : "border-white/10")}>
                                                             <div className="flex items-center justify-between mb-4">
-                                                                <span className="text-xs font-bold uppercase text-gray-400">Round {m.round_number} • {m.tournament_stage}</span>
+                                                                <span className="text-xs font-bold uppercase text-gray-400">Round {m.round_number} • {m.field_name || 'FIELD TBD'}</span>
                                                                 <span className={cn("text-[10px] uppercase font-black px-2 py-0.5 rounded",
                                                                     m.status === 'completed' ? "bg-white/10 text-white" :
                                                                         m.status === 'active' ? "bg-[#cbff00] text-black animate-pulse shadow-[0_0_10px_rgba(204,255,0,0.4)]" :
@@ -1039,7 +1152,7 @@ export function GameClientPage({
                                         {matches.map(m => (
                                             <div key={m.id} className={cn("bg-[#0a0a0a] border rounded-sm p-4 flex flex-col justify-between", ['active', 'scheduled'].includes(m.status) ? "border-[#cbff00] shadow-[0_0_15px_rgba(204,255,0,0.15)]" : "border-white/10")}>
                                                 <div className="flex items-center justify-between mb-4">
-                                                    <span className="text-xs font-bold uppercase text-gray-400">Round {m.round_number} • {m.tournament_stage}</span>
+                                                    <span className="text-xs font-bold uppercase text-gray-400">Round {m.round_number} • {m.field_name || 'FIELD TBD'}</span>
                                                     <span className={cn("text-[10px] uppercase font-black px-2 py-0.5 rounded",
                                                         m.status === 'completed' ? "bg-white/10 text-white" :
                                                             m.status === 'active' ? "bg-[#cbff00] text-black animate-pulse shadow-[0_0_10px_rgba(204,255,0,0.4)]" :
