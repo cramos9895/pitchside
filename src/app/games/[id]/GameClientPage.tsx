@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Calendar, MapPin, Clock, Users, MessageSquare, Info, Shirt, DollarSign, Award, Share2, Zap, Trophy, AlertTriangle, Crown, Shield, Activity, Target, PlayCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar, MapPin, Clock, Users, MessageSquare, Info, Shirt, DollarSign, Award, Share2, Zap, Trophy, AlertTriangle, Crown, Shield, Activity, Target, PlayCircle, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { ChatInterface } from '@/components/ChatInterface';
@@ -990,12 +990,6 @@ export function GameClientPage({
 
                             {matches.length > 0 ? (
                                 <>
-                                    <StandingsTable
-                                        gameId={game.id}
-                                        teams={game.teams_config || []}
-                                        matches={matches}
-                                    />
-
                                     {/* LIVE ROUND LOGIC */}
                                     {(() => {
                                         const activeMatches = matches.filter(m => m.status === 'active');
@@ -1109,46 +1103,80 @@ export function GameClientPage({
                                         );
                                     })()}
 
+                                    <StandingsTable
+                                        gameId={game.id}
+                                        teams={game.teams_config || []}
+                                        matches={matches}
+                                    />
+
                                     {/* My Squad's Matches */}
                                     {isParticipant && userBooking?.team_assignment && (() => {
+                                        const maxRound = Math.max(...matches.map(m => m.round_number), 1);
                                         const myMatches = matches.filter(m => m.home_team === userBooking.team_assignment || m.away_team === userBooking.team_assignment);
-                                        if (myMatches.length === 0) return null;
+                                        
+                                        const myScheduleItems = Array.from({ length: maxRound }, (_, i) => {
+                                            const roundNumber = i + 1;
+                                            const match = myMatches.find(m => m.round_number === roundNumber);
+                                            if (match) return match;
+                                            return {
+                                                id: `bye-${roundNumber}`,
+                                                round_number: roundNumber,
+                                                status: 'bye',
+                                                home_team: userBooking.team_assignment,
+                                                away_team: 'BYE',
+                                                field_name: 'REST',
+                                                home_score: 0,
+                                                away_score: 0
+                                            };
+                                        });
+
+                                        if (myScheduleItems.length === 0) return null;
                                         return (
-                                            <>
-                                                <h2 className="font-heading text-xl font-black italic uppercase border-b border-white/10 pb-4 mt-12 mb-6 text-[#cbff00]">
-                                                    My Squad
-                                                </h2>
+                                            <details className="group mt-12" open={false}>
+                                                <summary className="flex items-center justify-between font-heading text-xl font-black italic uppercase border-b border-white/10 pb-4 mb-6 text-[#cbff00] cursor-pointer select-none outline-none marker:content-[''] [&::-webkit-details-marker]:hidden">
+                                                    <div className="flex items-center gap-2">My Squad</div>
+                                                    <ChevronDown className="w-5 h-5 transition-transform group-open:rotate-180 text-[#cbff00]" />
+                                                </summary>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {myMatches.map(m => (
-                                                        <div key={m.id} className={cn("bg-[#0a0a0a] border rounded-sm p-4 flex flex-col justify-between", ['active', 'scheduled'].includes(m.status) ? "border-[#cbff00] shadow-[0_0_15px_rgba(204,255,0,0.15)]" : "border-white/10")}>
+                                                    {myScheduleItems.map((m: any) => (
+                                                        <div key={m.id} className={cn("bg-[#0a0a0a] border rounded-sm p-4 flex flex-col justify-between", ['active', 'scheduled'].includes(m.status) ? "border-[#cbff00] shadow-[0_0_15px_rgba(204,255,0,0.15)]" : m.status === 'bye' ? "border-yellow-500/50 bg-yellow-500/5" : "border-white/10")}>
                                                             <div className="flex items-center justify-between mb-4">
-                                                                <span className="text-xs font-bold uppercase text-gray-400">Round {m.round_number} • {m.field_name || 'FIELD TBD'}</span>
+                                                                <span className={cn("text-xs font-bold uppercase", m.status === 'bye' ? "text-yellow-600" : "text-gray-400")}>Round {m.round_number} • {m.status === 'bye' ? 'BYE WEEK' : m.field_name || 'FIELD TBD'}</span>
                                                                 <span className={cn("text-[10px] uppercase font-black px-2 py-0.5 rounded",
                                                                     m.status === 'completed' ? "bg-white/10 text-white" :
-                                                                        m.status === 'active' ? "bg-[#cbff00] text-black animate-pulse shadow-[0_0_10px_rgba(204,255,0,0.4)]" :
-                                                                            "bg-[#cbff00]/20 text-[#cbff00]"
+                                                                    m.status === 'bye' ? "bg-yellow-500/20 text-yellow-500" :
+                                                                    m.status === 'active' ? "bg-[#cbff00] text-black animate-pulse shadow-[0_0_10px_rgba(204,255,0,0.4)]" :
+                                                                    "bg-[#cbff00]/20 text-[#cbff00]"
                                                                 )}>
-                                                                    {m.status}
+                                                                    {m.status === 'bye' ? 'SITTING OUT' : m.status}
                                                                 </span>
                                                             </div>
-                                                            <div className="flex items-center justify-between text-lg font-black">
-                                                                <span className={cn("truncate max-w-[40%]", m.home_team === userBooking.team_assignment ? "text-[#cbff00]" : "text-white")}>{m.home_team}</span>
-                                                                <div className="bg-black/40 px-3 py-1 rounded-sm text-white border border-white/20">
-                                                                    {m.status === 'scheduled' ? 'VS' : `${m.home_score} - ${m.away_score}`}
+                                                            {m.status === 'bye' ? (
+                                                                <div className="flex items-center justify-center py-2">
+                                                                    <span className="text-yellow-500/80 font-black italic tracking-widest text-lg uppercase">Resting</span>
                                                                 </div>
-                                                                <span className={cn("truncate max-w-[40%] text-right", m.away_team === userBooking.team_assignment ? "text-[#cbff00]" : "text-white")}>{m.away_team}</span>
-                                                            </div>
+                                                            ) : (
+                                                                <div className="flex items-center justify-between text-lg font-black">
+                                                                    <span className={cn("truncate max-w-[40%]", m.home_team === userBooking.team_assignment ? "text-[#cbff00]" : "text-white")}>{m.home_team}</span>
+                                                                    <div className="bg-black/40 px-3 py-1 rounded-sm text-white border border-white/20">
+                                                                        {m.status === 'scheduled' ? 'VS' : `${m.home_score} - ${m.away_score}`}
+                                                                    </div>
+                                                                    <span className={cn("truncate max-w-[40%] text-right", m.away_team === userBooking.team_assignment ? "text-[#cbff00]" : "text-white")}>{m.away_team}</span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     ))}
                                                 </div>
-                                            </>
+                                            </details>
                                         );
                                     })()}
 
-                                    <h2 className="font-heading text-xl font-black italic uppercase border-b border-white/10 pb-4 mt-12 mb-6 text-white">
-                                        Full Schedule
-                                    </h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <details className="group mt-12" open={false}>
+                                        <summary className="flex items-center justify-between font-heading text-xl font-black italic uppercase border-b border-white/10 pb-4 mb-6 text-white cursor-pointer select-none outline-none marker:content-[''] [&::-webkit-details-marker]:hidden">
+                                            <div className="flex items-center gap-2">Full Schedule</div>
+                                            <ChevronDown className="w-5 h-5 transition-transform group-open:rotate-180 text-white" />
+                                        </summary>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {matches.map(m => (
                                             <div key={m.id} className={cn("bg-[#0a0a0a] border rounded-sm p-4 flex flex-col justify-between", ['active', 'scheduled'].includes(m.status) ? "border-[#cbff00] shadow-[0_0_15px_rgba(204,255,0,0.15)]" : "border-white/10")}>
                                                 <div className="flex items-center justify-between mb-4">
@@ -1170,7 +1198,8 @@ export function GameClientPage({
                                                 </div>
                                             </div>
                                         ))}
-                                    </div>
+                                        </div>
+                                    </details>
                                 </>
                             ) : (
                                 <div className="bg-white/5 border border-white/10 p-8 rounded-sm text-center">
