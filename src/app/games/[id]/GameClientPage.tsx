@@ -1141,7 +1141,7 @@ export function GameClientPage({
                                                     {myScheduleItems.map((m: any) => (
                                                         <div key={m.id} className={cn("bg-[#0a0a0a] border rounded-sm p-4 flex flex-col justify-between", ['active', 'scheduled'].includes(m.status) ? "border-[#cbff00] shadow-[0_0_15px_rgba(204,255,0,0.15)]" : m.status === 'bye' ? "border-yellow-500/50 bg-yellow-500/5" : "border-white/10")}>
                                                             <div className="flex items-center justify-between mb-4">
-                                                                <span className={cn("text-xs font-bold uppercase", m.status === 'bye' ? "text-yellow-600" : "text-gray-400")}>Round {m.round_number} • {m.status === 'bye' ? 'BYE WEEK' : m.field_name || 'FIELD TBD'}</span>
+                                                                <span className={cn("text-xs font-bold uppercase", m.status === 'bye' ? "text-yellow-600" : "text-gray-400")}>Round {m.round_number} • {m.status === 'bye' ? 'BYE' : m.field_name || 'FIELD TBD'}</span>
                                                                 <span className={cn("text-[10px] uppercase font-black px-2 py-0.5 rounded",
                                                                     m.status === 'completed' ? "bg-white/10 text-white" :
                                                                     m.status === 'bye' ? "bg-yellow-500/20 text-yellow-500" :
