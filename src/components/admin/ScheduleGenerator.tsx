@@ -91,89 +91,121 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
     }, [gameId, supabase]);
 
     const generateSchedule = () => {
-        let maxRounds = isLeague ? (totalWeeks! || 4) : Math.floor((duration - warmup) / gameLength);
+        const usableTime = duration - warmup;
+        const maxRounds = isLeague ? (totalWeeks! || 4) : Math.floor(usableTime / gameLength);
         
-        // If league, we usually want round-robin until weeks are filled.
         const numTeams = teams.length;
         if (numTeams < 2) {
              alert("Need at least 2 teams to generate a schedule.");
              return;
         }
 
-        // Helper to generate ONE full cycle of round robin pairings
-        const generateCycle = (): Array<{ home: number, away: number }> => {
-            let indices = teams.map((_, i) => i);
-            if (indices.length % 2 !== 0) indices.push(-1); // Bye
+        interface TeamStats {
+            idx: number;
+            playStreak: number;
+            sitStreak: number;
+            totalPlayed: number;
+            totalSat: number;
+            playedOpponents: Set<number>;
+        }
 
-            const cycleQueue: Array<{ home: number, away: number }> = [];
-            const rRounds = indices.length - 1;
+        const teamStats: TeamStats[] = teams.map((_, i) => ({
+            idx: i,
+            playStreak: 0,
+            sitStreak: 0,
+            totalPlayed: 0,
+            totalSat: 0,
+            playedOpponents: new Set<number>()
+        }));
 
-            for (let r = 0; r < rRounds; r++) {
-                for (let i = 0; i < indices.length / 2; i++) {
-                    const homeIdx = indices[i];
-                    const awayIdx = indices[indices.length - 1 - i];
-                    if (homeIdx !== -1 && awayIdx !== -1) {
-                        cycleQueue.push({ home: homeIdx, away: awayIdx });
+        const finalSchedule: Array<{ round: number, startTime: string, matches: Array<{ home: string, away: string, field?: string }> }> = [];
+
+        for (let r = 0; r < maxRounds; r++) {
+            const matchLimit = isLeague ? Math.floor(numTeams / 2) : fields;
+            const teamsNeeded = matchLimit * 2;
+            const maxTeamsThatCanPlay = Math.min(teamsNeeded, numTeams - (numTeams % 2 !== 0 ? 1 : 0));
+            
+            // Determine who sits
+            // Sort teams by priority to sit:
+            // 1. Longest active play streak
+            // 2. Fewest total sat (aka most games played)
+            const sortedForSitting = [...teamStats].sort((a, b) => {
+                if (b.playStreak !== a.playStreak) return b.playStreak - a.playStreak;
+                if (a.totalSat !== b.totalSat) return a.totalSat - b.totalSat;
+                return Math.random() - 0.5;
+            });
+
+            const numSitting = numTeams - maxTeamsThatCanPlay;
+            // The rest are playing
+            const playingTeamsPool = sortedForSitting.slice(numSitting).map(t => t.idx);
+            
+            const matchesForSlot: Array<{ home: number, away: number }> = [];
+            
+            // Sort playing pool by priority to play (sat longest, played least)
+            playingTeamsPool.sort((a, b) => {
+                const statA = teamStats[a];
+                const statB = teamStats[b];
+                if (statA.sitStreak !== statB.sitStreak) return statB.sitStreak - statA.sitStreak;
+                return statA.totalPlayed - statB.totalPlayed;
+            });
+
+            const matched = new Set<number>();
+
+            for (const t1 of playingTeamsPool) {
+                if (matched.has(t1)) continue;
+                
+                let bestOpponent = -1;
+                let bestOpponentScore = -999;
+
+                for (const t2 of playingTeamsPool) {
+                    if (t1 === t2 || matched.has(t2)) continue;
+                    
+                    let score = 0;
+                    const stat1 = teamStats[t1];
+                    const stat2 = teamStats[t2];
+
+                    if (!stat1.playedOpponents.has(t2)) score += 100;
+                    score += stat2.sitStreak * 10;
+                    
+                    if (score > bestOpponentScore) {
+                        bestOpponentScore = score;
+                        bestOpponent = t2;
                     }
                 }
 
-                // Rotate
-                const fixed = indices[0];
-                const rotating = indices.slice(1);
-                const last = rotating.pop();
-                if (last !== undefined) rotating.unshift(last);
-                indices = [fixed, ...rotating];
-            }
-            return cycleQueue;
-        };
+                // Fallback to any remaining unmatched team if no ideal opponent exists
+                if (bestOpponent === -1) {
+                    bestOpponent = playingTeamsPool.find(t => t !== t1 && !matched.has(t)) ?? -1;
+                }
 
-        // Create Master Queue
-        let masterQueue: Array<{ home: number, away: number }> = [];
-        
-        // Safety boundary to prevent infinite loop
-        let safetyCounter = 0;
-        
-        if (isLeague) {
-            // Fill master queue with enough cycles to cover all weeks
-            const matchesPerWeek = Math.floor(teams.length / 2);
-            const totalSlotsNeeded = maxRounds * matchesPerWeek;
-            
-            while (masterQueue.length < totalSlotsNeeded && safetyCounter < 50) {
-                masterQueue = masterQueue.concat(generateCycle());
-                safetyCounter++;
-            }
-        } else {
-             const usableTime = duration - warmup;
-             maxRounds = Math.floor(usableTime / gameLength);
-             const totalSlotsNeeded = maxRounds * fields;
-             while (masterQueue.length < totalSlotsNeeded && safetyCounter < 10) {
-                masterQueue = masterQueue.concat(generateCycle());
-                safetyCounter++;
-             }
-        }
-
-        let finalSchedule: Array<{ round: number, startTime: string, matches: Array<{ home: string, away: string }> }> = [];
-
-        for (let r = 0; r < maxRounds; r++) {
-            let slotsFilled = 0;
-            let playingThisRound = new Set<number>();
-            let matchesForSlot: Array<{ home: number, away: number }> = [];
-            
-            const matchLimit = isLeague ? Math.floor(teams.length / 2) : fields;
-
-            let i = 0;
-            while (slotsFilled < matchLimit && i < masterQueue.length) {
-                const match = masterQueue[i];
-                if (!playingThisRound.has(match.home) && !playingThisRound.has(match.away)) {
-                    matchesForSlot.push(match);
-                    playingThisRound.add(match.home);
-                    playingThisRound.add(match.away);
-                    masterQueue.splice(i, 1);
-                    slotsFilled++;
-                } else {
-                    i++;
+                if (bestOpponent !== -1) {
+                    matchesForSlot.push({ home: t1, away: bestOpponent });
+                    matched.add(t1);
+                    matched.add(bestOpponent);
+                    
+                    teamStats[t1].playedOpponents.add(bestOpponent);
+                    teamStats[bestOpponent].playedOpponents.add(t1);
+                    
+                    if (teamStats[t1].playedOpponents.size >= numTeams - 1) {
+                        teamStats[t1].playedOpponents.clear();
+                    }
+                    if (teamStats[bestOpponent].playedOpponents.size >= numTeams - 1) {
+                        teamStats[bestOpponent].playedOpponents.clear();
+                    }
                 }
             }
+
+            teamStats.forEach(stat => {
+                if (matched.has(stat.idx)) {
+                    stat.playStreak += 1;
+                    stat.sitStreak = 0;
+                    stat.totalPlayed += 1;
+                } else {
+                    stat.sitStreak += 1;
+                    stat.playStreak = 0;
+                    stat.totalSat += 1;
+                }
+            });
 
             const matchObjects = matchesForSlot.map((pair, idx) => ({
                 home: teams[pair.home].name,
