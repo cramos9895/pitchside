@@ -1346,7 +1346,28 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                                     {/* Rows */}
                                     <div className="divide-y divide-white/5">
-                                        {roster.map((booking: AdminGameBooking) => {
+                                        {[...roster].sort((a, b) => {
+                                            const pA = Array.isArray(a.profiles) ? a.profiles[0] : a.profiles;
+                                            const pB = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
+                                            const nameA = (pA?.first_name ? `${pA.first_name} ${pA.last_name}` : pA?.email || 'Z').toLowerCase();
+                                            const nameB = (pB?.first_name ? `${pB.first_name} ${pB.last_name}` : pB?.email || 'Z').toLowerCase();
+                                            
+                                            if (rosterSort === 'alphabetical') return nameA.localeCompare(nameB);
+                                            if (rosterSort === 'reverse') return nameB.localeCompare(nameA);
+                                            if (rosterSort === 'team') {
+                                                const teamA = a.team_assignment || 'Z';
+                                                const teamB = b.team_assignment || 'Z';
+                                                if (teamA === teamB) return nameA.localeCompare(nameB);
+                                                return teamA.localeCompare(teamB);
+                                            }
+                                            if (rosterSort === 'payment') {
+                                                const valA = a.payment_status === 'verified' ? 3 : a.payment_status === 'pending' ? 2 : 1;
+                                                const valB = b.payment_status === 'verified' ? 3 : b.payment_status === 'pending' ? 2 : 1;
+                                                if (valA === valB) return nameA.localeCompare(nameB);
+                                                return valB - valA;
+                                            }
+                                            return 0;
+                                        }).map((booking: AdminGameBooking) => {
                                             const profilesData = booking.profiles;
                                             const profile = Array.isArray(profilesData) ? profilesData[0] : profilesData;
                                             const displayName = profile?.first_name ? `${profile.first_name} ${profile.last_name}` : profile?.email || 'Unknown Player';

@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Users, AlertTriangle, CheckCircle2, XCircle, ChevronDown, ChevronUp, Trophy, Clock, MapPin, Pencil, Save, ExternalLink, Play, Pause, RotateCcw, Monitor } from 'lucide-react';
+import { ArrowLeft, Users, AlertTriangle, CheckCircle2, XCircle, ChevronDown, ChevronUp, Trophy, Clock, MapPin, Pencil, Save, ExternalLink, Play, Pause, RotateCcw, Monitor, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/Toast';
 import { StandingsTable } from './StandingsTable';
 import { seedTournament } from '@/app/actions/seed-tournament';
 import { cleanupTournamentSeed } from '@/app/actions/cleanup-seed';
-import { generateTournamentSchedule, DraftMatch, calculateStandings } from '@/utils/tournamentScheduler';
+import { generateTournamentSchedule, DraftMatch, calculateStandings } from '@/utils/pickupTournamentScheduler';
 import { PlayerVerificationModal } from './PlayerVerificationModal';
 import { checkInPlayer, toggleManualWaiver, updatePlayerPhoto } from '@/app/actions/compliance';
 import { useEffect } from 'react';
@@ -23,6 +23,7 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
     const [cancelling, setCancelling] = useState(false);
     const [isSeeding, setIsSeeding] = useState(false);
     const [isCleaning, setIsCleaning] = useState(false);
+    const [excludedTeams, setExcludedTeams] = useState<Set<string>>(new Set());
     
     // Draft Schedule State
     const [draftSchedule, setDraftSchedule] = useState<DraftMatch[]>([]);
@@ -31,6 +32,8 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
     const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
     const [editTime, setEditTime] = useState("");
     const [editField, setEditField] = useState("");
+    const [editHomeTeam, setEditHomeTeam] = useState("");
+    const [editAwayTeam, setEditAwayTeam] = useState("");
     const [isUpdatingTimer, setIsUpdatingTimer] = useState<string | null>(null);
     const [selectedPlayerForVerification, setSelectedPlayerForVerification] = useState<any>(null);
     const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
@@ -256,7 +259,7 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
     const handleGenerateDraft = () => {
         setIsGenerating(true);
         try {
-            const registeredTeams = teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id));
+            const registeredTeams = teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id) && !excludedTeams.has(t.name));
             const schedule = generateTournamentSchedule({
                 teams: registeredTeams,
                 amountOfFields: game.amount_of_fields || 1,
@@ -287,10 +290,18 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
         
         setEditTime(formattedStr);
         setEditField(match.field_name);
+        setEditHomeTeam(match.home_team);
+        setEditAwayTeam(match.away_team);
     };
     
     const saveEdit = (id: string) => {
-        setDraftSchedule(prev => prev.map(m => m.id === id ? { ...m, start_time: new Date(editTime).toISOString(), field_name: editField } : m));
+        setDraftSchedule(prev => prev.map(m => m.id === id ? { ...m, start_time: new Date(editTime).toISOString(), field_name: editField, home_team: editHomeTeam, away_team: editAwayTeam } : m));
+        setEditingMatchId(null);
+    };
+
+    const handleDeleteDraftMatch = (id: string) => {
+        if (!confirm("Are you sure you want to remove this match from the draft?")) return;
+        setDraftSchedule(prev => prev.filter(m => m.id !== id));
         setEditingMatchId(null);
     };
 
@@ -300,7 +311,9 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
                 .from('matches')
                 .update({ 
                     start_time: new Date(editTime).toISOString(), 
-                    field_name: editField 
+                    field_name: editField,
+                    home_team: editHomeTeam,
+                    away_team: editAwayTeam
                 })
                 .eq('id', id);
             if (error) throw error;
@@ -309,6 +322,19 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
             onUpdate();
         } catch (err: any) {
             toastError("Failed to update: " + err.message);
+        }
+    };
+
+    const handleDeleteLiveMatch = async (id: string) => {
+        if (!confirm("Are you sure you want to permanently delete this scheduled match? This cannot be undone.")) return;
+        try {
+            const { error } = await supabase.from('matches').delete().eq('id', id);
+            if (error) throw error;
+            success("Match deleted.");
+            setEditingMatchId(null);
+            onUpdate();
+        } catch (err: any) {
+            toastError("Failed to delete match: " + err.message);
         }
     };
 
@@ -850,6 +876,34 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
                                         </div>
                                     </div>
                                 </div>
+                                <div className="lg:col-span-4 mt-4 pt-4 border-t border-white/5">
+                                    <label className="block text-[10px] uppercase font-black text-gray-500 tracking-widest mb-2">Participating Teams</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => {
+                                            const isExcluded = excludedTeams.has(t.name);
+                                            return (
+                                                <button
+                                                    key={t.id}
+                                                    onClick={() => {
+                                                        const next = new Set(excludedTeams);
+                                                        if (isExcluded) next.delete(t.name);
+                                                        else next.add(t.name);
+                                                        setExcludedTeams(next);
+                                                    }}
+                                                    className={cn(
+                                                        "px-3 py-1.5 rounded text-xs font-bold uppercase transition-colors border",
+                                                        isExcluded 
+                                                            ? "bg-red-500/10 border-red-500/30 text-red-500 line-through" 
+                                                            : "bg-green-500/10 border-green-500/30 text-green-500"
+                                                    )}
+                                                >
+                                                    {t.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 italic mt-2">Click a team to exclude them from the schedule generator (e.g., if they no-showed).</p>
+                                </div>
                             </div>
                         )}
                         {/* MATCH ENGINE LISTS */}
@@ -882,6 +936,61 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
                                                     const isTBD = match.home_team?.includes('TBD') || match.home_team?.includes('Winner') || 
                                                                  match.away_team?.includes('TBD') || match.away_team?.includes('Winner');
                                                     const hideScores = match.is_playoff && isTBD;
+
+                                                    if (isEditing) {
+                                                        return (
+                                                            <div key={match.id} className="bg-gray-900 border border-pitch-accent/50 p-4 rounded-sm grid grid-cols-[100px_minmax(150px,1fr)_100px_150px] items-center gap-4 bg-pitch-accent/5 shadow-[0_0_20px_rgba(204,255,0,0.05)]">
+                                                                {/* Time & Field Editing */}
+                                                                <div className="flex flex-col gap-2 min-w-[160px]">
+                                                                    <input type="datetime-local" value={editTime} onChange={e => setEditTime(e.target.value)} className="bg-black border border-white/20 rounded p-1 text-xs text-white" />
+                                                                    <input type="text" value={editField} onChange={e => setEditField(e.target.value)} className="bg-black border border-white/20 rounded p-1 text-xs text-white" placeholder="Field Name" />
+                                                                </div>
+
+                                                                {/* Score Line Editing (Teams) */}
+                                                                <div className="flex items-center justify-between px-8">
+                                                                    <div className="flex-1 text-right min-w-0">
+                                                                        <select value={editHomeTeam} onChange={e => setEditHomeTeam(e.target.value)} className="w-full bg-black border border-white/20 rounded p-1 text-xs text-white">
+                                                                            {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => (
+                                                                                <option key={t.id} value={t.name}>{t.name}</option>
+                                                                            ))}
+                                                                            <option value="TBD">TBD</option>
+                                                                            {editHomeTeam !== 'TBD' && !teams.find((t:any) => t.name === editHomeTeam) && <option value={editHomeTeam}>{editHomeTeam}</option>}
+                                                                        </select>
+                                                                    </div>
+                                                                    
+                                                                    <div className="flex items-center gap-4 px-6">
+                                                                        <span className="text-gray-700 font-black text-xl">vs</span>
+                                                                    </div>
+
+                                                                    <div className="flex-1 text-left min-w-0">
+                                                                        <select value={editAwayTeam} onChange={e => setEditAwayTeam(e.target.value)} className="w-full bg-black border border-white/20 rounded p-1 text-xs text-white">
+                                                                            {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => (
+                                                                                <option key={t.id} value={t.name}>{t.name}</option>
+                                                                            ))}
+                                                                            <option value="TBD">TBD</option>
+                                                                            {editAwayTeam !== 'TBD' && !teams.find((t:any) => t.name === editAwayTeam) && <option value={editAwayTeam}>{editAwayTeam}</option>}
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Mini Timer Placeholder */}
+                                                                <div className="flex flex-col items-center justify-center border-l border-white/5">
+                                                                    <span className="text-gray-500 text-xs font-bold uppercase">Editing</span>
+                                                                </div>
+
+                                                                {/* Actions */}
+                                                                <div className="flex flex-col items-end gap-2">
+                                                                    <div className="flex gap-2">
+                                                                        <button onClick={() => isDraft ? saveEdit(match.id) : handleLiveSave(match.id)} className="bg-pitch-accent text-black px-3 py-1 rounded text-[10px] font-black uppercase">Save</button>
+                                                                        <button onClick={() => setEditingMatchId(null)} className="bg-white/10 text-white px-3 py-1 rounded text-[10px] font-black uppercase">Cancel</button>
+                                                                    </div>
+                                                                    <button onClick={() => isDraft ? handleDeleteDraftMatch(match.id) : handleDeleteLiveMatch(match.id)} className="text-red-500 hover:text-red-400 text-[10px] font-bold uppercase flex items-center gap-1">
+                                                                        <Trash2 className="w-3 h-3" /> Delete Match
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
 
                                                     return (
                                                         <div key={match.id} className={cn(
@@ -1009,6 +1118,64 @@ export function MicroTournamentManager({ game, bookings, matches = [], onUpdate 
                                                     const isTBD = match.home_team?.includes('TBD') || match.home_team?.includes('Winner') || 
                                                                  match.away_team?.includes('TBD') || match.away_team?.includes('Winner');
                                                     const hideScores = match.is_playoff && isTBD;
+
+                                                    if (isEditing) {
+                                                        return (
+                                                            <div key={match.id} className="bg-gray-900 border border-pitch-accent/50 p-4 rounded-sm grid grid-cols-[100px_minmax(150px,1fr)_100px_150px] items-center gap-4 bg-pitch-accent/5 shadow-[0_0_20px_rgba(204,255,0,0.05)] relative">
+                                                                <div className="absolute top-0 right-0 py-0.5 px-2 bg-pitch-accent/10 text-[8px] font-black uppercase text-pitch-accent tracking-[0.2em] rounded-bl">
+                                                                    Elimination Match
+                                                                </div>
+                                                                {/* Time & Field Editing */}
+                                                                <div className="flex flex-col gap-2 min-w-[160px]">
+                                                                    <input type="datetime-local" value={editTime} onChange={e => setEditTime(e.target.value)} className="bg-black border border-white/20 rounded p-1 text-xs text-white" />
+                                                                    <input type="text" value={editField} onChange={e => setEditField(e.target.value)} className="bg-black border border-white/20 rounded p-1 text-xs text-white" placeholder="Field Name" />
+                                                                </div>
+
+                                                                {/* Score Line Editing (Teams) */}
+                                                                <div className="flex items-center justify-between px-8">
+                                                                    <div className="flex-1 text-right min-w-0">
+                                                                        <select value={editHomeTeam} onChange={e => setEditHomeTeam(e.target.value)} className="w-full bg-black border border-white/20 rounded p-1 text-xs text-white">
+                                                                            {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => (
+                                                                                <option key={t.id} value={t.name}>{t.name}</option>
+                                                                            ))}
+                                                                            <option value="TBD">TBD</option>
+                                                                            {editHomeTeam !== 'TBD' && !teams.find((t:any) => t.name === editHomeTeam) && <option value={editHomeTeam}>{editHomeTeam}</option>}
+                                                                        </select>
+                                                                    </div>
+                                                                    
+                                                                    <div className="flex items-center gap-4 px-6">
+                                                                        <span className="text-gray-700 font-black text-xl">vs</span>
+                                                                    </div>
+
+                                                                    <div className="flex-1 text-left min-w-0">
+                                                                        <select value={editAwayTeam} onChange={e => setEditAwayTeam(e.target.value)} className="w-full bg-black border border-white/20 rounded p-1 text-xs text-white">
+                                                                            {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => (
+                                                                                <option key={t.id} value={t.name}>{t.name}</option>
+                                                                            ))}
+                                                                            <option value="TBD">TBD</option>
+                                                                            {editAwayTeam !== 'TBD' && !teams.find((t:any) => t.name === editAwayTeam) && <option value={editAwayTeam}>{editAwayTeam}</option>}
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Mini Timer Placeholder */}
+                                                                <div className="flex flex-col items-center justify-center border-l border-white/5">
+                                                                    <span className="text-gray-500 text-xs font-bold uppercase">Editing</span>
+                                                                </div>
+
+                                                                {/* Actions */}
+                                                                <div className="flex flex-col items-end gap-2">
+                                                                    <div className="flex gap-2">
+                                                                        <button onClick={() => handleLiveSave(match.id)} className="bg-pitch-accent text-black px-3 py-1 rounded text-[10px] font-black uppercase">Save</button>
+                                                                        <button onClick={() => setEditingMatchId(null)} className="bg-white/10 text-white px-3 py-1 rounded text-[10px] font-black uppercase">Cancel</button>
+                                                                    </div>
+                                                                    <button onClick={() => handleDeleteLiveMatch(match.id)} className="text-red-500 hover:text-red-400 text-[10px] font-bold uppercase flex items-center gap-1">
+                                                                        <Trash2 className="w-3 h-3" /> Delete Match
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
 
                                                     return (
                                                         <div key={match.id} className={cn(

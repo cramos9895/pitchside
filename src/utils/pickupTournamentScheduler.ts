@@ -87,34 +87,75 @@ export function generateTournamentSchedule({
         throw new Error(`Mathematical Impossibility: You are attempting to schedule ${matchMatrix.length} matches, but your timeframe (${totalAvailableMinutes} mins / ${amountOfFields} fields) only supports exactly ${absoluteCapacity} matches. Please increase your fields, extend the end time, shorten match halves, or reduce the minimum guaranteed games.`);
     }
 
-    // --- PHASE 4: TIME & FIELD ASSIGNMENT ---
+    // --- PHASE 4: TIME & FIELD ASSIGNMENT (Most Rested First + Conflict Aware) ---
     const draftSchedule: DraftMatch[] = [];
     let currentStartTime = new Date(start);
-    let currentFieldIndex = 1;
-    let currentRound = 1;
+    let currentSlotIndex = 0;
+    
+    // Track when each team last played (slot index). Initialize to -1.
+    const lastPlayedSlot: Record<string, number> = {};
+    teams.forEach(t => lastPlayedSlot[t.name] = -1);
+    
+    let unplayedMatches = [...matchMatrix];
+    const maxSlots = Math.floor(absoluteCapacity / amountOfFields); // absolute maximum time slots available
 
-    for (let i = 0; i < matchMatrix.length; i++) {
-        const match = matchMatrix[i];
+    // We keep advancing time slots until all matches are scheduled OR we run out of time
+    while (unplayedMatches.length > 0 && currentSlotIndex < maxSlots) {
+        const teamsPlayingThisSlot = new Set<string>();
 
-        draftSchedule.push({
-            id: `draft_${i}_${Date.now()}`,
-            home_team: match.home,
-            away_team: match.away,
-            start_time: currentStartTime.toISOString(),
-            field_name: `Field ${currentFieldIndex}`,
-            is_playoff: match.is_playoff || false,
-            round_number: currentRound,
-            group_name: match.group_name
-        });
+        for (let field = 1; field <= amountOfFields; field++) {
+            // Find all valid matches for this field (teams not already playing in this slot)
+            const validMatches = unplayedMatches.filter(m => 
+                !teamsPlayingThisSlot.has(m.home) && !teamsPlayingThisSlot.has(m.away)
+            );
 
-        currentFieldIndex++;
+            if (validMatches.length > 0) {
+                // Score them to find the "Most Rested" teams
+                // Score = (slots since home last played) + (slots since away last played)
+                // If they haven't played, lastPlayedSlot is -1.
+                let bestMatchIndex = 0;
+                let highestScore = -1;
 
-        // Saturation Check: If all fields are occupied for this slot, increment real time clock.
-        if (currentFieldIndex > amountOfFields) {
-            currentFieldIndex = 1;
-            currentStartTime = new Date(currentStartTime.getTime() + slotDurationMinutes * 60000);
-            currentRound++;
+                validMatches.forEach((m, idx) => {
+                    const homeRest = currentSlotIndex - (lastPlayedSlot[m.home] ?? -1);
+                    const awayRest = currentSlotIndex - (lastPlayedSlot[m.away] ?? -1);
+                    const score = homeRest + awayRest;
+                    
+                    if (score > highestScore) {
+                        highestScore = score;
+                        bestMatchIndex = idx;
+                    }
+                });
+
+                const bestMatch = validMatches[bestMatchIndex];
+                
+                // Add to schedule
+                draftSchedule.push({
+                    id: `draft_${draftSchedule.length}_${Date.now()}`,
+                    home_team: bestMatch.home,
+                    away_team: bestMatch.away,
+                    start_time: currentStartTime.toISOString(),
+                    field_name: `Field ${field}`,
+                    is_playoff: bestMatch.is_playoff || false,
+                    round_number: currentSlotIndex + 1,
+                    group_name: bestMatch.group_name
+                });
+
+                // Mark teams as playing
+                teamsPlayingThisSlot.add(bestMatch.home);
+                teamsPlayingThisSlot.add(bestMatch.away);
+                lastPlayedSlot[bestMatch.home] = currentSlotIndex;
+                lastPlayedSlot[bestMatch.away] = currentSlotIndex;
+
+                // Remove from unplayed pool
+                const originalIndex = unplayedMatches.findIndex(m => m === bestMatch);
+                unplayedMatches.splice(originalIndex, 1);
+            }
         }
+
+        // Advance to next time slot
+        currentStartTime = new Date(currentStartTime.getTime() + slotDurationMinutes * 60000);
+        currentSlotIndex++;
     }
 
     return draftSchedule;
