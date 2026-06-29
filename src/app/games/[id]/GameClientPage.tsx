@@ -347,6 +347,31 @@ export function GameClientPage({
     const timeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     const isPastStrict = new Date() > gameDate;
 
+    let durationDisplay = '90 Mins';
+    if (game.start_time && game.end_time) {
+        const start = new Date(game.start_time);
+        let end = new Date(game.start_time);
+        
+        if (game.end_time.includes('T')) {
+            end = new Date(game.end_time);
+        } else {
+            const [hours, minutes] = game.end_time.split(':').map(Number);
+            end.setHours(hours, minutes, 0, 0);
+            if (end < start) end.setDate(end.getDate() + 1);
+        }
+        
+        const diffMins = Math.round((end.getTime() - start.getTime()) / 60000);
+        if (!isNaN(diffMins)) {
+            if (diffMins > 50) {
+                const h = Math.floor(diffMins / 60);
+                const m = diffMins % 60;
+                durationDisplay = `${h} hour${h > 1 ? 's' : ''}${m > 0 ? ` ${m} Minute${m !== 1 ? 's' : ''}` : ''}`;
+            } else {
+                durationDisplay = `${diffMins} Mins`;
+            }
+        }
+    }
+
     // Filter active roster for sorting/display
     // Fallback to legacy status ('paid', 'active', 'waitlist') if roster_status is null
     const validBookings = bookings.filter(b => b.roster_status !== 'dropped' && b.status !== 'cancelled');
@@ -677,7 +702,7 @@ export function GameClientPage({
                                                 <Clock className="w-3 h-3 text-pitch-accent" /> Duration
                                             </span>
                                             <p className="text-sm font-bold text-white uppercase italic">
-                                                {game.start_time && game.end_time ? `${Math.round((new Date(game.end_time).getTime() - new Date(game.start_time).getTime()) / 60000)} Mins` : '90 Mins'}
+                                                {durationDisplay}
                                             </p>
                                         </div>
 
@@ -700,7 +725,7 @@ export function GameClientPage({
                                                 <DollarSign className="w-3 h-3 text-pitch-accent" /> Payment Methods
                                             </span>
                                             <p className="text-sm font-bold text-white uppercase italic">
-                                                {game.allowed_payment_methods?.length ? game.allowed_payment_methods.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ') : 'Any'}
+                                                {game.allowed_payment_methods?.length ? game.allowed_payment_methods.map(m => m.toLowerCase() === 'stripe' ? 'Credit Card' : m.charAt(0).toUpperCase() + m.slice(1)).join(', ') : 'Any'}
                                             </p>
                                         </div>
                                     </div>
