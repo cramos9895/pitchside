@@ -26,6 +26,18 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [successMsg, setSuccessMsg] = useState("");
     const [fields, setFields] = useState(1);
+    
+    // Team Exclusions
+    const [excludedTeams, setExcludedTeams] = useState<Set<string>>(new Set());
+
+    const toggleExclusion = (teamName: string) => {
+        setExcludedTeams(prev => {
+            const next = new Set(prev);
+            if (next.has(teamName)) next.delete(teamName);
+            else next.add(teamName);
+            return next;
+        });
+    };
 
     // Preview State
     const [previewSchedule, setPreviewSchedule] = useState<Array<{ round: number, startTime: string, matches: Array<{ home: string, away: string }> }>>([]);
@@ -94,9 +106,11 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
         const usableTime = duration - warmup;
         const maxRounds = isLeague ? (totalWeeks! || 4) : Math.floor(usableTime / gameLength);
         
-        const numTeams = teams.length;
+        const activeTeams = teams.filter(t => !excludedTeams.has(t.name));
+        const numTeams = activeTeams.length;
+        
         if (numTeams < 2) {
-             alert("Need at least 2 teams to generate a schedule.");
+             alert("Need at least 2 active teams to generate a schedule.");
              return;
         }
 
@@ -109,7 +123,7 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
             playedOpponents: Set<number>;
         }
 
-        const teamStats: TeamStats[] = teams.map((_, i) => ({
+        const teamStats: TeamStats[] = activeTeams.map((_, i) => ({
             idx: i,
             playStreak: 0,
             sitStreak: 0,
@@ -208,8 +222,8 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
             });
 
             const matchObjects = matchesForSlot.map((pair, idx) => ({
-                home: teams[pair.home].name,
-                away: teams[pair.away].name,
+                home: activeTeams[pair.home].name,
+                away: activeTeams[pair.away].name,
                 field: `Field ${idx + 1}`
             }));
 
@@ -313,6 +327,28 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                             <p className="text-xs text-blue-200">This will generate a {totalWeeks || 4}-week round-robin playing schedule for all assigned teams. Matches will be placed sequentially round-by-round.</p>
                         </div>
                     )}
+
+                    <div className="bg-black/30 border border-white/10 rounded p-4 mb-4">
+                        <label className="text-[10px] uppercase text-gray-500 font-bold block mb-3">Participating Teams (Click to Exclude)</label>
+                        <div className="flex flex-wrap gap-2">
+                            {teams.map(team => {
+                                const isExcluded = excludedTeams.has(team.name);
+                                return (
+                                    <button
+                                        key={team.name}
+                                        onClick={() => toggleExclusion(team.name)}
+                                        className={`px-3 py-1.5 rounded text-xs font-bold uppercase transition-all border ${
+                                            isExcluded 
+                                            ? 'bg-red-500/10 text-red-500 border-red-500/30 line-through opacity-50' 
+                                            : 'bg-white/5 text-white border-white/10 hover:border-pitch-accent hover:text-pitch-accent'
+                                        }`}
+                                    >
+                                        {team.name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
 
                     <button
                         onClick={generateSchedule}

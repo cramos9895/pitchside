@@ -75,3 +75,8 @@ This document outlines the strict operational and coding standards for the Pitch
 - **Environment Verification:** Explicitly verify that all `.env` files are ignored by `.gitignore` before every push. 
 - **Loud Failure Principle:** Avoid fallbacks or defaults for security-critical environment variables (e.g., Stripe Secret Keys). The system should fail loudly if credentials are missing rather than operating in a potentially insecure or mocked state.
 - **Merge Hygiene:** Ensure the target branch (usually `main`) is clean of all untracked test scripts or temporary SQL files before merging.
+## 10. Knowledge Base: Component Mapping
+- **Tournaments (Full Event):** If the `event_type === 'tournament'`, the entire scheduling and match logic is handled by `src/components/admin/MicroTournamentManager.tsx`. This includes generating brackets/groups, handling playoffs, and inline match editing.
+- **Pickup Tournaments (Match Style):** If the `event_type === 'pickup'` but `match_style === 'Tourney'`, the logic is split:
+    - **Scheduling:** `src/components/admin/ScheduleGenerator.tsx` handles generating the Most Rested First round-robin schedule and team exclusions.
+    - **Match Management:** `src/components/admin/MatchManager.tsx` handles displaying the matches, live scoring, and inline match editing for scheduled matches.

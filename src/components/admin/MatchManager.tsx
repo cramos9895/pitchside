@@ -86,6 +86,12 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
     const [isEditing, setIsEditing] = useState(false);
     const [editMvpId, setEditMvpId] = useState<string>(initialMvpId || '');
 
+    // Inline Editor State
+    const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+    const [editHomeTeam, setEditHomeTeam] = useState("");
+    const [editAwayTeam, setEditAwayTeam] = useState("");
+    const [editField, setEditField] = useState("");
+
     // Manual/Fallback State
     const [newMatch, setNewMatch] = useState({
         home_team: teams[0]?.name || '',
@@ -345,6 +351,72 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
     const isTournamentComplete = effectiveComplete;
 
     // --- Actions ---
+
+    const startEditingMatch = (match: Match) => {
+        setEditingMatchId(match.id);
+        setEditHomeTeam(match.home_team);
+        setEditAwayTeam(match.away_team);
+        setEditField(match.field_name || '');
+    };
+
+    const handleSaveLiveEdit = async () => {
+        if (!editingMatchId) return;
+        setLoading(true);
+        try {
+            const res = await fetch('/api/matches', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update',
+                    matchId: editingMatchId,
+                    matchData: {
+                        home_team: editHomeTeam,
+                        away_team: editAwayTeam,
+                        field_name: editField,
+                    }
+                })
+            });
+            if (!res.ok) throw new Error("Failed to update match");
+            setEditingMatchId(null);
+            
+            // Re-fetch to update local state fully
+            const refetchRes = await fetch(`/api/matches?gameId=${gameId}`);
+            const refetchResult = await refetchRes.json();
+            if (refetchResult.data) setMatches(refetchResult.data);
+            if (onUpdate) onUpdate();
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteMatch = async (matchId: string) => {
+        if (!confirm("Are you sure you want to delete this match?")) return;
+        setLoading(true);
+        try {
+            const res = await fetch('/api/matches', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'delete',
+                    matchId: matchId
+                })
+            });
+            if (!res.ok) throw new Error("Failed to delete match");
+            setEditingMatchId(null);
+
+            // Re-fetch to update local state fully
+            const refetchRes = await fetch(`/api/matches?gameId=${gameId}`);
+            const refetchResult = await refetchRes.json();
+            if (refetchResult.data) setMatches(refetchResult.data);
+            if (onUpdate) onUpdate();
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleScoreChange = (matchId: string, team: 'home' | 'away', val: number) => {
         setRoundScores(prev => ({
@@ -1124,9 +1196,79 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                             const aScore = roundScores[match.id]?.away ?? match.away_score;
 
                                             if (match.status === 'scheduled' && isEditing) return null;
+                                            
+                                            if (editingMatchId === match.id) {
+                                                return (
+                                                    <div key={match.id} className="relative group flex items-center gap-2 bg-white/10 py-3 px-2 md:py-5 md:px-6 rounded-xl border border-pitch-accent transition-all min-h-[70px] md:min-h-[88px]">
+                                                        <div className="flex-1 min-w-0">
+                                                            <input
+                                                                type="text"
+                                                                value={editHomeTeam}
+                                                                onChange={(e) => setEditHomeTeam(e.target.value)}
+                                                                className="w-full bg-black border border-white/20 p-2 text-white rounded text-sm md:text-base font-bold uppercase tracking-tight text-right focus:border-pitch-accent outline-none"
+                                                                placeholder="Home Team"
+                                                            />
+                                                        </div>
+                                                        <div className="flex flex-col items-center justify-center gap-1 shrink-0 px-2">
+                                                            <input
+                                                                type="text"
+                                                                value={editField}
+                                                                onChange={(e) => setEditField(e.target.value)}
+                                                                className="w-24 bg-black border border-white/20 p-1 text-center text-white rounded text-[10px] uppercase font-bold focus:border-pitch-accent outline-none"
+                                                                placeholder="Field"
+                                                            />
+                                                            <span className="text-gray-500 font-bold text-xs uppercase px-2 shrink-0">VS</span>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <input
+                                                                type="text"
+                                                                value={editAwayTeam}
+                                                                onChange={(e) => setEditAwayTeam(e.target.value)}
+                                                                className="w-full bg-black border border-white/20 p-2 text-white rounded text-sm md:text-base font-bold uppercase tracking-tight text-left focus:border-pitch-accent outline-none"
+                                                                placeholder="Away Team"
+                                                            />
+                                                        </div>
+                                                        <div className="flex flex-col gap-1 shrink-0">
+                                                            <button 
+                                                                onClick={handleSaveLiveEdit}
+                                                                disabled={loading}
+                                                                className="p-2 bg-pitch-accent text-black rounded hover:bg-white transition-colors flex items-center justify-center"
+                                                                title="Save Changes"
+                                                            >
+                                                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => setEditingMatchId(null)}
+                                                                className="p-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors flex items-center justify-center"
+                                                                title="Cancel"
+                                                            >
+                                                                <Square className="w-4 h-4" />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteMatch(match.id)}
+                                                                className="p-2 bg-red-900/50 text-red-500 rounded hover:bg-red-900 transition-colors flex items-center justify-center mt-1"
+                                                                title="Delete Match"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
 
                                             return (
                                                 <div key={match.id} className="relative group flex items-center bg-white/5 py-3 px-2 md:py-5 md:px-6 rounded-xl border border-white/5 hover:bg-white/[0.07] transition-all min-h-[70px] md:min-h-[88px]">
+                                                    {/* Edit overlay for scheduled matches */}
+                                                    {match.status === 'scheduled' && !isEditing && (
+                                                        <button
+                                                            onClick={() => startEditingMatch(match)}
+                                                            className="absolute -top-2 -right-2 bg-black border border-white/10 p-1.5 rounded-full text-gray-500 hover:text-pitch-accent hover:border-pitch-accent opacity-0 group-hover:opacity-100 transition-all z-10 shadow-lg"
+                                                            title="Edit Match"
+                                                        >
+                                                            <Edit className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
+                                                    
                                                     {/* Left: Home */}
                                                     <div className="flex-1 min-w-0 px-1 md:px-4">
                                                         <span className="block w-full text-right text-xs md:text-base font-black uppercase tracking-tight text-white truncate">{match.home_team}</span>
@@ -1158,8 +1300,8 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                                     </div>
 
                                                     {/* Right: Away */}
-                                                    <div className="flex-1 min-w-0 px-1 md:px-4">
-                                                        <span className="block w-full text-left text-xs md:text-base font-black uppercase tracking-tight text-white truncate">{match.away_team}</span>
+                                                    <div className="flex-1 min-w-0 px-1 md:px-4 text-left">
+                                                        <span className="block w-full text-xs md:text-base font-black uppercase tracking-tight text-white truncate">{match.away_team}</span>
                                                     </div>
                                                 </div>
                                             );
