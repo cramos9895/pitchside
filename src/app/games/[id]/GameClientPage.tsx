@@ -344,7 +344,21 @@ export function GameClientPage({
 
     const gameDate = new Date(game.start_time);
     const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-    const timeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    
+    const startTimeFormatted = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(' ', '');
+    let endTimeFormatted = '';
+    if (game.end_time) {
+        let end = new Date(game.start_time);
+        if (game.end_time.includes('T')) {
+            end = new Date(game.end_time);
+        } else {
+            const [hours, minutes] = game.end_time.split(':').map(Number);
+            end.setHours(hours, minutes, 0, 0);
+            if (end < gameDate) end.setDate(end.getDate() + 1);
+        }
+        endTimeFormatted = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(' ', '');
+    }
+    const timeStr = endTimeFormatted ? `${startTimeFormatted} - ${endTimeFormatted}` : startTimeFormatted;
     const isPastStrict = new Date() > gameDate;
 
     let durationDisplay = '90 Mins';
@@ -453,7 +467,7 @@ export function GameClientPage({
                                 </div>
                                 <div className="space-y-1">
                                     <span className="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] flex items-center gap-1">
-                                        <Clock className="w-3 h-3 text-pitch-accent" /> Kickoff
+                                        <Clock className="w-3 h-3 text-pitch-accent" /> Time
                                     </span>
                                     <p className="text-sm font-bold text-white uppercase">{timeStr}</p>
                                 </div>

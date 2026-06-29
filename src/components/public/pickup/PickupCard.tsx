@@ -94,7 +94,9 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
     }, [game.id, supabase]);
 
     const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    const startTimeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const rawStartStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(' ', '');
+    const rawEndStr = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(' ', '');
+    const startTimeStr = `${rawStartStr} - ${rawEndStr}`;
     const isPastStrict = new Date() > gameDate;
 
     const handleJoinClick = () => {
