@@ -494,6 +494,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                                 ))}
                             </ul>
                         )}
+                        <div className="text-[9px] text-gray-500 mt-1">Debug Status: {status || 'NONE'} | Ready: {ready ? 'Yes' : 'No'} | Input: {value}</div>
                     </div>
                 </div>
 
