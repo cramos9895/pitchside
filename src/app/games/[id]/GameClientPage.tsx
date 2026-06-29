@@ -473,11 +473,16 @@ export function GameClientPage({
                                 </div>
                                 <div className="space-y-1">
                                     <span className="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] flex items-center gap-1">
-                                        <MapPin className="w-3 h-3 text-pitch-accent" /> Arena
+                                        <MapPin className="w-3 h-3 text-pitch-accent" /> Location
                                     </span>
-                                    <p className="text-sm font-bold text-white uppercase truncate max-w-[200px]">
+                                    <a 
+                                        href={game.latitude && game.longitude ? `https://maps.google.com/?q=${game.latitude},${game.longitude}` : `https://maps.google.com/?q=${encodeURIComponent(game.location)}`} 
+                                        target="_blank" 
+                                        rel="noreferrer" 
+                                        className="text-sm font-bold text-white uppercase hover:text-pitch-accent transition-colors block truncate max-w-[200px]"
+                                    >
                                         {game.location_nickname || game.location_name || game.location.split(',')[0]}
-                                    </p>
+                                    </a>
                                 </div>
                                 {primaryHost && (
                                     <div className="space-y-1">
@@ -830,11 +835,13 @@ export function GameClientPage({
                                 <div className="bg-white/5 p-6 rounded-sm border border-white/10">
                                     <h4 className="font-bold uppercase text-sm mb-4 text-gray-400">Location</h4>
                                     {game.latitude && game.longitude ? (
-                                        <GameMap
-                                            latitude={game.latitude}
-                                            longitude={game.longitude}
-                                            locationName={game.location_name || game.location}
-                                        />
+                                        <a href={`https://maps.google.com/?q=${game.latitude},${game.longitude}`} target="_blank" rel="noreferrer" className="block hover:opacity-80 transition-opacity">
+                                            <GameMap
+                                                latitude={game.latitude}
+                                                longitude={game.longitude}
+                                                locationName={game.location_name || game.location}
+                                            />
+                                        </a>
                                     ) : (
                                         <div className="aspect-video bg-gray-800 rounded mb-4 flex items-center justify-center text-gray-600 text-xs">
                                             Map Unavailable
