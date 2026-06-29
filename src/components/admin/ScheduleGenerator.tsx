@@ -494,24 +494,42 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                             return activeTeamsList.map(team => {
                                 let played = 0;
                                 let satOut = 0;
+                                const opponentCounts: Record<string, number> = {};
+
                                 previewSchedule.forEach(round => {
-                                    const playedInRound = round.matches.some(m => m.home === team.name || m.away === team.name);
-                                    if (playedInRound) played++;
-                                    else satOut++;
+                                    const match = round.matches.find(m => m.home === team.name || m.away === team.name);
+                                    if (match) {
+                                        played++;
+                                        const opp = match.home === team.name ? match.away : match.home;
+                                        opponentCounts[opp] = (opponentCounts[opp] || 0) + 1;
+                                    } else {
+                                        satOut++;
+                                    }
                                 });
                                 return (
-                                    <div key={team.name} className="flex justify-between items-center bg-white/5 p-2 rounded border border-white/5">
-                                        <span className="text-[10px] font-bold text-white uppercase truncate mr-2">{team.name}</span>
-                                        <div className="flex gap-2 shrink-0">
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-[8px] text-gray-500 uppercase font-bold leading-none">P</span>
-                                                <span className="text-[10px] font-bold text-pitch-accent leading-none mt-0.5">{played}</span>
-                                            </div>
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-[8px] text-gray-500 uppercase font-bold leading-none">S</span>
-                                                <span className="text-[10px] font-bold text-yellow-500 leading-none mt-0.5">{satOut}</span>
+                                    <div key={team.name} className="flex flex-col bg-white/5 p-2 rounded border border-white/5">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-[10px] font-bold text-white uppercase truncate mr-2">{team.name}</span>
+                                            <div className="flex gap-2 shrink-0">
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-[8px] text-gray-500 uppercase font-bold leading-none">P</span>
+                                                    <span className="text-[10px] font-bold text-pitch-accent leading-none mt-0.5">{played}</span>
+                                                </div>
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-[8px] text-gray-500 uppercase font-bold leading-none">S</span>
+                                                    <span className="text-[10px] font-bold text-yellow-500 leading-none mt-0.5">{satOut}</span>
+                                                </div>
                                             </div>
                                         </div>
+                                        {played > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-auto">
+                                                {Object.entries(opponentCounts).sort((a, b) => b[1] - a[1]).map(([opp, count]) => (
+                                                    <span key={opp} className="text-[8px] bg-black/50 text-gray-400 px-1 py-0.5 rounded uppercase">
+                                                        vs {opp}: <span className="text-white font-bold">{count}</span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             });
