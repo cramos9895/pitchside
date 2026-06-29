@@ -21,6 +21,7 @@ interface Game {
     location: string;
     location_nickname?: string;
     game_format?: string;
+    game_format_type?: string;
     start_time: string;
     end_time: string | null;
     price: number;
@@ -363,7 +364,7 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
                                 </div>
                             </div>
                             <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white leading-[0.85] mb-4 font-sans break-words overflow-hidden">
-                                {game.title || `${game.game_format || '7v7'} Pickup`}
+                                {game.title || `${game.game_format_type || game.game_format || '7v7'} Pickup`}
                             </h2>
                             <div className="flex flex-col gap-2 text-pitch-secondary text-[10px] font-black uppercase tracking-[0.2em] opacity-80">
                                 <div className="flex items-center gap-2">
@@ -406,7 +407,7 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
                             <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-pitch-accent transition-colors flex items-center gap-1">
                                 <Zap className="w-4 h-4" /> Format
                             </div>
-                            <div className="text-white font-bold text-xs uppercase">{game.match_style || game.game_format || 'Match'}</div>
+                            <div className="text-white font-bold text-xs uppercase">{game.game_format_type || game.game_format || 'Match'}</div>
                         </div>
                         <div className="bg-white/5 p-3 rounded-sm border border-white/5 hover:bg-white/10 transition-colors group/item">
                             <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-pitch-accent transition-colors flex items-center gap-1">
