@@ -1198,35 +1198,48 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                             if (match.status === 'scheduled' && isEditing) return null;
                                             
                                             if (editingMatchId === match.id) {
+                                                const uniqueFields = Array.from(new Set(matches.map(m => m.field_name).filter(Boolean))) as string[];
+                                                if (uniqueFields.length === 0) uniqueFields.push("Field 1");
+                                                
+                                                const activeTeamsFromMatches = new Set(matches.flatMap(m => [m.home_team, m.away_team]));
+                                                const activeTeams = teams.filter(t => activeTeamsFromMatches.has(t.name));
+                                                const selectableTeams = activeTeams.length > 0 ? activeTeams : teams; // Fallback to all teams
+
                                                 return (
                                                     <div key={match.id} className="relative group flex items-center gap-2 bg-white/10 py-3 px-2 md:py-5 md:px-6 rounded-xl border border-pitch-accent transition-all min-h-[70px] md:min-h-[88px]">
                                                         <div className="flex-1 min-w-0">
-                                                            <input
-                                                                type="text"
+                                                            <select
                                                                 value={editHomeTeam}
                                                                 onChange={(e) => setEditHomeTeam(e.target.value)}
-                                                                className="w-full bg-black border border-white/20 p-2 text-white rounded text-sm md:text-base font-bold uppercase tracking-tight text-right focus:border-pitch-accent outline-none"
-                                                                placeholder="Home Team"
-                                                            />
+                                                                className="w-full bg-black border border-white/20 p-2 text-white rounded text-sm md:text-base font-bold uppercase tracking-tight focus:border-pitch-accent outline-none appearance-none cursor-pointer"
+                                                            >
+                                                                {selectableTeams.map(t => (
+                                                                    <option key={t.name} value={t.name}>{t.name}</option>
+                                                                ))}
+                                                            </select>
                                                         </div>
                                                         <div className="flex flex-col items-center justify-center gap-1 shrink-0 px-2">
-                                                            <input
-                                                                type="text"
+                                                            <select
                                                                 value={editField}
                                                                 onChange={(e) => setEditField(e.target.value)}
-                                                                className="w-24 bg-black border border-white/20 p-1 text-center text-white rounded text-[10px] uppercase font-bold focus:border-pitch-accent outline-none"
-                                                                placeholder="Field"
-                                                            />
+                                                                className="w-24 bg-black border border-white/20 p-1 text-center text-white rounded text-[10px] uppercase font-bold focus:border-pitch-accent outline-none appearance-none cursor-pointer"
+                                                            >
+                                                                {uniqueFields.map(f => (
+                                                                    <option key={f} value={f}>{f}</option>
+                                                                ))}
+                                                            </select>
                                                             <span className="text-gray-500 font-bold text-xs uppercase px-2 shrink-0">VS</span>
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <input
-                                                                type="text"
+                                                            <select
                                                                 value={editAwayTeam}
                                                                 onChange={(e) => setEditAwayTeam(e.target.value)}
-                                                                className="w-full bg-black border border-white/20 p-2 text-white rounded text-sm md:text-base font-bold uppercase tracking-tight text-left focus:border-pitch-accent outline-none"
-                                                                placeholder="Away Team"
-                                                            />
+                                                                className="w-full bg-black border border-white/20 p-2 text-white rounded text-sm md:text-base font-bold uppercase tracking-tight focus:border-pitch-accent outline-none appearance-none cursor-pointer"
+                                                            >
+                                                                {selectableTeams.map(t => (
+                                                                    <option key={t.name} value={t.name}>{t.name}</option>
+                                                                ))}
+                                                            </select>
                                                         </div>
                                                         <div className="flex flex-col gap-1 shrink-0">
                                                             <button 

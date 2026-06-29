@@ -44,6 +44,19 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
     const [generated, setGenerated] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    const updatePreviewMatch = (roundIndex: number, matchIndex: number, field: string, value: string) => {
+        setPreviewSchedule(prev => {
+            const next = [...prev];
+            next[roundIndex] = { ...next[roundIndex] };
+            next[roundIndex].matches = [...next[roundIndex].matches];
+            next[roundIndex].matches[matchIndex] = {
+                ...next[roundIndex].matches[matchIndex],
+                [field]: value
+            };
+            return next;
+        });
+    };
+
     const router = useRouter();
 
     // 1. Auto-Calculate Duration (The 'Smart' Input)
@@ -371,7 +384,7 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                     </div>
 
                     <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-2">
-                        {previewSchedule.map((round) => (
+                        {previewSchedule.map((round, roundIndex) => (
                             <div key={round.round} className="bg-black/30 p-3 rounded border border-white/5">
                                 <div className="flex justify-between items-center mb-2">
                                     <div className="text-[10px] uppercase font-bold text-gray-400">Round {round.round}</div>
@@ -379,13 +392,40 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                                 </div>
 
                                 <div className="space-y-1">
-                                    {round.matches.map((m, i) => (
-                                        <div key={i} className="text-[10px] text-white flex justify-between items-center bg-white/5 p-2 rounded-sm mb-1 border border-white/5">
-                                            <div className="w-[60px] font-black text-pitch-secondary uppercase tracking-tighter opacity-50">{(m as any).field}</div>
-                                            <div className="flex-1 flex justify-between px-4">
-                                                <span className="w-1/3 text-right font-bold truncate">{m.home}</span>
-                                                <span className="text-gray-600 text-[10px] uppercase px-2 shrink-0">VS</span>
-                                                <span className="w-1/3 text-left font-bold truncate">{m.away}</span>
+                                    {round.matches.map((m, matchIdx) => (
+                                        <div key={matchIdx} className="text-[10px] text-white flex justify-between items-center bg-white/5 p-2 rounded-sm mb-1 border border-white/5 gap-2">
+                                            <div className="w-[70px] shrink-0">
+                                                <select
+                                                    value={(m as any).field || ''}
+                                                    onChange={(e) => updatePreviewMatch(roundIndex, matchIdx, 'field', e.target.value)}
+                                                    className="w-full bg-black/50 border border-white/10 rounded px-1 py-1 font-black text-pitch-secondary uppercase tracking-tighter text-[10px] appearance-none cursor-pointer outline-none focus:border-pitch-accent"
+                                                >
+                                                    {Array.from({ length: fields }).map((_, i) => (
+                                                        <option key={i} value={`Field ${i + 1}`}>Field {i + 1}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="flex-1 flex justify-between items-center px-1">
+                                                <select
+                                                    value={m.home}
+                                                    onChange={(e) => updatePreviewMatch(roundIndex, matchIdx, 'home', e.target.value)}
+                                                    className="w-[45%] bg-black/50 border border-white/10 rounded px-1 py-1 font-bold text-right text-[10px] appearance-none cursor-pointer outline-none focus:border-pitch-accent"
+                                                    dir="rtl"
+                                                >
+                                                    {teams.filter(t => !excludedTeams.has(t.name)).map(t => (
+                                                        <option key={t.name} value={t.name}>{t.name}</option>
+                                                    ))}
+                                                </select>
+                                                <span className="text-gray-600 text-[10px] uppercase px-1 shrink-0">VS</span>
+                                                <select
+                                                    value={m.away}
+                                                    onChange={(e) => updatePreviewMatch(roundIndex, matchIdx, 'away', e.target.value)}
+                                                    className="w-[45%] bg-black/50 border border-white/10 rounded px-1 py-1 font-bold text-left text-[10px] appearance-none cursor-pointer outline-none focus:border-pitch-accent"
+                                                >
+                                                    {teams.filter(t => !excludedTeams.has(t.name)).map(t => (
+                                                        <option key={t.name} value={t.name}>{t.name}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                         </div>
                                     ))}
