@@ -37,6 +37,8 @@ export async function updateGame(gameId: string, formData: any) {
             teams_config: (formData.event_type === 'tournament' || formData.event_type === 'league') ? null : formData.teams_config,
             is_refundable: formData.is_refundable,
             refund_cutoff_hours: formData.refund_cutoff_hours,
+            refund_policy: formData.refund_policy,
+            conduct_policy: formData.conduct_policy,
             allowed_payment_methods: formData.allowed_payment_methods,
             team_price: formData.team_price,
             deposit_amount: formData.deposit_amount,
