@@ -470,7 +470,6 @@ export function GameClientPage({
                         { id: 'details', label: 'Details', icon: Info },
                         { id: 'roster', label: `Players (${activeRoster.length})`, icon: Users },
                         ...((game.event_type === 'tournament' || game.match_style === 'Tourney' || game.match_style === 'King') ? [{ id: 'game-time', label: 'Game Time', icon: Trophy }] : []),
-                        { id: 'rules', label: 'Rules/Policy', icon: Shield },
                         { id: 'chat', label: 'Chat', icon: MessageSquare, hasUnread: hasUnreadChat }
                     ].map((tab: any) => (
                         <button
@@ -673,6 +672,41 @@ export function GameClientPage({
                                     </div>
 
                                 </section>
+
+                                {/* General Match Rules */}
+                                <section className="bg-pitch-card border border-white/10 p-8 rounded-sm">
+                                    <h3 className="font-heading text-2xl font-black italic uppercase mb-6 flex items-center gap-3 text-pitch-accent border-b border-white/10 pb-4">
+                                        <Shield className="w-6 h-6" /> Event Rundown
+                                    </h3>
+                                    <div className="text-gray-300 leading-relaxed font-medium whitespace-pre-wrap text-sm md:text-base">
+                                        {game.rules_description || 'No specific rules have been provided for this game.'}
+                                    </div>
+                                </section>
+
+                                {/* Policies Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <section className="bg-white/5 border border-white/10 p-6 rounded-sm hover:border-pitch-accent/50 transition-colors">
+                                        <h4 className="font-bold uppercase text-lg mb-4 text-white flex items-center gap-2">
+                                            <DollarSign className="w-5 h-5 text-pitch-accent" /> Refund Policy
+                                        </h4>
+                                        <div className="text-gray-400 text-sm leading-relaxed whitespace-pre-wrap">
+                                            {/* @ts-expect-error dynamic column */}
+                                            {game.refund_policy || (game.is_refundable 
+                                                ? `Refunds are permitted up to ${game.refund_cutoff_hours ?? 24} hours before kickoff.` 
+                                                : 'There are no refunds for this event.')}
+                                        </div>
+                                    </section>
+
+                                    <section className="bg-white/5 border border-white/10 p-6 rounded-sm hover:border-pitch-accent/50 transition-colors">
+                                        <h4 className="font-bold uppercase text-lg mb-4 text-white flex items-center gap-2">
+                                            <AlertTriangle className="w-5 h-5 text-pitch-accent" /> Conduct Policy
+                                        </h4>
+                                        <div className="text-gray-400 text-sm leading-relaxed whitespace-pre-wrap">
+                                            {/* @ts-expect-error dynamic column */}
+                                            {game.conduct_policy || 'Strict zero tolerance policy for violence, aggressive behavior, or verbal abuse towards referees or players. Violators will be permanently banned.'}
+                                        </div>
+                                    </section>
+                                </div>
                             </div>
 
                             {/* Side Panel (Map placeholder or rules) */}
@@ -788,46 +822,6 @@ export function GameClientPage({
                                         </button>
                                     </div>
                                 )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* RULES/POLICY TAB */}
-                    {activeTab === 'rules' && (
-                        <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in">
-                            {/* General Match Rules */}
-                            <section className="bg-black border border-white/10 p-8 rounded-sm">
-                                <h3 className="font-heading text-2xl font-black italic uppercase mb-6 flex items-center gap-3 text-pitch-accent border-b border-white/10 pb-4">
-                                    <Shield className="w-6 h-6" /> Event Rundown
-                                </h3>
-                                <div className="text-gray-300 leading-relaxed font-medium whitespace-pre-wrap text-sm md:text-base">
-                                    {game.rules_description || 'No specific rules have been provided for this game.'}
-                                </div>
-                            </section>
-
-                            {/* Policies Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <section className="bg-white/5 border border-white/10 p-6 rounded-sm hover:border-pitch-accent/50 transition-colors">
-                                    <h4 className="font-bold uppercase text-lg mb-4 text-white flex items-center gap-2">
-                                        <DollarSign className="w-5 h-5 text-pitch-accent" /> Refund Policy
-                                    </h4>
-                                    <div className="text-gray-400 text-sm leading-relaxed whitespace-pre-wrap">
-                                        {/* @ts-expect-error dynamic column */}
-                                        {game.refund_policy || (game.is_refundable 
-                                            ? `Refunds are permitted up to ${game.refund_cutoff_hours || 24} hours before kickoff.` 
-                                            : 'No refunds allowed for this game.')}
-                                    </div>
-                                </section>
-
-                                <section className="bg-white/5 border border-white/10 p-6 rounded-sm hover:border-pitch-accent/50 transition-colors">
-                                    <h4 className="font-bold uppercase text-lg mb-4 text-white flex items-center gap-2">
-                                        <AlertTriangle className="w-5 h-5 text-pitch-accent" /> Conduct Policy
-                                    </h4>
-                                    <div className="text-gray-400 text-sm leading-relaxed whitespace-pre-wrap">
-                                        {/* @ts-expect-error dynamic column */}
-                                        {game.conduct_policy || 'Strict zero tolerance policy for violence, aggressive behavior, or verbal abuse towards referees or players. Violators will be permanently banned.'}
-                                    </div>
-                                </section>
                             </div>
                         </div>
                     )}
