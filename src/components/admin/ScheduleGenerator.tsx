@@ -133,7 +133,7 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
             sitStreak: number;
             totalPlayed: number;
             totalSat: number;
-            playedOpponents: Set<number>;
+            playedOpponents: Map<number, number>;
             lastOpponent: number;
         }
 
@@ -143,7 +143,7 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
             sitStreak: 0,
             totalPlayed: 0,
             totalSat: 0,
-            playedOpponents: new Set<number>(),
+            playedOpponents: new Map<number, number>(),
             lastOpponent: -1
         }));
 
@@ -193,8 +193,11 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                     const stat1 = teamStats[t1];
                     const stat2 = teamStats[t2];
 
-                    if (!stat1.playedOpponents.has(t2)) score += 100;
+                    const timesPlayed = stat1.playedOpponents.get(t2) || 0;
+                    score -= timesPlayed * 100;
+                    
                     score += stat2.sitStreak * 10;
+                    score -= stat2.totalPlayed * 5; // keep games balanced
                     if (stat1.lastOpponent === t2) score -= 1000;
                     
                     if (score > bestOpponentScore) {
@@ -240,18 +243,14 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
             // Commit stats after swaps
             for (const match of matchesForSlot) {
                 const { home: t1, away: t2 } = match;
-                teamStats[t1].playedOpponents.add(t2);
-                teamStats[t2].playedOpponents.add(t1);
+                const currentT1 = teamStats[t1].playedOpponents.get(t2) || 0;
+                teamStats[t1].playedOpponents.set(t2, currentT1 + 1);
+                
+                const currentT2 = teamStats[t2].playedOpponents.get(t1) || 0;
+                teamStats[t2].playedOpponents.set(t1, currentT2 + 1);
                 
                 teamStats[t1].lastOpponent = t2;
                 teamStats[t2].lastOpponent = t1;
-                
-                if (teamStats[t1].playedOpponents.size >= numTeams - 1) {
-                    teamStats[t1].playedOpponents.clear();
-                }
-                if (teamStats[t2].playedOpponents.size >= numTeams - 1) {
-                    teamStats[t2].playedOpponents.clear();
-                }
             }
 
             teamStats.forEach(stat => {
