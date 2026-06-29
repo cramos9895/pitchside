@@ -165,6 +165,7 @@ export async function executeCheckIn(userId: string, eventId: string, eventType:
             .or(`game_id.eq.${eventId},league_id.eq.${eventId}`);
     }
 
+    // Insert into the master event_check_ins table
     const { error } = await supabase
         .from('event_check_ins')
         .insert({
@@ -179,7 +180,21 @@ export async function executeCheckIn(userId: string, eventId: string, eventType:
         throw new Error('Failed to execute check-in');
     }
 
+    // Sync legacy tables for backwards compatibility with Active Roster UI
+    if (eventType === 'pickup') {
+        await supabase.from('bookings')
+            .update({ checked_in: true })
+            .eq('user_id', userId)
+            .eq('game_id', eventId);
+    } else {
+        await supabase.from('tournament_registrations')
+            .update({ checked_in: true })
+            .eq('user_id', userId)
+            .or(`game_id.eq.${eventId},league_id.eq.${eventId}`);
+    }
+
     revalidatePath('/rolling-leagues/[id]', 'page');
+    revalidatePath('/admin/games/[id]', 'page');
     return { success: true };
 }
 
@@ -190,7 +205,7 @@ export async function undoCheckIn(userId: string, eventId: string) {
     // Get the game to see if it's a cash game
     const { data: game } = await supabase
         .from('games')
-        .select('payment_collection_type')
+        .select('payment_collection_type, event_type')
         .eq('id', eventId)
         .single();
 
@@ -215,5 +230,22 @@ export async function undoCheckIn(userId: string, eventId: string) {
         throw new Error('Failed to undo check-in');
     }
 
+    const eventType = game?.event_type || 'rolling';
+
+    // Sync legacy tables
+    if (eventType === 'pickup') {
+        await supabase.from('bookings')
+            .update({ checked_in: false })
+            .eq('user_id', userId)
+            .eq('game_id', eventId);
+    } else {
+        await supabase.from('tournament_registrations')
+            .update({ checked_in: false })
+            .eq('user_id', userId)
+            .or(`game_id.eq.${eventId},league_id.eq.${eventId}`);
+    }
+
+    revalidatePath('/rolling-leagues/[id]', 'page');
+    revalidatePath('/admin/games/[id]', 'page');
     return { success: true };
 }

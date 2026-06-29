@@ -7,10 +7,11 @@ import { IdentityModal } from './IdentityModal';
 
 interface CheckInManagerProps {
     eventId: string;
+    eventType?: 'rolling' | 'tournament' | 'pickup';
     onCheckInComplete?: () => void;
 }
 
-export function CheckInManager({ eventId, onCheckInComplete }: CheckInManagerProps) {
+export function CheckInManager({ eventId, eventType = 'rolling', onCheckInComplete }: CheckInManagerProps) {
     const [isScanning, setIsScanning] = useState(false);
     const [scannedUserId, setScannedUserId] = useState<string | null>(null);
     const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -148,6 +149,7 @@ export function CheckInManager({ eventId, onCheckInComplete }: CheckInManagerPro
                 <IdentityModal 
                     scannedUserId={scannedUserId} 
                     eventId={eventId}
+                    eventType={eventType}
                     onClose={() => setScannedUserId(null)}
                     onCheckInComplete={() => {
                         setScannedUserId(null);

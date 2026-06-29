@@ -21,6 +21,7 @@ import { AdminLeagueControl } from '@/components/admin/AdminLeagueControl';
 import { AdminRollingManager } from '@/components/admin/rolling/AdminRollingManager';
 import { ManualAddPlayerModal } from '@/components/admin/ManualAddPlayerModal';
 import { AdminOfficialsManager } from '@/components/admin/AdminOfficialsManager';
+import { CheckInManager } from '@/components/public/checkin/CheckInManager';
 
 export type AdminGameBooking = Booking & {
     id: string;
@@ -1250,6 +1251,20 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                         {/* TAB 1: PLAYER MANAGER */}
                         <TabsContent value="player-manager" className="mt-0">
+                            {/* Facility Operations / Check-In Scanner */}
+                            <div className="bg-pitch-card border border-pitch-accent/20 rounded-2xl p-6 shadow-xl mb-8">
+                                <h2 className="font-heading text-xl font-bold italic uppercase flex items-center gap-2 mb-4">
+                                    <Scan className="w-5 h-5" /> Facility Scanner
+                                </h2>
+                                <div className="max-w-md">
+                                    <CheckInManager 
+                                        eventId={gameId}
+                                        eventType={game.event_type as 'rolling' | 'tournament' | 'pickup' || 'pickup'}
+                                        onCheckInComplete={() => { fetchRegistrations(); fetchMatches(); router.refresh(); handleMatchUpdate(); }}
+                                    />
+                                </div>
+                            </div>
+
                             {/* Live Counters */}
                             {game.event_type !== 'pickup' ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
