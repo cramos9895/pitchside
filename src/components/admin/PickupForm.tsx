@@ -154,7 +154,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
 
     const { ready, value, setValue, suggestions: { status, data }, clearSuggestions, init } = usePlacesAutocomplete({
                 // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                requestOptions: {}, defaultValue: initialData?.location || '', initOnMount: false
+                defaultValue: initialData?.location || '', initOnMount: false
     });
 
     useEffect(() => { if (isLoaded) init(); }, [isLoaded, init]);
@@ -485,7 +485,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                         <MapPin className="w-3 h-3" /> Location
                     </label>
                     <div className="relative">
-                        <input value={value} onChange={(e) => { setValue(e.target.value); setLocationName(e.target.value); }} disabled={!ready} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors pl-10" autoComplete="off" />
+                        <input value={value} onChange={(e) => { setValue(e.target.value, true); setLocationName(e.target.value); }} disabled={!ready} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors pl-10" autoComplete="off" />
                         <div className="absolute left-3 top-3.5 text-gray-500"><MapPin className="w-4 h-4" /></div>
                         {status === "OK" && (
                             <ul className="absolute z-[100] w-full bg-gray-900 border border-white/10 shadow-xl rounded-sm mt-1 max-h-60 overflow-auto">
