@@ -134,6 +134,7 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
             totalPlayed: number;
             totalSat: number;
             playedOpponents: Set<number>;
+            lastOpponent: number;
         }
 
         const teamStats: TeamStats[] = activeTeams.map((_, i) => ({
@@ -142,7 +143,8 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
             sitStreak: 0,
             totalPlayed: 0,
             totalSat: 0,
-            playedOpponents: new Set<number>()
+            playedOpponents: new Set<number>(),
+            lastOpponent: -1
         }));
 
         const finalSchedule: Array<{ round: number, startTime: string, matches: Array<{ home: string, away: string, field?: string }> }> = [];
@@ -193,6 +195,7 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
 
                     if (!stat1.playedOpponents.has(t2)) score += 100;
                     score += stat2.sitStreak * 10;
+                    if (stat1.lastOpponent === t2) score -= 1000;
                     
                     if (score > bestOpponentScore) {
                         bestOpponentScore = score;
@@ -209,16 +212,45 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                     matchesForSlot.push({ home: t1, away: bestOpponent });
                     matched.add(t1);
                     matched.add(bestOpponent);
-                    
-                    teamStats[t1].playedOpponents.add(bestOpponent);
-                    teamStats[bestOpponent].playedOpponents.add(t1);
-                    
-                    if (teamStats[t1].playedOpponents.size >= numTeams - 1) {
-                        teamStats[t1].playedOpponents.clear();
+                }
+            }
+
+            // Post-process matches to resolve back-to-backs if possible
+            for (let i = 0; i < matchesForSlot.length; i++) {
+                const m1 = matchesForSlot[i];
+                if (teamStats[m1.home].lastOpponent === m1.away || teamStats[m1.away].lastOpponent === m1.home) {
+                    for (let j = 0; j < matchesForSlot.length; j++) {
+                        if (i === j) continue;
+                        const m2 = matchesForSlot[j];
+                        
+                        if (teamStats[m1.home].lastOpponent !== m2.away &&
+                            teamStats[m2.away].lastOpponent !== m1.home &&
+                            teamStats[m2.home].lastOpponent !== m1.away &&
+                            teamStats[m1.away].lastOpponent !== m2.home) {
+                            
+                            const temp = m1.away;
+                            m1.away = m2.away;
+                            m2.away = temp;
+                            break;
+                        }
                     }
-                    if (teamStats[bestOpponent].playedOpponents.size >= numTeams - 1) {
-                        teamStats[bestOpponent].playedOpponents.clear();
-                    }
+                }
+            }
+
+            // Commit stats after swaps
+            for (const match of matchesForSlot) {
+                const { home: t1, away: t2 } = match;
+                teamStats[t1].playedOpponents.add(t2);
+                teamStats[t2].playedOpponents.add(t1);
+                
+                teamStats[t1].lastOpponent = t2;
+                teamStats[t2].lastOpponent = t1;
+                
+                if (teamStats[t1].playedOpponents.size >= numTeams - 1) {
+                    teamStats[t1].playedOpponents.clear();
+                }
+                if (teamStats[t2].playedOpponents.size >= numTeams - 1) {
+                    teamStats[t2].playedOpponents.clear();
                 }
             }
 
