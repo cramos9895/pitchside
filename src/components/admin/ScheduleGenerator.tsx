@@ -524,8 +524,8 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                                         {played > 0 && (
                                             <div className="flex flex-wrap gap-1 mt-auto">
                                                 {Object.entries(opponentCounts).sort((a, b) => b[1] - a[1]).map(([opp, count]) => (
-                                                    <span key={opp} className="text-[8px] bg-black/50 text-gray-400 px-1 py-0.5 rounded uppercase">
-                                                        vs {opp}: <span className="text-white font-bold">{count}</span>
+                                                    <span key={opp} className="text-[8px] bg-black/50 text-gray-400 px-1 py-0.5 rounded uppercase flex items-center gap-1">
+                                                        <span>{opp}:</span> <span className="text-white font-bold">{count}</span>
                                                     </span>
                                                 ))}
                                             </div>

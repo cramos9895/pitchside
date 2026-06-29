@@ -18,7 +18,7 @@ const TEXT_COLOR_MAP: Record<string, string> = {
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Plus, Save, Loader2, Trash2, Layers, CheckCircle2, Trophy, ArrowRight, PlayCircle, Edit, PauseCircle, Square, Clock, PlusCircle, MinusCircle, MonitorPlay, X } from 'lucide-react';
+import { Plus, Save, Loader2, Trash2, Layers, CheckCircle2, Trophy, ArrowRight, PlayCircle, Edit, PauseCircle, Square, Clock, PlusCircle, MinusCircle, MonitorPlay, X, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { finalizeGame } from '@/app/actions/finalize-game';
@@ -114,6 +114,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
     const [timerDuration, setTimerDuration] = useState<number>(game.timer_duration || standardDuration);
     const [timerStartedAt, setTimerStartedAt] = useState<string | null>(game.timer_started_at || null);
     const [timeRemaining, setTimeRemaining] = useState<number>(game.timer_duration || standardDuration);
+    const [showResetModal, setShowResetModal] = useState(false);
 
     // FIX: Force sync timer to match length if currently stopped and duration doesn't match
     useEffect(() => {
@@ -811,8 +812,6 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
     };
 
     const handleResetTournament = async () => {
-        if (!confirm("Are you sure you want to PERMANENTLY delete the current tournament schedule? This will wipe all tournament matches and scores for this session. This cannot be undone.")) return;
-
         setLoading(true);
         try {
             const { error } = await supabase
@@ -823,7 +822,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
             if (error) throw error;
 
-            alert("Tournament schedule cleared.");
+            setShowResetModal(false);
             router.refresh();
             if (onUpdate) onUpdate();
         } catch (err: unknown) {
@@ -950,7 +949,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                 ROUND {currentRound} / {maxRound}
                             </div>
                             <button
-                                onClick={handleResetTournament}
+                                onClick={() => setShowResetModal(true)}
                                 disabled={loading}
                                 className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-white hover:bg-red-500/20 border border-red-500/30 px-3 py-1 rounded transition-all"
                             >
@@ -1550,6 +1549,33 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                 isDestructive={true}
                 isLoading={timerLoading}
             />
+            {/* --- Modals --- */}
+            {showResetModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-pitch-card border border-red-500/30 p-6 rounded-sm max-w-sm w-full text-center animate-in zoom-in-95 duration-200">
+                        <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                        <h3 className="text-lg font-bold font-heading italic uppercase text-white mb-2">Reset Schedule</h3>
+                        <p className="text-sm text-gray-400 mb-6 leading-relaxed">
+                            Are you sure you want to PERMANENTLY delete the current tournament schedule? This will wipe all tournament matches and scores for this session. <strong className="text-red-500">This cannot be undone.</strong>
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowResetModal(false)}
+                                className="flex-1 py-2 text-gray-400 font-bold uppercase text-xs hover:text-white transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleResetTournament}
+                                disabled={loading}
+                                className="flex-1 py-2 bg-red-500 text-white font-bold uppercase text-xs rounded-sm hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                            >
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm Reset"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
