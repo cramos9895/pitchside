@@ -65,6 +65,8 @@ interface Game {
     allow_free_agents?: boolean;
     free_agent_price?: number;
     game_format_type?: string;
+    amount_of_fields?: number;
+    allowed_payment_methods?: string[];
     field_size?: string;
     total_game_time?: number;
     shoe_types?: string[];
@@ -639,7 +641,7 @@ export function GameClientPage({
                                             <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1">
                                                 <Target className="w-3 h-3 text-pitch-accent" /> Format
                                             </span>
-                                            <p className="text-sm font-bold text-white uppercase italic">{game.game_format || 'Open Play'}</p>
+                                            <p className="text-sm font-bold text-white uppercase italic">{game.game_format_type || game.game_format || 'Open Play'}</p>
                                         </div>
                                         
                                         <div className="space-y-1">
@@ -651,16 +653,39 @@ export function GameClientPage({
 
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1">
-                                                <MapPin className="w-3 h-3 text-pitch-accent" /> Surface
+                                                <MapPin className="w-3 h-3 text-pitch-accent" /> Fields
                                             </span>
-                                            <p className="text-sm font-bold text-white uppercase italic">{game.surface_type || 'Turf'}</p>
+                                            <p className="text-sm font-bold text-white uppercase italic">{game.amount_of_fields || 1} {game.amount_of_fields === 1 ? 'Pitch' : 'Pitches'}</p>
                                         </div>
 
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1">
-                                                <Shirt className="w-3 h-3 text-pitch-accent" /> Required Footwear
+                                                <Users className="w-3 h-3 text-pitch-accent" /> Teams
                                             </span>
-                                            <p className="text-sm font-bold text-white uppercase italic">{game.shoe_type || 'Soccer Cleats / Turf'}</p>
+                                            <p className="text-sm font-bold text-white uppercase italic">{game.teams_config?.length || 2} Squads</p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1">
+                                                <Users className="w-3 h-3 text-pitch-accent" /> Capacity
+                                            </span>
+                                            <p className="text-sm font-bold text-white uppercase italic">{game.max_players} Players max</p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1">
+                                                <Clock className="w-3 h-3 text-pitch-accent" /> Duration
+                                            </span>
+                                            <p className="text-sm font-bold text-white uppercase italic">
+                                                {game.start_time && game.end_time ? `${Math.round((new Date(game.end_time).getTime() - new Date(game.start_time).getTime()) / 60000)} Mins` : '90 Mins'}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1">
+                                                <Shirt className="w-3 h-3 text-pitch-accent" /> Surface & Footwear
+                                            </span>
+                                            <p className="text-sm font-bold text-white uppercase italic">{game.surface_type || 'Turf'} - {game.shoe_type || 'Soccer Cleats'}</p>
                                         </div>
 
                                         <div className="space-y-1">
@@ -668,6 +693,15 @@ export function GameClientPage({
                                                 <DollarSign className="w-3 h-3 text-pitch-accent" /> Price
                                             </span>
                                             <p className="text-sm font-bold text-white uppercase italic">${game.price}</p>
+                                        </div>
+                                        
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1">
+                                                <DollarSign className="w-3 h-3 text-pitch-accent" /> Payment Methods
+                                            </span>
+                                            <p className="text-sm font-bold text-white uppercase italic">
+                                                {game.allowed_payment_methods?.length ? game.allowed_payment_methods.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ') : 'Any'}
+                                            </p>
                                         </div>
                                     </div>
 
