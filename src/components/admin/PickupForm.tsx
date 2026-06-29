@@ -127,7 +127,8 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                 // @ts-expect-error - Residual typing mismatch from extended schema mapping
                 const start = new Date(initialData.start_time);
                 if (!isNaN(start.getTime())) {
-                    setGameDates([start.toISOString().split('T')[0]]);
+                    const localDateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+                    setGameDates([localDateStr]);
                     setStartTime(start.toTimeString().slice(0, 5));
                 }
             }
@@ -356,7 +357,8 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
         
         if (data.start_time) {
             const start = new Date(data.start_time);
-            setGameDates([start.toISOString().split('T')[0]]);
+            const localDateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+            setGameDates([localDateStr]);
             setStartTime(start.toTimeString().slice(0, 5));
         }
         if (data.end_time) {
