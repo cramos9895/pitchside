@@ -453,6 +453,40 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                         );
                     })}
                 </div>
+                
+
+                <div className="bg-black/30 border border-white/5 p-4 rounded mb-6">
+                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Schedule Summary</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {(() => {
+                            const activeTeamsList = teams.filter(t => !excludedTeams.has(t.name));
+                            return activeTeamsList.map(team => {
+                                let played = 0;
+                                let satOut = 0;
+                                previewSchedule.forEach(round => {
+                                    const playedInRound = round.matches.some(m => m.home === team.name || m.away === team.name);
+                                    if (playedInRound) played++;
+                                    else satOut++;
+                                });
+                                return (
+                                    <div key={team.name} className="flex justify-between items-center bg-white/5 p-2 rounded border border-white/5">
+                                        <span className="text-[10px] font-bold text-white uppercase truncate mr-2">{team.name}</span>
+                                        <div className="flex gap-2 shrink-0">
+                                            <div className="flex flex-col items-center">
+                                                <span className="text-[8px] text-gray-500 uppercase font-bold leading-none">P</span>
+                                                <span className="text-[10px] font-bold text-pitch-accent leading-none mt-0.5">{played}</span>
+                                            </div>
+                                            <div className="flex flex-col items-center">
+                                                <span className="text-[8px] text-gray-500 uppercase font-bold leading-none">S</span>
+                                                <span className="text-[10px] font-bold text-yellow-500 leading-none mt-0.5">{satOut}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            });
+                        })()}
+                    </div>
+                </div>
 
                     <div className="flex gap-2">
                         <button
