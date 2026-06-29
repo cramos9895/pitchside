@@ -18,7 +18,7 @@ const TEXT_COLOR_MAP: Record<string, string> = {
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Plus, Save, Loader2, Trash2, Layers, CheckCircle2, Trophy, ArrowRight, PlayCircle, Edit, PauseCircle, Square, Clock, PlusCircle, MinusCircle, MonitorPlay } from 'lucide-react';
+import { Plus, Save, Loader2, Trash2, Layers, CheckCircle2, Trophy, ArrowRight, PlayCircle, Edit, PauseCircle, Square, Clock, PlusCircle, MinusCircle, MonitorPlay, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { finalizeGame } from '@/app/actions/finalize-game';
@@ -1252,10 +1252,10 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                                                             </button>
                                                             <button 
                                                                 onClick={() => setEditingMatchId(null)}
-                                                                className="p-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors flex items-center justify-center"
-                                                                title="Cancel"
+                                                                className="p-2 bg-red-900/20 text-red-400 rounded hover:bg-red-900/50 hover:text-red-300 transition-colors flex items-center justify-center"
+                                                                title="Cancel Edit"
                                                             >
-                                                                <Square className="w-4 h-4" />
+                                                                <X className="w-4 h-4" />
                                                             </button>
                                                             <button 
                                                                 onClick={() => handleDeleteMatch(match.id)}

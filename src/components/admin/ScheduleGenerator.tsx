@@ -384,14 +384,32 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                     </div>
 
                     <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-2">
-                        {previewSchedule.map((round, roundIndex) => (
-                            <div key={round.round} className="bg-black/30 p-3 rounded border border-white/5">
-                                <div className="flex justify-between items-center mb-2">
-                                    <div className="text-[10px] uppercase font-bold text-gray-400">Round {round.round}</div>
-                                    <div className="text-[10px] font-mono text-pitch-secondary">{round.startTime}</div>
-                                </div>
+                        {previewSchedule.map((round, roundIndex) => {
+                            const teamsInRound = new Set(round.matches.flatMap(m => [m.home, m.away]));
+                            const activeTeamsList = teams.filter(t => !excludedTeams.has(t.name));
+                            const sittingOut = activeTeamsList.filter(t => !teamsInRound.has(t.name));
 
-                                <div className="space-y-1">
+                            return (
+                                <div key={round.round} className="bg-black/30 p-3 rounded border border-white/5">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <div className="text-[10px] uppercase font-bold text-gray-400">Round {round.round}</div>
+                                        <div className="text-[10px] font-mono text-pitch-secondary">{round.startTime}</div>
+                                    </div>
+
+                                    {sittingOut.length > 0 && (
+                                        <div className="mb-3 p-2 bg-yellow-500/5 border border-yellow-500/10 rounded">
+                                            <div className="text-[8px] font-black text-yellow-600 uppercase tracking-widest mb-1.5 px-1">Sitting Out This Round</div>
+                                            <div className="flex flex-wrap gap-1">
+                                                {sittingOut.map(t => (
+                                                    <span key={t.name} className="text-[9px] font-bold text-gray-300 uppercase bg-black/30 px-2 py-0.5 rounded border border-white/5">
+                                                        {t.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-1">
                                     {round.matches.map((m, matchIdx) => (
                                         <div key={matchIdx} className="text-[10px] text-white flex justify-between items-center bg-white/5 p-2 rounded-sm mb-1 border border-white/5 gap-2">
                                             <div className="w-[70px] shrink-0">
@@ -432,8 +450,9 @@ export function ScheduleGenerator({ gameId, teams, isLeague, totalWeeks, onSched
                                     {round.matches.length === 0 && <span className="text-xs text-gray-600 italic">No matches fit constraints.</span>}
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                        );
+                    })}
+                </div>
 
                     <div className="flex gap-2">
                         <button
