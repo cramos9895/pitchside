@@ -22,9 +22,14 @@ export function Navbar() {
             <nav className="sticky top-0 w-full z-50 border-b border-white/5 bg-pitch-black">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     {/* Logo */}
-                    <Link href="/" className="text-2xl font-heading font-bold italic tracking-tighter text-white">
-                        PITCH<span className="text-pitch-accent">SIDE</span>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <Link href="/" className="text-2xl font-sans font-black italic tracking-tighter text-white">
+                            PITCH<span className="text-pitch-accent">SIDE</span>
+                        </Link>
+                        <span className="bg-pitch-accent/20 text-pitch-accent text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-widest border border-pitch-accent/30 mt-1">
+                            BETA
+                        </span>
+                    </div>
 
                     {/* Right Actions */}
                     <div className="flex items-center gap-3 sm:gap-6">

@@ -123,9 +123,14 @@ function SignUpForm() {
 
             <div className="w-full max-w-2xl bg-pitch-card border border-white/10 p-4 sm:p-8 md:p-12 rounded-sm relative z-10 shadow-2xl">
                 <div className="text-center mb-12">
-                    <Link href="/" className="inline-block text-4xl font-heading font-black italic tracking-tighter mb-4 hover:text-pitch-accent transition-colors">
-                        PITCH<span className="text-pitch-accent">SIDE</span>
-                    </Link>
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                        <Link href="/" className="inline-block text-4xl font-sans font-black italic tracking-tighter hover:text-pitch-accent transition-colors">
+                            PITCH<span className="text-pitch-accent">SIDE</span>
+                        </Link>
+                        <span className="bg-pitch-accent/20 text-pitch-accent text-[12px] font-bold px-2 py-0.5 rounded-sm uppercase tracking-widest border border-pitch-accent/30 mt-1">
+                            BETA
+                        </span>
+                    </div>
                     <div className="flex items-center justify-center gap-3">
                         <div className="h-px w-8 bg-pitch-accent/30" />
                         <h2 className="text-sm font-black uppercase tracking-[0.4em] text-pitch-secondary">

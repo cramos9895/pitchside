@@ -80,9 +80,14 @@ function LoginForm() {
 
             <div className="w-full max-w-md bg-pitch-card border border-white/10 p-4 sm:p-8 rounded-sm relative z-10 shadow-2xl">
                 <div className="text-center mb-10">
-                    <Link href="/" className="inline-block text-3xl font-heading font-black italic tracking-tighter mb-2">
-                        PITCH<span className="text-pitch-accent">SIDE</span>
-                    </Link>
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                        <Link href="/" className="inline-block text-3xl font-sans font-black italic tracking-tighter">
+                            PITCH<span className="text-pitch-accent">SIDE</span>
+                        </Link>
+                        <span className="bg-pitch-accent/20 text-pitch-accent text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-widest border border-pitch-accent/30 mt-1">
+                            BETA
+                        </span>
+                    </div>
                     <h2 className="text-xl font-bold uppercase tracking-wider text-pitch-secondary">
                         Welcome Back
                     </h2>

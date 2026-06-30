@@ -528,9 +528,14 @@ export default function LiveProjectorPage() {
         <div className="fixed inset-0 overflow-hidden box-border flex flex-col bg-slate-900 text-white font-sans">
             {/* TOP BAR: Title & Status */}
             <div className="px-6 py-4 lg:px-8 lg:py-4 border-b border-white/10 flex items-center justify-between opacity-90 backdrop-blur-md bg-black/60 z-20 flex-shrink-0 w-full shadow-lg">
-                <h1 className="text-2xl lg:text-3xl font-heading font-black italic tracking-tighter text-pitch-accent uppercase">
-                    PITCH<span className="text-white">SIDE</span>
-                </h1>
+                <div className="flex items-center gap-2">
+                    <h1 className="text-2xl lg:text-3xl font-sans font-black italic tracking-tighter text-pitch-accent uppercase">
+                        PITCH<span className="text-white">SIDE</span>
+                    </h1>
+                    <span className="bg-pitch-accent/20 text-pitch-accent text-[10px] lg:text-[12px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-widest border border-pitch-accent/30 mt-1">
+                        BETA
+                    </span>
+                </div>
                 <div className="text-lg lg:text-xl font-bold text-gray-400 capitalize">
                     {effectiveMode === 'tournament' ? 'Tourney' : effectiveMode} Mode
                 </div>
