@@ -149,16 +149,6 @@ export function GameMap({ latitude, longitude, locationName }: GameMapProps) {
                 >
                     <Marker position={center} />
                 </GoogleMap>
-
-                {/* Overlay Button */}
-                <a
-                    href={googleMapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute bottom-4 right-4 bg-white text-black px-4 py-2 rounded-sm font-bold uppercase text-xs flex items-center gap-2 shadow-xl hover:bg-pitch-accent transition-colors z-10"
-                >
-                    <Navigation className="w-4 h-4" /> Get Directions
-                </a>
             </div>
 
             <div className="flex items-center justify-between text-sm">
