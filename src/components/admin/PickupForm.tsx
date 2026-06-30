@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { Calendar, Clock, Save, MapPin, Trash2, Plus, DollarSign, Users, Loader2, Bookmark, BookmarkPlus } from 'lucide-react';
 import usePlacesAutocomplete, { getGeocode, getLatLng } from 'use-places-autocomplete';
@@ -157,7 +157,13 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                 defaultValue: initialData?.location || '', initOnMount: false
     });
 
-    useEffect(() => { if (isLoaded) init(); }, [isLoaded, init]);
+    const initRef = useRef(false);
+    useEffect(() => { 
+        if (isLoaded && !initRef.current) {
+            init(); 
+            initRef.current = true;
+        }
+    }, [isLoaded, init]);
 
     useEffect(() => {
         if (action !== 'create' && value === '' && locationName) {
