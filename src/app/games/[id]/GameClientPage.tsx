@@ -835,23 +835,24 @@ export function GameClientPage({
                                 <div className="bg-white/5 p-6 rounded-sm border border-white/10">
                                     <h4 className="font-bold uppercase text-sm mb-4 text-gray-400">Location</h4>
                                     {game.latitude && game.longitude ? (
-                                        <a href={`https://maps.google.com/?q=${game.latitude},${game.longitude}`} target="_blank" rel="noreferrer" className="block hover:opacity-80 transition-opacity">
-                                            <GameMap
-                                                latitude={game.latitude}
-                                                longitude={game.longitude}
-                                                locationName={game.location_name || game.location}
-                                            />
-                                        </a>
+                                        <GameMap
+                                            latitude={game.latitude}
+                                            longitude={game.longitude}
+                                            locationName={game.location_name || game.location}
+                                        />
                                     ) : (
                                         <div className="aspect-video bg-gray-800 rounded mb-4 flex items-center justify-center text-gray-600 text-xs">
                                             Map Unavailable
                                         </div>
                                     )}
-                                    {!game.latitude && (
-                                        <a href={`https://maps.google.com/?q=${encodeURIComponent(game.location)}`} target="_blank" rel="noreferrer" className="font-bold text-sm mt-4 hover:text-pitch-accent transition-colors block">
-                                            {game.location_name || game.location}
-                                        </a>
-                                    )}
+                                    <a 
+                                        href={game.latitude && game.longitude ? `https://maps.google.com/?q=${game.latitude},${game.longitude}` : `https://maps.google.com/?q=${encodeURIComponent(game.location)}`} 
+                                        target="_blank" 
+                                        rel="noreferrer" 
+                                        className="mt-4 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold uppercase tracking-wider rounded-sm transition-colors flex items-center justify-center gap-2 text-xs"
+                                    >
+                                        <MapPin className="w-4 h-4 text-pitch-accent" /> Get Directions
+                                    </a>
                                 </div>
 
                                 {/* MVP Voting Section */}
