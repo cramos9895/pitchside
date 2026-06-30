@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { Calendar, Clock, Save, MapPin, Trash2, Plus, DollarSign, Users, Loader2, Bookmark, BookmarkPlus } from 'lucide-react';
-import usePlacesAutocomplete, { getGeocode, getLatLng } from 'use-places-autocomplete';
 import { useLoadScript } from '@react-google-maps/api';
 import { useRouter } from 'next/navigation';
 import { updateGame } from '@/app/actions/update-game';
@@ -152,32 +151,41 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
         }
     }, [initialData]);
 
-    const { ready, value, setValue, suggestions: { status, data }, clearSuggestions, init } = usePlacesAutocomplete({
-                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                defaultValue: initialData?.location || '', initOnMount: false
-    });
+    const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
 
-    const initRef = useRef(false);
-    useEffect(() => { 
-        if (isLoaded && !initRef.current) {
-            init(); 
-            initRef.current = true;
+    const handleLocationChange = (val: string) => {
+        setLocationName(val);
+        if (!window.google || !window.google.maps || !window.google.maps.places) return;
+        if (val.length < 2) {
+            setSuggestions([]);
+            return;
         }
-    }, [isLoaded, init]);
+        const service = new window.google.maps.places.AutocompleteService();
+        service.getPlacePredictions({ input: val }, (preds, status) => {
+            if (status === 'OK' && preds) {
+                setSuggestions(preds);
+            } else {
+                setSuggestions([]);
+            }
+        });
+    };
 
-    useEffect(() => {
-        if (action !== 'create' && value === '' && locationName) {
-            setValue(locationName, false);
+    const handleSelectLocation = (address: string) => {
+        setLocationName(address);
+        setSuggestions([]);
+        if (window.google && window.google.maps) {
+            const geocoder = new window.google.maps.Geocoder();
+            geocoder.geocode({ address }, (results, status) => {
+                if (status === 'OK' && results && results[0]) {
+                    setCoords({
+                        lat: results[0].geometry.location.lat(),
+                        lng: results[0].geometry.location.lng()
+                    });
+                } else {
+                    console.error("Geocoding failed:", status);
+                }
+            });
         }
-    }, [locationName, setValue, action, value]);
-
-    const handleSelectLocation = async (address: string) => {
-        setValue(address, false); setLocationName(address); clearSuggestions();
-        try {
-            const results = await getGeocode({ address });
-            const { lat, lng } = await getLatLng(results[0]);
-            setCoords({ lat, lng });
-        } catch (error) { console.error("Error finding coordinates: ", error); }
     };
 
     // Auto-calculate 1 hour end time if only start time is provided
@@ -491,16 +499,15 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                         <MapPin className="w-3 h-3" /> Location
                     </label>
                     <div className="relative">
-                        <input value={value} onChange={(e) => { setValue(e.target.value, true); setLocationName(e.target.value); }} disabled={!ready} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors pl-10" autoComplete="off" />
+                        <input value={locationName} onChange={(e) => handleLocationChange(e.target.value)} disabled={!isLoaded} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors pl-10" autoComplete="off" />
                         <div className="absolute left-3 top-3.5 text-gray-500"><MapPin className="w-4 h-4" /></div>
-                        {status === "OK" && (
+                        {suggestions.length > 0 && (
                             <ul className="absolute z-[100] w-full bg-gray-900 border border-white/10 shadow-xl rounded-sm mt-1 max-h-60 overflow-auto">
-                                {data.map(({ place_id, description: desc }) => (
+                                {suggestions.map(({ place_id, description: desc }) => (
                                     <li key={place_id} onClick={() => handleSelectLocation(desc)} className="p-3 hover:bg-white/10 cursor-pointer text-sm text-gray-300 border-b border-white/5 last:border-0">{desc}</li>
                                 ))}
                             </ul>
                         )}
-                        <div className="text-[9px] text-gray-500 mt-1">Debug Status: {status || 'NONE'} | Ready: {ready ? 'Yes' : 'No'} | Input: {value}</div>
                     </div>
                 </div>
 
