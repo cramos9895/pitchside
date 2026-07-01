@@ -131,7 +131,14 @@ export default async function LeagueCaptainHub({ params }: { params: Promise<{ i
         .select(`
             *,
             home_team_rel:teams!home_team_id(name),
-            away_team_rel:teams!away_team_id(name)
+            away_team_rel:teams!away_team_id(name),
+            match_officials(
+                id,
+                role,
+                status,
+                off_platform_name,
+                profiles(first_name, last_name)
+            )
         `)
         .eq('game_id', id)
         .order('start_time', { ascending: true });

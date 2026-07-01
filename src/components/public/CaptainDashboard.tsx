@@ -8,13 +8,14 @@ import {
     XCircle, Clock, Trash2, ShieldCheck, HeartPulse, User, ShieldAlert
 } from 'lucide-react';
 import { toggleAcceptingFreeAgents, draftFreeAgent } from '@/app/actions/draft-player';
+import { getGameSuspensions } from '@/app/actions/suspensions';
+import { leaveRollingTeam, disbandRollingTeam } from '@/app/actions/rolling-league-registration';
+import { rateReferee } from '@/app/actions/referee-actions';
+import { useTransition } from 'react';
 import { DraftConfirmationModal } from './DraftConfirmationModal';
 import { useRouter } from 'next/navigation';
 import { calculateNextMatch, calculateProjectedMatches } from '@/lib/match-logic';
 import { upsertAttendance, getAttendanceForMatch } from '@/app/actions/attendance';
-import { getGameSuspensions } from '@/app/actions/suspensions';
-import { leaveRollingTeam, disbandRollingTeam } from '@/app/actions/rolling-league-registration';
-import { useTransition } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { PitchSideConfirmModal } from './PitchSideConfirmModal';
 import { StandingsTable } from '@/components/admin/StandingsTable';
@@ -885,6 +886,50 @@ export function CaptainDashboard({
                                         <span className="text-[10px] font-bold text-gray-500 mt-2 uppercase">
                                             {match.field_name || 'Field 1'}
                                         </span>
+
+                                        {/* Referee Info & Rating */}
+                                        {(() => {
+                                            const primaryRef = match.match_officials?.find((o: any) => o.role === 'Primary' && o.status === 'Confirmed');
+                                            if (!primaryRef) return null;
+
+                                            const refName = primaryRef.off_platform_name || `${primaryRef.profiles?.first_name} ${primaryRef.profiles?.last_name}`;
+
+                                            return (
+                                                <div className="mt-4 flex flex-col items-center md:items-end w-full">
+                                                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-widest flex items-center gap-1">
+                                                        <ShieldCheck className="w-3 h-3 text-[#cbff00]" /> Ref: {refName}
+                                                    </span>
+                                                    
+                                                    {match.status === 'completed' && isCaptain && !primaryRef.captain_rating && (
+                                                        <div className="flex items-center gap-1 mt-2">
+                                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                                <button 
+                                                                    key={star}
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            await rateReferee(primaryRef.id, star);
+                                                                            alert('Rating submitted successfully!');
+                                                                        } catch (err) {
+                                                                            console.error(err);
+                                                                            alert('Failed to submit rating.');
+                                                                        }
+                                                                    }}
+                                                                    className="w-6 h-6 flex items-center justify-center bg-white/5 hover:bg-[#cbff00]/20 hover:text-[#cbff00] text-gray-600 rounded text-xs transition-colors"
+                                                                    title={`Rate ${star} Stars`}
+                                                                >
+                                                                    ★
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {primaryRef.captain_rating && (
+                                                        <div className="flex items-center gap-1 mt-2 text-[#cbff00] text-[10px] font-black uppercase tracking-widest">
+                                                            Rated: {primaryRef.captain_rating} ★
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             )))}

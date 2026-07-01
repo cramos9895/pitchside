@@ -38,15 +38,21 @@ export async function POST(request: Request) {
         if (authData?.user) {
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('system_role')
+                .select('role, system_role, verification_status')
                 .eq('id', authData.user.id)
                 .single();
 
-            const destination = nextPath 
-                ? nextPath 
-                : (profile?.system_role === 'facility_admin' || profile?.system_role === 'super_admin') 
-                    ? '/facility' 
-                    : '/dashboard';
+            let destination = '/dashboard';
+            
+            if (nextPath) {
+                destination = nextPath;
+            } else if (profile?.verification_status === 'pending') {
+                destination = '/pending';
+            } else if (profile?.system_role === 'facility_admin' || profile?.system_role === 'super_admin') {
+                destination = '/facility';
+            } else if (profile?.role === 'referee') {
+                destination = '/referee';
+            }
 
             // Next.js Route Handlers naturally return Set-Cookie headers unmodified from createServerClient
             // Returning the URL allows the client-side fetch to cleanly navigate the browser.

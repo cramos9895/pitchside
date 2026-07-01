@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -313,6 +308,44 @@ export type Database = {
         }
         Relationships: []
       }
+      event_templates: {
+        Row: {
+          admin_id: string
+          created_at: string
+          form_type: string
+          id: string
+          template_data: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          form_type: string
+          id?: string
+          template_data: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          form_type?: string
+          id?: string
+          template_data?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_templates_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facilities: {
         Row: {
           address: string | null
@@ -462,11 +495,14 @@ export type Database = {
           allowed_payment_methods: string[] | null
           amount_of_fields: number | null
           away_score: number | null
+          backup_bonus_amount: number | null
+          backup_retainer_amount: number | null
           base_pay: number | null
           break_between_games: number | null
           cash_amount: number | null
           cash_fee_structure: string | null
           charge_team_registration_fee: boolean | null
+          conduct_policy: string | null
           created_at: string
           current_players: number | null
           deduct_team_reg_fee: boolean | null
@@ -492,6 +528,7 @@ export type Database = {
           home_score: number | null
           host_ids: string[] | null
           id: string
+          is_active: boolean
           is_league: boolean | null
           is_playoff_included: boolean | null
           is_refundable: boolean | null
@@ -525,6 +562,7 @@ export type Database = {
           ref_fee_per_game: number | null
           refund_cutoff_date: string | null
           refund_cutoff_hours: number | null
+          refund_policy: string | null
           refund_processed: boolean | null
           registration_cutoff: string | null
           regular_season_start: string | null
@@ -566,11 +604,14 @@ export type Database = {
           allowed_payment_methods?: string[] | null
           amount_of_fields?: number | null
           away_score?: number | null
+          backup_bonus_amount?: number | null
+          backup_retainer_amount?: number | null
           base_pay?: number | null
           break_between_games?: number | null
           cash_amount?: number | null
           cash_fee_structure?: string | null
           charge_team_registration_fee?: boolean | null
+          conduct_policy?: string | null
           created_at?: string
           current_players?: number | null
           deduct_team_reg_fee?: boolean | null
@@ -596,6 +637,7 @@ export type Database = {
           home_score?: number | null
           host_ids?: string[] | null
           id?: string
+          is_active?: boolean
           is_league?: boolean | null
           is_playoff_included?: boolean | null
           is_refundable?: boolean | null
@@ -629,6 +671,7 @@ export type Database = {
           ref_fee_per_game?: number | null
           refund_cutoff_date?: string | null
           refund_cutoff_hours?: number | null
+          refund_policy?: string | null
           refund_processed?: boolean | null
           registration_cutoff?: string | null
           regular_season_start?: string | null
@@ -670,11 +713,14 @@ export type Database = {
           allowed_payment_methods?: string[] | null
           amount_of_fields?: number | null
           away_score?: number | null
+          backup_bonus_amount?: number | null
+          backup_retainer_amount?: number | null
           base_pay?: number | null
           break_between_games?: number | null
           cash_amount?: number | null
           cash_fee_structure?: string | null
           charge_team_registration_fee?: boolean | null
+          conduct_policy?: string | null
           created_at?: string
           current_players?: number | null
           deduct_team_reg_fee?: boolean | null
@@ -700,6 +746,7 @@ export type Database = {
           home_score?: number | null
           host_ids?: string[] | null
           id?: string
+          is_active?: boolean
           is_league?: boolean | null
           is_playoff_included?: boolean | null
           is_refundable?: boolean | null
@@ -733,6 +780,7 @@ export type Database = {
           ref_fee_per_game?: number | null
           refund_cutoff_date?: string | null
           refund_cutoff_hours?: number | null
+          refund_policy?: string | null
           refund_processed?: boolean | null
           registration_cutoff?: string | null
           regular_season_start?: string | null
@@ -920,6 +968,7 @@ export type Database = {
           game_periods: string | null
           has_playoffs: boolean | null
           id: string
+          is_active: boolean
           league_format: string
           match_day: string | null
           max_roster: number | null
@@ -959,6 +1008,7 @@ export type Database = {
           game_periods?: string | null
           has_playoffs?: boolean | null
           id?: string
+          is_active?: boolean
           league_format?: string
           match_day?: string | null
           max_roster?: number | null
@@ -998,6 +1048,7 @@ export type Database = {
           game_periods?: string | null
           has_playoffs?: boolean | null
           id?: string
+          is_active?: boolean
           league_format?: string
           match_day?: string | null
           max_roster?: number | null
@@ -1035,6 +1086,54 @@ export type Database = {
             columns: ["facility_id"]
             isOneToOne: false
             referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_bids: {
+        Row: {
+          bid_amount: number
+          bid_type: string
+          created_at: string
+          id: string
+          match_id: string
+          role: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          bid_amount: number
+          bid_type: string
+          created_at?: string
+          id?: string
+          match_id: string
+          role: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          bid_amount?: number
+          bid_type?: string
+          created_at?: string
+          id?: string
+          match_id?: string
+          role?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_bids_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_bids_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1137,27 +1236,48 @@ export type Database = {
       }
       match_officials: {
         Row: {
+          agreed_rate: number | null
+          captain_rating: number | null
+          confirmed_arrival: boolean | null
           created_at: string
           id: string
           match_id: string
+          off_platform_email: string | null
+          off_platform_name: string | null
+          payout_method: string | null
+          payout_status: string | null
           role: string
           status: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          agreed_rate?: number | null
+          captain_rating?: number | null
+          confirmed_arrival?: boolean | null
           created_at?: string
           id?: string
           match_id: string
+          off_platform_email?: string | null
+          off_platform_name?: string | null
+          payout_method?: string | null
+          payout_status?: string | null
           role: string
           status: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          agreed_rate?: number | null
+          captain_rating?: number | null
+          confirmed_arrival?: boolean | null
           created_at?: string
           id?: string
           match_id?: string
+          off_platform_email?: string | null
+          off_platform_name?: string | null
+          payout_method?: string | null
+          payout_status?: string | null
           role?: string
           status?: string
           updated_at?: string
@@ -1648,6 +1768,7 @@ export type Database = {
           banned_until: string | null
           bio: string | null
           certification_level: string | null
+          completed_assignments: number | null
           credit_balance: number | null
           dob: string | null
           email: string | null
@@ -1660,12 +1781,14 @@ export type Database = {
           jersey_number: number | null
           job_title: string | null
           last_name: string | null
+          missed_assignments: number | null
           mvp_awards: number | null
           notification_settings: Json | null
           organization_name: string | null
           phone_number: string | null
           position: string | null
           primary_sports: string[] | null
+          reliability_rating: number | null
           role: string | null
           stripe_customer_id: string | null
           system_role: string | null
@@ -1679,6 +1802,7 @@ export type Database = {
           banned_until?: string | null
           bio?: string | null
           certification_level?: string | null
+          completed_assignments?: number | null
           credit_balance?: number | null
           dob?: string | null
           email?: string | null
@@ -1691,12 +1815,14 @@ export type Database = {
           jersey_number?: number | null
           job_title?: string | null
           last_name?: string | null
+          missed_assignments?: number | null
           mvp_awards?: number | null
           notification_settings?: Json | null
           organization_name?: string | null
           phone_number?: string | null
           position?: string | null
           primary_sports?: string[] | null
+          reliability_rating?: number | null
           role?: string | null
           stripe_customer_id?: string | null
           system_role?: string | null
@@ -1710,6 +1836,7 @@ export type Database = {
           banned_until?: string | null
           bio?: string | null
           certification_level?: string | null
+          completed_assignments?: number | null
           credit_balance?: number | null
           dob?: string | null
           email?: string | null
@@ -1722,12 +1849,14 @@ export type Database = {
           jersey_number?: number | null
           job_title?: string | null
           last_name?: string | null
+          missed_assignments?: number | null
           mvp_awards?: number | null
           notification_settings?: Json | null
           organization_name?: string | null
           phone_number?: string | null
           position?: string | null
           primary_sports?: string[] | null
+          reliability_rating?: number | null
           role?: string | null
           stripe_customer_id?: string | null
           system_role?: string | null
@@ -2512,3 +2641,4 @@ export const Constants = {
     },
   },
 } as const
+

@@ -56,7 +56,7 @@ export async function updateSession(request: NextRequest) {
     // 0. Verification Gatekeeper Check (Authenticated Users)
     if (user) {
         // Only fetch profile for routes that require role/status validation
-        const requiresValidation = path.startsWith('/admin') || path.startsWith('/facility') || path.startsWith('/referee') || path === '/' || path === '/pending';
+        const requiresValidation = path.startsWith('/admin') || path.startsWith('/facility') || path.startsWith('/referee') || path.startsWith('/dashboard') || path === '/' || path === '/pending';
 
         if (requiresValidation) {
             const { data: profile } = await supabase

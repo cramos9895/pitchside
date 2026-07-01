@@ -40,16 +40,32 @@ export default async function RefereeDashboardPage() {
     // Filter out 'pickup' games
     const { data: openMarket } = await supabase
         .from('matches')
-        .select('*, match_officials(*), games!inner(event_type, requires_officials)')
+        .select('*, match_officials(*), match_bids(*), games!inner(event_type, requires_officials, base_pay, backup_retainer_amount, backup_bonus_amount)')
         .neq('games.event_type', 'pickup')
         .eq('games.requires_officials', true)
         .order('created_at', { ascending: false })
         .limit(20);
 
+    // Fetch My Bids
+    const { data: myBids } = await supabase
+        .from('match_bids')
+        .select('*, matches(*, games(base_pay, backup_retainer_amount))')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+    // Fetch Direct Invites
+    const { data: directInvites } = await supabase
+        .from('match_officials')
+        .select('*, matches(*, games(base_pay, backup_retainer_amount))')
+        .eq('user_id', user.id)
+        .eq('status', 'Pending');
+
     return (
         <RefereeDashboardClient 
             upcomingMatches={upcomingOfficials || []}
             openMarketMatches={openMarket || []}
+            myBids={myBids || []}
+            directInvites={directInvites || []}
             userProfile={profile}
         />
     );
