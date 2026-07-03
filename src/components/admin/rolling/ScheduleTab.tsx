@@ -26,9 +26,16 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
 
     // Constraints State
     const [showConstraints, setShowConstraints] = useState(false);
+    
+    const getLocalTimeFromIso = (isoString?: string) => {
+        if (!isoString) return '';
+        const d = new Date(isoString);
+        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    };
+
     const [editAmountOfFields, setEditAmountOfFields] = useState(String(game?.amount_of_fields || 1));
-    const [editEndTime, setEditEndTime] = useState(game?.end_time || '');
-    const [editTotalGameTime, setEditTotalGameTime] = useState(String(game?.total_game_time || 60));
+    const [editConstraintStartTime, setEditConstraintStartTime] = useState(getLocalTimeFromIso(game?.start_time));
+    const [editConstraintEndTime, setEditConstraintEndTime] = useState(game?.end_time || '');
     const [hHomeTeamId, setHHomeTeamId] = useState('');
     const [hAwayTeamId, setHAwayTeamId] = useState('');
     const [hHomeScore, setHHomeScore] = useState('');
@@ -135,7 +142,7 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
     };
 
     const handleOverrideMatch = async (matchId: string, updates: any) => {
-        if (!confirm('Override match status?')) return;
+        if (!window.confirm('Override match status?')) return;
         setProcessing(true);
         try {
             await updateMatchOverride(matchId, gameId, updates);
@@ -167,10 +174,18 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
         e.preventDefault();
         setProcessing(true);
         try {
+            let updatedStartTimeIso = game.start_time;
+            if (editConstraintStartTime) {
+                const d = new Date(game.start_time);
+                const [hours, minutes] = editConstraintStartTime.split(':').map(Number);
+                d.setHours(hours, minutes, 0, 0);
+                updatedStartTimeIso = d.toISOString();
+            }
+
             await updateSchedulingConstraints(gameId, {
                 amount_of_fields: parseInt(editAmountOfFields),
-                end_time: editEndTime,
-                total_game_time: parseInt(editTotalGameTime)
+                start_time: updatedStartTimeIso,
+                end_time: editConstraintEndTime
             });
             success("Scheduling constraints updated.");
             setShowConstraints(false);
@@ -283,12 +298,12 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                             <div className="text-2xl font-bold text-white">{game?.amount_of_fields || 1}</div>
                         </div>
                         <div>
-                            <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">End Time Limit</div>
-                            <div className="text-2xl font-bold text-white">{game?.end_time || 'N/A'}</div>
+                            <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Booking Window Start</div>
+                            <div className="text-2xl font-bold text-white">{getLocalTimeFromIso(game?.start_time) || 'N/A'}</div>
                         </div>
                         <div>
-                            <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Match Duration (Mins)</div>
-                            <div className="text-2xl font-bold text-white">{game?.total_game_time || 60}</div>
+                            <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Booking Window End</div>
+                            <div className="text-2xl font-bold text-white">{game?.end_time || 'N/A'}</div>
                         </div>
                     </div>
                 ) : (
@@ -304,23 +319,23 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                             />
                         </div>
                         <div>
-                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1 block">End Time Limit</label>
+                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1 block">Booking Window Start</label>
                             <input 
                                 type="time" 
                                 className="w-full bg-pitch-black border border-white/20 p-2 rounded text-white font-bold"
-                                value={editEndTime}
-                                onChange={(e) => setEditEndTime(e.target.value)}
+                                value={editConstraintStartTime}
+                                onChange={(e) => setEditConstraintStartTime(e.target.value)}
                                 style={{ colorScheme: 'dark' }}
                             />
                         </div>
                         <div>
-                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1 block">Match Duration (Mins)</label>
+                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1 block">Booking Window End</label>
                             <input 
-                                type="number" 
-                                min="10"
+                                type="time" 
                                 className="w-full bg-pitch-black border border-white/20 p-2 rounded text-white font-bold"
-                                value={editTotalGameTime}
-                                onChange={(e) => setEditTotalGameTime(e.target.value)}
+                                value={editConstraintEndTime}
+                                onChange={(e) => setEditConstraintEndTime(e.target.value)}
+                                style={{ colorScheme: 'dark' }}
                             />
                         </div>
                         <div className="md:col-span-3 flex justify-end">

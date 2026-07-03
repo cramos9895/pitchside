@@ -7,12 +7,12 @@ import { checkOverlap } from './league-actions';
 /**
  * Creates a team manually.
  */
-export async function updateSchedulingConstraints(gameId: string, constraints: { amount_of_fields: number, end_time: string, total_game_time: number }) {
+export async function updateSchedulingConstraints(gameId: string, constraints: { amount_of_fields: number, start_time: string, end_time: string }) {
     const adminSupabase = await createAdminClient();
     const { error } = await adminSupabase.from('games').update({
         amount_of_fields: constraints.amount_of_fields,
-        end_time: constraints.end_time || null,
-        total_game_time: constraints.total_game_time
+        start_time: constraints.start_time,
+        end_time: constraints.end_time || null
     }).eq('id', gameId);
     if (error) throw new Error(error.message);
     revalidatePath(`/admin/games/${gameId}`);
