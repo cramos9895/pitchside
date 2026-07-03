@@ -1,5 +1,5 @@
 // 🏗️ Architecture: [[ScheduleTab.md]]
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, History, Trash2, Edit2, CheckCircle2, RotateCw, Settings2, Trophy, ChevronDown, X } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { scheduleNextRound, logPastMatch, updateMatchOverride, bulkScheduleSeason, generatePlayoffBracket, deleteMatchPermanently, updateSchedulingConstraints } from '@/app/actions/rolling-god-mode';
@@ -55,6 +55,12 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
     const [hHomeScore, setHHomeScore] = useState('');
     const [hAwayScore, setHAwayScore] = useState('');
     const [hDate, setHDate] = useState('');
+
+    // Hydration State
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     // Lifecycle State
     const [seasonEndDate, setSeasonEndDate] = useState('');
@@ -313,11 +319,15 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                         </div>
                         <div>
                             <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Booking Window Start</div>
-                            <div className="text-2xl font-bold text-white">{formatIsoTo12Hour(game?.start_time) || 'N/A'}</div>
+                            <div className="text-2xl font-bold text-white">
+                                {isMounted ? (formatTimeTo12Hour(getLocalTimeFromIso(game?.start_time)) || 'N/A') : '...'}
+                            </div>
                         </div>
                         <div>
                             <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Booking Window End</div>
-                            <div className="text-2xl font-bold text-white">{formatTimeTo12Hour(game?.end_time) || 'N/A'}</div>
+                            <div className="text-2xl font-bold text-white">
+                                {isMounted ? (formatTimeTo12Hour(game?.end_time) || 'N/A') : '...'}
+                            </div>
                         </div>
                     </div>
                 ) : (
