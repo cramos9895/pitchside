@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
     User, Mail, Phone, Lock, Save, Loader2, Shield, Settings, Camera, LogOut, CheckCircle, AlertTriangle
 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { InstallPrompt } from '@/components/InstallPrompt';
@@ -26,6 +26,8 @@ export default function SettingsPage() {
     const [refereeApp, setRefereeApp] = useState<any>(null);
     const [submittingApp, setSubmittingApp] = useState(false);
     const [experienceSummary, setExperienceSummary] = useState('');
+    
+    const { success, error: toastError } = useToast();
 
     // Form States
     const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
@@ -126,14 +128,21 @@ export default function SettingsPage() {
                 .from('avatars')
                 .getPublicUrl(fileName);
 
-            setAvatarUrl(publicUrl);
-            // Auto-save avatar change to profile
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .update({ avatar_url: publicUrl })
+                // @ts-expect-error - Residual typing mismatch from extended schema mapping
+                .eq('id', user.id);
 
-        } catch (error: unknown) {
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        alert('Error uploading avatar: ' + error.message);
+            if (profileError) throw profileError;
+
+            setAvatarUrl(publicUrl);
+            success('Avatar updated successfully!');
+            router.refresh();
+
+        } catch (error: any) {
+            console.error(error);
+            toastError('Error uploading avatar: ' + error.message);
         } finally {
             setUploading(false);
         }
@@ -161,12 +170,11 @@ export default function SettingsPage() {
                                 .eq('id', user.id);
 
             if (error) throw error;
-            alert('Profile updated successfully!');
+            success('Profile updated successfully!');
             router.refresh();
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.error(error);
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        alert('Error updating profile: ' + error.message);
+            toastError('Error updating profile: ' + error.message);
         } finally {
             setSaving(false);
         }
@@ -179,12 +187,12 @@ export default function SettingsPage() {
             // dynamically import the server action to avoid issues in client components
             const { submitRefereeApplication } = await import('@/app/actions/referee-applications');
             await submitRefereeApplication(experienceSummary);
-            alert('Referee application submitted successfully!');
+            success('Referee application submitted successfully!');
             // Update local state to show pending
             setRefereeApp({ status: 'pending', experience_summary: experienceSummary });
             setExperienceSummary('');
         } catch (error: any) {
-            alert('Error submitting application: ' + error.message);
+            toastError('Error submitting application: ' + error.message);
         } finally {
             setSubmittingApp(false);
         }
@@ -196,10 +204,10 @@ export default function SettingsPage() {
         try {
             const { error } = await supabase.auth.updateUser({ email });
             if (error) throw error;
-            alert('Confirmation email sent to old and new address.');
-        } catch (error: unknown) {
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        alert('Error updating email: ' + error.message);
+            success('Confirmation email sent to old and new address.');
+        } catch (error: any) {
+            console.error(error);
+            toastError('Error updating email: ' + error.message);
         } finally {
             setSaving(false);
         }
@@ -208,19 +216,20 @@ export default function SettingsPage() {
     const handleUpdatePassword = async (e: React.FormEvent) => {
         e.preventDefault();
         if (newPassword !== confirmPassword) {
-            alert("Passwords do not match");
+            toastError("Passwords do not match");
+            setSaving(false);
             return;
         }
         setSaving(true);
         try {
             const { error } = await supabase.auth.updateUser({ password: newPassword });
             if (error) throw error;
-            alert('Password updated successfully');
+            success('Password updated successfully');
             setNewPassword('');
             setConfirmPassword('');
-        } catch (error: unknown) {
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        alert('Error updating password: ' + error.message);
+        } catch (error: any) {
+            console.error(error);
+            toastError('Error updating password: ' + error.message);
         } finally {
             setSaving(false);
         }
