@@ -203,7 +203,7 @@ export async function deleteMatchPermanently(matchId: string, gameId: string) {
  * Calculates pairings and schedules the next rolling round.
  * Moved from league-actions to be specific to Rolling Manager.
  */
-export async function scheduleNextRound(leagueId: string, teams: any[], facilityId: string) {
+export async function scheduleNextRound(leagueId: string, teams: any[], facilityId: string, tzOffset: number = 0) {
     const adminSupabase = await createAdminClient();
     
     // Fetch parent Game Config
@@ -213,23 +213,26 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
     // Fetch existing matches
     const { data: matches } = await adminSupabase.from('matches').select('start_time, home_team_id, away_team_id, home_team, away_team').eq('game_id', leagueId);
     
-    // Target Date Determination
-    const gameStartDateTime = new Date(game.start_time);
-    const targetDayOfWeek = gameStartDateTime.getDay();
+    // Target Date Determination using local-equivalent UTC math
+    const applyLocalOffset = (d: Date) => new Date(d.getTime() - tzOffset * 60000);
+    const removeLocalOffset = (d: Date) => new Date(d.getTime() + tzOffset * 60000);
+
+    const gameStartDateTime = applyLocalOffset(new Date(game.start_time));
+    const targetDayOfWeek = gameStartDateTime.getUTCDay();
     let targetDate = new Date(gameStartDateTime);
     
     if (matches && matches.length > 0) {
         const lastMatchTime = matches.reduce((latest, m) => {
-            const mTime = new Date(m.start_time).getTime();
+            const mTime = applyLocalOffset(new Date(m.start_time)).getTime();
             return mTime > latest ? mTime : latest;
         }, 0);
         
         targetDate = new Date(lastMatchTime);
-        targetDate.setDate(targetDate.getDate() + 1); // Start checking the day after the latest match
+        targetDate.setUTCDate(targetDate.getUTCDate() + 1); // Start checking the day after the latest match
         
         // Advance until the day of the week matches the original game day
-        while (targetDate.getDay() !== targetDayOfWeek) {
-            targetDate.setDate(targetDate.getDate() + 1);
+        while (targetDate.getUTCDay() !== targetDayOfWeek) {
+            targetDate.setUTCDate(targetDate.getUTCDate() + 1);
         }
     }
     
@@ -246,9 +249,9 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
         }
 
         if (shouldSkip) {
-            targetDate.setDate(targetDate.getDate() + 1);
-            while (targetDate.getDay() !== targetDayOfWeek) {
-                targetDate.setDate(targetDate.getDate() + 1);
+            targetDate.setUTCDate(targetDate.getUTCDate() + 1);
+            while (targetDate.getUTCDay() !== targetDayOfWeek) {
+                targetDate.setUTCDate(targetDate.getUTCDate() + 1);
             }
         } else {
             foundValidDate = true;
@@ -328,8 +331,7 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
     // Generate accurate Time Matrix starting at boundaries
     if (game.earliest_game_start_time) {
         const [hours, mins] = game.earliest_game_start_time.split(':');
-        // Parse local time and convert accurately
-        targetDate.setHours(parseInt(hours), parseInt(mins), 0, 0);
+        targetDate.setUTCHours(parseInt(hours), parseInt(mins), 0, 0);
     } else {
         targetDate.setUTCHours(gameStartDateTime.getUTCHours(), gameStartDateTime.getUTCMinutes(), 0, 0);
     }
@@ -340,7 +342,7 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
     if (endLimitString) {
         const [hours, mins] = endLimitString.split(':');
         gameEndTimeLimit = new Date(targetDate);
-        gameEndTimeLimit.setHours(parseInt(hours), parseInt(mins), 0, 0); 
+        gameEndTimeLimit.setUTCHours(parseInt(hours), parseInt(mins), 0, 0); 
     }
 
     const slotDurationMs = ((game.total_game_time ?? 60) || 60) * 60 * 1000;
@@ -371,7 +373,7 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
             home_team_id: pairings[i][0].id,
             away_team: pairings[i][1].name,
             away_team_id: pairings[i][1].id,
-            start_time: currentMatrixTime.toISOString(),
+            start_time: removeLocalOffset(currentMatrixTime).toISOString(),
             status: 'scheduled',
             field_name: fieldNames[currentFieldIndex] || `Field ${currentFieldIndex + 1}`
         });
@@ -467,11 +469,12 @@ export async function updateLeagueSettings(gameId: string, updates: any) {
 // PLAYOFF ENGINE & BULK SCHEDULING
 // -------------------------------------------------------------
 
-export async function bulkScheduleSeason(gameId: string, teams: any[], facilityId: string, endDateStr: string) {
+export async function bulkScheduleSeason(gameId: string, teams: any[], facilityId: string, endDateStr: string, tzOffset: number = 0) {
     try {
         const adminSupabase = await createAdminClient();
-        const endDate = new Date(endDateStr);
-    
+        
+        // Parse end date limit
+        const limitDate = new Date(endDateStr);
         let scheduledMatchesCount = 0;
         
         for (let round = 0; round < 12; round++) {
@@ -479,14 +482,15 @@ export async function bulkScheduleSeason(gameId: string, teams: any[], facilityI
             
             let nextStartEstimate = new Date();
             if (matches && matches.length > 0) {
-                nextStartEstimate = new Date(new Date(matches[0].start_time).getTime() + 7 * 24 * 60 * 60 * 1000);
+                // Approximate +7 days for the next match boundary to check against the limit
+                nextStartEstimate = new Date(new Date(matches[0].start_time).getTime() + (7 * 24 * 60 * 60 * 1000));
             }
             
-            if (nextStartEstimate > endDate) {
-                break; // Reached cap
+            if (nextStartEstimate > limitDate) {
+                break;
             }
             
-            const res = await scheduleNextRound(gameId, teams, facilityId);
+            const res = await scheduleNextRound(gameId, teams, facilityId, tzOffset);
             scheduledMatchesCount += res.count;
         }
         

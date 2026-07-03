@@ -82,7 +82,8 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
     const handleScheduleNextRound = async () => {
         setProcessing(true);
         try {
-            const res = await scheduleNextRound(gameId, teams, facilityId);
+            const tzOffset = new Date().getTimezoneOffset();
+            const res = await scheduleNextRound(gameId, teams, facilityId, tzOffset);
             if (res.success) {
                 success(`Scheduled ${res.count} matches successfully.`);
                 setConfirmScheduleOpen(false);
@@ -99,7 +100,8 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
         setBulkScheduleConfirmOpen(false);
         setProcessing(true);
         try {
-            const res = await bulkScheduleSeason(gameId, teams, facilityId, seasonEndDate);
+            const tzOffset = new Date().getTimezoneOffset();
+            const res = await bulkScheduleSeason(gameId, teams, facilityId, seasonEndDate, tzOffset);
             if (res.success) {
                 success(`Generated ${res.count} total matches.`);
                 onRefresh();
