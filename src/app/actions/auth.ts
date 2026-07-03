@@ -7,6 +7,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isRateLimited } from '@/lib/security/rate-limit';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+import { sendNotification } from '@/lib/email';
+import { NewRequestEmail } from '@/emails/NewRequestEmail';
 
 export async function registerAccount(formData: FormData) {
     // --- SECURITY: RATE LIMITING ---
@@ -120,6 +122,19 @@ export async function registerAccount(formData: FormData) {
             console.error("Profile update error:", profileUpdateError);
             return { error: 'Failed to assign facility permissions.' };
         }
+
+        // Notify Master Admin
+        await sendNotification({
+            to: 'support@pitchsidecf.com',
+            subject: 'Action Required: New Facility Sign-Up',
+            type: 'new_request',
+            react: NewRequestEmail({
+                userName: email || 'Unknown User',
+                resourceName: `Facility Account (${organizationName})`,
+                requestedDates: [new Date().toLocaleDateString()]
+            })
+        }).catch(console.error);
+
     } else if (accountType === 'referee') {
         // Referees are pending until background check/cert verification
         const { error: profileUpdateError } = await supabaseAdmin
@@ -132,6 +147,18 @@ export async function registerAccount(formData: FormData) {
 
         if (profileUpdateError) {
             console.error("Profile update error:", profileUpdateError);
+        } else {
+            // Notify Master Admin
+            await sendNotification({
+                to: 'support@pitchsidecf.com',
+                subject: 'Action Required: New Referee Sign-Up',
+                type: 'new_request',
+                react: NewRequestEmail({
+                    userName: email || 'Unknown User',
+                    resourceName: 'Referee Account',
+                    requestedDates: [new Date().toLocaleDateString()]
+                })
+            }).catch(console.error);
         }
     } else {
         // Explicitly ensure player type is active

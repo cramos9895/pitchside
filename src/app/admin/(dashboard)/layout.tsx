@@ -24,12 +24,18 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     // Fetch pending count for Master Admin badge
     let pendingCount = 0;
     if (isMasterAdmin || isSuperAdmin) {
-        const { count } = await supabase
+        const { count: userCount } = await supabase
             .from('profiles')
             .select('*', { count: 'exact', head: true })
             .eq('verification_status', 'pending');
 
-        if (count) pendingCount = count;
+        const { count: refCount } = await supabase
+            .from('referee_applications')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending');
+
+        if (userCount) pendingCount += userCount;
+        if (refCount) pendingCount += refCount;
     }
 
     if (!isMasterAdmin && !isSuperAdmin && !isRegularAdmin) {

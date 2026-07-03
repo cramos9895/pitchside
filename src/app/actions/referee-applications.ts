@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { sendNotification } from '@/lib/email';
+import { NewRequestEmail } from '@/emails/NewRequestEmail';
 
 export async function submitRefereeApplication(experienceSummary: string) {
     const supabase = await createClient();
@@ -29,6 +31,18 @@ export async function submitRefereeApplication(experienceSummary: string) {
         });
 
     if (error) throw new Error(error.message);
+
+    // Send email notification to master admin
+    await sendNotification({
+        to: 'support@pitchsidecf.com',
+        subject: 'Action Required: New Referee Application',
+        type: 'new_request',
+        react: NewRequestEmail({
+            userName: user.email || 'Unknown User',
+            resourceName: 'Referee Application',
+            requestedDates: [new Date().toLocaleDateString()]
+        })
+    }).catch(console.error); // Catch but don't throw to not break the UI flow
 
     revalidatePath('/settings');
     revalidatePath('/admin/requests');
