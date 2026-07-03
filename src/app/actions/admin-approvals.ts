@@ -42,8 +42,8 @@ export async function approveUser(userId: string) {
 }
 
 /**
- * Deny/Reject a pending user account.
- * Updates verification_status to 'rejected'.
+ * Deny/Reject a pending user account (like a Referee application).
+ * Updates role to 'player' and verification_status to 'verified', reverting them to a normal player account.
  */
 export async function denyUser(userId: string) {
     const supabase = await createClient();
@@ -62,10 +62,13 @@ export async function denyUser(userId: string) {
         throw new Error("Unauthorized: Only Master Admins can reject accounts.");
     }
 
-    // Update the pending user
+    // Convert the pending user to a regular player
     const { error } = await supabase
         .from('profiles')
-        .update({ verification_status: 'rejected' })
+        .update({ 
+            role: 'player',
+            verification_status: 'verified' 
+        })
         .eq('id', userId);
 
     if (error) {

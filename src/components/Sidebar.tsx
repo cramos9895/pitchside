@@ -18,6 +18,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     const [isAdmin, setIsAdmin] = useState(false);
     const [isMasterAdmin, setIsMasterAdmin] = useState(false);
     const [isFacilityAdmin, setIsFacilityAdmin] = useState(false);
+    const [isReferee, setIsReferee] = useState(false);
     const [user, setUser] = useState<any>(null);
     const [refundCount, setRefundCount] = useState(0);
     const [notificationCount, setNotificationCount] = useState(0);
@@ -60,6 +61,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 setIsAdmin(isAdminUser);
                 setIsMasterAdmin(role === 'master_admin');
                 setIsFacilityAdmin(systemRole === 'facility_admin' || systemRole === 'super_admin' || role === 'master_admin');
+                setIsReferee(role === 'referee');
 
                 if (isAdminUser) {
                     const { count: refunds } = await supabase
@@ -81,6 +83,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 setIsAdmin(false);
                 setIsMasterAdmin(false);
                 setIsFacilityAdmin(false);
+                setIsReferee(false);
                 setRefundCount(0);
                 setNotificationCount(0);
             }
@@ -209,6 +212,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                         <User className="w-6 h-6 text-gray-500 group-hover:text-pitch-accent transition-colors" />
                         Free Agent Pool
                     </Link>
+
+                    {isReferee && (
+                        <Link
+                            href="/referee"
+                            onClick={onClose}
+                            className="flex items-center gap-4 py-3 sm:py-1.5 text-2xl sm:text-xl font-heading font-bold uppercase italic text-pitch-accent hover:text-white transition-colors group border-l-4 border-pitch-accent pl-4 -ml-5 mt-4"
+                        >
+                            <ClipboardList className="w-6 h-6 text-pitch-accent group-hover:text-white transition-colors" />
+                            Referee Portal
+                        </Link>
+                    )}
 
                     {isFacilityAdmin && !isMasterAdmin && (
                         <>
