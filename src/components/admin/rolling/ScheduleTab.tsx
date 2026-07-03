@@ -38,6 +38,9 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
     const [editAmountOfFields, setEditAmountOfFields] = useState(String(game?.amount_of_fields || 1));
     const [editConstraintStartTime, setEditConstraintStartTime] = useState(game?.earliest_game_start_time || '');
     const [editConstraintEndTime, setEditConstraintEndTime] = useState(game?.latest_game_start_time || '');
+    const [editHalfLength, setEditHalfLength] = useState(String(game?.half_length ?? 25));
+    const [editHalftimeLength, setEditHalftimeLength] = useState(String(game?.halftime_length ?? 5));
+    const [editBreakBetweenGames, setEditBreakBetweenGames] = useState(String(game?.break_between_games ?? 5));
     const [hHomeTeamId, setHHomeTeamId] = useState('');
     const [hAwayTeamId, setHAwayTeamId] = useState('');
     const [hHomeScore, setHHomeScore] = useState('');
@@ -182,10 +185,16 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
         e.preventDefault();
         setProcessing(true);
         try {
+            const totalSlotTime = (parseInt(editHalfLength) || 0) * 2 + (parseInt(editHalftimeLength) || 0) + (parseInt(editBreakBetweenGames) || 0);
+            
             await updateSchedulingConstraints(gameId, {
                 amount_of_fields: parseInt(editAmountOfFields),
                 earliest_game_start_time: editConstraintStartTime,
-                latest_game_start_time: editConstraintEndTime
+                latest_game_start_time: editConstraintEndTime,
+                half_length: parseInt(editHalfLength),
+                halftime_length: parseInt(editHalftimeLength),
+                break_between_games: parseInt(editBreakBetweenGames),
+                total_game_time: totalSlotTime
             });
             success("Scheduling constraints updated.");
             setShowConstraints(false);
@@ -292,10 +301,22 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                 </div>
 
                 {!showConstraints ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-4">
                         <div>
                             <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Available Fields</div>
                             <div className="text-2xl font-bold text-white">{game?.amount_of_fields || 1}</div>
+                        </div>
+                        <div>
+                            <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Half Length</div>
+                            <div className="text-2xl font-bold text-white">{game?.half_length || 25}m</div>
+                        </div>
+                        <div>
+                            <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Halftime</div>
+                            <div className="text-2xl font-bold text-white">{game?.halftime_length || 5}m</div>
+                        </div>
+                        <div>
+                            <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Break</div>
+                            <div className="text-2xl font-bold text-white">{game?.break_between_games || 5}m</div>
                         </div>
                         <div>
                             <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Booking Window Start</div>
@@ -309,40 +330,48 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                                 {isMounted ? (formatTimeTo12Hour(game?.latest_game_start_time) || 'N/A') : '...'}
                             </div>
                         </div>
+                        <div className="md:col-span-2">
+                            <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1 text-pitch-accent">Total Slot Time</div>
+                            <div className="text-2xl font-bold text-pitch-accent">{game?.total_game_time || 60}m</div>
+                        </div>
                     </div>
                 ) : (
-                    <form onSubmit={handleUpdateConstraints} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div>
-                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1 block">Available Fields</label>
-                            <input 
-                                type="number" 
-                                min="1"
-                                className="w-full bg-pitch-black border border-white/20 p-2 rounded text-white font-bold"
-                                value={editAmountOfFields}
-                                onChange={(e) => setEditAmountOfFields(e.target.value)}
-                            />
+                    <form onSubmit={handleUpdateConstraints} className="p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex flex-col">
+                                <label className="text-xs font-bold text-pitch-secondary mb-1">Available Fields</label>
+                                <input type="number" min="1" value={editAmountOfFields} onChange={(e) => setEditAmountOfFields(e.target.value)} className="bg-black/50 border border-white/10 rounded-sm p-3 text-white" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-xs font-bold text-pitch-secondary mb-1">Booking Window Start</label>
+                                <input type="time" step="900" value={editConstraintStartTime} onChange={(e) => setEditConstraintStartTime(e.target.value)} className="bg-black/50 border border-white/10 rounded-sm p-3 text-white [color-scheme:dark]" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-xs font-bold text-pitch-secondary mb-1">Booking Window End</label>
+                                <input type="time" step="900" value={editConstraintEndTime} onChange={(e) => setEditConstraintEndTime(e.target.value)} className="bg-black/50 border border-white/10 rounded-sm p-3 text-white [color-scheme:dark]" />
+                            </div>
                         </div>
-                        <div>
-                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1 block">Booking Window Start</label>
-                            <input 
-                                type="time" 
-                                className="w-full bg-pitch-black border border-white/20 p-2 rounded text-white font-bold"
-                                value={editConstraintStartTime}
-                                onChange={(e) => setEditConstraintStartTime(e.target.value)}
-                                style={{ colorScheme: 'dark' }}
-                            />
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                            <div className="flex flex-col">
+                                <label className="text-xs font-bold text-pitch-secondary mb-1">Half Length (min)</label>
+                                <input type="number" min="1" value={editHalfLength} onChange={(e) => setEditHalfLength(e.target.value)} className="bg-black/50 border border-white/10 rounded-sm p-3 text-white" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-xs font-bold text-pitch-secondary mb-1">Halftime (min)</label>
+                                <input type="number" min="0" value={editHalftimeLength} onChange={(e) => setEditHalftimeLength(e.target.value)} className="bg-black/50 border border-white/10 rounded-sm p-3 text-white" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-xs font-bold text-pitch-secondary mb-1">Break (min)</label>
+                                <input type="number" min="0" value={editBreakBetweenGames} onChange={(e) => setEditBreakBetweenGames(e.target.value)} className="bg-black/50 border border-white/10 rounded-sm p-3 text-white" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-xs font-bold text-pitch-secondary mb-1 text-pitch-accent">Total Slot Time</label>
+                                <div className="bg-black/50 border border-white/10 rounded-sm p-3 text-pitch-accent font-bold">
+                                    {(parseInt(editHalfLength) || 0) * 2 + (parseInt(editHalftimeLength) || 0) + (parseInt(editBreakBetweenGames) || 0)} min
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1 block">Booking Window End</label>
-                            <input 
-                                type="time" 
-                                className="w-full bg-pitch-black border border-white/20 p-2 rounded text-white font-bold"
-                                value={editConstraintEndTime}
-                                onChange={(e) => setEditConstraintEndTime(e.target.value)}
-                                style={{ colorScheme: 'dark' }}
-                            />
-                        </div>
-                        <div className="md:col-span-3 flex justify-end">
+                        <div className="flex justify-end mt-6">
                             <button
                                 type="submit"
                                 disabled={processing}

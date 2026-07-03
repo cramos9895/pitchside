@@ -7,13 +7,28 @@ import { checkOverlap } from './league-actions';
 /**
  * Creates a team manually.
  */
-export async function updateSchedulingConstraints(gameId: string, constraints: { amount_of_fields: number, earliest_game_start_time: string, latest_game_start_time: string }) {
+export async function updateSchedulingConstraints(gameId: string, constraints: { 
+    amount_of_fields: number, 
+    earliest_game_start_time: string, 
+    latest_game_start_time: string,
+    half_length?: number,
+    halftime_length?: number,
+    break_between_games?: number,
+    total_game_time?: number
+}) {
     const adminSupabase = await createAdminClient();
-    const { error } = await adminSupabase.from('games').update({
+    const updatePayload: any = {
         amount_of_fields: constraints.amount_of_fields,
         earliest_game_start_time: constraints.earliest_game_start_time || null,
         latest_game_start_time: constraints.latest_game_start_time || null
-    }).eq('id', gameId);
+    };
+
+    if (constraints.half_length !== undefined) updatePayload.half_length = constraints.half_length;
+    if (constraints.halftime_length !== undefined) updatePayload.halftime_length = constraints.halftime_length;
+    if (constraints.break_between_games !== undefined) updatePayload.break_between_games = constraints.break_between_games;
+    if (constraints.total_game_time !== undefined) updatePayload.total_game_time = constraints.total_game_time;
+
+    const { error } = await adminSupabase.from('games').update(updatePayload).eq('id', gameId);
     if (error) throw new Error(error.message);
     revalidatePath(`/admin/games/${gameId}`);
     return { success: true };
