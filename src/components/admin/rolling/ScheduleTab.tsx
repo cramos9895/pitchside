@@ -78,8 +78,7 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
         if (!confirm(`Bulk schedule remaining weeks up to ${seasonEndDate}?`)) return;
         setProcessing(true);
         try {
-            const teamNames = teams.map((t: any) => t.name);
-            const res = await bulkScheduleSeason(gameId, teamNames, facilityId, seasonEndDate);
+            const res = await bulkScheduleSeason(gameId, teams, facilityId, seasonEndDate);
             if (res.success) {
                 success(`Generated ${res.count} total matches.`);
                 onRefresh();

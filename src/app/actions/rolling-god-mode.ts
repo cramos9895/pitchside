@@ -431,7 +431,7 @@ export async function updateLeagueSettings(gameId: string, updates: any) {
 // PLAYOFF ENGINE & BULK SCHEDULING
 // -------------------------------------------------------------
 
-export async function bulkScheduleSeason(gameId: string, teams: string[], facilityId: string, endDateStr: string) {
+export async function bulkScheduleSeason(gameId: string, teams: any[], facilityId: string, endDateStr: string) {
     const adminSupabase = await createAdminClient();
     const endDate = new Date(endDateStr);
     
