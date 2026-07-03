@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Calendar, History, Trash2, Edit2, CheckCircle2, RotateCw, Settings2, Trophy, ChevronDown, X } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
-import { scheduleNextRound, logPastMatch, updateMatchOverride, bulkScheduleSeason, generatePlayoffBracket, deleteMatchPermanently } from '@/app/actions/rolling-god-mode';
+import { scheduleNextRound, logPastMatch, updateMatchOverride, bulkScheduleSeason, generatePlayoffBracket, deleteMatchPermanently, updateSchedulingConstraints } from '@/app/actions/rolling-god-mode';
 import { StandingsTable } from '@/components/admin/StandingsTable';
 import { PitchSideConfirmModal } from '@/components/public/PitchSideConfirmModal';
 
@@ -13,7 +13,7 @@ const toLocalDatetimeString = (dateObj: string | Date) => {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: any) {
+export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefresh }: any) {
     const { success, error } = useToast();
     const [processing, setProcessing] = useState(false);
     
@@ -23,6 +23,12 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
     
     // History Form State
     const [showHistoryForm, setShowHistoryForm] = useState(false);
+
+    // Constraints State
+    const [showConstraints, setShowConstraints] = useState(false);
+    const [editAmountOfFields, setEditAmountOfFields] = useState(String(game?.amount_of_fields || 1));
+    const [editEndTime, setEditEndTime] = useState(game?.end_time || '');
+    const [editTotalGameTime, setEditTotalGameTime] = useState(String(game?.total_game_time || 60));
     const [hHomeTeamId, setHHomeTeamId] = useState('');
     const [hAwayTeamId, setHAwayTeamId] = useState('');
     const [hHomeScore, setHHomeScore] = useState('');
@@ -157,6 +163,25 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
         }
     };
 
+    const handleUpdateConstraints = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setProcessing(true);
+        try {
+            await updateSchedulingConstraints(gameId, {
+                amount_of_fields: parseInt(editAmountOfFields),
+                end_time: editEndTime,
+                total_game_time: parseInt(editTotalGameTime)
+            });
+            success("Scheduling constraints updated.");
+            setShowConstraints(false);
+            onRefresh();
+        } catch (err: any) {
+            error(err.message);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
     // ───────────────────────────────────────────────────────
     // EDIT MODAL HANDLERS
     // ───────────────────────────────────────────────────────
@@ -237,10 +262,83 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            {/* SEASON LIFECYCLE ZONE */}
-            <div className="bg-black/80 border border-white/10 rounded-lg p-6 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
-                <h3 className="text-sm font-black italic uppercase text-blue-500 mb-4 flex items-center gap-2">
+            {/* Scheduling Constraints Panel */}
+            <div className="bg-[#171717] p-6 rounded-xl border border-white/10 mb-8 relative">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-black uppercase tracking-tighter text-white flex items-center gap-2">
+                        <Settings2 className="w-5 h-5 text-gray-400" /> Scheduling Constraints
+                    </h3>
+                    <button 
+                        onClick={() => setShowConstraints(!showConstraints)}
+                        className="text-xs font-bold text-pitch-accent hover:text-white transition-colors uppercase tracking-widest"
+                    >
+                        {showConstraints ? 'Cancel' : 'Edit Constraints'}
+                    </button>
+                </div>
+
+                {!showConstraints ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Available Fields</div>
+                            <div className="text-2xl font-bold text-white">{game?.amount_of_fields || 1}</div>
+                        </div>
+                        <div>
+                            <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">End Time Limit</div>
+                            <div className="text-2xl font-bold text-white">{game?.end_time || 'N/A'}</div>
+                        </div>
+                        <div>
+                            <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Match Duration (Mins)</div>
+                            <div className="text-2xl font-bold text-white">{game?.total_game_time || 60}</div>
+                        </div>
+                    </div>
+                ) : (
+                    <form onSubmit={handleUpdateConstraints} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1 block">Available Fields</label>
+                            <input 
+                                type="number" 
+                                min="1"
+                                className="w-full bg-pitch-black border border-white/20 p-2 rounded text-white font-bold"
+                                value={editAmountOfFields}
+                                onChange={(e) => setEditAmountOfFields(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1 block">End Time Limit</label>
+                            <input 
+                                type="time" 
+                                className="w-full bg-pitch-black border border-white/20 p-2 rounded text-white font-bold"
+                                value={editEndTime}
+                                onChange={(e) => setEditEndTime(e.target.value)}
+                                style={{ colorScheme: 'dark' }}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1 block">Match Duration (Mins)</label>
+                            <input 
+                                type="number" 
+                                min="10"
+                                className="w-full bg-pitch-black border border-white/20 p-2 rounded text-white font-bold"
+                                value={editTotalGameTime}
+                                onChange={(e) => setEditTotalGameTime(e.target.value)}
+                            />
+                        </div>
+                        <div className="md:col-span-3 flex justify-end">
+                            <button
+                                type="submit"
+                                disabled={processing}
+                                className="px-6 py-2 bg-pitch-accent text-black font-black uppercase text-[10px] tracking-widest rounded hover:bg-white transition-colors disabled:opacity-50"
+                            >
+                                {processing ? 'Saving...' : 'Save Constraints'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </div>
+
+            {/* Bulk & Playoffs Row */}
+            <div className="bg-black/40 border border-white/10 p-6 rounded-lg mb-8">
+                <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mb-6 flex items-center gap-2">
                     <Settings2 className="w-4 h-4" /> Season Lifecycle & Auto-Scheduler
                 </h3>
                 

@@ -94,6 +94,7 @@ export function AdminRollingManager({
                         matches={matches}
                         teams={teams}
                         gameId={gameId}
+                        game={game}
                         facilityId={facilityId}
                         onRefresh={handleRefresh}
                     />
