@@ -21,6 +21,11 @@ export default function SettingsPage() {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [uploading, setUploading] = useState(false);
+    
+    // Referee Application State
+    const [refereeApp, setRefereeApp] = useState<any>(null);
+    const [submittingApp, setSubmittingApp] = useState(false);
+    const [experienceSummary, setExperienceSummary] = useState('');
 
     // Form States
     const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
@@ -82,6 +87,20 @@ export default function SettingsPage() {
                     setAnnouncements(profile.notification_settings.announcements ?? true);
                 }
             }
+
+            // Fetch Referee Application Status
+            const { data: appData } = await supabase
+                .from('referee_applications')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+                
+            if (appData) {
+                setRefereeApp(appData);
+            }
+
             setLoading(false);
         };
         fetchUser();
@@ -150,6 +169,24 @@ export default function SettingsPage() {
                         alert('Error updating profile: ' + error.message);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleSubmitApplication = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmittingApp(true);
+        try {
+            // dynamically import the server action to avoid issues in client components
+            const { submitRefereeApplication } = await import('@/app/actions/referee-applications');
+            await submitRefereeApplication(experienceSummary);
+            alert('Referee application submitted successfully!');
+            // Update local state to show pending
+            setRefereeApp({ status: 'pending', experience_summary: experienceSummary });
+            setExperienceSummary('');
+        } catch (error: any) {
+            alert('Error submitting application: ' + error.message);
+        } finally {
+            setSubmittingApp(false);
         }
     };
 
@@ -340,7 +377,7 @@ export default function SettingsPage() {
                                     </div>
                                 </div>
 
-                                <div className="pt-4 border-t border-white/10 flex justify-end">
+                                <div className="pt-4 border-t border-white/10 flex justify-end mb-12">
                                     <button
                                         type="submit"
                                         disabled={saving}
@@ -350,6 +387,75 @@ export default function SettingsPage() {
                                     </button>
                                 </div>
                             </form>
+                            
+                            {/* Referee Application Section */}
+                            {profile?.role === 'player' && (
+                                <div className="mt-12 pt-12 border-t border-white/10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <h3 className="text-xl font-heading font-black italic uppercase text-white flex items-center gap-2 mb-2">
+                                        <Shield className="w-5 h-5 text-pitch-accent" /> Officiating
+                                    </h3>
+                                    <p className="text-sm text-pitch-secondary mb-6">Interested in getting paid to referee games on PitchSide? Apply below.</p>
+                                    
+                                    {refereeApp?.status === 'pending' ? (
+                                        <div className="bg-yellow-500/10 border border-yellow-500/30 p-6 rounded-sm text-center">
+                                            <div className="inline-block p-3 bg-yellow-500/20 rounded-full mb-3">
+                                                <Loader2 className="w-6 h-6 text-yellow-500 animate-spin" />
+                                            </div>
+                                            <h4 className="font-bold text-white uppercase tracking-wider mb-1">Application Under Review</h4>
+                                            <p className="text-sm text-gray-400">Our team is currently reviewing your referee application. We will notify you once a decision has been made.</p>
+                                        </div>
+                                    ) : refereeApp?.status === 'approved' ? (
+                                        <div className="bg-green-500/10 border border-green-500/30 p-6 rounded-sm text-center">
+                                            <div className="inline-block p-3 bg-green-500/20 rounded-full mb-3">
+                                                <CheckCircle className="w-6 h-6 text-green-500" />
+                                            </div>
+                                            <h4 className="font-bold text-white uppercase tracking-wider mb-1">You are an Official Referee!</h4>
+                                            <p className="text-sm text-gray-400">Your role has already been updated. Check your sidebar for the Referee Portal.</p>
+                                        </div>
+                                    ) : (
+                                        <form onSubmit={handleSubmitApplication} className="bg-black/20 border border-white/5 p-6 rounded-sm space-y-4">
+                                            {refereeApp?.status === 'rejected' && (
+                                                <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-sm mb-4">
+                                                    <h4 className="text-red-500 font-bold uppercase tracking-wider text-sm mb-1 flex items-center gap-2">
+                                                        <AlertTriangle className="w-4 h-4" /> Application Declined
+                                                    </h4>
+                                                    <p className="text-sm text-gray-300 mb-2">Unfortunately, your previous application was not approved.</p>
+                                                    {refereeApp.rejection_reason && (
+                                                        <div className="bg-black/50 p-3 rounded text-sm text-gray-400 italic border border-white/5">
+                                                            "{refereeApp.rejection_reason}"
+                                                        </div>
+                                                    )}
+                                                    <p className="text-xs text-pitch-secondary mt-3">You are welcome to update your experience and apply again.</p>
+                                                </div>
+                                            )}
+                                            
+                                            <div>
+                                                <label htmlFor="experienceSummary" className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Experience Summary</label>
+                                                <textarea
+                                                    id="experienceSummary"
+                                                    value={experienceSummary}
+                                                    onChange={(e) => setExperienceSummary(e.target.value)}
+                                                    required
+                                                    rows={4}
+                                                    className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-pitch-accent transition-colors resize-none"
+                                                    placeholder="Briefly describe your refereeing experience, certifications, and leagues you have officiated for..."
+                                                />
+                                            </div>
+                                            <div className="flex justify-end">
+                                                <button
+                                                    type="submit"
+                                                    disabled={submittingApp || !experienceSummary.trim()}
+                                                    className="flex items-center gap-2 bg-white/10 text-white px-6 py-3 rounded-sm font-bold uppercase tracking-wider hover:bg-pitch-accent hover:text-pitch-black transition-colors disabled:opacity-50"
+                                                >
+                                                    {submittingApp ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit Application'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    )}
+                                </div>
+                            )}
+                            
+                            </div>
                         )}
 
                         {/* SECURITY TAB */}

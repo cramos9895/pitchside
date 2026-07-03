@@ -4,6 +4,7 @@ import { ShieldCheck, XCircle, Clock, User, Building } from 'lucide-react';
 import { approveUser, denyUser } from '@/app/actions/admin-approvals';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
+import InternalApplicationsTable from '@/components/admin/InternalApplicationsTable';
 
 export const metadata = {
     title: 'Approval Queue | Pitch Side Master Admin',
@@ -44,6 +45,19 @@ export default async function RequestsDashboardPage() {
         console.error("Error fetching pending requests:", error);
     }
 
+    // Fetch internal referee applications
+    const { data: internalApps, error: internalError } = await supabase
+        .from('referee_applications')
+        .select('*, profiles(first_name, last_name, email, avatar_url)')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+
+    if (internalError) {
+        console.error("Error fetching internal applications:", internalError);
+    }
+
+    const totalPending = (pendingUsers?.length || 0) + (internalApps?.length || 0);
+
     return (
         <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-500">
 
@@ -62,9 +76,9 @@ export default async function RequestsDashboardPage() {
                 </div>
 
                 <div className="px-6 py-3 bg-black/50 border border-white/10 rounded-lg flex items-center justify-center gap-4">
-                    <span className="text-sm font-bold uppercase tracking-wider text-gray-500">Pending Requests</span>
+                    <span className="text-sm font-bold uppercase tracking-wider text-gray-500">Total Pending</span>
                     <span className="text-3xl font-numeric font-bold text-white">
-                        {pendingUsers?.length || 0}
+                        {totalPending}
                     </span>
                 </div>
             </div>
@@ -173,6 +187,9 @@ export default async function RequestsDashboardPage() {
                     </div>
                 )}
             </div>
+            
+            {/* Internal Applications Table */}
+            <InternalApplicationsTable applications={internalApps || []} />
 
         </div>
     );
