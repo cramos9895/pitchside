@@ -33,6 +33,20 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
         return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
     };
 
+    const formatIsoTo12Hour = (isoString?: string) => {
+        if (!isoString) return '';
+        const d = new Date(isoString);
+        return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    };
+
+    const formatTimeTo12Hour = (timeString?: string) => {
+        if (!timeString) return '';
+        const [hours, minutes] = timeString.split(':');
+        const d = new Date();
+        d.setHours(parseInt(hours), parseInt(minutes));
+        return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    };
+
     const [editAmountOfFields, setEditAmountOfFields] = useState(String(game?.amount_of_fields || 1));
     const [editConstraintStartTime, setEditConstraintStartTime] = useState(getLocalTimeFromIso(game?.start_time));
     const [editConstraintEndTime, setEditConstraintEndTime] = useState(game?.end_time || '');
@@ -299,11 +313,11 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                         </div>
                         <div>
                             <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Booking Window Start</div>
-                            <div className="text-2xl font-bold text-white">{getLocalTimeFromIso(game?.start_time) || 'N/A'}</div>
+                            <div className="text-2xl font-bold text-white">{formatIsoTo12Hour(game?.start_time) || 'N/A'}</div>
                         </div>
                         <div>
                             <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Booking Window End</div>
-                            <div className="text-2xl font-bold text-white">{game?.end_time || 'N/A'}</div>
+                            <div className="text-2xl font-bold text-white">{formatTimeTo12Hour(game?.end_time) || 'N/A'}</div>
                         </div>
                     </div>
                 ) : (
