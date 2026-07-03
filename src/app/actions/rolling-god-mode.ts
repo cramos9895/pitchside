@@ -7,12 +7,12 @@ import { checkOverlap } from './league-actions';
 /**
  * Creates a team manually.
  */
-export async function updateSchedulingConstraints(gameId: string, constraints: { amount_of_fields: number, start_time: string, end_time: string }) {
+export async function updateSchedulingConstraints(gameId: string, constraints: { amount_of_fields: number, earliest_game_start_time: string, latest_game_start_time: string }) {
     const adminSupabase = await createAdminClient();
     const { error } = await adminSupabase.from('games').update({
         amount_of_fields: constraints.amount_of_fields,
-        start_time: constraints.start_time,
-        end_time: constraints.end_time || null
+        earliest_game_start_time: constraints.earliest_game_start_time || null,
+        latest_game_start_time: constraints.latest_game_start_time || null
     }).eq('id', gameId);
     if (error) throw new Error(error.message);
     revalidatePath(`/admin/games/${gameId}`);
@@ -310,16 +310,22 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
         }
     }
 
-    // Generate accurate Time Matrix starting at game.start_time time boundaries
-    targetDate.setUTCHours(gameStartDateTime.getUTCHours(), gameStartDateTime.getUTCMinutes(), 0, 0);
+    // Generate accurate Time Matrix starting at boundaries
+    if (game.earliest_game_start_time) {
+        const [hours, mins] = game.earliest_game_start_time.split(':');
+        // Parse local time and convert accurately
+        targetDate.setHours(parseInt(hours), parseInt(mins), 0, 0);
+    } else {
+        targetDate.setUTCHours(gameStartDateTime.getUTCHours(), gameStartDateTime.getUTCMinutes(), 0, 0);
+    }
     
     // Parse the strict end time from string (e.g. "22:00:00")
     let gameEndTimeLimit = null;
-    if (game.end_time) {
-        const [hours, mins] = game.end_time.split(':');
+    const endLimitString = game.latest_game_start_time || game.end_time;
+    if (endLimitString) {
+        const [hours, mins] = endLimitString.split(':');
         gameEndTimeLimit = new Date(targetDate);
-        // Correcting for potentially non-UTC native time depending on Postgres type storage.
-        gameEndTimeLimit.setUTCHours(parseInt(hours), parseInt(mins), 0, 0); 
+        gameEndTimeLimit.setHours(parseInt(hours), parseInt(mins), 0, 0); 
     }
 
     const slotDurationMs = ((game.total_game_time ?? 60) || 60) * 60 * 1000;
@@ -339,9 +345,9 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
             currentFieldIndex = 0;
         }
 
-        // Safety enforcement: Do not exceed game.end_time barrier
-        if (gameEndTimeLimit && currentMatrixTime >= gameEndTimeLimit) {
-            throw new Error(`Schedule overflow: Not enough physical field capacity to schedule all matchups before the mandatory end limit of ${game.end_time}.`);
+        // Safety enforcement: Do not exceed end barrier
+        if (gameEndTimeLimit && currentMatrixTime > gameEndTimeLimit) {
+            throw new Error(`Schedule overflow: Not enough physical field capacity to schedule all matchups before the mandatory end limit of ${endLimitString}.`);
         }
         
         matchesToInsert.push({

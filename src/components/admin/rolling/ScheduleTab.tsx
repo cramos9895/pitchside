@@ -27,18 +27,6 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
     // Constraints State
     const [showConstraints, setShowConstraints] = useState(false);
     
-    const getLocalTimeFromIso = (isoString?: string) => {
-        if (!isoString) return '';
-        const d = new Date(isoString);
-        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-    };
-
-    const formatIsoTo12Hour = (isoString?: string) => {
-        if (!isoString) return '';
-        const d = new Date(isoString);
-        return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    };
-
     const formatTimeTo12Hour = (timeString?: string) => {
         if (!timeString) return '';
         const [hours, minutes] = timeString.split(':');
@@ -48,8 +36,8 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
     };
 
     const [editAmountOfFields, setEditAmountOfFields] = useState(String(game?.amount_of_fields || 1));
-    const [editConstraintStartTime, setEditConstraintStartTime] = useState(getLocalTimeFromIso(game?.start_time));
-    const [editConstraintEndTime, setEditConstraintEndTime] = useState(game?.end_time || '');
+    const [editConstraintStartTime, setEditConstraintStartTime] = useState(game?.earliest_game_start_time || '');
+    const [editConstraintEndTime, setEditConstraintEndTime] = useState(game?.latest_game_start_time || '');
     const [hHomeTeamId, setHHomeTeamId] = useState('');
     const [hAwayTeamId, setHAwayTeamId] = useState('');
     const [hHomeScore, setHHomeScore] = useState('');
@@ -194,18 +182,10 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
         e.preventDefault();
         setProcessing(true);
         try {
-            let updatedStartTimeIso = game.start_time;
-            if (editConstraintStartTime) {
-                const d = new Date(game.start_time);
-                const [hours, minutes] = editConstraintStartTime.split(':').map(Number);
-                d.setHours(hours, minutes, 0, 0);
-                updatedStartTimeIso = d.toISOString();
-            }
-
             await updateSchedulingConstraints(gameId, {
                 amount_of_fields: parseInt(editAmountOfFields),
-                start_time: updatedStartTimeIso,
-                end_time: editConstraintEndTime
+                earliest_game_start_time: editConstraintStartTime,
+                latest_game_start_time: editConstraintEndTime
             });
             success("Scheduling constraints updated.");
             setShowConstraints(false);
@@ -320,13 +300,13 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                         <div>
                             <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Booking Window Start</div>
                             <div className="text-2xl font-bold text-white">
-                                {isMounted ? (formatTimeTo12Hour(getLocalTimeFromIso(game?.start_time)) || 'N/A') : '...'}
+                                {isMounted ? (formatTimeTo12Hour(game?.earliest_game_start_time) || 'N/A') : '...'}
                             </div>
                         </div>
                         <div>
                             <div className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Booking Window End</div>
                             <div className="text-2xl font-bold text-white">
-                                {isMounted ? (formatTimeTo12Hour(game?.end_time) || 'N/A') : '...'}
+                                {isMounted ? (formatTimeTo12Hour(game?.latest_game_start_time) || 'N/A') : '...'}
                             </div>
                         </div>
                     </div>
