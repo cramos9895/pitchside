@@ -298,7 +298,8 @@ export default function SettingsPage() {
 
                         {/* PROFILE TAB */}
                         {activeTab === 'profile' && (
-                            <form onSubmit={handleSaveProfile} className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                            <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-300">
+                                <form onSubmit={handleSaveProfile} className="space-y-8">
                                 <div className="flex items-center gap-6 mb-8">
                                     <div className="relative group w-24 h-24 rounded-full overflow-hidden bg-white/5 border-2 border-white/10">
                                         {avatarUrl ? (
@@ -454,7 +455,6 @@ export default function SettingsPage() {
                                     )}
                                 </div>
                             )}
-                            
                             </div>
                         )}
 
