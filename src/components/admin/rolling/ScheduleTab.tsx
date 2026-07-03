@@ -19,6 +19,7 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
     
     // Modal State
     const [confirmScheduleOpen, setConfirmScheduleOpen] = useState(false);
+    const [bulkScheduleConfirmOpen, setBulkScheduleConfirmOpen] = useState(false);
     
     // History Form State
     const [showHistoryForm, setShowHistoryForm] = useState(false);
@@ -71,17 +72,15 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
     };
 
     const handleBulkSchedule = async () => {
-        if (!seasonEndDate) {
-            error("Select a Season End Date first.");
-            return;
-        }
-        if (!confirm(`Bulk schedule remaining weeks up to ${seasonEndDate}?`)) return;
+        setBulkScheduleConfirmOpen(false);
         setProcessing(true);
         try {
             const res = await bulkScheduleSeason(gameId, teams, facilityId, seasonEndDate);
             if (res.success) {
                 success(`Generated ${res.count} total matches.`);
                 onRefresh();
+            } else {
+                error(res.error || "Failed to schedule");
             }
         } catch (err: any) {
             error(err.message);
@@ -259,7 +258,13 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
                                 onChange={(e) => setSeasonEndDate(e.target.value)}
                             />
                             <button 
-                                onClick={handleBulkSchedule}
+                                onClick={() => {
+                                    if (!seasonEndDate) {
+                                        error("Select a Season End Date first.");
+                                        return;
+                                    }
+                                    setBulkScheduleConfirmOpen(true);
+                                }}
                                 disabled={processing || !seasonEndDate}
                                 className="w-full sm:w-auto px-6 py-3 bg-blue-500/10 text-blue-400 border border-blue-500/50 font-black uppercase tracking-widest text-[10px] hover:bg-blue-500 hover:text-white transition-colors rounded disabled:opacity-50 flex items-center justify-center gap-2"
                             >
@@ -666,7 +671,17 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, onRefresh }: a
                     </span>
                 }
                 confirmText="Execute Scheduler"
-                cancelText="Cancel"
+                isProcessing={processing}
+            />
+
+            {/* Bulk Schedule Confirmation Modal */}
+            <PitchSideConfirmModal 
+                isOpen={bulkScheduleConfirmOpen}
+                onClose={() => setBulkScheduleConfirmOpen(false)}
+                onConfirm={handleBulkSchedule}
+                title="Bulk Schedule Matches"
+                description={`Are you sure you want to bulk schedule remaining weeks up to ${seasonEndDate}? This will automatically generate and assign matches based on the current team configurations.`}
+                confirmText="Generate Schedule"
                 isProcessing={processing}
             />
         </div>

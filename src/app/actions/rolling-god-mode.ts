@@ -432,32 +432,33 @@ export async function updateLeagueSettings(gameId: string, updates: any) {
 // -------------------------------------------------------------
 
 export async function bulkScheduleSeason(gameId: string, teams: any[], facilityId: string, endDateStr: string) {
-    const adminSupabase = await createAdminClient();
-    const endDate = new Date(endDateStr);
+    try {
+        const adminSupabase = await createAdminClient();
+        const endDate = new Date(endDateStr);
     
-    let scheduledMatchesCount = 0;
-    
-    // We run the scheduleNextRound logic repeatedly until the projected nextStartTime passes endDate
-    // For simplicity here, we'll try to generate rounds in sequential loops up to 12 weeks ahead.
-    for (let round = 0; round < 12; round++) {
-        // Find latest schedule date
-        const { data: matches } = await adminSupabase.from('matches').select('start_time').eq('game_id', gameId).order('start_time', { ascending: false }).limit(1);
+        let scheduledMatchesCount = 0;
         
-        let nextStartEstimate = new Date();
-        if (matches && matches.length > 0) {
-            nextStartEstimate = new Date(new Date(matches[0].start_time).getTime() + 7 * 24 * 60 * 60 * 1000);
+        for (let round = 0; round < 12; round++) {
+            const { data: matches } = await adminSupabase.from('matches').select('start_time').eq('game_id', gameId).order('start_time', { ascending: false }).limit(1);
+            
+            let nextStartEstimate = new Date();
+            if (matches && matches.length > 0) {
+                nextStartEstimate = new Date(new Date(matches[0].start_time).getTime() + 7 * 24 * 60 * 60 * 1000);
+            }
+            
+            if (nextStartEstimate > endDate) {
+                break; // Reached cap
+            }
+            
+            const res = await scheduleNextRound(gameId, teams, facilityId);
+            scheduledMatchesCount += res.count;
         }
         
-        if (nextStartEstimate > endDate) {
-            break; // Reached cap
-        }
-        
-        const res = await scheduleNextRound(gameId, teams, facilityId);
-        scheduledMatchesCount += res.count;
+        revalidatePath(`/admin/games/${gameId}`);
+        return { success: true, count: scheduledMatchesCount };
+    } catch (e: any) {
+        return { success: false, error: e.message || 'Unknown error occurred in bulkScheduleSeason' };
     }
-    
-    revalidatePath(`/admin/games/${gameId}`);
-    return { success: true, count: scheduledMatchesCount };
 }
 
 export async function generatePlayoffBracket(gameId: string, teams: any[], numTeams: number, facilityId: string) {
