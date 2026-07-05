@@ -116,6 +116,68 @@ export function FinancialsTab({
                     </div>
                 </div>
             </div>
+
+            {/* GRANULAR PAYMENT BREAKDOWN */}
+            <div className="bg-pitch-card border border-white/10 rounded-lg p-6">
+                <h3 className="text-white font-black italic uppercase tracking-wider text-xl mb-4 border-b border-white/10 pb-4">
+                    Player Payments Breakdown
+                </h3>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="border-b border-white/10">
+                                <th className="pb-3 text-xs font-black uppercase tracking-widest text-gray-500">Player</th>
+                                <th className="pb-3 text-xs font-black uppercase tracking-widest text-gray-500">Role</th>
+                                <th className="pb-3 text-xs font-black uppercase tracking-widest text-gray-500">Status</th>
+                                <th className="pb-3 text-right text-xs font-black uppercase tracking-widest text-gray-500">Collected</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {registrations.map((r: any) => {
+                                let amount = 0;
+                                if (isCashMode) {
+                                    amount = r.total_cash_collected || 0;
+                                } else if (r.payment_status === 'verified') {
+                                    amount = r.role === 'captain' ? (game.team_registration_fee || 0) : (game.player_registration_fee || 0);
+                                }
+                                
+                                return (
+                                    <tr key={r.id} className="border-b border-white/5 last:border-0 hover:bg-white/5">
+                                        <td className="py-3 px-2 text-sm text-white font-bold uppercase">
+                                            {r.profiles?.first_name} {r.profiles?.last_name}
+                                        </td>
+                                        <td className="py-3 px-2">
+                                            <span className="text-[10px] bg-white/10 text-gray-400 px-2 py-1 rounded-full font-black uppercase tracking-widest">
+                                                {r.role || 'Player'}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-2">
+                                            <span className={cn(
+                                                "text-[10px] px-2 py-1 rounded-full font-black uppercase tracking-widest",
+                                                r.payment_status === 'verified' || (isCashMode && amount > 0)
+                                                    ? "bg-green-500/10 text-green-500"
+                                                    : "bg-red-500/10 text-red-500"
+                                            )}>
+                                                {r.payment_status || 'unpaid'}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-2 text-right font-black text-pitch-accent">
+                                            ${amount.toLocaleString()}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {registrations.length === 0 && (
+                                <tr>
+                                    <td colSpan={4} className="py-8 text-center text-gray-500 text-xs font-bold uppercase tracking-widest">
+                                        No registrations found
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 }

@@ -47,13 +47,13 @@ export function AdminRollingManager({
                         value="squads" 
                         className="rounded-none bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-pitch-accent px-0 py-3 text-xs sm:text-sm font-black uppercase tracking-widest text-gray-500 data-[state=active]:text-white transition-all whitespace-nowrap"
                     >
-                        Squads (God Mode)
+                        Squads
                     </TabsTrigger>
                     <TabsTrigger 
                         value="schedule" 
                         className="rounded-none bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-pitch-accent px-0 py-3 text-xs sm:text-sm font-black uppercase tracking-widest text-gray-500 data-[state=active]:text-white transition-all whitespace-nowrap"
                     >
-                        Schedule Engine
+                        Schedule
                     </TabsTrigger>
                     <TabsTrigger 
                         value="settings" 
@@ -65,7 +65,7 @@ export function AdminRollingManager({
                         value="financials" 
                         className="rounded-none bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-pitch-accent px-0 py-3 text-xs sm:text-sm font-black uppercase tracking-widest text-gray-500 data-[state=active]:text-white transition-all whitespace-nowrap"
                     >
-                        Financials P&L
+                        Financials
                     </TabsTrigger>
                 </TabsList>
 
