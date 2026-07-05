@@ -79,6 +79,37 @@ export async function updateTeamDetails(teamId: string, gameId: string, updates:
 }
 
 /**
+ * Deletes a team and handles its players.
+ */
+export async function deleteTeam(teamId: string, gameId: string, playerAction: 'pool' | 'kick') {
+    const adminSupabase = await createAdminClient();
+
+    if (playerAction === 'pool') {
+        const { error: poolError } = await adminSupabase
+            .from('tournament_registrations')
+            .update({ team_id: null })
+            .eq('team_id', teamId);
+        if (poolError) throw new Error(`Failed to pool players: ${poolError.message}`);
+    } else if (playerAction === 'kick') {
+        const { error: kickError } = await adminSupabase
+            .from('tournament_registrations')
+            .delete()
+            .eq('team_id', teamId);
+        if (kickError) throw new Error(`Failed to kick players: ${kickError.message}`);
+    }
+
+    const { error: deleteError } = await adminSupabase
+        .from('teams')
+        .delete()
+        .eq('id', teamId);
+
+    if (deleteError) throw new Error(`Failed to delete team: ${deleteError.message}`);
+
+    revalidatePath(`/admin/games/${gameId}`);
+    return { success: true };
+}
+
+/**
  * Atomically transfers a player from their current team to a target team.
  * Preserves the row to retain Stripe payment history.
  */

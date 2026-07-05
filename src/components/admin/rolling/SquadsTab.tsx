@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Users, UserPlus, FilePlus2, RefreshCw, Handshake, ShieldAlert, Settings2, Search } from 'lucide-react';
+import { Users, UserPlus, FilePlus2, RefreshCw, Handshake, ShieldAlert, Settings2, Search, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
-import { createManualTeam, updateTeamDetails, transferPlayer, draftAutoTeam, searchProfiles, addManualPlayer, moveToFreeAgency, removeFromLeague, issuePermanentBan, issueSoftBan } from '@/app/actions/rolling-god-mode';
+import { createManualTeam, updateTeamDetails, transferPlayer, draftAutoTeam, searchProfiles, addManualPlayer, moveToFreeAgency, removeFromLeague, issuePermanentBan, issueSoftBan, deleteTeam } from '@/app/actions/rolling-god-mode';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { isLeagueLocked } from '@/lib/league-utils';
+import { PitchSideConfirmModal } from '@/components/public/PitchSideConfirmModal';
 
 export function SquadsTab({ registrations, teams, gameId, game, onRefresh }: any) {
     const { success, error } = useToast();
@@ -17,6 +18,9 @@ export function SquadsTab({ registrations, teams, gameId, game, onRefresh }: any
     const [transferModalOpen, setTransferModalOpen] = useState(false);
     const [transferTargetReg, setTransferTargetReg] = useState<{ id: string, currentTeamId: string | null } | null>(null);
     const [selectedTransferTeamId, setSelectedTransferTeamId] = useState<string>('');
+
+    const [deleteTeamConfirmOpen, setDeleteTeamConfirmOpen] = useState<{ isOpen: boolean, teamId: string, teamName: string, playerCount: number }>({ isOpen: false, teamId: '', teamName: '', playerCount: 0 });
+    const [deletePlayerAction, setDeletePlayerAction] = useState<'pool' | 'kick'>('pool');
 
     // Advanced Player Management States
     const [addPlayerTeamId, setAddPlayerTeamId] = useState<string | null>(null);
@@ -142,6 +146,20 @@ export function SquadsTab({ registrations, teams, gameId, game, onRefresh }: any
         }
     };
 
+    const handleDeleteTeam = async () => {
+        setProcessing(true);
+        try {
+            await deleteTeam(deleteTeamConfirmOpen.teamId, gameId, deletePlayerAction);
+            success(`Team "${deleteTeamConfirmOpen.teamName}" deleted successfully.`);
+            setDeleteTeamConfirmOpen({ isOpen: false, teamId: '', teamName: '', playerCount: 0 });
+            onRefresh();
+        } catch (err: any) {
+            error(err.message);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
     const isLocked = isLeagueLocked(game);
 
     return (
@@ -185,12 +203,20 @@ export function SquadsTab({ registrations, teams, gameId, game, onRefresh }: any
                                 <h4 className="text-white font-black italic uppercase tracking-wider text-lg">
                                     {team.name}
                                 </h4>
-                                <button
-                                    onClick={() => setAddPlayerTeamId(team.id)}
-                                    className="p-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white"
-                                >
-                                    <UserPlus className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setAddPlayerTeamId(team.id)}
+                                        className="p-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white"
+                                    >
+                                        <UserPlus className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => setDeleteTeamConfirmOpen({ isOpen: true, teamId: team.id, teamName: team.name, playerCount: roster.length })}
+                                        className="p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded transition-colors text-red-500 hover:text-red-400"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
                             <table className="w-full text-left">
                                 <tbody>
@@ -245,6 +271,63 @@ export function SquadsTab({ registrations, teams, gameId, game, onRefresh }: any
         )}
 
         {/* MODALS */}
+
+        <PitchSideConfirmModal 
+            isOpen={deleteTeamConfirmOpen.isOpen}
+            onClose={() => setDeleteTeamConfirmOpen({ isOpen: false, teamId: '', teamName: '', playerCount: 0 })}
+            onConfirm={handleDeleteTeam}
+            title={`Delete ${deleteTeamConfirmOpen.teamName}?`}
+            isDestructive={true}
+            isProcessing={processing}
+            confirmText="Delete Team"
+            description={
+                <div className="space-y-4">
+                    <p className="text-gray-400 text-sm">
+                        This will permanently delete the team. This action cannot be undone.
+                    </p>
+                    
+                    {deleteTeamConfirmOpen.playerCount > 0 && (
+                        <div className="text-left bg-black/40 border border-white/5 rounded-lg p-4 space-y-4 mt-4">
+                            <p className="text-pitch-accent font-black uppercase text-xs tracking-widest mb-2">
+                                Action for {deleteTeamConfirmOpen.playerCount} attached player(s)
+                            </p>
+                            
+                            <label className="flex items-start gap-3 cursor-pointer group">
+                                <div className="mt-0.5">
+                                    <input 
+                                        type="radio" 
+                                        name="playerAction"
+                                        checked={deletePlayerAction === 'pool'}
+                                        onChange={() => setDeletePlayerAction('pool')}
+                                        className="w-4 h-4 accent-pitch-accent bg-transparent border-white/20"
+                                    />
+                                </div>
+                                <div>
+                                    <div className="text-white font-bold text-sm uppercase">Move to Free Agent Pool</div>
+                                    <div className="text-gray-500 text-xs">Players remain in the league but lose team assignment.</div>
+                                </div>
+                            </label>
+
+                            <label className="flex items-start gap-3 cursor-pointer group">
+                                <div className="mt-0.5">
+                                    <input 
+                                        type="radio" 
+                                        name="playerAction"
+                                        checked={deletePlayerAction === 'kick'}
+                                        onChange={() => setDeletePlayerAction('kick')}
+                                        className="w-4 h-4 accent-red-500 bg-transparent border-white/20"
+                                    />
+                                </div>
+                                <div>
+                                    <div className="text-red-400 font-bold text-sm uppercase">Remove from League</div>
+                                    <div className="text-gray-500 text-xs">Players are entirely un-registered. No automatic Stripe refund will occur.</div>
+                                </div>
+                            </label>
+                        </div>
+                    )}
+                </div>
+            }
+        />
 
         {/* ADD MANUAL PLAYER MODAL */}
         {addPlayerTeamId && (
