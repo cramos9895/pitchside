@@ -563,6 +563,72 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                <StandingsTable gameId={gameId} teams={teams} matches={matches} />
             </div>
 
+            {/* Schedule Summary (Visual Balance Check) */}
+            <div className="bg-[#0a0a0a] border border-white/5 p-4 rounded-lg mb-8">
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <History className="w-3 h-3" /> Schedule Summary
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {teams.map((team: any) => {
+                        let played = 0;
+                        let satOut = 0;
+                        const opponentCounts: Record<string, number> = {};
+
+                        // Group all non-canceled matches by Date string to figure out if they sat out
+                        const matchesByDate: Record<string, any[]> = {};
+                        const validMatches = (matches || []).filter((m: any) => m.status !== 'canceled');
+                        validMatches.forEach((m: any) => {
+                            const d = new Date(m.start_time).toDateString();
+                            if (!matchesByDate[d]) matchesByDate[d] = [];
+                            matchesByDate[d].push(m);
+                        });
+
+                        Object.values(matchesByDate).forEach(dayMatches => {
+                            const myMatch = dayMatches.find((m: any) => m.home_team_id === team.id || m.away_team_id === team.id);
+                            if (myMatch) {
+                                played++;
+                                const oppId = myMatch.home_team_id === team.id ? myMatch.away_team_id : myMatch.home_team_id;
+                                if (oppId) {
+                                    const oppTeam = teams.find((t: any) => t.id === oppId);
+                                    if (oppTeam) {
+                                        opponentCounts[oppTeam.name] = (opponentCounts[oppTeam.name] || 0) + 1;
+                                    }
+                                }
+                            } else {
+                                satOut++;
+                            }
+                        });
+
+                        return (
+                            <div key={team.id} className="flex flex-col bg-white/5 p-2 rounded border border-white/5">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-[10px] font-bold text-white uppercase truncate mr-2">{team.name}</span>
+                                    <div className="flex gap-2 shrink-0">
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[8px] text-gray-500 uppercase font-bold leading-none" title="Matches Played">P</span>
+                                            <span className="text-[10px] font-bold text-pitch-accent leading-none mt-0.5">{played}</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[8px] text-gray-500 uppercase font-bold leading-none" title="Weeks Sat Out (Bye)">S</span>
+                                            <span className="text-[10px] font-bold text-yellow-500 leading-none mt-0.5">{satOut}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {played > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-auto">
+                                        {Object.entries(opponentCounts).sort((a, b) => b[1] - a[1]).map(([opp, count]) => (
+                                            <span key={opp} className="text-[8px] bg-black/50 text-gray-400 px-1 py-0.5 rounded uppercase flex items-center gap-1">
+                                                <span className="truncate max-w-[60px]">{opp}:</span> <span className="text-white font-bold">{count}</span>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
             {/* ───────────────────────────────────────────────────────
                 CHRONOLOGICAL MATCH ACCORDION
                 Matches are sorted ascending by date/time, grouped by

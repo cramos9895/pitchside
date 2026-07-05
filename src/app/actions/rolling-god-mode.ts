@@ -288,69 +288,121 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
         throw new Error("Schedule generation failed: Exceeded maximum blackout evasion loop check.");
     }
     
-    // Track previous matchups
-    const playedCounts: Record<string, number> = {};
-    const playedAgainst: Record<string, Set<string>> = {};
+    // Track previous matchups using a scoring model instead of simple Set
+    interface TeamStats {
+        id: string;
+        playStreak: number;
+        sitStreak: number;
+        totalPlayed: number;
+        totalSat: number;
+        playedOpponents: Map<string, number>;
+        lastOpponent: string | null;
+        originalTeam: any;
+    }
+
+    const teamStatsMap = new Map<string, TeamStats>();
     teams.forEach(t => {
-        playedCounts[t.id] = 0;
-        playedAgainst[t.id] = new Set();
+        teamStatsMap.set(t.id, {
+            id: t.id,
+            playStreak: 0,
+            sitStreak: 0,
+            totalPlayed: 0,
+            totalSat: 0,
+            playedOpponents: new Map<string, number>(),
+            lastOpponent: null,
+            originalTeam: t
+        });
     });
 
-    if (matches) {
-        matches.forEach(m => {
-            if (m.home_team_id && playedCounts[m.home_team_id] !== undefined) playedCounts[m.home_team_id]++;
-            if (m.away_team_id && playedCounts[m.away_team_id] !== undefined) playedCounts[m.away_team_id]++;
+    if (matches && matches.length > 0) {
+        // Sort matches chronologically to accurately track "lastOpponent"
+        const sortedMatches = [...matches].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+        
+        sortedMatches.forEach(m => {
+            const hId = m.home_team_id;
+            const aId = m.away_team_id;
             
-            if (m.home_team_id && m.away_team_id) {
-                if (playedAgainst[m.home_team_id]) playedAgainst[m.home_team_id].add(m.away_team_id);
-                if (playedAgainst[m.away_team_id]) playedAgainst[m.away_team_id].add(m.home_team_id);
+            if (hId && teamStatsMap.has(hId)) {
+                const stat = teamStatsMap.get(hId)!;
+                stat.totalPlayed++;
+                if (aId) {
+                    const current = stat.playedOpponents.get(aId) || 0;
+                    stat.playedOpponents.set(aId, current + 1);
+                    stat.lastOpponent = aId;
+                }
+            }
+            if (aId && teamStatsMap.has(aId)) {
+                const stat = teamStatsMap.get(aId)!;
+                stat.totalPlayed++;
+                if (hId) {
+                    const current = stat.playedOpponents.get(hId) || 0;
+                    stat.playedOpponents.set(hId, current + 1);
+                    stat.lastOpponent = hId;
+                }
             }
         });
     }
 
-    // Sort ascending so fewest matches played are paired first
-    const sortedTeams = [...teams].sort((a, b) => playedCounts[a.id] - playedCounts[b.id]);
+    const teamStats = Array.from(teamStatsMap.values());
+    
+    // Determine who sits if odd number of teams
+    // Priority to sit: Fewest total sat (aka most games played)
+    const sortedForSitting = [...teamStats].sort((a, b) => {
+        if (a.totalSat !== b.totalSat) return a.totalSat - b.totalSat;
+        if (b.playStreak !== a.playStreak) return b.playStreak - a.playStreak;
+        return a.totalPlayed - b.totalPlayed; // fallback
+    });
 
-    let byeTeam = null;
-    let teamsToPair = [...sortedTeams];
+    // maxTeamsThatCanPlay must be an even number
+    const maxTeamsThatCanPlay = teams.length - (teams.length % 2 !== 0 ? 1 : 0);
+    const numSitting = teams.length - maxTeamsThatCanPlay;
+    
+    const playingTeamsPool = sortedForSitting.slice(numSitting); // drop the first `numSitting` teams
 
-    if (teamsToPair.length % 2 !== 0) {
-        byeTeam = teamsToPair.pop()!;
-    }
+    // Sort playing pool by priority to play (played least)
+    playingTeamsPool.sort((a, b) => {
+        if (a.sitStreak !== b.sitStreak) return b.sitStreak - a.sitStreak;
+        return a.totalPlayed - b.totalPlayed;
+    });
 
-    // [TeamA, TeamB] where team is the full object
     const pairings: [any, any][] = [];
-    const unavailable = new Set<string>();
+    const matched = new Set<string>();
 
-    for (let i = 0; i < teamsToPair.length; i++) {
-        const teamA = teamsToPair[i];
-        if (unavailable.has(teamA.id)) continue;
+    for (const t1 of playingTeamsPool) {
+        if (matched.has(t1.id)) continue;
+        
+        let bestOpponent: TeamStats | null = null;
+        let bestOpponentScore = -9999;
 
-        let bestOpponent = null;
-        for (let j = i + 1; j < teamsToPair.length; j++) {
-            const teamB = teamsToPair[j];
-            if (unavailable.has(teamB.id)) continue;
-
-            if (!playedAgainst[teamA.id].has(teamB.id)) {
-                bestOpponent = teamB;
-                break;
+        for (const t2 of playingTeamsPool) {
+            if (t1.id === t2.id || matched.has(t2.id)) continue;
+            
+            let score = 0;
+            const timesPlayed = t1.playedOpponents.get(t2.id) || 0;
+            score -= timesPlayed * 100; // Familiarity penalty
+            
+            score -= t2.totalPlayed * 5; // keep games balanced
+            
+            // Back-to-back penalty
+            if (t1.lastOpponent === t2.id || t2.lastOpponent === t1.id) {
+                score -= 1000;
+            }
+            
+            if (score > bestOpponentScore) {
+                bestOpponentScore = score;
+                bestOpponent = t2;
             }
         }
 
+        // Fallback if no score was generated somehow
         if (!bestOpponent) {
-            for (let j = i + 1; j < teamsToPair.length; j++) {
-                const teamB = teamsToPair[j];
-                if (!unavailable.has(teamB.id)) {
-                    bestOpponent = teamB;
-                    break;
-                }
-            }
+            bestOpponent = playingTeamsPool.find(t => t.id !== t1.id && !matched.has(t.id)) ?? null;
         }
 
         if (bestOpponent) {
-            pairings.push([teamA, bestOpponent]);
-            unavailable.add(teamA.id);
-            unavailable.add(bestOpponent.id);
+            pairings.push([t1.originalTeam, bestOpponent.originalTeam]);
+            matched.add(t1.id);
+            matched.add(bestOpponent.id);
         }
     }
 
@@ -412,6 +464,8 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
         if (error) throw new Error(error.message);
     }
 
+    const byeTeam = numSitting > 0 ? sortedForSitting[0].originalTeam : null;
+    
     revalidatePath(`/admin/games/${leagueId}`);
     return { success: true, count: matchesToInsert.length, byeTeam };
 }
