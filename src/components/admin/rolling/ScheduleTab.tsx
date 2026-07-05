@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar, History, Trash2, Edit2, CheckCircle2, RotateCw, Settings2, Trophy, ChevronDown, X } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
-import { scheduleNextRound, logPastMatch, updateMatchOverride, bulkScheduleSeason, generatePlayoffBracket, deleteMatchPermanently, updateSchedulingConstraints } from '@/app/actions/rolling-god-mode';
+import { scheduleNextRound, logPastMatch, updateMatchOverride, bulkScheduleSeason, generatePlayoffBracket, deleteMatchPermanently, updateSchedulingConstraints, deleteAllMatches, deleteBulkMatches } from '@/app/actions/rolling-god-mode';
 import { StandingsTable } from '@/components/admin/StandingsTable';
 import { PitchSideConfirmModal } from '@/components/public/PitchSideConfirmModal';
 
@@ -59,6 +59,8 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
 
     // Accordion State: tracks which weeks are collapsed (everything expanded by default)
     const [collapsedWeeks, setCollapsedWeeks] = useState<Set<string>>(new Set());
+    const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
+    const [deleteWeekConfirmOpen, setDeleteWeekConfirmOpen] = useState<{ isOpen: boolean, dateKey: string, matchIds: string[] }>({ isOpen: false, dateKey: '', matchIds: [] });
     // Sub-tab state per week: 'active' shows scheduled/completed, 'canceled' shows canceled
     const [weekTabs, setWeekTabs] = useState<Record<string, 'active' | 'canceled'>>({});
 
@@ -107,6 +109,39 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                 onRefresh();
             } else {
                 error(res.error || "Failed to schedule");
+            }
+        } catch (err: any) {
+            error(err.message);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleDeleteAll = async () => {
+        setDeleteAllConfirmOpen(false);
+        setProcessing(true);
+        try {
+            const res = await deleteAllMatches(gameId);
+            if (res.success) {
+                success("All matches have been deleted.");
+                onRefresh();
+            }
+        } catch (err: any) {
+            error(err.message);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleDeleteWeek = async () => {
+        const matchIds = deleteWeekConfirmOpen.matchIds;
+        setDeleteWeekConfirmOpen({ isOpen: false, dateKey: '', matchIds: [] });
+        setProcessing(true);
+        try {
+            const res = await deleteBulkMatches(matchIds, gameId);
+            if (res.success) {
+                success("Matches for the selected week have been deleted.");
+                onRefresh();
             }
         } catch (err: any) {
             error(err.message);
@@ -284,6 +319,15 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
             else next.add(key);
             return next;
         });
+    };
+
+    const handleExpandAll = () => {
+        setCollapsedWeeks(new Set());
+    };
+
+    const handleCollapseAll = () => {
+        const allKeys = Object.keys(groupedByDate);
+        setCollapsedWeeks(new Set(allKeys));
     };
 
     return (
@@ -526,6 +570,27 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                 Active/Canceled sub-tabs inside each accordion.
                ─────────────────────────────────────────────────────── */}
             <div className="space-y-3">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-black uppercase tracking-tighter text-white flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-gray-400" /> Match Schedule
+                    </h3>
+                    <div className="flex gap-2">
+                        {dateEntries.length > 0 && (
+                            <>
+                                <button onClick={handleExpandAll} className="px-3 py-1.5 bg-white/5 border border-white/10 text-white font-bold uppercase tracking-widest text-[10px] hover:bg-white/10 transition-colors rounded">
+                                    Expand All
+                                </button>
+                                <button onClick={handleCollapseAll} className="px-3 py-1.5 bg-white/5 border border-white/10 text-white font-bold uppercase tracking-widest text-[10px] hover:bg-white/10 transition-colors rounded">
+                                    Collapse All
+                                </button>
+                                <button onClick={() => setDeleteAllConfirmOpen(true)} className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-500 font-bold uppercase tracking-widest text-[10px] hover:bg-red-500/20 transition-colors flex items-center gap-1 rounded">
+                                    <Trash2 className="w-3 h-3" /> Delete All
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+
                 {dateEntries.length === 0 && (
                     <div className="text-center py-12 bg-[#171717] border border-white/10 rounded-lg">
                         <Calendar className="w-10 h-10 text-gray-700 mx-auto mb-3" />
@@ -560,7 +625,19 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                                         </p>
                                     </div>
                                 </div>
-                                <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDeleteWeekConfirmOpen({ isOpen: true, dateKey, matchIds: validMatches.map((m: any) => m.id) });
+                                        }}
+                                        className="text-red-500/50 hover:text-red-400 p-1.5 bg-black/40 hover:bg-black/60 rounded border border-transparent hover:border-red-500/20 transition-colors"
+                                        title="Delete Matches for this Date"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                    <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                </div>
                             </button>
 
                             {/* Accordion Content */}
@@ -830,6 +907,28 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                 title="Bulk Schedule Matches"
                 description={`Are you sure you want to bulk schedule remaining weeks up to ${seasonEndDate}? This will automatically generate and assign matches based on the current team configurations.`}
                 confirmText="Generate Schedule"
+                isProcessing={processing}
+            />
+
+            {/* Delete All Matches Confirmation Modal */}
+            <PitchSideConfirmModal 
+                isOpen={deleteAllConfirmOpen}
+                onClose={() => setDeleteAllConfirmOpen(false)}
+                onConfirm={handleDeleteAll}
+                title="Delete All Matches"
+                description="Are you absolutely sure you want to delete ALL matches for this league? This action cannot be undone."
+                confirmText="Delete All"
+                isProcessing={processing}
+            />
+
+            {/* Delete Week Matches Confirmation Modal */}
+            <PitchSideConfirmModal 
+                isOpen={deleteWeekConfirmOpen.isOpen}
+                onClose={() => setDeleteWeekConfirmOpen({ isOpen: false, dateKey: '', matchIds: [] })}
+                onConfirm={handleDeleteWeek}
+                title={`Delete Matches for ${deleteWeekConfirmOpen.dateKey}`}
+                description="Are you sure you want to delete all matches for this date? This action cannot be undone."
+                confirmText="Delete Matches"
                 isProcessing={processing}
             />
         </div>

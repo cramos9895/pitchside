@@ -199,6 +199,32 @@ export async function deleteMatchPermanently(matchId: string, gameId: string) {
     return { success: true };
 }
 
+export async function deleteBulkMatches(matchIds: string[], gameId: string) {
+    const adminSupabase = await createAdminClient();
+    const { error } = await adminSupabase
+        .from('matches')
+        .delete()
+        .in('id', matchIds);
+
+    if (error) throw new Error(`Failed to delete matches: ${error.message}`);
+
+    revalidatePath(`/admin/games/${gameId}`);
+    return { success: true };
+}
+
+export async function deleteAllMatches(gameId: string) {
+    const adminSupabase = await createAdminClient();
+    const { error } = await adminSupabase
+        .from('matches')
+        .delete()
+        .eq('game_id', gameId);
+
+    if (error) throw new Error(`Failed to delete all matches: ${error.message}`);
+
+    revalidatePath(`/admin/games/${gameId}`);
+    return { success: true };
+}
+
 /**
  * Calculates pairings and schedules the next rolling round.
  * Moved from league-actions to be specific to Rolling Manager.
