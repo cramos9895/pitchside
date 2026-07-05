@@ -345,9 +345,17 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
 
     const teamStats = Array.from(teamStatsMap.values());
     
+    // Shuffle teamStats to break deterministic ties
+    // This prevents the same teams from always getting byes or picking opponents first
+    const shuffledStats = [...teamStats];
+    for (let i = shuffledStats.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledStats[i], shuffledStats[j]] = [shuffledStats[j], shuffledStats[i]];
+    }
+    
     // Determine who sits if odd number of teams
     // Priority to sit: Fewest total sat (aka most games played)
-    const sortedForSitting = [...teamStats].sort((a, b) => {
+    const sortedForSitting = [...shuffledStats].sort((a, b) => {
         if (a.totalSat !== b.totalSat) return a.totalSat - b.totalSat;
         if (b.playStreak !== a.playStreak) return b.playStreak - a.playStreak;
         return a.totalPlayed - b.totalPlayed; // fallback
@@ -360,6 +368,7 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
     const playingTeamsPool = sortedForSitting.slice(numSitting); // drop the first `numSitting` teams
 
     // Sort playing pool by priority to play (played least)
+    // Because JS sort is stable, tied teams will remain in their randomized relative order!
     playingTeamsPool.sort((a, b) => {
         if (a.sitStreak !== b.sitStreak) return b.sitStreak - a.sitStreak;
         return a.totalPlayed - b.totalPlayed;
