@@ -18,15 +18,18 @@ import {
     CheckCircle2, 
     AlertTriangle,
     Save,
+    Settings,
     User,
     Camera,
     X,
-    CreditCard
+    CreditCard,
+    Scan
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import { PlayerVerificationModal } from '@/components/admin/PlayerVerificationModal';
+import { CheckInManager } from '@/components/public/checkin/CheckInManager';
 import { checkInPlayer, toggleManualWaiver, updatePlayerPhoto } from '@/app/actions/compliance';
 
 export default function MatchControlRoom({ params }: { params: Promise<{ match_id: string }> }) {
@@ -601,6 +604,20 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
 
                     {/* ROSTER SPLIT */}
                     <div className="space-y-6 pb-20">
+                        
+                        {/* Check-In Scanner Section */}
+                        <div className="bg-black border border-pitch-accent/30 p-6 rounded-lg shadow-[0_0_40px_rgba(204,255,0,0.05)] mb-8">
+                            <h3 className="text-xl font-black italic uppercase tracking-tighter text-pitch-accent flex items-center gap-2 mb-4">
+                                <Scan className="w-5 h-5" /> Match Scanner
+                            </h3>
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest italic mb-6">
+                                Scan Player Passports to check players into this match.
+                            </p>
+                            <div className="max-w-md mx-auto">
+                                <CheckInManager eventId={game.id} onCheckInComplete={fetchData} matchId={matchId} />
+                            </div>
+                        </div>
+
                         <div className="flex items-center gap-4 text-gray-500 uppercase font-black text-xs tracking-[0.2em]">
                             <Users className="w-4 h-4" /> Team Rosters & Player Compliance
                         </div>

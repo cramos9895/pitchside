@@ -8,11 +8,12 @@ interface IdentityModalProps {
     scannedUserId: string;
     eventId: string;
     eventType?: 'rolling' | 'tournament' | 'pickup';
+    matchId?: string;
     onClose: () => void;
     onCheckInComplete: () => void;
 }
 
-export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', onClose, onCheckInComplete }: IdentityModalProps) {
+export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', matchId, onClose, onCheckInComplete }: IdentityModalProps) {
     const [loading, setLoading] = useState(true);
     const [details, setDetails] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
@@ -104,7 +105,7 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', o
             }
 
             // Execute check-in
-            await executeCheckIn(scannedUserId, eventId, eventType);
+            await executeCheckIn(scannedUserId, eventId, eventType, matchId);
             if (onCheckInComplete) onCheckInComplete();
         } catch (err: any) {
             setError(err.message || 'Failed to check in player');
@@ -118,7 +119,7 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', o
         setProcessing(true);
         setError(null);
         try {
-            await undoCheckIn(scannedUserId, eventId);
+            await undoCheckIn(scannedUserId, eventId, matchId);
             if (onCheckInComplete) onCheckInComplete();
         } catch (err: any) {
             setError(err.message || 'Failed to undo check-in');

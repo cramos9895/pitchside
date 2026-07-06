@@ -146,7 +146,7 @@ export async function uploadEventIdentityPhoto(formData: FormData) {
     return publicUrlData.publicUrl;
 }
 
-export async function executeCheckIn(userId: string, eventId: string, eventType: 'rolling' | 'tournament' | 'pickup' = 'rolling') {
+export async function executeCheckIn(userId: string, eventId: string, eventType: 'rolling' | 'tournament' | 'pickup' = 'rolling', matchId?: string) {
     const supabase = await createClient();
     const host = await verifyHostOrAdmin(supabase, eventId);
 
@@ -193,12 +193,19 @@ export async function executeCheckIn(userId: string, eventId: string, eventType:
             .or(`game_id.eq.${eventId},league_id.eq.${eventId}`);
     }
 
+
+    if (matchId) {
+        await supabase.from('match_players')
+            .upsert({ match_id: matchId, user_id: userId, is_checked_in: true }, { onConflict: 'match_id, user_id' });
+        revalidatePath(`/admin/matches/${matchId}/manage`);
+    }
+
     revalidatePath('/rolling-leagues/[id]', 'page');
     revalidatePath('/admin/games/[id]', 'page');
     return { success: true };
 }
 
-export async function undoCheckIn(userId: string, eventId: string) {
+export async function undoCheckIn(userId: string, eventId: string, matchId?: string) {
     const supabase = await createClient();
     const host = await verifyHostOrAdmin(supabase, eventId);
 
@@ -243,6 +250,13 @@ export async function undoCheckIn(userId: string, eventId: string) {
             .update({ checked_in: false })
             .eq('user_id', userId)
             .or(`game_id.eq.${eventId},league_id.eq.${eventId}`);
+    }
+
+
+    if (matchId) {
+        await supabase.from('match_players')
+            .upsert({ match_id: matchId, user_id: userId, is_checked_in: false }, { onConflict: 'match_id, user_id' });
+        revalidatePath(`/admin/matches/${matchId}/manage`);
     }
 
     revalidatePath('/rolling-leagues/[id]', 'page');
