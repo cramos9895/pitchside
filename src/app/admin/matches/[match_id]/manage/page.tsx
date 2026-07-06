@@ -35,6 +35,7 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
     const [match, setMatch] = useState<any>(null);
     const [game, setGame] = useState<any>(null);
     const [bookings, setBookings] = useState<any[]>([]);
+    const [officials, setOfficials] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [displayTime, setDisplayTime] = useState(0);
     const [isUpdating, setIsUpdating] = useState(false);
@@ -85,19 +86,31 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
                 // Fetch match check-ins for match-specific attendance
                 const { data: matchPlayerData } = await supabase
                     .from('match_players')
-                    .select('user_id, is_checked_in')
+                    .select('user_id, is_checked_in, jersey_number')
                     .eq('match_id', matchId);
                 
-                const matchCheckinMap = new Map(matchPlayerData?.map((mp: any) => [mp.user_id, mp.is_checked_in]) || []);
+                const matchCheckinMap = new Map(matchPlayerData?.map((mp: any) => [mp.user_id, mp]) || []);
 
-                const enrichedBookings = (bookingData || []).map((b: any) => ({
-                    ...b,
-                    has_signed: signedIds.has(b.user_id),
-                    // Decoupled state: bookings.checked_in is global, but match_players is local
-                    is_match_checked_in: matchCheckinMap.get(b.user_id) || false
-                }));
+                const enrichedBookings = (bookingData || []).map((b: any) => {
+                    const mpInfo = matchCheckinMap.get(b.user_id);
+                    return {
+                        ...b,
+                        has_signed: signedIds.has(b.user_id),
+                        // Decoupled state: bookings.checked_in is global, but match_players is local
+                        is_match_checked_in: mpInfo?.is_checked_in || false,
+                        match_jersey_number: mpInfo?.jersey_number || b.jersey_number || ''
+                    };
+                });
                 
                 setBookings(enrichedBookings);
+
+                // Fetch match officials
+                const { data: officialsData } = await supabase
+                    .from('match_officials')
+                    .select('*, profiles!match_officials_user_id_fkey(first_name, last_name, phone_number, email)')
+                    .eq('match_id', matchId);
+                
+                setOfficials(officialsData || []);
             }
         } catch (err: any) {
             console.error("Match Fetch Error:", err);
@@ -184,6 +197,24 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
         }
     };
 
+    const handleUpdateOfficialStatus = async (officialId: string, newStatus: string) => {
+        setIsUpdating(true);
+        try {
+            const { error } = await supabase
+                .from('match_officials')
+                .update({ status: newStatus })
+                .eq('id', officialId);
+            
+            if (error) throw error;
+            success(`Official status updated to ${newStatus}`);
+            fetchData();
+        } catch (err: any) {
+            toastError("Update failed: " + err.message);
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
     const handleTimerAction = async (action: 'start' | 'pause' | 'reset') => {
         let updates: any = {};
         
@@ -239,14 +270,14 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
         success("Match finalized!");
     };
 
-    const handlePlayerCheckIn = async (player: any) => {
+    const handlePlayerCheckIn = async (player: any, jerseyNumber?: string) => {
         if (!game) return;
         setIsUpdating(true);
         const nextStatus = !player.is_match_checked_in;
         
         // Optimistic Update
         setBookings(prev => prev.map(b => 
-            b.user_id === player.user_id ? { ...b, is_match_checked_in: nextStatus } : b
+            b.user_id === player.user_id ? { ...b, is_match_checked_in: nextStatus, match_jersey_number: jerseyNumber !== undefined ? jerseyNumber : b.match_jersey_number } : b
         ));
         
         if (selectedPlayer?.user_id === player.user_id) {
@@ -254,7 +285,7 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
         }
 
         try {
-            await checkInPlayer(player.id, game.id, matchId, nextStatus, 'match');
+            await checkInPlayer(player.id, game.id, matchId, nextStatus, 'match', jerseyNumber);
             success(nextStatus ? "Checked in for match." : "Match check-in removed.");
             fetchData();
         } catch (err: any) {
@@ -513,6 +544,61 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
                         </div>
                     </div>
 
+                    {/* OFFICIALS PANEL */}
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between text-gray-500 uppercase font-black text-xs tracking-[0.2em]">
+                            <div className="flex items-center gap-4">
+                                <User className="w-4 h-4" /> Match Officials
+                            </div>
+                            <button className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded transition-colors text-[9px]">
+                                <Plus className="w-3 h-3" /> Manually Assign
+                            </button>
+                        </div>
+                        <div className="bg-gray-900/50 border border-white/5 rounded-xl overflow-hidden divide-y divide-white/5">
+                            {officials.length === 0 ? (
+                                <div className="px-6 py-10 text-center text-gray-600 text-[10px] font-black uppercase tracking-widest">
+                                    No referees assigned or applied
+                                </div>
+                            ) : officials.map((off: any) => (
+                                <div key={off.id} className="px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-black border border-white/10 flex items-center justify-center text-xs font-black">
+                                            {off.profiles?.first_name?.[0]}{off.profiles?.last_name?.[0]}
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-bold">{off.profiles?.first_name} {off.profiles?.last_name}</div>
+                                            <div className="text-[10px] text-gray-400 uppercase tracking-widest mt-1 flex gap-3">
+                                                <span>{off.role}</span>
+                                                <span className={cn(
+                                                    "px-1.5 rounded",
+                                                    off.status === 'Confirmed' ? "bg-green-500/10 text-green-500" :
+                                                    off.status === 'Waitlist' ? "bg-yellow-500/10 text-yellow-500" :
+                                                    "bg-white/5"
+                                                )}>{off.status}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {off.status !== 'Confirmed' && (
+                                            <button 
+                                                onClick={() => handleUpdateOfficialStatus(off.id, 'Confirmed')}
+                                                className="px-3 py-1.5 bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white rounded text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
+                                                <CheckCircle2 className="w-3 h-3" /> Confirm
+                                            </button>
+                                        )}
+                                        {off.status !== 'Rejected' && (
+                                            <button 
+                                                onClick={() => handleUpdateOfficialStatus(off.id, 'Rejected')}
+                                                className="px-3 py-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
+                                                <X className="w-3 h-3" /> Reject
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* ROSTER SPLIT */}
                     <div className="space-y-6 pb-20">
                         <div className="flex items-center gap-4 text-gray-500 uppercase font-black text-xs tracking-[0.2em]">
@@ -556,6 +642,11 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
                                                             <div className="flex items-center gap-1.5 ml-2 border-l border-white/10 pl-2">
                                                                 <div className="w-1 h-1 rounded-full bg-pitch-accent" />
                                                                 <div className="text-[8px] text-pitch-accent uppercase font-black tracking-widest">Verified</div>
+                                                            </div>
+                                                        )}
+                                                        {player.match_jersey_number && (
+                                                            <div className="flex items-center gap-1.5 ml-2 border-l border-white/10 pl-2">
+                                                                <div className="text-[9px] text-gray-400 uppercase font-black tracking-widest">#{player.match_jersey_number}</div>
                                                             </div>
                                                         )}
                                                     </div>
@@ -610,6 +701,11 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
                                                             <div className="flex items-center gap-1.5 ml-2 border-l border-white/10 pl-2">
                                                                 <div className="w-1 h-1 rounded-full bg-pitch-accent" />
                                                                 <div className="text-[8px] text-pitch-accent uppercase font-black tracking-widest">Verified</div>
+                                                            </div>
+                                                        )}
+                                                        {player.match_jersey_number && (
+                                                            <div className="flex items-center gap-1.5 ml-2 border-l border-white/10 pl-2">
+                                                                <div className="text-[9px] text-gray-400 uppercase font-black tracking-widest">#{player.match_jersey_number}</div>
                                                             </div>
                                                         )}
                                                     </div>

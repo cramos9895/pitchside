@@ -12,7 +12,8 @@ export async function checkInPlayer(
     gameId: string, 
     matchId: string | null, 
     status: boolean,
-    mode: 'global' | 'match' = 'global'
+    mode: 'global' | 'match' = 'global',
+    jerseyNumber?: string
 ) {
     const supabase = await createClient();
     
@@ -44,7 +45,8 @@ export async function checkInPlayer(
             .upsert({ 
                 match_id: matchId, 
                 user_id: booking.user_id, 
-                is_checked_in: status 
+                is_checked_in: status,
+                ...(jerseyNumber !== undefined && { jersey_number: jerseyNumber })
             }, { onConflict: 'match_id, user_id' });
             
         if (error) throw new Error(error.message);

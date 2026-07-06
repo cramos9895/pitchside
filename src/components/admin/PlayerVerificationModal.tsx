@@ -17,7 +17,7 @@ interface PlayerVerificationModalProps {
     onClose: () => void;
     player: any;
     mode: 'global' | 'match';
-    onCheckIn: (player: any) => Promise<void>;
+    onCheckIn: (player: any, jerseyNumber?: string) => Promise<void>;
     onPhotoUpload: (file: File) => Promise<void>;
     onWaiverOverride: (player: any, status: boolean) => Promise<void>;
     isUpdating: boolean;
@@ -43,6 +43,13 @@ export function PlayerVerificationModal({
     const [cameraActive, setCameraActive] = useState(false);
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [showOptions, setShowOptions] = useState(false);
+    const [jerseyNumber, setJerseyNumber] = useState('');
+
+    useEffect(() => {
+        if (isOpen && player) {
+            setJerseyNumber(player.match_jersey_number || player.jersey_number || '');
+        }
+    }, [isOpen, player]);
 
     const getPlayerName = (p: any) => {
         if (!p) return 'Unknown';
@@ -268,6 +275,21 @@ export function PlayerVerificationModal({
                         </div>
                     </div>
 
+                    {/* Match Specific Fields */}
+                    {mode === 'match' && (
+                        <div className="w-full mb-8">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2">Match Jersey Number</label>
+                            <input
+                                type="text"
+                                placeholder="Enter Jersey #"
+                                value={jerseyNumber}
+                                onChange={(e) => setJerseyNumber(e.target.value)}
+                                className="w-full bg-black/50 border border-white/20 rounded p-3 text-white font-bold placeholder:text-gray-600 focus:outline-none focus:border-pitch-accent transition-colors"
+                            />
+                            <p className="text-[9px] text-gray-500 uppercase mt-2">Used for stat tracking by referees.</p>
+                        </div>
+                    )}
+
                     {/* Manual Override (Only Global Mode) */}
                     {mode === 'global' && !hasDigitalWaiver && strictWaiverRequired && (
                         <div className="w-full mb-8 p-4 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between hover:bg-white/10 transition-colors cursor-pointer group"
@@ -289,7 +311,7 @@ export function PlayerVerificationModal({
 
                     {/* Massive Action Button */}
                     <button
-                        onClick={() => onCheckIn(player)}
+                        onClick={() => onCheckIn(player, mode === 'match' ? jerseyNumber : undefined)}
                         disabled={isUpdating}
                         className={cn(
                             "w-full py-8 rounded-2xl text-2xl font-black uppercase tracking-widest transition-all relative overflow-hidden active:scale-95",

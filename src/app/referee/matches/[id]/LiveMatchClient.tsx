@@ -15,15 +15,29 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
     
     const fetchJerseysForTeam = async (teamId: string | null) => {
         if (!teamId) return [];
-        // Try team_players first
-        const { data: tpData } = await supabase.from('team_players').select('jersey_number').eq('team_id', teamId).not('jersey_number', 'is', null);
-        let jerseys = (tpData || []).map(p => p.jersey_number).filter(Boolean);
-        if (jerseys.length === 0) {
-            // Try tournament_registrations
-            const { data: trData } = await supabase.from('tournament_registrations').select('jersey_number').eq('team_id', teamId).not('jersey_number', 'is', null);
-            jerseys = (trData || []).map(p => p.jersey_number).filter(Boolean);
+        
+        // Fetch from match_players FIRST, since that is the most accurate per-match jersey
+        // Wait, match_players doesn't store team_id directly. We can fetch it by joining with bookings/team_players, 
+        // OR we can just fetch all jerseys from match_players for the given match.id, 
+        // BUT we need to filter by team. 
+        // The easiest way is to fetch the bookings or team_players for the team, and THEN fetch match_players for overrides.
+        // Actually, if we just want all available jerseys, we can get the baseline and override.
+
+        // Get baseline jerseys (from team_players or tournament_registrations)
+        const { data: tpData } = await supabase.from('team_players').select('user_id, jersey_number').eq('team_id', teamId);
+        let baseline = tpData || [];
+        if (baseline.length === 0) {
+            const { data: trData } = await supabase.from('tournament_registrations').select('user_id, jersey_number').eq('team_id', teamId);
+            baseline = trData || [];
         }
-        return Array.from(new Set(jerseys)) as string[];
+
+        // Get match_players overrides for THIS match
+        const { data: mpData } = await supabase.from('match_players').select('user_id, jersey_number').eq('match_id', initialMatch.id).not('jersey_number', 'is', null);
+        const matchPlayerJerseys = new Map(mpData?.map(mp => [mp.user_id, mp.jersey_number]) || []);
+
+        // Combine them
+        const finalJerseys = baseline.map(p => matchPlayerJerseys.get(p.user_id) || p.jersey_number).filter(Boolean);
+        return Array.from(new Set(finalJerseys)) as string[];
     };
 
     const triggerEventModal = async (teamSide: 'home' | 'away', teamId: string | null, eventType: string) => {

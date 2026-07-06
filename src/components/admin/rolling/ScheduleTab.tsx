@@ -1,6 +1,6 @@
 // 🏗️ Architecture: [[ScheduleTab.md]]
 import { useState, useEffect } from 'react';
-import { Calendar, History, Trash2, Edit2, CheckCircle2, RotateCw, Settings2, Trophy, ChevronDown, X } from 'lucide-react';
+import { Calendar, History, Trash2, Edit2, CheckCircle2, RotateCw, Settings2, Trophy, ChevronDown, ChevronUp, X, Monitor } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { scheduleNextRound, logPastMatch, updateMatchOverride, bulkScheduleSeason, generatePlayoffBracket, deleteMatchPermanently, updateSchedulingConstraints, deleteAllMatches, deleteBulkMatches } from '@/app/actions/rolling-god-mode';
 import { StandingsTable } from '@/components/admin/StandingsTable';
@@ -23,6 +23,7 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
     
     // History Form State
     const [showHistoryForm, setShowHistoryForm] = useState(false);
+    const [scheduleSummaryExpanded, setScheduleSummaryExpanded] = useState(false);
 
     // Constraints State
     const [showConstraints, setShowConstraints] = useState(false);
@@ -565,10 +566,17 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
 
             {/* Schedule Summary (Visual Balance Check) */}
             <div className="bg-[#0a0a0a] border border-white/5 p-4 rounded-lg mb-8">
-                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                    <History className="w-3 h-3" /> Schedule Summary
-                </h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                <button 
+                    onClick={() => setScheduleSummaryExpanded(!scheduleSummaryExpanded)}
+                    className="w-full flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest group"
+                >
+                    <div className="flex items-center gap-2">
+                        <History className="w-3 h-3" /> Schedule Summary
+                    </div>
+                    {scheduleSummaryExpanded ? <ChevronUp className="w-4 h-4 group-hover:text-white transition-colors" /> : <ChevronDown className="w-4 h-4 group-hover:text-white transition-colors" />}
+                </button>
+                {scheduleSummaryExpanded && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-4">
                     {teams.map((team: any) => {
                         let played = 0;
                         let satOut = 0;
@@ -627,6 +635,7 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                         );
                     })}
                 </div>
+                )}
             </div>
 
             {/* ───────────────────────────────────────────────────────
@@ -799,6 +808,15 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                                                     >
                                                         <Edit2 className="w-3.5 h-3.5" />
                                                     </button>
+                                                    <a
+                                                        href={`/admin/matches/${m.id}/manage`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="p-1.5 bg-pitch-accent/10 text-pitch-accent hover:bg-pitch-accent hover:text-black rounded transition-colors"
+                                                        title="Match Command Center"
+                                                    >
+                                                        <Monitor className="w-3.5 h-3.5" />
+                                                    </a>
                                                     {m.status !== 'canceled' && (
                                                         <button
                                                             onClick={() => handleOverrideMatch(m.id, { status: 'canceled' })}
