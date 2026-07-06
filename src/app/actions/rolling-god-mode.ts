@@ -403,44 +403,62 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
         return a.totalPlayed - b.totalPlayed;
     });
 
-    const pairings: [any, any][] = [];
-    const matched = new Set<string>();
+    let bestPairings: [any, any][] = [];
+    let bestTotalScore = -9999999;
 
-    for (const t1 of playingTeamsPool) {
-        if (matched.has(t1.id)) continue;
+    const iterations = 100; 
+
+    for (let iter = 0; iter < iterations; iter++) {
+        let currentPool = [...playingTeamsPool];
+        if (iter > 0) {
+            currentPool.sort(() => Math.random() - 0.5);
+        }
+
+        const pairings: [any, any][] = [];
+        const matched = new Set<string>();
+        let currentTotalScore = 0;
+
+        for (const t1 of currentPool) {
+            if (matched.has(t1.id)) continue;
+            
+            let bestOpponent: TeamStats | null = null;
+            let bestOpponentScore = -999999;
+
+            for (const t2 of currentPool) {
+                if (t1.id === t2.id || matched.has(t2.id)) continue;
+                
+                let score = 0;
+                const timesPlayed = t1.playedOpponents.get(t2.id) || 0;
+                score -= timesPlayed * 100; 
+                
+                // Back-to-back penalty
+                if (t1.lastOpponent === t2.id || t2.lastOpponent === t1.id) {
+                    score -= 1000;
+                }
+                
+                if (score > bestOpponentScore) {
+                    bestOpponentScore = score;
+                    bestOpponent = t2;
+                }
+            }
+
+            if (!bestOpponent) {
+                bestOpponent = currentPool.find(t => t.id !== t1.id && !matched.has(t.id)) ?? null;
+                bestOpponentScore = -999999; // Heavy penalty for random fallback
+            }
+
+            if (bestOpponent) {
+                pairings.push([t1.originalTeam, bestOpponent.originalTeam]);
+                matched.add(t1.id);
+                matched.add(bestOpponent.id);
+                currentTotalScore += bestOpponentScore;
+            }
+        }
         
-        let bestOpponent: TeamStats | null = null;
-        let bestOpponentScore = -999999;
-
-        for (const t2 of playingTeamsPool) {
-            if (t1.id === t2.id || matched.has(t2.id)) continue;
-            
-            let score = 0;
-            const timesPlayed = t1.playedOpponents.get(t2.id) || 0;
-            score -= timesPlayed * 100; // Familiarity penalty
-            
-            score -= t2.totalPlayed * 5; // keep games balanced
-            
-            // Back-to-back penalty
-            if (t1.lastOpponent === t2.id || t2.lastOpponent === t1.id) {
-                score -= 1000;
-            }
-            
-            if (score > bestOpponentScore) {
-                bestOpponentScore = score;
-                bestOpponent = t2;
-            }
-        }
-
-        // Fallback if no score was generated somehow
-        if (!bestOpponent) {
-            bestOpponent = playingTeamsPool.find(t => t.id !== t1.id && !matched.has(t.id)) ?? null;
-        }
-
-        if (bestOpponent) {
-            pairings.push([t1.originalTeam, bestOpponent.originalTeam]);
-            matched.add(t1.id);
-            matched.add(bestOpponent.id);
+        if (currentTotalScore > bestTotalScore) {
+            bestTotalScore = currentTotalScore;
+            bestPairings = pairings;
+            if (bestTotalScore === 0) break; // 0 is a mathematically perfect round (no repeats, no back-to-backs). We can exit early!
         }
     }
 
@@ -471,7 +489,7 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
     let currentMatrixTime = new Date(targetDate);
     let currentFieldIndex = 0;
 
-    for (let i = 0; i < pairings.length; i++) {
+    for (let i = 0; i < bestPairings.length; i++) {
         // If we exhausted all concurrent fields for this time slot, increment the time block and reset field index
         if (currentFieldIndex >= maxFields) {
             currentMatrixTime = new Date(currentMatrixTime.getTime() + slotDurationMs);
@@ -485,10 +503,10 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
         
         matchesToInsert.push({
             game_id: leagueId,
-            home_team: pairings[i][0].name,
-            home_team_id: pairings[i][0].id,
-            away_team: pairings[i][1].name,
-            away_team_id: pairings[i][1].id,
+            home_team: bestPairings[i][0].name,
+            home_team_id: bestPairings[i][0].id,
+            away_team: bestPairings[i][1].name,
+            away_team_id: bestPairings[i][1].id,
             start_time: removeLocalOffset(currentMatrixTime).toISOString(),
             status: 'scheduled',
             field_name: fieldNames[currentFieldIndex] || `Field ${currentFieldIndex + 1}`
