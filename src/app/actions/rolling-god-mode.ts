@@ -385,11 +385,9 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
     }
     
     // Determine who sits if odd number of teams
-    // Priority to sit: Fewest total sat (aka most games played)
+    // Priority to sit: Most games played
     const sortedForSitting = [...shuffledStats].sort((a, b) => {
-        if (a.totalSat !== b.totalSat) return a.totalSat - b.totalSat;
-        if (b.playStreak !== a.playStreak) return b.playStreak - a.playStreak;
-        return a.totalPlayed - b.totalPlayed; // fallback
+        return b.totalPlayed - a.totalPlayed; 
     });
 
     // maxTeamsThatCanPlay must be an even number
@@ -412,7 +410,7 @@ export async function scheduleNextRound(leagueId: string, teams: any[], facility
         if (matched.has(t1.id)) continue;
         
         let bestOpponent: TeamStats | null = null;
-        let bestOpponentScore = -9999;
+        let bestOpponentScore = -999999;
 
         for (const t2 of playingTeamsPool) {
             if (t1.id === t2.id || matched.has(t2.id)) continue;
