@@ -673,6 +673,13 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                     const currentTab = weekTabs[dateKey] || 'active';
                     const displayMatches = currentTab === 'active' ? activeMatches : canceledMatches;
 
+                    const teamsInMatches = new Set();
+                    validMatches.forEach((m: any) => {
+                        teamsInMatches.add(m.home_team_id);
+                        teamsInMatches.add(m.away_team_id);
+                    });
+                    const byeTeams = teams.filter((t: any) => !teamsInMatches.has(t.id));
+
                     return (
                         <div key={dateKey} className="bg-[#171717] border border-white/10 rounded-lg overflow-hidden">
                             {/* Accordion Header */}
@@ -686,9 +693,16 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                                     </div>
                                     <div className="text-left">
                                         <p className="text-sm font-black uppercase tracking-wider text-white">{dateKey}</p>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                                            {dateMatches.length} match{dateMatches.length !== 1 ? 'es' : ''}
-                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                                                {dateMatches.length} match{dateMatches.length !== 1 ? 'es' : ''}
+                                            </p>
+                                            {byeTeams.length > 0 && (
+                                                <span className="text-[10px] font-bold uppercase tracking-widest text-pitch-accent bg-pitch-accent/10 px-1.5 rounded">
+                                                    BYE: {byeTeams.map((t: any) => t.name).join(', ')}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4">
