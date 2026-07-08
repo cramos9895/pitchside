@@ -174,10 +174,6 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
     const [minPlayersPerTeam, setMinPlayersPerTeam] = useState<number | ''>(initialData?.min_players_per_team ?? 5);
     // @ts-expect-error - Requires complex schema extension
     const [maxPlayersPerTeam, setMaxPlayersPerTeam] = useState<number | ''>(initialData?.max_players_per_team ?? 12);
-    // @ts-expect-error - Requires complex schema extension
-    const [hasPlayoffBye, setHasPlayoffBye] = useState<boolean>(initialData?.has_playoff_bye ?? false);
-    // @ts-expect-error - Requires complex schema extension
-    const [teamsIntoPlayoffs, setTeamsIntoPlayoffs] = useState<number>(initialData?.teams_into_playoffs ?? 4);
 
     // Playoff bye logic
     const playoffOptions = hasPlayoffBye ? [5, 9] : [4, 8];
@@ -372,8 +368,6 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
         setMinPlayersPerTeam(data.min_players_per_team ?? 5);
         setMaxPlayersPerTeam(data.max_players_per_team ?? 12);
         setHasSeasonEndDate(!!data.league_end_date);
-        if (data.league_end_date) setSeasonEndDate(new Date(data.league_end_date).toISOString().slice(0, 10));
-        if (data.playoff_start_date) setPlayoffStartDate(new Date(data.playoff_start_date).toISOString().slice(0, 10));
         setHasPlayoffBye(data.has_playoff_bye ?? false);
         setTeamsIntoPlayoffs(data.teams_into_playoffs ?? 4);
 
