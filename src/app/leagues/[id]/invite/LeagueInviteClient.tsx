@@ -54,13 +54,14 @@ export function LeagueInviteClient({
     const maxSplit = (totalFee / (minPlayers || 5)).toFixed(2);
 
     useEffect(() => {
-        if (!isFullPay && totalFee > 0) {
+        const isCashLeague = paymentCollectionType === 'cash';
+        if (!isFullPay && totalFee > 0 && !isCashLeague) {
             createSetupIntent().then(res => {
                 setClientSecret(res.clientSecret);
                 setSetupIntentId(res.id);
             });
         }
-    }, [isFullPay, totalFee]);
+    }, [isFullPay, totalFee, paymentCollectionType]);
 
     const handleFreeJoin = async () => {
         if (!waiverAccepted) return;
