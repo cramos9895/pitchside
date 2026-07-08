@@ -187,7 +187,11 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
     const [reward, setReward] = useState<string>(initialData?.reward || '');
 
     useEffect(() => {
-        if (paymentCollectionType === 'cash') setIsRefundable(false);
+        if (paymentCollectionType === 'cash') {
+            setIsRefundable(false);
+            setTeamPrice('');
+            setFreeAgentPrice('');
+        }
         else { setCashAmount(''); setCashFeeStructure('per_game'); }
     }, [paymentCollectionType]);
 
