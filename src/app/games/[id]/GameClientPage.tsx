@@ -213,7 +213,7 @@ export function GameClientPage({
         fetchUserDataAndRoster();
     }, [gameId, currentUser, game, supabase]);
 
-    const proceedToJoin = async (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; guestIds?: string[] }) => {
+    const proceedToJoin = async (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; isWaitlistVaulting?: boolean; guestIds?: string[] }) => {
         if (!game || !currentUser) {
             if (!currentUser) router.push('/login');
             return;
@@ -245,7 +245,7 @@ export function GameClientPage({
             }
 
             // Hosted Checkout Flow (Stripe, Vaulting, Free Agent)
-            if (data.paymentMethod === 'stripe' || data.isFreeAgent || data.isLeagueCaptainVaulting) {
+            if (data.paymentMethod === 'stripe' || data.isFreeAgent || data.isLeagueCaptainVaulting || data.isWaitlistVaulting) {
                 const checkoutRes = await fetch('/api/checkout', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -259,6 +259,7 @@ export function GameClientPage({
                         teamAssignment: data.teamAssignment,
                         isFreeAgent: data.isFreeAgent,
                         isLeagueCaptainVaulting: data.isLeagueCaptainVaulting,
+                        isWaitlistVaulting: data.isWaitlistVaulting,
                         guestIds: data.guestIds || []
                     })
                 });

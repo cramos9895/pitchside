@@ -13,7 +13,7 @@ import { ProfileWithUI, GameWithPayments, Booking, Team, TeamConfig } from "@/ty
 interface JoinGameModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; guestIds?: string[]; requestedTeamId?: string | null; requestedTeammateIds?: string[]; requestedTeamName?: string | null }) => Promise<void>;
+    onConfirm: (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; isWaitlistVaulting?: boolean; guestIds?: string[]; requestedTeamId?: string | null; requestedTeammateIds?: string[]; requestedTeamName?: string | null }) => Promise<void>;
     gamePrice: number;
     loading: boolean;
     isWaitlist: boolean;
@@ -341,8 +341,12 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                     if (subtotalAfterPromo === 0) determinedMethod = 'promo';
                     else if (creditApplied > 0 && creditApplied >= subtotalAfterPromo) determinedMethod = 'wallet';
                 }
-                
-                onConfirm({ note, paymentMethod: determinedMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
+                if (isWaitlist && gamePrice > 0 && gameData?.payment_collection_type !== 'cash') {
+                    // For paid waitlist games, trigger Stripe vaulting
+                    onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isWaitlistVaulting: true, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
+                } else {
+                    onConfirm({ note, paymentMethod: determinedMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
+                }
             }
         }
     };
@@ -392,12 +396,17 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                 onConfirm({ note, paymentMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
             } else if (finalPrice === 0 || isWaitlist) {
                 let determinedMethod = null;
-                if (!isWaitlist && finalPrice === 0) {
+                if (!isWaitlist && finalPrice === 0 && gamePrice > 0) {
                     if (subtotalAfterPromo === 0) determinedMethod = 'promo';
                     else if (creditApplied > 0 && creditApplied >= subtotalAfterPromo) determinedMethod = 'wallet';
                     else if (baseSubtotal === 0) determinedMethod = 'promo';
                 }
-                onConfirm({ note, paymentMethod: determinedMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
+
+                if (isWaitlist && gamePrice > 0 && gameData?.payment_collection_type !== 'cash') {
+                    onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isWaitlistVaulting: true, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
+                } else {
+                    onConfirm({ note, paymentMethod: determinedMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
+                }
             } else {
                 // Default fallback - go to payment step if not there
                 setStep('payment');

@@ -94,6 +94,7 @@ export default async function SuccessPage({ searchParams }: Props) {
         const note = session.metadata?.note;
         const isFreeAgent = session.metadata?.is_free_agent === 'true';
         const isLeagueCaptain = session.metadata?.is_league_captain === 'true';
+        const isWaitlistVaulting = session.metadata?.is_waitlist_vaulting === 'true';
         const teamAssignment = session.metadata?.team_assignment || null;
         const prizeSplitPreference = session.metadata?.prize_split_preference;
         const teamId = session.metadata?.team_id;
@@ -164,11 +165,11 @@ export default async function SuccessPage({ searchParams }: Props) {
                 user_id: userId,
                 buyer_id: null,
                 linked_booking_id: linkedBookingId,
-                status: 'paid', // FIXED: 'free_agent_pending' violates check constraints for the bookings table
-                payment_status: 'verified',
-                payment_method: 'stripe',
+                status: isWaitlistVaulting ? 'waitlist' : 'paid',
+                payment_status: isWaitlistVaulting ? 'unpaid' : 'verified',
+                payment_method: isWaitlistVaulting ? 'vaulted' : 'stripe',
                 payment_amount: baseAmount,
-                roster_status: 'confirmed',
+                roster_status: isWaitlistVaulting ? 'waitlisted' : 'confirmed',
                 note: note,
                 stripe_payment_method_id: paymentMethodId,
                 ...(teamAssignment && { team_assignment: teamAssignment }),
@@ -182,11 +183,11 @@ export default async function SuccessPage({ searchParams }: Props) {
                 user_id: gid,
                 buyer_id: userId,
                 linked_booking_id: linkedBookingId,
-                status: 'paid',
-                payment_status: 'verified',
-                payment_method: 'stripe',
+                status: isWaitlistVaulting ? 'waitlist' : 'paid',
+                payment_status: isWaitlistVaulting ? 'unpaid' : 'verified',
+                payment_method: isWaitlistVaulting ? 'vaulted' : 'stripe',
                 payment_amount: baseAmount,
-                roster_status: 'confirmed',
+                roster_status: isWaitlistVaulting ? 'waitlisted' : 'confirmed',
                 stripe_payment_method_id: paymentMethodId,
                 ...(teamAssignment && { team_assignment: teamAssignment })
             });

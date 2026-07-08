@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendNotification } from '@/lib/email';
+import { stripe } from '@/lib/stripe';
 
 
 
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
             if (booking.status === 'paid' || booking.status === 'active') {
                 const { data: waitlistBookings } = await supabaseAdmin
                     .from('bookings')
-                    .select('id, user_id')
+                    .select('id, user_id, stripe_payment_method_id')
                     .eq('game_id', gameId)
                     .or('roster_status.eq.waitlisted,status.eq.waitlist')
                     .order('created_at', { ascending: true })
@@ -173,21 +174,61 @@ export async function POST(request: NextRequest) {
                 const nextWaitlist = waitlistBookings?.[0];
 
                 if (nextWaitlist) {
+                    const { data: waitlistProfile } = await supabaseAdmin
+                        .from('profiles')
+                        .select('email, first_name, last_name, stripe_customer_id')
+                        .eq('id', nextWaitlist.user_id)
+                        .single();
+
+                    let finalPaymentStatus = 'unpaid';
+                    let finalPaymentMethod = 'cash';
+                    let wasCharged = false;
+
+                    // Attempt Stripe Charge if vaulted
+                    if (nextWaitlist.stripe_payment_method_id) {
+                        try {
+                            const amountCents = Math.round((game.price || 0) * 100);
+                            if (amountCents > 0) {
+                                await stripe.paymentIntents.create({
+                                    amount: amountCents,
+                                    currency: 'usd',
+                                    customer: waitlistProfile?.stripe_customer_id || undefined,
+                                    payment_method: nextWaitlist.stripe_payment_method_id,
+                                    off_session: true,
+                                    confirm: true,
+                                    metadata: {
+                                        game_id: gameId,
+                                        user_id: nextWaitlist.user_id,
+                                        type: 'auto_waitlist_promotion_charge'
+                                    }
+                                });
+                                finalPaymentStatus = 'verified';
+                                finalPaymentMethod = 'stripe';
+                                wasCharged = true;
+                            } else {
+                                finalPaymentStatus = 'verified';
+                                finalPaymentMethod = 'free';
+                            }
+                        } catch (err: any) {
+                            console.error('Auto Waitlist Charge failed:', err);
+                            finalPaymentStatus = 'failed';
+                            finalPaymentMethod = 'stripe';
+                        }
+                    } else if ((game.price || 0) === 0) {
+                        finalPaymentStatus = 'verified';
+                        finalPaymentMethod = 'free';
+                    }
+
                     // Auto-Promote the player
                     await supabaseAdmin
                         .from('bookings')
                         .update({
                             roster_status: 'confirmed',
                             status: 'paid', // keep legacy sync
-                            payment_status: 'pending' // need to verify payment still
+                            payment_status: finalPaymentStatus,
+                            payment_method: finalPaymentMethod
                         })
                         .eq('id', nextWaitlist.id);
-
-                    const { data: waitlistProfile } = await supabaseAdmin
-                        .from('profiles')
-                        .select('email, first_name, last_name')
-                        .eq('id', nextWaitlist.user_id)
-                        .single();
 
                     if (waitlistProfile && waitlistProfile.email) {
                         try {
@@ -201,7 +242,8 @@ export async function POST(request: NextRequest) {
                                     gameDate: new Date(game.start_time).toLocaleDateString(),
                                     gameTime: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                                     location: game.location || 'TBD',
-                                    claimUrl: `https://www.pitchsidecf.com/games/${gameId}`
+                                    claimUrl: `https://www.pitchsidecf.com/games/${gameId}`,
+                                    wasCharged: wasCharged
                                 }
                             });
                         } catch (emailErr) {

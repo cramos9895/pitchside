@@ -205,6 +205,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     // Modals
     const [showFinalizeModal, setShowFinalizeModal] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
+    const [promoteModalBooking, setPromoteModalBooking] = useState<{ id: string, name: string } | null>(null);
+    const [isPromoting, setIsPromoting] = useState(false);
 
 
     const handleUpdateJerseyAdmin = async (id: string, value: string) => {
@@ -797,23 +799,28 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
         }
     });
 
-    const promotePlayer = async (bookingId: string) => {
+    const executePromotion = async (chargeCard: boolean) => {
+        if (!promoteModalBooking) return;
+        setIsPromoting(true);
         try {
-            const { error } = await supabase
-                .from('bookings')
-                .update({ status: 'active' }) // 'active' = promoted/confirmed manually
-                .eq('id', bookingId);
+            const res = await fetch('/api/waitlist/promote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bookingId: promoteModalBooking.id, chargeCard })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to promote player');
 
-            if (error) throw error;
-
-            toast.success("Player promoted to active roster.");
+            toast.success("Player successfully promoted!");
+            setPromoteModalBooking(null);
             router.refresh();
             // Optimistic update
-            const updatedBookings = bookings.map(b => b.id === bookingId ? { ...b, status: 'active' } : b);
-                        setBookings(updatedBookings as unknown as AdminGameBooking[]);
-
+            const updatedBookings = bookings.map(b => b.id === promoteModalBooking.id ? { ...b, status: data.newStatus || 'active' } : b);
+            setBookings(updatedBookings as unknown as AdminGameBooking[]);
         } catch (error: any) {
-                        toast.error("Error promoting player: " + error.message);
+            toast.error(error.message);
+        } finally {
+            setIsPromoting(false);
         }
     };
 
@@ -1053,7 +1060,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                     <td className="p-4 text-sm text-gray-400">{email}</td>
                                                     <td className="p-4 text-right">
                                                         <button
-                                                            onClick={() => promotePlayer(booking.id)}
+                                                            onClick={() => setPromoteModalBooking({ id: booking.id, name })}
                                                             className="text-xs bg-green-500 hover:bg-green-400 text-black font-bold uppercase px-3 py-1 rounded transition-colors"
                                                         >
                                                             Promote
@@ -1545,9 +1552,9 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-                                                            <button
-                                                                onClick={() => promotePlayer(booking.id)}
-                                                                className="text-xs w-full md:w-auto justify-center bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500 hover:text-black font-bold uppercase px-6 py-2 rounded transition-colors"
+                                                            <button 
+                                                                onClick={() => setPromoteModalBooking({ id: booking.id, name: displayName })}
+                                                                className="bg-green-500 hover:bg-green-400 text-black px-4 py-2 text-xs font-bold uppercase rounded"
                                                             >
                                                                 Promote
                                                             </button>
@@ -1841,6 +1848,36 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                 confirmText="PERMANENTLY DELETE"
                 isDestructive={true}
             />
+            {promoteModalBooking && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in">
+                    <div className="bg-pitch-card border border-white/10 rounded-sm p-6 max-w-md w-full relative shadow-2xl">
+                        <button onClick={() => setPromoteModalBooking(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white">
+                            <X className="w-5 h-5" />
+                        </button>
+                        <h2 className="text-2xl font-black uppercase italic text-pitch-accent mb-2">Promote Player</h2>
+                        <p className="text-white mb-6">
+                            How would you like to handle payment for <strong>{promoteModalBooking.name}</strong>?
+                        </p>
+
+                        <div className="space-y-3">
+                            <button
+                                onClick={() => executePromotion(true)}
+                                disabled={isPromoting}
+                                className="w-full bg-pitch-accent text-black font-black uppercase italic py-3 rounded-sm hover:bg-white transition-colors flex items-center justify-center gap-2"
+                            >
+                                {isPromoting ? 'Processing...' : 'Charge Saved Card'}
+                            </button>
+                            <button
+                                onClick={() => executePromotion(false)}
+                                disabled={isPromoting}
+                                className="w-full bg-white/10 text-white font-bold uppercase py-3 rounded-sm hover:bg-white/20 border border-white/20 transition-colors"
+                            >
+                                {isPromoting ? 'Processing...' : 'Promote Free / Pay Cash'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

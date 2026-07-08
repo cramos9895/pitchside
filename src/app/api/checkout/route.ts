@@ -17,6 +17,7 @@ export async function POST(request: Request) {
             teamAssignment, 
             isFreeAgent, 
             isLeagueCaptainVaulting, 
+            isWaitlistVaulting,
             registrationId,
             teamId,
             guestIds = [] 
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
         let totalDueUnits = subtotalUnits;
 
         const eventType = gameConfig?.event_type || 'league';
-        const requiresVaulting = (isLeagueCaptainVaulting || (isFreeAgent && eventType !== 'pickup'));
+        const requiresVaulting = (isWaitlistVaulting || isLeagueCaptainVaulting || (isFreeAgent && eventType !== 'pickup'));
 
         if (!requiresVaulting && subtotalUnits > 0) {
             appliedCreditUnits = Math.min(walletBalanceCredits, subtotalUnits);
@@ -237,6 +238,25 @@ export async function POST(request: Request) {
                     is_league_captain: 'true',
                     type: 'league',
                     ...(teamAssignment !== undefined && teamAssignment !== null && { team_assignment: teamAssignment.toString() })
+                },
+                return_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+            });
+            return NextResponse.json({ clientSecret: session.client_secret });
+        }
+
+        if (isWaitlistVaulting) {
+            const session = await stripe.checkout.sessions.create({
+                mode: 'setup',
+                ui_mode: 'embedded',
+                payment_method_types: ['card'],
+                ...customerParams,
+                metadata: {
+                    game_id: gameId,
+                    user_id: userId,
+                    note: note,
+                    is_waitlist_vaulting: 'true',
+                    type: eventType,
+                    ...(promoCodeId && { promo_code_id: promoCodeId })
                 },
                 return_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
             });
