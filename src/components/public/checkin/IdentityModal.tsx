@@ -35,7 +35,7 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', m
             setLoading(true);
             const data = await getPlayerCheckInDetails(scannedUserId, eventId);
             setDetails(data);
-            if (!data.identityPhoto) {
+            if (!data.identityPhoto && eventType !== 'pickup') {
                 startCamera();
             }
         } catch (err: any) {
@@ -96,7 +96,7 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', m
             setProcessing(true);
             
             // If we took a new photo, upload it first
-            if (capturedPhotoBlob && !details.identityPhoto) {
+            if (capturedPhotoBlob && !details.identityPhoto && eventType !== 'pickup') {
                 const formData = new FormData();
                 formData.append('userId', scannedUserId);
                 formData.append('eventId', eventId);
@@ -153,7 +153,7 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', m
 
     const { profile, identityPhoto, isCheckedIn, registration } = details;
     const isBanned = profile?.is_banned;
-    const needsPhoto = !identityPhoto && !capturedPhotoBlob;
+    const needsPhoto = eventType !== 'pickup' && !identityPhoto && !capturedPhotoBlob;
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -189,7 +189,17 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', m
 
                     {/* Photo Section */}
                     <div className="mb-6">
-                        {identityPhoto ? (
+                        {eventType === 'pickup' ? (
+                            <div className="text-center">
+                                <div className="w-48 h-48 mx-auto rounded-xl overflow-hidden border-2 border-white/20 relative shadow-xl mb-3 bg-black flex items-center justify-center">
+                                    {profile?.avatar_url ? (
+                                        <img src={profile.avatar_url} alt={`${profile?.first_name}`} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <User className="w-20 h-20 text-gray-600" />
+                                    )}
+                                </div>
+                            </div>
+                        ) : identityPhoto ? (
                             <div className="text-center">
                                 <div className="w-48 h-48 mx-auto rounded-xl overflow-hidden border-2 border-white/20 relative shadow-xl mb-3">
                                     <img src={identityPhoto} alt={`${profile?.first_name} ${profile?.last_name}`} className="w-full h-full object-cover" />

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { sendNotification } from '@/lib/email';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 
@@ -259,6 +260,35 @@ export default async function SuccessPage({ searchParams }: Props) {
         if (pendingCheckout) {
             await adminSupabase.from('pending_checkouts').delete().eq('checkout_session_id', sessionId);
         }
+
+        
+        if (atLeastOneSuccess) {
+            try {
+                // Fetch profile and game for email
+                const { data: profile } = await supabase.from('profiles').select('email, first_name, last_name').eq('id', userId).single();
+                const { data: game } = await supabase.from('games').select('title, start_time, location, view_mode, price').eq('id', gameId).single();
+
+                if (profile?.email && game) {
+                    await sendNotification({
+                        to: profile.email,
+                        subject: `Booking Confirmed: ${game.title}`,
+                        type: 'confirmation',
+                        data: {
+                            userName: profile.first_name ? `${profile.first_name} ${profile.last_name}` : profile.email.split('@')[0] || 'Player',
+                            gameTitle: game.title,
+                            gameDate: new Date(game.start_time).toLocaleDateString(),
+                            gameTime: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                            location: game.location || 'TBD',
+                            mode: game.view_mode || 'Single Match',
+                            amountCharged: (session.amount_total || 0) > 0 ? `$${((session.amount_total || 0) / 100).toFixed(2)}` : 'Free'
+                        }
+                    });
+                }
+            } catch (emailErr) {
+                console.error('[SUCCESS_EMAIL_FAIL]', emailErr);
+            }
+        }
+
 
         if (atLeastOneSuccess && teamAssignment && session.payment_intent && typeof session.payment_intent === 'string') {
                 // Phase 43: Split Payments Auto-Refund Overage

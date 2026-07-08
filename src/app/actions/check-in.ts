@@ -41,7 +41,7 @@ export async function getPlayerCheckInDetails(scannedUserId: string, eventId: st
     // 1. Get Profile & Suspensions
     const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, is_banned, banned_until, ban_reason')
+        .select('id, first_name, last_name, avatar_url, is_banned, banned_until, ban_reason')
         .eq('id', scannedUserId)
         .single();
 
@@ -80,20 +80,45 @@ export async function getPlayerCheckInDetails(scannedUserId: string, eventId: st
         .neq('status', 'cancelled')
         .maybeSingle();
 
+    
+    let finalTeamName = 'Unknown Team';
+    let bookingStatus = 'pending';
+    let isBookingCash = false;
+    let cashCollected = false;
+
+    if (registration) {
+        finalTeamName = (Array.isArray(registration.teams) ? registration.teams[0]?.name : (registration.teams as any)?.name) || 'Unknown Team';
+    } else {
+        // Fallback to bookings for pickup games
+        const { data: booking } = await supabase
+            .from('bookings')
+            .select('status, team, payment_status')
+            .eq('user_id', scannedUserId)
+            .eq('game_id', eventId)
+            .maybeSingle();
+            
+        if (booking) {
+            finalTeamName = booking.team ? `Team ${booking.team}` : 'Unassigned';
+            bookingStatus = booking.status;
+            isBookingCash = game?.payment_collection_type === 'cash';
+            cashCollected = booking.payment_status === 'verified';
+        }
+    }
+
     return {
         profile,
         identityPhoto: identity?.photo_url || null,
         isCheckedIn: !!checkIn,
         checkedInAt: checkIn?.checked_in_at || null,
-        registration: registration ? {
-            status: registration.status,
-            role: registration.role,
-            isCashGame: game?.payment_collection_type === 'cash',
-            cashCollected: registration.cash_paid_current_round,
-            isCaptain: Array.isArray(registration.teams) 
+        registration: registration || bookingStatus !== 'pending' ? {
+            status: registration ? registration.status : bookingStatus,
+            role: registration ? registration.role : 'player',
+            isCashGame: registration ? game?.payment_collection_type === 'cash' : isBookingCash,
+            cashCollected: registration ? registration.cash_paid_current_round : cashCollected,
+            isCaptain: registration ? (Array.isArray(registration.teams) 
                 ? registration.teams[0]?.captain_id === scannedUserId 
-                : (registration.teams as any)?.captain_id === scannedUserId,
-            teamName: (Array.isArray(registration.teams) ? registration.teams[0]?.name : (registration.teams as any)?.name) || 'Unknown Team'
+                : (registration.teams as any)?.captain_id === scannedUserId) : false,
+            teamName: finalTeamName
         } : null
     };
 }
@@ -158,11 +183,19 @@ export async function executeCheckIn(userId: string, eventId: string, eventType:
         .single();
 
     if (game?.payment_collection_type === 'cash') {
-        await supabase
-            .from('tournament_registrations')
-            .update({ cash_paid_current_round: true })
-            .eq('user_id', userId)
-            .or(`game_id.eq.${eventId},league_id.eq.${eventId}`);
+        if (eventType === 'pickup') {
+            await supabase
+                .from('bookings')
+                .update({ payment_status: 'verified' })
+                .eq('user_id', userId)
+                .eq('game_id', eventId);
+        } else {
+            await supabase
+                .from('tournament_registrations')
+                .update({ cash_paid_current_round: true })
+                .eq('user_id', userId)
+                .or(`game_id.eq.${eventId},league_id.eq.${eventId}`);
+        }
     }
 
     // Insert into the master event_check_ins table
@@ -217,12 +250,19 @@ export async function undoCheckIn(userId: string, eventId: string, matchId?: str
         .single();
 
     if (game?.payment_collection_type === 'cash') {
-        // Revert cash collection status
-        await supabase
-            .from('tournament_registrations')
-            .update({ cash_paid_current_round: false })
-            .eq('user_id', userId)
-            .or(`game_id.eq.${eventId},league_id.eq.${eventId}`);
+        if (game?.event_type === 'pickup') {
+            await supabase
+                .from('bookings')
+                .update({ payment_status: 'unpaid' })
+                .eq('user_id', userId)
+                .eq('game_id', eventId);
+        } else {
+            await supabase
+                .from('tournament_registrations')
+                .update({ cash_paid_current_round: false })
+                .eq('user_id', userId)
+                .or(`game_id.eq.${eventId},league_id.eq.${eventId}`);
+        }
     }
 
     // Delete check-in record
