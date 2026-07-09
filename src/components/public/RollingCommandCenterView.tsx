@@ -163,9 +163,21 @@ export function RollingCommandCenterView({
 
     const isRolling = tournament.is_rolling || tournament.league_format === 'rolling';
 
-    const matchDateResult = isRolling 
+    let matchDateResult = isRolling 
         ? calculateNextMatch(tournament as any) 
-        : { status: 'concluded' as const, date: null };
+        : { status: 'concluded' as const, date: null as string | null };
+
+    let nextMatchField: string | null = null;
+
+    // OVERRIDE: If an explicit schedule was generated, prefer the actual next match date for this team.
+    const upcomingScheduledMatch = myMatches.find((m: Match) => m.status === 'scheduled' || m.status === 'active');
+    if (upcomingScheduledMatch && upcomingScheduledMatch.start_time) {
+        matchDateResult = {
+            status: 'active',
+            date: upcomingScheduledMatch.start_time
+        };
+        nextMatchField = upcomingScheduledMatch.field_name || null;
+    }
 
     useEffect(() => {
         if (activeTab === 'game-day' && matchDateResult.date) {
@@ -737,10 +749,12 @@ export function RollingCommandCenterView({
                                         </div>
                                         <div className="text-center md:text-left">
                                             <h3 className="text-2xl font-black uppercase italic tracking-tighter">
-                                                Next Match: {matchDateResult.date ? new Date(matchDateResult.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'Calculating...'}
+                                                Next Match: {matchDateResult.date ? new Date(matchDateResult.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Chicago' }) : 'Calculating...'}
                                             </h3>
                                             <p className="text-pitch-secondary text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-                                                {tournament.location || 'PitchSide Grounds'} • {new Date(tournament.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                {tournament.location || 'PitchSide Grounds'} 
+                                                {nextMatchField ? ` • Field: ${nextMatchField}` : ''} 
+                                                {matchDateResult.date ? ` • ${new Date(matchDateResult.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'America/Chicago' })}` : ` • ${new Date(tournament.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'America/Chicago' })}`}
                                             </p>
                                         </div>
                                     </div>
