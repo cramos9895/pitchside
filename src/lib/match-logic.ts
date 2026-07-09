@@ -70,6 +70,11 @@ export function calculateProjectedMatches(
         searchFrom = new Date();
     }
 
+    // Safety check 2: candidate must be at least the league's start_time
+    if (searchFrom < new Date(start_time)) {
+        searchFrom = new Date(start_time);
+    }
+
     let candidate = new Date(searchFrom.getTime());
     candidate.setHours(targetHours, targetMinutes, 0, 0);
 
