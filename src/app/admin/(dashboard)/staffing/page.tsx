@@ -96,7 +96,7 @@ export default async function StaffingDispatchBoard() {
                                 const pending = officials.filter((o: any) => o.status === 'Pending');
                                 
                                 const timeStr = match.scheduled_time || match.start_time;
-                                const displayTime = timeStr ? new Date(timeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBD';
+                                const displayTime = timeStr ? new Date(timeStr).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Chicago' }) : 'TBD';
 
                                 // Determine Heatmap Status
                                 let statusUI = null;

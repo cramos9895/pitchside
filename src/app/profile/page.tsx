@@ -288,7 +288,7 @@ export default function ProfilePage() {
                                     <div>
                                         <div className="font-bold text-lg mb-0.5">{game.title}</div>
                                         <div className="text-xs text-pitch-secondary uppercase font-bold">
-                                            {new Date(game.start_time || '').toLocaleDateString()} • {game.location || 'PitchSide'}
+                                            {new Date(game.start_time || '').toLocaleDateString('en-US', { timeZone: 'America/Chicago' })} • {game.location || 'PitchSide'}
                                         </div>
                                     </div>
                                 </div>

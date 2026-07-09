@@ -97,7 +97,7 @@ export async function submitBookingRequest(data: BookingRequestData) {
     const resourceName = resourceData?.name || 'A Facility Resource';
 
     if (adminProfiles && adminProfiles.length > 0) {
-        const message = `New Public Booking Request for ${new Date(data.startTime).toLocaleDateString()} at ${new Date(data.startTime).toLocaleTimeString()}.`;
+        const message = `New Public Booking Request for ${new Date(data.startTime).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })} at ${new Date(data.startTime).toLocaleTimeString('en-US', { timeZone: 'America/Chicago' })}.`;
 
         // Notify all valid staff members for that facility specifically with booking_request
         for (const admin of adminProfiles) {
@@ -105,7 +105,7 @@ export async function submitBookingRequest(data: BookingRequestData) {
 
             if (admin.email) {
                 const adminName = admin.first_name ? `${admin.first_name} ${admin.last_name}` : 'Admin';
-                const requestedDates = [`${new Date(data.startTime).toLocaleDateString()} at ${new Date(data.startTime).toLocaleTimeString()}`];
+                const requestedDates = [`${new Date(data.startTime).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })} at ${new Date(data.startTime).toLocaleTimeString('en-US', { timeZone: 'America/Chicago' })}`];
 
                 await sendNotification({
                     to: admin.email,
@@ -204,7 +204,7 @@ export async function executeFreePromoBooking(data: BookingRequestData & { promo
             .single();
 
         const resourceName = resourceData?.name || 'Facility Resource';
-        const dateStr = `${new Date(data.startTime).toLocaleDateString()} at ${new Date(data.startTime).toLocaleTimeString()}`;
+        const dateStr = `${new Date(data.startTime).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })} at ${new Date(data.startTime).toLocaleTimeString('en-US', { timeZone: 'America/Chicago' })}`;
 
         const recipient = data.contactEmail || user.email;
         if (recipient) {

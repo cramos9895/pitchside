@@ -925,7 +925,7 @@ export async function createRecurringBooking(formData: FormData) {
 
     if (conflicts && conflicts.length > 0) {
         // Return exactly which date failed so they can adjust
-        const badDate = new Date(conflicts[0].start_time).toLocaleDateString();
+        const badDate = new Date(conflicts[0].start_time).toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
         return { error: `Server conflict detected on ${badDate}. Please choose a different schedule.` };
     }
 
@@ -1130,7 +1130,7 @@ export async function cancelBooking(bookingId: string) {
             .single();
 
         if (renterProfile?.email) {
-            const dateStr = `${new Date(booking.start_time).toLocaleDateString()} at ${new Date(booking.start_time).toLocaleTimeString()}`;
+            const dateStr = `${new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/Chicago' })}`;
             const amountRefunded = booking.marketplace_price
                 ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(booking.marketplace_price / 100)
                 : 'Full Original Amount';

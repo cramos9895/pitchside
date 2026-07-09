@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Your account has been permanently suspended.' }, { status: 403 });
             }
             if (profile.banned_until && new Date(profile.banned_until) > new Date()) {
-                const date = new Date(profile.banned_until).toLocaleDateString();
+                const date = new Date(profile.banned_until).toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
                 return NextResponse.json({ error: `Your account is temporarily suspended until ${date}.` }, { status: 403 });
             }
         }

@@ -131,7 +131,7 @@ export async function registerAccount(formData: FormData) {
             react: NewRequestEmail({
                 userName: email || 'Unknown User',
                 resourceName: `Facility Account (${organizationName})`,
-                requestedDates: [new Date().toLocaleDateString()]
+                requestedDates: [new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' })]
             })
         }).catch(console.error);
 
@@ -156,7 +156,7 @@ export async function registerAccount(formData: FormData) {
                 react: NewRequestEmail({
                     userName: email || 'Unknown User',
                     resourceName: 'Referee Account',
-                    requestedDates: [new Date().toLocaleDateString()]
+                    requestedDates: [new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' })]
                 })
             }).catch(console.error);
         }

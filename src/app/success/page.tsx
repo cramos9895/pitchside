@@ -276,8 +276,8 @@ export default async function SuccessPage({ searchParams }: Props) {
                         data: {
                             userName: profile.first_name ? `${profile.first_name} ${profile.last_name}` : profile.email.split('@')[0] || 'Player',
                             gameTitle: game.title,
-                            gameDate: new Date(game.start_time).toLocaleDateString(),
-                            gameTime: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                            gameDate: new Date(game.start_time).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+                            gameTime: new Date(game.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Chicago' }),
                             location: game.location || 'TBD',
                             mode: game.view_mode || 'Single Match',
                             amountCharged: (session.amount_total || 0) > 0 ? `$${((session.amount_total || 0) / 100).toFixed(2)}` : 'Free'

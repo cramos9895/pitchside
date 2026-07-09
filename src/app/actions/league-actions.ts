@@ -141,7 +141,7 @@ export async function generateLeagueSchedule(leagueId: string, teams: string[], 
                     console.log(`Skipping slot due to conflict: ${matchTime.toISOString()}`);
                     // In a real scenario, we might want to find the next available slot
                     // For now, we'll throw to be safe or skip. Let's throw for clear feedback.
-                    throw new Error(`Schedule generation failed: Facility conflict at Week ${w + 1}, slot ${matchTime.toLocaleTimeString()}.`);
+                    throw new Error(`Schedule generation failed: Facility conflict at Week ${w + 1}, slot ${matchTime.toLocaleTimeString('en-US', { timeZone: 'America/Chicago' })}.`);
                 }
 
                 matchesToInsert.push({
