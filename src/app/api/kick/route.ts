@@ -108,8 +108,8 @@ export async function POST(request: NextRequest) {
                                 data: {
                                     userName: promotedUser?.first_name ? `${promotedUser.first_name} ${promotedUser.last_name}` : 'Player',
                                     gameTitle: game.title,
-                                    gameDate: new Date(game.start_time).toLocaleDateString(),
-                                    gameTime: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                    gameDate: new Date(game.start_time).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+                                    gameTime: new Date(game.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Chicago' }),
                                     location: game.location || 'TBD',
                                     claimUrl: `https://www.pitchsidecf.com/games/${gameId}`
                                 }

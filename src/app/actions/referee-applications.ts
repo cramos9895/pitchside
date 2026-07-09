@@ -40,7 +40,7 @@ export async function submitRefereeApplication(experienceSummary: string) {
         react: NewRequestEmail({
             userName: user.email || 'Unknown User',
             resourceName: 'Referee Application',
-            requestedDates: [new Date().toLocaleDateString()]
+            requestedDates: [new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' })]
         })
     }).catch(console.error); // Catch but don't throw to not break the UI flow
 

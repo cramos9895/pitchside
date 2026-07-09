@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Your account has been permanently suspended.' }, { status: 403 });
             }
             if (userProfile.banned_until && new Date(userProfile.banned_until) > new Date()) {
-                const date = new Date(userProfile.banned_until).toLocaleDateString();
+                const date = new Date(userProfile.banned_until).toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
                 return NextResponse.json({ error: `Your account is temporarily suspended until ${date}.` }, { status: 403 });
             }
         }
@@ -115,8 +115,8 @@ export async function POST(request: NextRequest) {
                 data: {
                     userName: userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name}` : user.email?.split('@')[0] || 'Player',
                     gameTitle: game.title,
-                    gameDate: new Date(game.start_time).toLocaleDateString(),
-                    gameTime: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    gameDate: new Date(game.start_time).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+                    gameTime: new Date(game.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Chicago' }),
                     location: game.location || 'TBD',
                     mode: game.view_mode || 'Single Match',
                     amountCharged: 'Redeemed Credit'

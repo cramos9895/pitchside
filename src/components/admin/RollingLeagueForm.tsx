@@ -42,6 +42,20 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
         return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
     };
 
+    const getLocalDateString = (utcString?: string | null) => {
+        if (!utcString) return '';
+        const date = new Date(utcString);
+        if (isNaN(date.getTime())) return '';
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    };
+
+    const getLocalTimeString = (utcString?: string | null) => {
+        if (!utcString) return '';
+        const date = new Date(utcString);
+        if (isNaN(date.getTime())) return '';
+        return date.toTimeString().slice(0, 5);
+    };
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -86,17 +100,30 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
 
     // Rolling League Specific Timing
     // @ts-expect-error - Requires complex schema extension
-    const [rollingStartDate, setRollingStartDate] = useState(initialData?.start_time ? new Date(initialData.start_time).toISOString().slice(0, 10) : '');
+    const [rollingStartDate, setRollingStartDate] = useState(getLocalDateString(initialData?.start_time));
     // @ts-expect-error - Requires complex schema extension
-    const [startTime, setStartTime] = useState(initialData?.start_time ? new Date(initialData.start_time).toTimeString().slice(0, 5) : '');
+    const [startTime, setStartTime] = useState(getLocalTimeString(initialData?.start_time));
     // @ts-expect-error - Requires complex schema extension
     const [earliestGameStartTime, setEarliestGameStartTime] = useState<string>(initialData?.earliest_game_start_time || '');
     // @ts-expect-error - Requires complex schema extension
     const [latestGameStartTime, setLatestGameStartTime] = useState<string>(initialData?.latest_game_start_time || '');
     // @ts-expect-error - Requires complex schema extension
-    const [teamSignupCutoff, setTeamSignupCutoff] = useState<string>(initialData?.team_signup_cutoff ? new Date(initialData.team_signup_cutoff).toISOString().slice(0, 16) : '');
+    const [teamSignupCutoff, setTeamSignupCutoff] = useState<string>(getLocalDatetimeString(initialData?.team_signup_cutoff));
     // @ts-expect-error - Requires complex schema extension
     const [rosterLockDate, setRosterLockDate] = useState(getLocalDatetimeString(initialData?.roster_lock_date));
+    
+    // @ts-expect-error - Requires complex schema extension
+    const [hasSeasonEndDate, setHasSeasonEndDate] = useState<boolean>(!!initialData?.league_end_date);
+    // @ts-expect-error - Requires complex schema extension
+    const [seasonEndDate, setSeasonEndDate] = useState<string>(getLocalDateString(initialData?.league_end_date));
+    
+    // Playoff Information
+    // @ts-expect-error - Requires complex schema extension
+    const [hasPlayoffBye, setHasPlayoffBye] = useState<boolean>(initialData?.has_playoff_bye || false);
+    // @ts-expect-error - Requires complex schema extension
+    const [teamsIntoPlayoffs, setTeamsIntoPlayoffs] = useState<number | ''>(initialData?.teams_into_playoffs ?? '');
+    // @ts-expect-error - Requires complex schema extension
+    const [playoffStartDate, setPlayoffStartDate] = useState(getLocalDateString(initialData?.playoff_start_date));
     
     // Formatting & Duration
     // @ts-expect-error - Requires complex schema extension
@@ -147,16 +174,6 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
     const [minPlayersPerTeam, setMinPlayersPerTeam] = useState<number | ''>(initialData?.min_players_per_team ?? 5);
     // @ts-expect-error - Requires complex schema extension
     const [maxPlayersPerTeam, setMaxPlayersPerTeam] = useState<number | ''>(initialData?.max_players_per_team ?? 12);
-    // @ts-expect-error - Requires complex schema extension
-    const [hasSeasonEndDate, setHasSeasonEndDate] = useState<boolean>(!!initialData?.league_end_date);
-    // @ts-expect-error - Requires complex schema extension
-    const [seasonEndDate, setSeasonEndDate] = useState<string>(initialData?.league_end_date ? new Date(initialData.league_end_date).toISOString().slice(0, 10) : '');
-    // @ts-expect-error - Requires complex schema extension
-    const [playoffStartDate, setPlayoffStartDate] = useState(initialData?.playoff_start_date ? new Date(initialData.playoff_start_date).toISOString().slice(0, 10) : '');
-    // @ts-expect-error - Requires complex schema extension
-    const [hasPlayoffBye, setHasPlayoffBye] = useState<boolean>(initialData?.has_playoff_bye ?? false);
-    // @ts-expect-error - Requires complex schema extension
-    const [teamsIntoPlayoffs, setTeamsIntoPlayoffs] = useState<number>(initialData?.teams_into_playoffs ?? 4);
 
     // Playoff bye logic
     const playoffOptions = hasPlayoffBye ? [5, 9] : [4, 8];
@@ -317,17 +334,16 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
         setFieldSize(data.field_size || 'Standard');
         setShoeTypes(data.shoe_types || ['Turf Shoes', 'FG Cleats']);
         if (data.field_names) setFieldNames(data.field_names);
-
         if (data.start_time) {
-            const start = new Date(data.start_time);
-            setRollingStartDate(start.toISOString().slice(0, 10));
-            setStartTime(start.toTimeString().slice(0, 5));
+            setRollingStartDate(getLocalDateString(data.start_time));
+            setStartTime(getLocalTimeString(data.start_time));
         }
         setEarliestGameStartTime(data.earliest_game_start_time || '');
         setLatestGameStartTime(data.latest_game_start_time || '');
-        if (data.team_signup_cutoff) setTeamSignupCutoff(new Date(data.team_signup_cutoff).toISOString().slice(0, 16));
-        if (data.roster_lock_date) setRosterLockDate(new Date(data.roster_lock_date).toISOString().slice(0, 16));
-        
+        if (data.team_signup_cutoff) setTeamSignupCutoff(getLocalDatetimeString(data.team_signup_cutoff));
+        if (data.roster_lock_date) setRosterLockDate(getLocalDatetimeString(data.roster_lock_date));
+        if (data.league_end_date) setSeasonEndDate(getLocalDateString(data.league_end_date));
+        if (data.playoff_start_date) setPlayoffStartDate(getLocalDateString(data.playoff_start_date));   
         setGameFormatType(data.game_format_type || '7 v 7');
         setHalfLength(data.half_length ?? 25);
         setHalftimeLength(data.halftime_length ?? 5);
@@ -352,8 +368,6 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
         setMinPlayersPerTeam(data.min_players_per_team ?? 5);
         setMaxPlayersPerTeam(data.max_players_per_team ?? 12);
         setHasSeasonEndDate(!!data.league_end_date);
-        if (data.league_end_date) setSeasonEndDate(new Date(data.league_end_date).toISOString().slice(0, 10));
-        if (data.playoff_start_date) setPlayoffStartDate(new Date(data.playoff_start_date).toISOString().slice(0, 10));
         setHasPlayoffBye(data.has_playoff_bye ?? false);
         setTeamsIntoPlayoffs(data.teams_into_playoffs ?? 4);
 
@@ -958,7 +972,7 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
                                         <span className="text-[10px] font-bold uppercase text-pitch-secondary">Post-Season (Max)</span>
                                         <span className="text-xs font-black text-white">
                                             {(() => {
-                                                const rounds = Math.ceil(Math.log2(teamsIntoPlayoffs));
+                                                const rounds = Math.ceil(Math.log2(Number(teamsIntoPlayoffs) || 1));
                                                 return `${rounds} Potential Games`;
                                             })()}
                                         </span>
@@ -971,7 +985,7 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
                                                 const start = new Date(rollingStartDate);
                                                 const end = new Date(seasonEndDate);
                                                 const diffWeeks = Math.ceil((end.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
-                                                const rounds = Math.ceil(Math.log2(teamsIntoPlayoffs));
+                                                const rounds = Math.ceil(Math.log2(Number(teamsIntoPlayoffs) || 1));
                                                 return `${Math.max(0, diffWeeks) + rounds} Rounds`;
                                             })()}
                                         </span>

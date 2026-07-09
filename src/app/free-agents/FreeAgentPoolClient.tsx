@@ -148,7 +148,7 @@ export function FreeAgentPoolClient({ freeAgents, currentUser, userBookings }: F
                                         <p className="text-[8px] font-black uppercase tracking-widest text-pitch-secondary mb-1">Registered For:</p>
                                         <p className="text-[10px] font-bold text-white uppercase truncate">{agentGame?.title || 'League Match'}</p>
                                         <p className="text-[8px] font-medium text-gray-500 uppercase tracking-tighter mt-1">
-                                            {new Date(agentGame?.start_time).toLocaleDateString()} @ {agentGame?.location_nickname || 'Pitch'}
+                                            {new Date(agentGame?.start_time).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })} @ {agentGame?.location_nickname || 'Pitch'}
                                         </p>
                                     </div>
                                 </div>

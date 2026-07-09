@@ -165,7 +165,7 @@ export default function TournamentDisplay({ params }: { params: Promise<{ id: st
                     </h1>
                     <div className="flex items-center gap-6 mt-2">
                         <div className="text-2xl font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                            <Clock className="w-6 h-6 text-pitch-accent" /> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            <Clock className="w-6 h-6 text-pitch-accent" /> {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Chicago' })}
                         </div>
                         <div className="text-2xl font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
                             <Trophy className="w-6 h-6 text-yellow-500" /> {game.tournament_style?.replace('_', ' ')}
@@ -250,7 +250,7 @@ export default function TournamentDisplay({ params }: { params: Promise<{ id: st
                                         <div key={m.id} className="bg-white/5 border border-white/10 p-5 rounded-lg flex items-center justify-between opacity-80 hover:opacity-100 transition-opacity">
                                              <div className="flex items-center gap-6">
                                                 <div className="w-24 font-mono text-2xl text-pitch-secondary border-r border-white/10 py-1">
-                                                    {new Date(m.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {new Date(m.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Chicago' })}
                                                 </div>
                                                 <div className="flex items-center gap-4 text-2xl font-bold">
                                                     <span className="uppercase text-white">{m.home_team}</span>

@@ -155,7 +155,7 @@ async function handleBookingSuccessNotification(supabase: any, bookingId: string
             if (userProfile?.email) {
                 const resourceName = resourceData?.name || 'Facility Resource';
                 const amountPaid = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((amountTotal || 0) / 100);
-                const dateStr = `${new Date(bookingData.start_time).toLocaleDateString()} at ${new Date(bookingData.start_time).toLocaleTimeString()}`;
+                const dateStr = `${new Date(bookingData.start_time).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })} at ${new Date(bookingData.start_time).toLocaleTimeString('en-US', { timeZone: 'America/Chicago' })}`;
 
                 await sendNotification({
                     to: userProfile.email,

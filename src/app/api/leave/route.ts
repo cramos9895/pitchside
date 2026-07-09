@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
                         data: {
                             userName: profile?.first_name ? `${profile.first_name} ${profile.last_name}` : 'Player',
                             gameTitle: game.title,
-                            gameDate: new Date(game.start_time).toLocaleDateString(),
+                            gameDate: new Date(game.start_time).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
                             refundMethod: refunded ? 'Credits' : 'None (Late Cancellation)'
                         }
                     });
@@ -239,8 +239,8 @@ export async function POST(request: NextRequest) {
                                 data: {
                                     userName: waitlistProfile.first_name ? `${waitlistProfile.first_name} ${waitlistProfile.last_name}` : 'Player',
                                     gameTitle: game.title,
-                                    gameDate: new Date(game.start_time).toLocaleDateString(),
-                                    gameTime: new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                    gameDate: new Date(game.start_time).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+                                    gameTime: new Date(game.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Chicago' }),
                                     location: game.location || 'TBD',
                                     claimUrl: `https://www.pitchsidecf.com/games/${gameId}`,
                                     wasCharged: wasCharged

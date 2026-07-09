@@ -91,7 +91,7 @@ export async function claimMarketplaceSlot(formData: FormData) {
         .eq('system_role', 'facility_admin');
 
     if (adminProfiles && adminProfiles.length > 0) {
-        const message = `PitchSide HQ has requested a network slot for ${new Date(start_time).toLocaleDateString()} at ${new Date(start_time).toLocaleTimeString()}.`;
+        const message = `PitchSide HQ has requested a network slot for ${new Date(start_time).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })} at ${new Date(start_time).toLocaleTimeString('en-US', { timeZone: 'America/Chicago' })}.`;
 
         // Notify all valid staff members for that facility with 'booking_request' type
         for (const admin of adminProfiles) {
