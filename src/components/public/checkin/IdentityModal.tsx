@@ -18,6 +18,7 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', m
     const [details, setDetails] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
+    const [jerseyNum, setJerseyNum] = useState<string>('');
     
     // Camera state
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -35,6 +36,9 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', m
             setLoading(true);
             const data = await getPlayerCheckInDetails(scannedUserId, eventId);
             setDetails(data);
+            if (data?.registration?.jerseyNumber) {
+                setJerseyNum(data.registration.jerseyNumber);
+            }
             if (!data.identityPhoto && eventType !== 'pickup') {
                 startCamera();
             }
@@ -105,7 +109,7 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', m
             }
 
             // Execute check-in
-            await executeCheckIn(scannedUserId, eventId, eventType, matchId);
+            await executeCheckIn(scannedUserId, eventId, eventType, matchId, jerseyNum || undefined);
             if (onCheckInComplete) onCheckInComplete();
         } catch (err: any) {
             setError(err.message || 'Failed to check in player');
@@ -260,6 +264,26 @@ export function IdentityModal({ scannedUserId, eventId, eventType = 'rolling', m
                                 {registration?.teamName || 'Unassigned / Free Agent'}
                                 {registration?.isCaptain && <span className="text-[9px] bg-pitch-accent text-black px-1.5 py-0.5 rounded font-black tracking-widest">C</span>}
                             </p>
+                            
+                            {eventType === 'pickup' && !isCheckedIn && (
+                                <div className="mt-4 flex flex-col items-center">
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Jersey # (Optional)</label>
+                                    <input 
+                                        type="text" 
+                                        maxLength={3}
+                                        value={jerseyNum}
+                                        onChange={(e) => setJerseyNum(e.target.value)}
+                                        placeholder="#" 
+                                        className="w-16 h-8 bg-black border border-white/20 rounded text-center text-sm font-black uppercase text-white focus:outline-none focus:border-pitch-accent transition-colors"
+                                    />
+                                </div>
+                            )}
+                            
+                            {eventType === 'pickup' && isCheckedIn && jerseyNum && (
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2">
+                                    Jersey: <span className="text-white">#{jerseyNum}</span>
+                                </p>
+                            )}
                         </div>
                         
                         <div className="grid grid-cols-2 gap-2 pt-4 border-t border-white/10">

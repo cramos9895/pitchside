@@ -86,22 +86,25 @@ export async function getPlayerCheckInDetails(scannedUserId: string, eventId: st
     let isBookingCash = false;
     let cashCollected = false;
 
+    let jerseyNum = '';
+
     if (registration) {
         finalTeamName = (Array.isArray(registration.teams) ? registration.teams[0]?.name : (registration.teams as any)?.name) || 'Unknown Team';
     } else {
         // Fallback to bookings for pickup games
         const { data: booking } = await supabase
             .from('bookings')
-            .select('status, team, payment_status')
+            .select('status, team_assignment, payment_status, jersey_number')
             .eq('user_id', scannedUserId)
             .eq('game_id', eventId)
             .maybeSingle();
             
         if (booking) {
-            finalTeamName = booking.team ? `Team ${booking.team}` : 'Unassigned';
+            finalTeamName = booking.team_assignment ? `Team ${booking.team_assignment}` : 'Unassigned';
             bookingStatus = booking.status;
             isBookingCash = game?.payment_collection_type === 'cash';
             cashCollected = booking.payment_status === 'verified';
+            jerseyNum = booking.jersey_number || '';
         }
     }
 
@@ -118,7 +121,8 @@ export async function getPlayerCheckInDetails(scannedUserId: string, eventId: st
             isCaptain: registration ? (Array.isArray(registration.teams) 
                 ? registration.teams[0]?.captain_id === scannedUserId 
                 : (registration.teams as any)?.captain_id === scannedUserId) : false,
-            teamName: finalTeamName
+            teamName: finalTeamName,
+            jerseyNumber: jerseyNum
         } : null
     };
 }
@@ -171,7 +175,7 @@ export async function uploadEventIdentityPhoto(formData: FormData) {
     return publicUrlData.publicUrl;
 }
 
-export async function executeCheckIn(userId: string, eventId: string, eventType: 'rolling' | 'tournament' | 'pickup' = 'rolling', matchId?: string) {
+export async function executeCheckIn(userId: string, eventId: string, eventType: 'rolling' | 'tournament' | 'pickup' = 'rolling', matchId?: string, jerseyNumber?: string) {
     const supabase = await createClient();
     const host = await verifyHostOrAdmin(supabase, eventId);
 
@@ -215,8 +219,11 @@ export async function executeCheckIn(userId: string, eventId: string, eventType:
 
     // Sync legacy tables for backwards compatibility with Active Roster UI
     if (eventType === 'pickup') {
+        const updateData: any = { checked_in: true };
+        if (jerseyNumber !== undefined) updateData.jersey_number = jerseyNumber;
+        
         await supabase.from('bookings')
-            .update({ checked_in: true })
+            .update(updateData)
             .eq('user_id', userId)
             .eq('game_id', eventId);
     } else {
