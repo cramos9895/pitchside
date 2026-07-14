@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         // Fetch Global Game Config
         const { data: gameConfig } = await adminSupabase
             .from('games')
-            .select('max_players, teams_config, price, event_type, is_active')
+            .select('max_players, max_waitlist, teams_config, price, event_type, is_active')
             .eq('id', gameId)
             .single();
 
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "This event is currently inactive and not accepting registrations." }, { status: 400 });
         }
 
-        if (gameConfig && gameConfig.max_players !== null) {
+        if (gameConfig && !isWaitlistVaulting && gameConfig.max_players !== null) {
             const { count: currentRosterSize } = await adminSupabase
                 .from('bookings')
                 .select('*', { count: 'exact', head: true })
@@ -59,7 +59,17 @@ export async function POST(request: Request) {
                 .neq('roster_status', 'dropped');
 
             if (currentRosterSize !== null && (currentRosterSize + partySize > gameConfig.max_players)) {
-                return NextResponse.json({ error: `Not enough capacity! Only ${gameConfig.max_players - currentRosterSize} spots remain.` }, { status: 400 });
+                return NextResponse.json({ error: `Not enough capacity! Only ${Math.max(0, gameConfig.max_players - currentRosterSize)} spots remain.` }, { status: 400 });
+            }
+        } else if (gameConfig && isWaitlistVaulting && gameConfig.max_waitlist != null) {
+            const { count: waitlistCount } = await adminSupabase
+                .from('bookings')
+                .select('*', { count: 'exact', head: true })
+                .eq('game_id', gameId)
+                .eq('status', 'waitlist');
+            
+            if (waitlistCount !== null && (waitlistCount + partySize > gameConfig.max_waitlist)) {
+                return NextResponse.json({ error: 'The waitlist for this event is full.' }, { status: 400 });
             }
         }
 
