@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminSupabase } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -10,6 +10,7 @@ export async function GET(request: Request) {
     }
 
     try {
+        const adminSupabase = createAdminClient();
         const { count, error } = await adminSupabase
             .from('bookings')
             .select('*', { count: 'exact', head: true })
