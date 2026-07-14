@@ -452,48 +452,53 @@ function TeamColumn({
                     const isHovered = isGrouped && hoveredLinkId === p.linked_booking_id;
                     
                     return (
-                        <DropdownMenu key={p.id}>
-                            <DropdownMenuTrigger asChild>
-                                <div 
-                                    className={cn(
-                                        "px-2 py-1.5 rounded border flex items-center gap-2 group transition-all cursor-pointer duration-200",
-                                        isHovered 
-                                            ? "bg-[#ccff00]/10 border-[#ccff00] ring-1 ring-[#ccff00] scale-[1.02]" 
-                                            : "bg-black/40 border-white/5 hover:border-white/20 hover:bg-white/5"
-                                    )}
-                                    onMouseEnter={() => { if (isGrouped) setHoveredLinkId(p.linked_booking_id!); }}
-                                    onMouseLeave={() => setHoveredLinkId(null)}
-                                >
-                                    <div className={cn(
-                                        "w-1.5 h-1.5 rounded-full shrink-0",
-                                        p.payment_status === 'verified' ? "bg-green-500" :
-                                            p.payment_status === 'pending' ? "bg-yellow-500" : "bg-red-500"
-                                    )} title={`Payment: ${p.payment_status}`} />
-                                    
-                                    {isGrouped && (
-                                        <LinkIcon className={cn("w-3 h-3 shrink-0", isHovered ? "text-[#ccff00]" : "text-[#ccff00] opacity-80")} />
-                                    )}
-
-                                    <div className={cn("text-xs truncate flex-1 text-left", isHovered ? "text-white font-bold" : "text-gray-200")}>{p.name}</div>
-                                </div>
-                            </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-48">
-                            <div className="text-xs text-gray-500 font-bold px-2 py-1.5 uppercase tracking-wider">Move to...</div>
-                            {title !== "Unassigned" && (
-                                <DropdownMenuItem onClick={() => onMovePlayer(p.id, null)} className="font-bold cursor-pointer">
-                                    Unassigned
-                                </DropdownMenuItem>
+                        <div 
+                            key={p.id}
+                            className={cn(
+                                "px-2 py-1.5 rounded border flex items-center gap-2 group transition-all duration-200",
+                                isHovered 
+                                    ? "bg-[#ccff00]/10 border-[#ccff00] ring-1 ring-[#ccff00] scale-[1.02]" 
+                                    : "bg-black/40 border-white/5 hover:border-white/20 hover:bg-white/5"
                             )}
-                            {allTeams.map(t => {
-                                if (t.name === title) return null;
-                                return (
-                                    <DropdownMenuItem key={t.name} onClick={() => onMovePlayer(p.id, t.name)} className="font-bold cursor-pointer">
-                                        {t.name}
-                                    </DropdownMenuItem>
-                                )
-                            })}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                            onMouseEnter={() => { if (isGrouped) setHoveredLinkId(p.linked_booking_id!); }}
+                            onMouseLeave={() => setHoveredLinkId(null)}
+                        >
+                            <div className={cn(
+                                "w-1.5 h-1.5 rounded-full shrink-0",
+                                p.payment_status === 'verified' ? "bg-green-500" :
+                                    p.payment_status === 'pending' ? "bg-yellow-500" : "bg-red-500"
+                            )} title={`Payment: ${p.payment_status}`} />
+                            
+                            {isGrouped && (
+                                <LinkIcon className={cn("w-3 h-3 shrink-0", isHovered ? "text-[#ccff00]" : "text-[#ccff00] opacity-80")} />
+                            )}
+
+                            <div className={cn("text-xs truncate flex-1 text-left", isHovered ? "text-white font-bold" : "text-gray-200")}>{p.name}</div>
+                            
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button className="p-1 hover:bg-white/10 rounded transition-colors text-gray-500 hover:text-white shrink-0 ml-auto">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-48">
+                                    <div className="text-xs text-gray-500 font-bold px-2 py-1.5 uppercase tracking-wider">Move to...</div>
+                                    {title !== "Unassigned" && (
+                                        <DropdownMenuItem onClick={() => onMovePlayer(p.id, null)} className="font-bold cursor-pointer">
+                                            Unassigned
+                                        </DropdownMenuItem>
+                                    )}
+                                    {allTeams.map(t => {
+                                        if (t.name === title) return null;
+                                        return (
+                                            <DropdownMenuItem key={t.name} onClick={() => onMovePlayer(p.id, t.name)} className="font-bold cursor-pointer">
+                                                {t.name}
+                                            </DropdownMenuItem>
+                                        )
+                                    })}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     )
                 })}
                 {players.length === 0 && (

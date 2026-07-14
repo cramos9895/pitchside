@@ -279,6 +279,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     
     const finalPrice = Math.max(0, subtotalAfterPromo - creditApplied);
 
+    const supportsStripe = gameData?.payment_collection_type === 'stripe' || (gameData?.allowed_payment_methods && gameData.allowed_payment_methods.includes('stripe'));
+
     const handleApplyPromo = async () => {
         if (!promoCode.trim()) return;
         setIsApplyingPromo(true);
@@ -402,7 +404,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                     else if (baseSubtotal === 0) determinedMethod = 'promo';
                 }
 
-                if (isWaitlist && gamePrice > 0 && gameData?.payment_collection_type !== 'cash') {
+                if (isWaitlist && gamePrice > 0 && gameData?.payment_collection_type !== 'cash' && supportsStripe) {
                     onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isWaitlistVaulting: true, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
                 } else {
                     onConfirm({ note, paymentMethod: determinedMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
@@ -530,8 +532,9 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                             </h4>
                                             <p className="text-[10px] text-gray-400 mb-3 uppercase font-medium">As team captain, how should the prize be distributed if your squad wins?</p>
                                             <div className="flex flex-col gap-2">
-                                                <label className="flex items-center gap-2 cursor-pointer bg-black/40 p-2 rounded border border-white/5 hover:border-white/20 transition-colors">
+                                                <label htmlFor="prizePref_split" className="flex items-center gap-2 cursor-pointer bg-black/40 p-2 rounded border border-white/5 hover:border-white/20 transition-colors">
                                                     <input 
+                                                        id="prizePref_split"
                                                         type="radio" 
                                                         name="prizePref" 
                                                         checked={prizeSplitPreference === 'split_evenly'} 
@@ -540,8 +543,9 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                                     />
                                                     <span className="text-sm font-bold text-gray-300">Split Evenly Among Roster</span>
                                                 </label>
-                                                <label className="flex items-center gap-2 cursor-pointer bg-black/40 p-2 rounded border border-white/5 hover:border-white/20 transition-colors">
+                                                <label htmlFor="prizePref_captain" className="flex items-center gap-2 cursor-pointer bg-black/40 p-2 rounded border border-white/5 hover:border-white/20 transition-colors">
                                                     <input 
+                                                        id="prizePref_captain"
                                                         type="radio" 
                                                         name="prizePref" 
                                                         checked={prizeSplitPreference === 'pay_captain'} 
@@ -564,6 +568,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                     
                                     <div className="flex flex-col gap-2">
                                         <input
+                                            id="guestSearch"
+                                            name="guestSearch"
                                             type="text"
                                             placeholder="Search by name or email..."
                                             value={guestSearch}
@@ -615,6 +621,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                         
                                         <div className="relative">
                                             <input
+                                                id="teammateSearch"
+                                                name="teammateSearch"
                                                 type="text"
                                                 placeholder="Search by name or email..."
                                                 value={teammateSearch}
@@ -659,6 +667,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                             <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">Team Request (Optional)</label>
                                             <p className="text-[10px] text-gray-500 font-medium mb-2">Request to be placed on a specific team.</p>
                                             <select
+                                                id="teamRequest"
+                                                name="teamRequest"
                                                 value={requestedTeamName || ''}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
@@ -701,6 +711,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                     ) : (
                                         <div className="flex gap-2">
                                             <input
+                                                id="promoCode"
+                                                name="promoCode"
                                                 type="text"
                                                 placeholder="Enter code"
                                                 value={promoCode}
@@ -805,6 +817,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                     </div>
                                     <label className="flex items-center gap-3 cursor-pointer group">
                                         <input 
+                                            id="event-waiver-checkbox"
+                                            name="event-waiver"
                                             type="checkbox" 
                                             required
                                             checked={eventWaiverAccepted}
@@ -821,6 +835,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 <div className="mt-4 bg-pitch-accent/5 border border-pitch-accent/20 p-4 rounded-sm">
                                     <label className="flex items-start gap-4 cursor-pointer">
                                         <input 
+                                            id="cash-acknowledgement-checkbox"
+                                            name="cash-acknowledgement"
                                             type="checkbox" 
                                             required 
                                             checked={cashAcknowledgement}
@@ -839,6 +855,15 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 <div className="mt-4 p-3 rounded bg-red-500/10 border border-red-500/30">
                                     <p className="text-xs text-red-400 font-bold text-center">
                                         Not enough total spots remaining for your party of {1 + selectedGuests.length}. (Only {remainingSpots} left)
+                                    </p>
+                                </div>
+                            )}
+
+                            {isWaitlist && gamePrice > 0 && supportsStripe && gameData?.payment_collection_type !== 'cash' && (
+                                <div className="mt-4 bg-yellow-500/10 border border-yellow-500/20 rounded-sm p-4 text-sm">
+                                    <h4 className="font-bold text-yellow-500 mb-1 uppercase tracking-wider text-xs">Pre-Authorization Hold</h4>
+                                    <p className="text-gray-300">
+                                        Your card will <strong className="text-white">not be charged today</strong>. We will secure your card on file and automatically charge <strong>${finalPrice.toFixed(2)}</strong> only if a spot opens up and you are promoted to the active roster.
                                     </p>
                                 </div>
                             )}

@@ -41,13 +41,32 @@ export async function POST(request: NextRequest) {
             .eq('game_id', gameId)
             .eq('user_id', user.id)
             .neq('status', 'cancelled') // Ignore cancelled bookings
-            .single();
+            .maybeSingle();
 
         if (existing) {
             return NextResponse.json({
                 success: false,
                 message: existing.status === 'waitlist' ? 'You are already on the waitlist.' : 'You have already joined this game.'
             });
+        }
+
+        // 1.5 Check if waitlist is full
+        const { data: game } = await supabase
+            .from('games')
+            .select('max_waitlist')
+            .eq('id', gameId)
+            .single();
+
+        if (game?.max_waitlist != null) {
+            const { count: waitlistCount } = await supabase
+                .from('bookings')
+                .select('id', { count: 'exact', head: true })
+                .eq('game_id', gameId)
+                .eq('status', 'waitlist');
+            
+            if (waitlistCount != null && waitlistCount >= game.max_waitlist) {
+                return NextResponse.json({ error: 'The waitlist for this event is full.' }, { status: 400 });
+            }
         }
 
         // 2. Insert Waitlist Booking

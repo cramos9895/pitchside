@@ -25,6 +25,7 @@ export async function updateGame(gameId: string, formData: any) {
             end_time: formData.end_time,
             price: (formData.event_type === 'tournament' || formData.event_type === 'league' || formData.league_format === 'rolling') ? null : formData.price,
             max_players: (formData.event_type === 'tournament' || formData.event_type === 'league') ? (formData.league_format === 'rolling' ? formData.max_players : null) : formData.max_players,
+            max_waitlist: formData.max_waitlist,
             game_format_type: formData.game_format_type,
             match_style: formData.match_style,
             surface_type: formData.surface_type,

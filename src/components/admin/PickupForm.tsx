@@ -71,6 +71,8 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
         const [maxPlayers, setMaxPlayers] = useState<number | ''>(initialData?.max_players ?? 22);
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
+        const [maxWaitlist, setMaxWaitlist] = useState<number | ''>(initialData?.max_waitlist ?? '');
+        // @ts-expect-error - Residual typing mismatch from extended schema mapping
         const [gameFormatType, setGameFormatType] = useState(initialData?.game_format_type || '7 v 7');
         // @ts-expect-error - Residual typing mismatch from extended schema mapping
         const [matchStyle, setMatchStyle] = useState(initialData?.match_style || 'Tourney');
@@ -287,6 +289,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                 shoe_types: shoeTypes,
                 price: price === '' ? 0 : price,
                 max_players: maxPlayers === '' ? 22 : maxPlayers,
+                max_waitlist: maxWaitlist === '' ? null : maxWaitlist,
                 teams_config: teams,
                 refund_policy: refundPolicy,
                 conduct_policy: conductPolicy,
@@ -382,6 +385,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
         
         setPrice(data.price ?? 10.00);
         setMaxPlayers(data.max_players ?? 22);
+        setMaxWaitlist(data.max_waitlist ?? '');
         setGameFormatType(data.game_format_type || '7 v 7');
         setMatchStyle(data.match_style || 'Tourney');
         setIsActive(data.is_active ?? true);
@@ -410,7 +414,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                 event_type: 'pickup', is_league: false, match_style: matchStyle, game_format_type: gameFormatType,
                 surface_type: surfaceType, amount_of_fields: amountOfFields === '' ? null : amountOfFields,
                 field_size: fieldSize, shoe_types: shoeTypes, price: price === '' ? 0 : price,
-                max_players: maxPlayers === '' ? 22 : maxPlayers, teams_config: teams, refund_policy: refundPolicy,
+                max_players: maxPlayers === '' ? 22 : maxPlayers, max_waitlist: maxWaitlist === '' ? null : maxWaitlist, teams_config: teams, refund_policy: refundPolicy,
                 conduct_policy: conductPolicy, is_refundable: isRefundable, refund_cutoff_hours: isRefundable ? (refundCutoffHours === '' ? null : refundCutoffHours) : null,
                 refund_cutoff_date: isRefundable && refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null,
                 allowed_payment_methods: (price === '' || price === 0) ? [] : allowedPaymentMethods, is_active: isActive
@@ -553,7 +557,7 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                         <div className="flex justify-between items-center mb-2">
                             <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary">Price ($)</label>
@@ -564,6 +568,10 @@ export function PickupForm({ initialData, action = 'create', onSuccess }: Pickup
                     <div>
                         <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Max Players</label>
                         <input type="number" required min="2" value={maxPlayers} onChange={(e) => setMaxPlayers(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Max Waitlist (Optional)</label>
+                        <input type="number" min="1" placeholder="Unlimited" value={maxWaitlist} onChange={(e) => setMaxWaitlist(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors placeholder:text-gray-600" />
                     </div>
                 </div>
 
