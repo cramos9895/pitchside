@@ -532,8 +532,9 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                             </h4>
                                             <p className="text-[10px] text-gray-400 mb-3 uppercase font-medium">As team captain, how should the prize be distributed if your squad wins?</p>
                                             <div className="flex flex-col gap-2">
-                                                <label className="flex items-center gap-2 cursor-pointer bg-black/40 p-2 rounded border border-white/5 hover:border-white/20 transition-colors">
+                                                <label htmlFor="prizePref_split" className="flex items-center gap-2 cursor-pointer bg-black/40 p-2 rounded border border-white/5 hover:border-white/20 transition-colors">
                                                     <input 
+                                                        id="prizePref_split"
                                                         type="radio" 
                                                         name="prizePref" 
                                                         checked={prizeSplitPreference === 'split_evenly'} 
@@ -542,8 +543,9 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                                     />
                                                     <span className="text-sm font-bold text-gray-300">Split Evenly Among Roster</span>
                                                 </label>
-                                                <label className="flex items-center gap-2 cursor-pointer bg-black/40 p-2 rounded border border-white/5 hover:border-white/20 transition-colors">
+                                                <label htmlFor="prizePref_captain" className="flex items-center gap-2 cursor-pointer bg-black/40 p-2 rounded border border-white/5 hover:border-white/20 transition-colors">
                                                     <input 
+                                                        id="prizePref_captain"
                                                         type="radio" 
                                                         name="prizePref" 
                                                         checked={prizeSplitPreference === 'pay_captain'} 
@@ -566,6 +568,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                     
                                     <div className="flex flex-col gap-2">
                                         <input
+                                            id="guestSearch"
+                                            name="guestSearch"
                                             type="text"
                                             placeholder="Search by name or email..."
                                             value={guestSearch}
@@ -617,6 +621,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                         
                                         <div className="relative">
                                             <input
+                                                id="teammateSearch"
+                                                name="teammateSearch"
                                                 type="text"
                                                 placeholder="Search by name or email..."
                                                 value={teammateSearch}
@@ -661,6 +667,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                             <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-1">Team Request (Optional)</label>
                                             <p className="text-[10px] text-gray-500 font-medium mb-2">Request to be placed on a specific team.</p>
                                             <select
+                                                id="teamRequest"
+                                                name="teamRequest"
                                                 value={requestedTeamName || ''}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
@@ -703,6 +711,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                     ) : (
                                         <div className="flex gap-2">
                                             <input
+                                                id="promoCode"
+                                                name="promoCode"
                                                 type="text"
                                                 placeholder="Enter code"
                                                 value={promoCode}
@@ -807,6 +817,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                     </div>
                                     <label className="flex items-center gap-3 cursor-pointer group">
                                         <input 
+                                            id="event-waiver-checkbox"
+                                            name="event-waiver"
                                             type="checkbox" 
                                             required
                                             checked={eventWaiverAccepted}
@@ -823,6 +835,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 <div className="mt-4 bg-pitch-accent/5 border border-pitch-accent/20 p-4 rounded-sm">
                                     <label className="flex items-start gap-4 cursor-pointer">
                                         <input 
+                                            id="cash-acknowledgement-checkbox"
+                                            name="cash-acknowledgement"
                                             type="checkbox" 
                                             required 
                                             checked={cashAcknowledgement}
