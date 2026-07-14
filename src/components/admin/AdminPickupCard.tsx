@@ -102,7 +102,7 @@ export function AdminPickupCard({ game, onEdit, onCancel, onHardDelete }: AdminP
                             </span>
                             <div className="text-sm font-bold text-white">
                                 {game.current_players} / {game.max_players} <br />
-                                <span className="text-pitch-secondary text-xs">{game.max_players - game.current_players} Spots Left</span>
+                                <span className="text-pitch-secondary text-xs">{game.current_players >= game.max_players ? 'Waitlist Active' : `${game.max_players - game.current_players} Spots Left`}</span>
                             </div>
                         </div>
                         <div className="space-y-1">

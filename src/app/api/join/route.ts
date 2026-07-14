@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         // 1. Fetch Game to verify price, current players and max players
         const { data: game, error: gameError } = await supabase
             .from('games')
-            .select('price, title, start_time, location, max_players, current_players, view_mode, teams_config')
+            .select('price, title, start_time, location, max_players, current_players, view_mode, teams_config, max_waitlist')
             .eq('id', gameId)
             .single();
 
@@ -95,7 +95,19 @@ export async function POST(request: NextRequest) {
         // 3. Determine Status based on Waitlist logic
         const partySize = 1 + (guestIds?.length || 0);
         const isFull = (game.current_players + partySize) > game.max_players;
-                const isManualPayment = !!paymentMethod && paymentMethod !== 'promo' && paymentMethod !== 'wallet';
+        const isManualPayment = !!paymentMethod && paymentMethod !== 'promo' && paymentMethod !== 'wallet';
+
+        if (isFull && game.max_waitlist != null) {
+            const { count: waitlistCount } = await supabase
+                .from('bookings')
+                .select('id', { count: 'exact', head: true })
+                .eq('game_id', gameId)
+                .eq('status', 'waitlist');
+            
+            if (waitlistCount != null && waitlistCount >= game.max_waitlist) {
+                return NextResponse.json({ error: 'The waitlist for this event is full.' }, { status: 400 });
+            }
+        }
 
         let initialStatus = isFull ? 'waitlist' : 'paid'; // Legacy status
         let initialPaymentStatus = isFull ? 'unpaid' : (isManualPayment ? 'pending' : 'verified');

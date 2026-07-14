@@ -24,7 +24,7 @@ export async function manualAddPlayerAction(gameId: string, userId: string, paym
             .select('id')
             .eq('game_id', gameId)
             .eq('user_id', userId)
-            .single();
+            .maybeSingle();
 
         if (existingBooking) {
             // Update to active/paid

@@ -33,6 +33,7 @@ interface Game {
     end_time: string | null;
     price: number;
     max_players: number;
+    max_waitlist?: number | null;
     current_players: number;
     surface_type: string;
     facility_id?: string | null;
@@ -626,9 +627,12 @@ export function GameClientPage({
                                                             setIsJoinModalOpen(true);
                                                         }
                                                     }}
-                                                    className="w-full py-4 bg-pitch-accent text-pitch-black font-black text-lg uppercase tracking-wider hover:bg-white transition-colors rounded-sm flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.3)]"
+                                                    disabled={activeRoster.length >= game.max_players && game.max_waitlist != null && waitlist.length >= game.max_waitlist}
+                                                    className={cn("w-full py-4 bg-pitch-accent text-pitch-black font-black text-lg uppercase tracking-wider hover:bg-white transition-colors rounded-sm flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.3)]", (activeRoster.length >= game.max_players && game.max_waitlist != null && waitlist.length >= game.max_waitlist) ? "opacity-50 cursor-not-allowed hover:bg-pitch-accent" : "")}
                                                 >
-                                                    {activeRoster.length >= game.max_players ? "Join Waitlist &rarr;" : "Register for Event &rarr;"}
+                                                    {activeRoster.length >= game.max_players 
+                                                        ? (game.max_waitlist != null && waitlist.length >= game.max_waitlist ? "Event & Waitlist Full" : "Join Waitlist \u2192") 
+                                                        : "Register for Event \u2192"}
                                                 </button>
                                             )}
                                             {isParticipant && (

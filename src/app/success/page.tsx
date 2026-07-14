@@ -217,7 +217,7 @@ export default async function SuccessPage({ searchParams }: Props) {
                         .update({
                             status: passenger.status,
                             payment_status: passenger.payment_status,
-                            roster_status: 'confirmed',
+                            roster_status: passenger.roster_status,
                             stripe_payment_method_id: passenger.stripe_payment_method_id || null,
                             team_assignment: passenger.team_assignment || null,
                             note: passenger.note || null,
