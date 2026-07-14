@@ -98,16 +98,14 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
 
     useEffect(() => {
         if (currentPlayers >= game.max_players && game.max_waitlist) {
-            supabase
-                .from('bookings')
-                .select('*', { count: 'exact', head: true })
-                .eq('game_id', game.id)
-                .eq('status', 'waitlist')
-                .then(({ count, error }) => {
-                    if (!error && count !== null) {
-                        setWaitlistCount(count);
+            fetch(`/api/waitlist/count?gameId=${game.id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.count !== undefined) {
+                        setWaitlistCount(data.count);
                     }
-                });
+                })
+                .catch(err => console.error("Error fetching waitlist count:", err));
         }
     }, [currentPlayers, game.max_players, game.max_waitlist, game.id]);
 
