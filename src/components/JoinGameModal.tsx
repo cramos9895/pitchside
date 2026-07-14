@@ -402,7 +402,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                     else if (baseSubtotal === 0) determinedMethod = 'promo';
                 }
 
-                if (isWaitlist && gamePrice > 0 && gameData?.payment_collection_type !== 'cash') {
+                const supportsStripe = gameData?.payment_collection_type === 'stripe' || (gameData?.allowed_payment_methods && gameData.allowed_payment_methods.includes('stripe'));
+                if (isWaitlist && gamePrice > 0 && gameData?.payment_collection_type !== 'cash' && supportsStripe) {
                     onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isWaitlistVaulting: true, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
                 } else {
                     onConfirm({ note, paymentMethod: determinedMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
