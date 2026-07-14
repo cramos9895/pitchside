@@ -372,10 +372,12 @@ export default async function SuccessPage({ searchParams }: Props) {
                     </div>
 
                     <h1 className="font-heading text-4xl font-bold italic uppercase tracking-tighter mb-2">
-                        You're In!
+                        {isWaitlistVaulting ? "You're on the Waitlist!" : "You're In!"}
                     </h1>
                     <p className="text-pitch-secondary mb-8">
-                        Payment successful. Your spot on the roster is confirmed.
+                        {isWaitlistVaulting 
+                            ? "Your card has been saved securely, but you have NOT been charged. You will only be charged if a spot opens up and you are promoted to the active roster."
+                            : "Payment successful. Your spot on the roster is confirmed."}
                     </p>
 
                     <Link

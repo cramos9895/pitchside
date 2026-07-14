@@ -279,6 +279,8 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     
     const finalPrice = Math.max(0, subtotalAfterPromo - creditApplied);
 
+    const supportsStripe = gameData?.payment_collection_type === 'stripe' || (gameData?.allowed_payment_methods && gameData.allowed_payment_methods.includes('stripe'));
+
     const handleApplyPromo = async () => {
         if (!promoCode.trim()) return;
         setIsApplyingPromo(true);
@@ -402,7 +404,6 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                     else if (baseSubtotal === 0) determinedMethod = 'promo';
                 }
 
-                const supportsStripe = gameData?.payment_collection_type === 'stripe' || (gameData?.allowed_payment_methods && gameData.allowed_payment_methods.includes('stripe'));
                 if (isWaitlist && gamePrice > 0 && gameData?.payment_collection_type !== 'cash' && supportsStripe) {
                     onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isWaitlistVaulting: true, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
                 } else {
@@ -840,6 +841,15 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 <div className="mt-4 p-3 rounded bg-red-500/10 border border-red-500/30">
                                     <p className="text-xs text-red-400 font-bold text-center">
                                         Not enough total spots remaining for your party of {1 + selectedGuests.length}. (Only {remainingSpots} left)
+                                    </p>
+                                </div>
+                            )}
+
+                            {isWaitlist && gamePrice > 0 && supportsStripe && gameData?.payment_collection_type !== 'cash' && (
+                                <div className="mt-4 bg-yellow-500/10 border border-yellow-500/20 rounded-sm p-4 text-sm">
+                                    <h4 className="font-bold text-yellow-500 mb-1 uppercase tracking-wider text-xs">Pre-Authorization Hold</h4>
+                                    <p className="text-gray-300">
+                                        Your card will <strong className="text-white">not be charged today</strong>. We will secure your card on file and automatically charge <strong>${finalPrice.toFixed(2)}</strong> only if a spot opens up and you are promoted to the active roster.
                                     </p>
                                 </div>
                             )}
