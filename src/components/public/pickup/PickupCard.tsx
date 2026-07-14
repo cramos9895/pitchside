@@ -416,7 +416,7 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
                             <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-pitch-accent transition-colors flex items-center gap-1">
                                 <Users className="w-4 h-4" /> Players
                             </div>
-                            <div className="text-white font-black text-xs uppercase flex items-center gap-2">
+                            <div className="text-white font-black text-xs uppercase flex flex-col items-start gap-1">
                                 <span>{currentPlayers} / {game.max_players}</span>
                                 {currentPlayers >= game.max_players && game.max_waitlist != null && waitlistCount !== null && (
                                     <span className="text-[8px] bg-yellow-500/20 text-yellow-500 px-1.5 py-0.5 rounded tracking-widest whitespace-nowrap">
