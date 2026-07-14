@@ -417,7 +417,7 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
                                 <Users className="w-4 h-4" /> Players
                             </div>
                             <div className="text-white font-black text-xs uppercase flex items-center gap-2">
-                                {currentPlayers} / {game.max_players}
+                                <span>{currentPlayers} / {game.max_players}</span>
                                 {currentPlayers >= game.max_players && game.max_waitlist != null && waitlistCount !== null && (
                                     <span className="text-[8px] bg-yellow-500/20 text-yellow-500 px-1.5 py-0.5 rounded tracking-widest whitespace-nowrap">
                                         WL: {waitlistCount} / {game.max_waitlist}
