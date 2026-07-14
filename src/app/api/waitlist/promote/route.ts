@@ -71,7 +71,7 @@ export async function POST(request: Request) {
                     await adminSupabase
                         .from('bookings')
                         .update({
-                            status: 'active', // Legacy active
+                            status: 'paid',
                             payment_status: 'verified',
                             payment_method: 'stripe',
                             roster_status: 'confirmed'
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
                     await adminSupabase
                         .from('bookings')
                         .update({
-                            status: 'active',
+                            status: 'paid',
                             payment_status: 'verified',
                             payment_method: 'free',
                             roster_status: 'confirmed'
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
             await adminSupabase
                 .from('bookings')
                 .update({
-                    status: 'active',
+                    status: 'paid',
                     payment_status: 'unpaid',
                     payment_method: 'cash',
                     roster_status: 'confirmed'
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
             }
         }
 
-        return NextResponse.json({ success: true, newStatus: 'active' });
+        return NextResponse.json({ success: true, newStatus: 'paid' });
 
     } catch (err: any) {
         console.error('Waitlist Promote Error:', err);

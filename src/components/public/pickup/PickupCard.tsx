@@ -30,6 +30,7 @@ interface Game {
     match_style?: string;
     status: string; // 'scheduled', 'active', 'completed', 'cancelled'
     is_refundable?: boolean;
+    max_waitlist?: number | null;
 }
 
 interface PickupCardProps {
@@ -48,6 +49,7 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
     const [currentPlayers, setCurrentPlayers] = useState(game.current_players);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
+    const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
     const { success, error: toastError } = useToast();
 
     const gameDate = new Date(game.start_time);
@@ -93,6 +95,21 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
             supabase.removeChannel(channel);
         };
     }, [game.id, supabase]);
+
+    useEffect(() => {
+        if (currentPlayers >= game.max_players && game.max_waitlist) {
+            supabase
+                .from('bookings')
+                .select('*', { count: 'exact', head: true })
+                .eq('game_id', game.id)
+                .eq('status', 'waitlist')
+                .then(({ count, error }) => {
+                    if (!error && count !== null) {
+                        setWaitlistCount(count);
+                    }
+                });
+        }
+    }, [currentPlayers, game.max_players, game.max_waitlist, game.id]);
 
     const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     const rawStartStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(' ', '');
@@ -401,7 +418,14 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
                             <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-pitch-accent transition-colors flex items-center gap-1">
                                 <Users className="w-4 h-4" /> Players
                             </div>
-                            <div className="text-white font-black text-xs uppercase">{currentPlayers} / {game.max_players}</div>
+                            <div className="text-white font-black text-xs uppercase flex items-center gap-2">
+                                {currentPlayers} / {game.max_players}
+                                {currentPlayers >= game.max_players && game.max_waitlist != null && waitlistCount !== null && (
+                                    <span className="text-[8px] bg-yellow-500/20 text-yellow-500 px-1.5 py-0.5 rounded tracking-widest whitespace-nowrap">
+                                        WL: {waitlistCount} / {game.max_waitlist}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <div className="bg-white/5 p-3 rounded-sm border border-white/5 hover:bg-white/10 transition-colors group/item">
                             <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-pitch-accent transition-colors flex items-center gap-1">
@@ -429,7 +453,14 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
                                 onClick={() => router.push(`/games/${game.id}`)}
                                 className="col-span-1 sm:col-span-2 w-full py-5 bg-pitch-accent text-pitch-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm group/btn min-h-[44px]"
                             >
-                                Player Lobby <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                                <span className="group-hover/btn:translate-x-1 transition-transform">
+                                    Manage {status === 'waitlist' ? 'Waitlist' : 'Booking'}
+                                </span>
+                                <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                            </button>
+                        ) : !isLive ? (
+                            <button className="col-span-1 sm:col-span-2 w-full py-5 bg-white/5 text-gray-500 font-black uppercase tracking-widest text-xs rounded-sm cursor-not-allowed">
+                                Event Over
                             </button>
                         ) : (
                             <button

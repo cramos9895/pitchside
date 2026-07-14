@@ -813,10 +813,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
             toast.success("Player successfully promoted!");
             setPromoteModalBooking(null);
-            router.refresh();
-            // Optimistic update
-            const updatedBookings = bookings.map(b => b.id === promoteModalBooking.id ? { ...b, status: data.newStatus || 'active' } : b);
-            setBookings(updatedBookings as unknown as AdminGameBooking[]);
+            window.location.reload();
         } catch (error: any) {
             toast.error(error.message);
         } finally {

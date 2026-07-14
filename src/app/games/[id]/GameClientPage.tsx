@@ -937,14 +937,12 @@ export function GameClientPage({
                                                             <div className={cn("font-bold", isMe ? "text-pitch-accent" : "text-white")}>
                                                                 {name} {isMe && "(You)"}
                                                             </div>
-                                                            {player.team_assignment && (
-                                                                <div className="text-xs text-gray-400 uppercase font-bold mt-0.5 max-w-[120px] truncate">
-                                                                    {player.team_assignment === 'free_agent' ? 'Unassigned' : player.team_assignment}
-                                                                </div>
-                                                            )}
+                                                            <div className="text-xs text-gray-400 uppercase font-bold mt-0.5 max-w-[120px] truncate">
+                                                                {(!player.team_assignment || player.team_assignment === 'free_agent') ? 'Unassigned' : player.team_assignment}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    {player.status === 'paid' && (
+                                                    {['paid', 'active'].includes(player.status || '') && (
                                                         <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded font-bold uppercase">Confirmed</span>
                                                     )}
                                                 </div>
