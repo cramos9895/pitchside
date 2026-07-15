@@ -799,6 +799,34 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
                                                     : 'bg-white/5 text-gray-400 border-white/10'
                                                 }`}>{m.status}</span>
 
+                                                {/* Official Badge */}
+                                                {(() => {
+                                                    const hasPending = m.match_officials?.some((o: any) => o.status === 'Pending');
+                                                    const isAssigned = m.match_officials?.some((o: any) => o.status === 'Confirmed');
+
+                                                    if (hasPending) {
+                                                        return (
+                                                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border shrink-0 bg-red-500/20 text-red-400 border-red-500/30 flex items-center gap-1 shadow-[0_0_10px_rgba(239,68,68,0.2)]">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                                                                NEEDS APPROVAL
+                                                            </span>
+                                                        );
+                                                    } else if (isAssigned) {
+                                                        return (
+                                                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border shrink-0 bg-green-500/10 text-green-500 border-green-500/20 flex items-center gap-1">
+                                                                <CheckCircle2 className="w-2.5 h-2.5" />
+                                                                REF ASSIGNED
+                                                            </span>
+                                                        );
+                                                    } else {
+                                                        return (
+                                                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border shrink-0 bg-white/5 text-gray-500 border-white/10">
+                                                                NO REF
+                                                            </span>
+                                                        );
+                                                    }
+                                                })()}
+
                                                 {/* Action Buttons */}
                                                 <div className="flex gap-1.5 shrink-0">
                                                     <button
