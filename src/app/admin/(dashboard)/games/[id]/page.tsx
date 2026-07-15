@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { ArrowLeft, Check, Shirt, User as UserIcon, Users, X, Trophy, Save, Loader2, Swords, Calendar, Trash2, Shield, MoreVertical, MonitorPlay, UserCheck, UserX, Award, Scan } from 'lucide-react';
+import { ArrowLeft, Check, Shirt, User as UserIcon, Users, X, Trophy, Save, Loader2, Swords, Calendar, Trash2, Shield, MoreVertical, MonitorPlay, UserCheck, UserX, Award, Scan, Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { MatchManager } from '@/components/admin/MatchManager';
@@ -169,6 +169,27 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const [activeTab, setActiveTab] = useState('player-manager');
     const [rosterSort, setRosterSort] = useState('alphabetical');
     const [resolvedTeammateNames, setResolvedTeammateNames] = useState<Record<string, string>>({});
+    const [hostProfiles, setHostProfiles] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        const fetchHostProfiles = async () => {
+            if (!game?.host_ids || game.host_ids.length === 0) return;
+            const idsToFetch = game.host_ids.filter((id: string) => !hostProfiles[id]);
+            if (idsToFetch.length === 0) return;
+            
+            const { data, error } = await supabase.from('profiles').select('id, first_name, last_name').in('id', idsToFetch);
+            if (data && !error) {
+                setHostProfiles(prev => {
+                    const next = { ...prev };
+                    data.forEach((p: any) => {
+                        next[p.id] = p.first_name ? `${p.first_name} ${p.last_name || ''}`.trim() : 'Unknown';
+                    });
+                    return next;
+                });
+            }
+        };
+        fetchHostProfiles();
+    }, [game?.host_ids]);
 
     // Sync tab state with localStorage to survive hard refreshes
     useEffect(() => {
@@ -1205,16 +1226,62 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                     {/* Host Management */}
                     {isAdmin && (
-                        <div className="bg-pitch-card border border-white/10 p-4 rounded-sm mb-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                            <div>
+                        <div className="bg-pitch-card border border-white/10 p-4 rounded-sm mb-6 flex flex-col md:flex-row gap-4 items-start justify-between">
+                            <div className="flex-1 w-full">
                                 <h3 className="font-heading text-lg font-bold italic uppercase flex items-center gap-2">
                                     <Shield className="w-5 h-5 text-pitch-accent" /> Manage Hosts
                                 </h3>
-                                <p className="text-xs text-gray-400">Hosts can manage the roster and chat, but cannot delete the event or change core details.</p>
+                                <p className="text-xs text-gray-400 mb-4">Hosts can manage the roster and chat, but cannot delete the event or change core details.</p>
+                                
+                                {/* Active Hosts List */}
+                                <div className="flex flex-col gap-2 max-w-lg">
+                                    {(game.host_ids || []).map((uid, index) => {
+                                        const isPrimary = index === 0;
+                                        return (
+                                            <div key={uid} className="flex items-center gap-3 bg-white/5 p-2.5 rounded border border-white/10">
+                                                <div className="flex-1">
+                                                    <span className="font-bold text-sm">{hostProfiles[uid] || 'Loading...'}</span>
+                                                    {isPrimary ? (
+                                                        <span className="ml-2 text-[10px] font-bold uppercase tracking-wider bg-pitch-accent text-black px-1.5 py-0.5 rounded inline-flex items-center gap-1">
+                                                            <Crown className="w-3 h-3" /> Primary
+                                                        </span>
+                                                    ) : (
+                                                        <span className="ml-2 text-[10px] font-bold uppercase tracking-wider bg-white/20 text-white px-1.5 py-0.5 rounded">Co-Host</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-3">
+                                                    {!isPrimary && (
+                                                        <button 
+                                                            onClick={async () => {
+                                                                const newHosts = [uid, ...(game.host_ids || []).filter(id => id !== uid)];
+                                                                setGame({ ...game, host_ids: newHosts });
+                                                                await supabase.from('games').update({ host_ids: newHosts }).eq('id', game.id);
+                                                            }}
+                                                            className="text-xs text-pitch-accent hover:underline uppercase font-bold tracking-wider"
+                                                        >
+                                                            Make Primary
+                                                        </button>
+                                                    )}
+                                                    <button 
+                                                        onClick={async () => {
+                                                            if (!confirm('Remove this host?')) return;
+                                                            const newHosts = (game.host_ids || []).filter(id => id !== uid);
+                                                            setGame({ ...game, host_ids: newHosts });
+                                                            await supabase.from('games').update({ host_ids: newHosts }).eq('id', game.id);
+                                                        }}
+                                                        className="text-xs text-red-500 hover:underline uppercase font-bold tracking-wider"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
                             </div>
-                            <div className="flex gap-2 w-full md:w-auto">
+                            <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
                                 <select
-                                    className="bg-black/30 w-full md:w-48 border border-white/10 rounded p-2 text-sm text-white focus:outline-none focus:border-pitch-accent"
+                                    className="bg-black/30 w-full md:w-48 border border-white/10 rounded p-2 text-sm text-white focus:outline-none focus:border-pitch-accent h-10"
                                     onChange={async (e) => {
                                         const uid = e.target.value;
                                         if (!uid) return;
@@ -1229,15 +1296,15 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                                             if (error) throw error;
                                             toast.success("Host added.");
                                         } catch (err: any) {
-                                                                                        toast.error(err.message);
+                                            toast.error(err.message);
                                             setGame({ ...game, host_ids: currentHosts }); // Revert
                                         }
                                         e.target.value = '';
                                     }}
                                 >
                                     <option value="">+ Assign Host</option>
-                                                                        {playerOptions.filter((p: any) => !(game.host_ids || []).includes(p.id)).map((p: any) => (
-                                                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                    {playerOptions.filter((p: any) => !(game.host_ids || []).includes(p.id)).map((p: any) => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
                                 </select>
                             </div>
