@@ -31,6 +31,8 @@ import { useToast } from '@/components/ui/Toast';
 import { PlayerVerificationModal } from '@/components/admin/PlayerVerificationModal';
 import { CheckInManager } from '@/components/public/checkin/CheckInManager';
 import { checkInPlayer, toggleManualWaiver, updatePlayerPhoto } from '@/app/actions/compliance';
+import { MatchRefereeAssigner } from '@/components/admin/MatchRefereeAssigner';
+
 
 export default function MatchControlRoom({ params }: { params: Promise<{ match_id: string }> }) {
     const { match_id: matchId } = use(params);
@@ -113,6 +115,15 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
                     .select('*, profiles!match_officials_user_id_fkey(first_name, last_name, phone_number, email)')
                     .eq('match_id', matchId);
                 
+                // Fetch match bids
+                const { data: bidsData } = await supabase
+                    .from('match_bids')
+                    .select('*, profiles!match_bids_user_id_fkey(first_name, last_name, phone_number, email)')
+                    .eq('match_id', matchId);
+                
+                matchData.match_officials = officialsData || [];
+                matchData.match_bids = bidsData || [];
+
                 setOfficials(officialsData || []);
             }
         } catch (err: any) {
@@ -549,57 +560,7 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
 
                     {/* OFFICIALS PANEL */}
                     <div className="space-y-6">
-                        <div className="flex items-center justify-between text-gray-500 uppercase font-black text-xs tracking-[0.2em]">
-                            <div className="flex items-center gap-4">
-                                <User className="w-4 h-4" /> Match Officials
-                            </div>
-                            <button className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded transition-colors text-[9px]">
-                                <Plus className="w-3 h-3" /> Manually Assign
-                            </button>
-                        </div>
-                        <div className="bg-gray-900/50 border border-white/5 rounded-xl overflow-hidden divide-y divide-white/5">
-                            {officials.length === 0 ? (
-                                <div className="px-6 py-10 text-center text-gray-600 text-[10px] font-black uppercase tracking-widest">
-                                    No referees assigned or applied
-                                </div>
-                            ) : officials.map((off: any) => (
-                                <div key={off.id} className="px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-black border border-white/10 flex items-center justify-center text-xs font-black">
-                                            {off.profiles?.first_name?.[0]}{off.profiles?.last_name?.[0]}
-                                        </div>
-                                        <div>
-                                            <div className="text-sm font-bold">{off.profiles?.first_name} {off.profiles?.last_name}</div>
-                                            <div className="text-[10px] text-gray-400 uppercase tracking-widest mt-1 flex gap-3">
-                                                <span>{off.role}</span>
-                                                <span className={cn(
-                                                    "px-1.5 rounded",
-                                                    off.status === 'Confirmed' ? "bg-green-500/10 text-green-500" :
-                                                    off.status === 'Waitlist' ? "bg-yellow-500/10 text-yellow-500" :
-                                                    "bg-white/5"
-                                                )}>{off.status}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {off.status !== 'Confirmed' && (
-                                            <button 
-                                                onClick={() => handleUpdateOfficialStatus(off.id, 'Confirmed')}
-                                                className="px-3 py-1.5 bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white rounded text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
-                                                <CheckCircle2 className="w-3 h-3" /> Confirm
-                                            </button>
-                                        )}
-                                        {off.status !== 'Rejected' && (
-                                            <button 
-                                                onClick={() => handleUpdateOfficialStatus(off.id, 'Rejected')}
-                                                className="px-3 py-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
-                                                <X className="w-3 h-3" /> Reject
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        <MatchRefereeAssigner match={match} onRefresh={fetchData} />
                     </div>
 
                     {/* ROSTER SPLIT */}
