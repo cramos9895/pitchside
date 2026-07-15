@@ -801,7 +801,9 @@ export function ScheduleTab({ matches, teams, gameId, facilityId, game, onRefres
 
                                                 {/* Official Badge */}
                                                 {(() => {
-                                                    const hasPending = m.match_officials?.some((o: any) => o.status === 'Pending');
+                                                    const hasPendingReq = m.match_officials?.some((o: any) => o.status === 'Pending');
+                                                    const hasPendingBid = m.match_bids?.some((b: any) => b.status === 'Pending');
+                                                    const hasPending = hasPendingReq || hasPendingBid;
                                                     const isAssigned = m.match_officials?.some((o: any) => o.status === 'Confirmed');
 
                                                     if (hasPending) {
