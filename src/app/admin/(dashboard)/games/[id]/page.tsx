@@ -11,6 +11,7 @@ import { StandingsTable } from '@/components/admin/StandingsTable';
 import { ScheduleGenerator } from '@/components/admin/ScheduleGenerator';
 import { MatchResultsLog } from '@/components/admin/MatchResultsLog';
 import { MicroTournamentManager } from '@/components/admin/MicroTournamentManager';
+import { AdminTournamentManager } from '@/components/admin/tournament/AdminTournamentManager';
 import { useToast } from '@/components/ui/Toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -1157,15 +1158,22 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
     if (game.event_type === 'tournament') {
         return (
-            <MicroTournamentManager 
-                game={game} 
-                bookings={bookings} 
-                matches={matches}
-                onUpdate={() => {
-                    fetchMatches();
-                    router.refresh();
-                }} 
-            />
+            <div className="min-h-screen bg-pitch-black text-white font-sans overflow-x-hidden pb-40">
+                <AdminTournamentManager 
+                    gameId={gameId}
+                    leagueTitle={game.title}
+                    registrations={bookings}
+                    matches={matches}
+                    teams={teams}
+                    facilityId={game.facility_id || ''}
+                    game={game}
+                    onRefresh={async () => {
+                        await fetchMatches();
+                        await fetchRegistrations();
+                        router.refresh();
+                    }} 
+                />
+            </div>
         );
     }
 
