@@ -18,7 +18,7 @@ export function TournamentScheduleTab({
     
     // Derived state
     const activePlayers = registrations.filter((b: any) => 
-        ['active', 'paid', 'confirmed', 'registered'].includes(b.status) || 
+        ['active', 'paid', 'confirmed', 'registered', 'pending'].includes(b.status) || 
         b.roster_status === 'confirmed'
     );
     const uniqueRegisteredTeamIds = new Set(activePlayers.map((p: any) => p.team_id).filter(Boolean));

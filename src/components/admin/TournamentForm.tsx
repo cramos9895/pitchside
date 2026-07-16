@@ -94,7 +94,11 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
 
     // Registration & Pricing
     // @ts-expect-error - Requires complex schema extension
+    const [pricingModel, setPricingModel] = useState<'team' | 'player'>(initialData?.payment_collection_type === 'player_fees' ? 'player' : 'team');
+    // @ts-expect-error - Requires complex schema extension
     const [teamPrice, setTeamPrice] = useState<number | ''>(initialData?.team_price ?? '');
+    // @ts-expect-error - Requires complex schema extension
+    const [playerRegistrationFee, setPlayerRegistrationFee] = useState<number | ''>(initialData?.player_registration_fee ?? '');
     // @ts-expect-error - Requires complex schema extension
     const [hasRegistrationFee, setHasRegistrationFee] = useState(initialData?.deposit_amount !== null && initialData?.deposit_amount !== undefined);
     // @ts-expect-error - Requires complex schema extension
@@ -220,6 +224,8 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
                 field_size: fieldSize, shoe_types: shoeTypes,
                 team_price: teamPrice === '' ? null : teamPrice,
                 deposit_amount: hasRegistrationFee ? (depositAmount === '' ? null : depositAmount) : null,
+                player_registration_fee: playerRegistrationFee === '' ? null : playerRegistrationFee,
+                payment_collection_type: pricingModel === 'player' ? 'player_fees' : 'team_fees',
                 has_registration_fee_credit: hasRegistrationFee ? hasRegistrationFeeCredit : false,
                 free_agent_price: freeAgentPrice === '' ? null : freeAgentPrice,
                 has_free_agent_credit: hasFreeAgentCredit,
@@ -322,6 +328,8 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
         setBreakBetweenGames(data.break_between_games ?? 5);
         
         setTeamPrice(data.team_price ?? '');
+        setPlayerRegistrationFee(data.player_registration_fee ?? '');
+        setPricingModel(data.payment_collection_type === 'player_fees' ? 'player' : 'team');
         setDepositAmount(data.deposit_amount ?? '');
         setHasRegistrationFee(data.deposit_amount !== null);
         setHasRegistrationFeeCredit(data.has_registration_fee_credit ?? false);
@@ -375,6 +383,8 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
                 field_size: fieldSize, shoe_types: shoeTypes,
                 team_price: teamPrice === '' ? null : teamPrice,
                 deposit_amount: hasRegistrationFee ? (depositAmount === '' ? null : depositAmount) : null,
+                player_registration_fee: playerRegistrationFee === '' ? null : playerRegistrationFee,
+                payment_collection_type: pricingModel === 'player' ? 'player_fees' : 'team_fees',
                 has_registration_fee_credit: hasRegistrationFee ? hasRegistrationFeeCredit : false,
                 free_agent_price: freeAgentPrice === '' ? null : freeAgentPrice,
                 has_free_agent_credit: hasFreeAgentCredit,
@@ -558,30 +568,60 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
                     </div>
                 </div>
 
+                <div className="grid grid-cols-1 gap-6 mb-6">
+                    <div className="bg-white/5 border border-white/10 p-4 rounded-sm">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-4 flex items-center gap-2">
+                            <DollarSign className="w-4 h-4 text-[#cbff00]" /> Pricing Model
+                        </label>
+                        <div className="flex gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="pricingModel" value="team" checked={pricingModel === 'team'} onChange={() => setPricingModel('team')} className="w-4 h-4 accent-[#cbff00]" />
+                                <span className="text-sm font-bold uppercase text-white">Team Pricing (Captain Pays)</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="pricingModel" value="player" checked={pricingModel === 'player'} onChange={() => setPricingModel('player')} className="w-4 h-4 accent-[#cbff00]" />
+                                <span className="text-sm font-bold uppercase text-white">Individual Player Pricing (Everyone Pays)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     <div className="space-y-6">
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Total Team Fee ($)</label>
-                            <input type="number" required min="0" step="0.01" value={teamPrice} onChange={(e) => setTeamPrice(e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
-                        </div>
-                        <div className="border border-white/10 p-4 rounded-sm bg-white/5 space-y-4">
-                            <label className="flex items-center justify-between cursor-pointer group">
-                                <span className="text-sm font-bold uppercase tracking-wider text-white group-hover:text-[#cbff00] transition-colors">Registration Fee?</span>
-                                <input type="checkbox" checked={hasRegistrationFee} onChange={(e) => setHasRegistrationFee(e.target.checked)} className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer" />
-                            </label>
-                            {hasRegistrationFee && (
-                                <div className="space-y-4 pt-2 border-t border-white/10 animate-in fade-in slide-in-from-top-2">
-                                    <div>
-                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Team Registration Fee ($)</label>
-                                        <input type="number" required min="0" step="0.01" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
-                                    </div>
-                                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                                        <input type="checkbox" checked={hasRegistrationFeeCredit} onChange={(e) => setHasRegistrationFeeCredit(e.target.checked)} className="w-4 h-4 accent-[#cbff00] rounded cursor-pointer" />
-                                        <span className="text-xs font-bold uppercase text-pitch-secondary">Registration Fee Credit?</span>
-                                    </label>
+                        {pricingModel === 'team' ? (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Total Team Fee ($)</label>
+                                    <input type="number" required min="0" step="0.01" value={teamPrice} onChange={(e) => setTeamPrice(e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
                                 </div>
-                            )}
-                        </div>
+                                <div className="border border-white/10 p-4 rounded-sm bg-white/5 space-y-4">
+                                    <label className="flex items-center justify-between cursor-pointer group">
+                                        <span className="text-sm font-bold uppercase tracking-wider text-white group-hover:text-[#cbff00] transition-colors">Registration Deposit?</span>
+                                        <input type="checkbox" checked={hasRegistrationFee} onChange={(e) => setHasRegistrationFee(e.target.checked)} className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer" />
+                                    </label>
+                                    {hasRegistrationFee && (
+                                        <div className="space-y-4 pt-2 border-t border-white/10 animate-in fade-in slide-in-from-top-2">
+                                            <div>
+                                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Team Registration Deposit ($)</label>
+                                                <input type="number" required min="0" step="0.01" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
+                                            </div>
+                                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                <input type="checkbox" checked={hasRegistrationFeeCredit} onChange={(e) => setHasRegistrationFeeCredit(e.target.checked)} className="w-4 h-4 accent-[#cbff00] rounded cursor-pointer" />
+                                                <span className="text-xs font-bold uppercase text-pitch-secondary">Registration Fee Credit?</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="bg-[#cbff00]/5 border border-[#cbff00]/20 p-4 rounded-sm">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-[#cbff00] mb-2">Individual Player Registration Fee ($)</label>
+                                    <p className="text-[10px] text-gray-400 mb-3 uppercase tracking-wider font-medium">This fee will be charged to the captain upon team creation, and to each teammate when they join.</p>
+                                    <input type="number" required min="0" step="0.01" value={playerRegistrationFee} onChange={(e) => setPlayerRegistrationFee(e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-full bg-black/50 border border-[#cbff00]/30 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00]" />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-6">

@@ -16,12 +16,14 @@ export async function acceptTeamInvite({
     teamId,
     tournamentId,
     setupIntentId,
-    waiverAccepted
+    waiverAccepted,
+    status = 'registered'
 }: {
     teamId: string,
     tournamentId: string,
     setupIntentId?: string,
-    waiverAccepted: boolean
+    waiverAccepted: boolean,
+    status?: string
 }) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -83,7 +85,7 @@ export async function acceptTeamInvite({
     const regPayload: any = {
         user_id: user.id,
         team_id: teamId,
-        status: 'registered',
+        status: status,
         role: 'player',
         payment_status: paymentStatus,
         stripe_setup_intent_id: setupIntentId || null
@@ -96,12 +98,14 @@ export async function acceptTeamInvite({
     }
 
     // Use Upsert with onConflict to handle re-registrations gracefully
-    const { error: regError } = await supabase
+    const { data: upsertData, error: regError } = await supabase
         .from('tournament_registrations')
         .upsert(regPayload, { 
             onConflict: isGame ? 'game_id,user_id' : 'league_id,user_id',
             ignoreDuplicates: false 
-        });
+        })
+        .select()
+        .single();
 
     if (regError) {
         console.error("Invite Registration Error:", regError);
@@ -119,5 +123,5 @@ export async function acceptTeamInvite({
     revalidatePath(`/rolling-leagues/${tournamentId}`);
     revalidatePath(`/leagues/${tournamentId}`);
     
-    return { success: true };
+    return { success: true, registrationId: upsertData?.id };
 }

@@ -27,7 +27,7 @@ export function TournamentRegistrationClient({
     dbDepositAmount: number | null,
     signup_fee?: number | null,
     cash_amount?: number | null,
-    payment_collection_type?: 'stripe' | 'cash',
+    payment_collection_type?: 'stripe' | 'cash' | 'player_fees',
     description?: string | null,
     strict_waiver_required?: boolean,
     waiver_details?: string | null
@@ -50,12 +50,18 @@ export function TournamentRegistrationClient({
     const [currentEventType, setCurrentEventType] = useState<string | null>(null);
 
     const isCashLeague = payment_collection_type === 'cash';
+    const isPlayerPricing = payment_collection_type === 'player_fees';
     const registrationFee = signup_fee ?? 0;
     const perGameFee = isCashLeague ? (faPrice ?? cash_amount ?? 0) : 0;
 
-    const depositAmount = dbDepositAmount !== null 
-        ? dbDepositAmount 
-        : (teamPrice ? Math.min(50, teamPrice) : 0);
+    let captainChargeAmount = 0;
+    if (isPlayerPricing) {
+        captainChargeAmount = registrationFee;
+    } else {
+        captainChargeAmount = dbDepositAmount !== null 
+            ? dbDepositAmount 
+            : (teamPrice ? Math.min(50, teamPrice) : 0);
+    }
 
     const isFormValid = () => {
         const waiverValid = strict_waiver_required ? waiverAccepted : true;
@@ -101,7 +107,7 @@ export function TournamentRegistrationClient({
                 throw new Error("You must accept financial responsibility.");
             }
 
-            if (depositAmount > 0 && !isCashLeague) {
+            if (captainChargeAmount > 0 && !isCashLeague) {
                 // Step 1: Create/Update a PENDING registration in the DB
                 const pendingFormData = new FormData();
                 Object.entries(payload).forEach(([key, value]) => {
@@ -267,13 +273,25 @@ export function TournamentRegistrationClient({
                                 <h3 className="text-sm font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
                                     <CreditCard className="w-4 h-4" /> Entry Strategy
                                 </h3>
-                                <span className="text-xl font-black text-white">${teamPrice || 0}</span>
+                                <span className="text-xl font-black text-white">${isPlayerPricing ? registrationFee : (teamPrice || 0)}</span>
                             </div>
 
                             <div className="p-4 rounded-xl border bg-pitch-accent/10 border-pitch-accent text-pitch-accent shadow-[0_0_20px_rgba(204,255,0,0.1)] relative overflow-hidden flex justify-between items-center">
                                 <div>
-                                    <span className="block text-xs font-black uppercase tracking-widest mb-1">{isCashLeague ? 'Register Full Team (Cash)' : `Deposit Required: $${depositAmount}`}</span>
-                                    <span className="block text-[10px] uppercase font-bold tracking-widest opacity-80 mt-1">{isCashLeague ? 'All fees collected in-person' : "Settle full balance via Captain's Dashboard"}</span>
+                                    <span className="block text-xs font-black uppercase tracking-widest mb-1">
+                                        {isCashLeague 
+                                            ? 'Register Full Team (Cash)' 
+                                            : isPlayerPricing 
+                                                ? `Individual Captain Fee: $${captainChargeAmount}`
+                                                : `Deposit Required: $${captainChargeAmount}`}
+                                    </span>
+                                    <span className="block text-[10px] uppercase font-bold tracking-widest opacity-80 mt-1">
+                                        {isCashLeague 
+                                            ? 'All fees collected in-person' 
+                                            : isPlayerPricing 
+                                                ? "Your teammates will pay their own individual fees when joining."
+                                                : "Settle full balance via Captain's Dashboard"}
+                                    </span>
                                 </div>
                                 <CheckCircle2 className="w-6 h-6 shrink-0" />
                             </div>
@@ -454,14 +472,14 @@ export function TournamentRegistrationClient({
             </div>
 
             {/* Embedded Stripe Checkout */}
-            {showPaymentModal && (paymentIntentType === 'team' ? depositAmount > 0 : (faPrice !== null && faPrice > 0)) && (
+            {showPaymentModal && (paymentIntentType === 'team' ? captainChargeAmount > 0 : (faPrice !== null && faPrice > 0)) && (
                 <StripeCheckoutModal 
                     isOpen={showPaymentModal}
                     onClose={() => {
                         setShowPaymentModal(false);
                         setIsSubmitting(false);
                     }}
-                    amount={paymentIntentType === 'team' ? depositAmount : (faPrice || 0)}
+                    amount={paymentIntentType === 'team' ? captainChargeAmount : (faPrice || 0)}
                     title={paymentIntentType === 'team' ? "Team Deposit Reservation" : "Free Agent Registration"}
                     description={paymentIntentType === 'team' ? `Secure your spot in ${tournamentName}` : `Join the draft pool for ${tournamentName}`}
                     eventId={tournamentId}

@@ -7,6 +7,7 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { CheckCircle2, Trophy, ArrowRight, ShieldCheck, Info, Loader2, CreditCard, Lock } from 'lucide-react';
 import { acceptTeamInvite } from '@/app/actions/invite-actions';
 import { createSetupIntent } from '@/app/actions/stripe-payment';
+import { StripeCheckoutModal } from '@/components/public/StripeCheckoutModal';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
 
@@ -49,18 +50,26 @@ export function InviteClient({
     const [error, setError] = useState<string | null>(null);
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [setupIntentId, setSetupIntentId] = useState<string | null>(null);
+    
+    // For Individual Player Pricing
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [currentRegistrationId, setCurrentRegistrationId] = useState<string | null>(null);
 
     const minSplit = (totalFee / (maxPlayers || 12)).toFixed(2);
     const maxSplit = (totalFee / (minPlayers || 5)).toFixed(2);
 
+    const isPlayerPricing = paymentCollectionType === 'player_fees';
+    const requiresIndividualPayment = isPlayerPricing && playerRegistrationFee > 0;
+    const canFreeJoin = !requiresIndividualPayment && (isFullPay || totalFee === 0 || paymentCollectionType === 'cash');
+
     useEffect(() => {
-        if (!isFullPay && totalFee > 0) {
+        if (!canFreeJoin && !requiresIndividualPayment && totalFee > 0) {
             createSetupIntent().then(res => {
                 setClientSecret(res.clientSecret);
                 setSetupIntentId(res.id);
             });
         }
-    }, [isFullPay, totalFee]);
+    }, [canFreeJoin, requiresIndividualPayment, totalFee]);
 
     const handleFreeJoin = async () => {
         if (!waiverAccepted) return;
@@ -75,6 +84,29 @@ export function InviteClient({
             if (res.success) router.push('/dashboard?success=team-joined');
         } catch (err: any) {
             setError(err.message || 'Failed to join team.');
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleIndividualPaymentJoin = async () => {
+        if (!waiverAccepted) return;
+        setIsSubmitting(true);
+        setError(null);
+        try {
+            const res = await acceptTeamInvite({
+                teamId,
+                tournamentId,
+                waiverAccepted: true,
+                status: 'pending' // Just create the shell so webhook can update it
+            });
+            if (res.success && res.registrationId) {
+                setCurrentRegistrationId(res.registrationId);
+                setShowPaymentModal(true);
+            } else {
+                throw new Error("Failed to initialize pending registration.");
+            }
+        } catch (err: any) {
+            setError(err.message || 'Failed to initialize payment.');
             setIsSubmitting(false);
         }
     };
@@ -128,6 +160,16 @@ export function InviteClient({
                                         <p className="text-2xl font-black text-white italic">${perGameFee}</p>
                                         <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tight">Per Match Fee</p>
                                     </div>
+                                </div>
+                            </div>
+                        ) : paymentCollectionType === 'player_fees' ? (
+                            <div className="space-y-4">
+                                <p className="text-gray-400 text-sm font-medium leading-relaxed">
+                                    This event uses individual player pricing. You must pay the registration fee to join the roster.
+                                </p>
+                                <div className="bg-white/5 p-4 rounded-lg border border-white/5">
+                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Registration Fee</p>
+                                    <p className="text-2xl font-black text-white italic">${playerRegistrationFee}</p>
                                 </div>
                             </div>
                         ) : (
@@ -185,13 +227,21 @@ export function InviteClient({
                         </label>
                     </div>
 
-                    {isFullPay || totalFee === 0 || paymentCollectionType === 'cash' ? (
+                    {canFreeJoin ? (
                         <button 
                             onClick={handleFreeJoin}
                             disabled={!waiverAccepted || isSubmitting}
                             className="w-full py-5 bg-pitch-accent text-pitch-black font-black uppercase tracking-[0.2em] hover:bg-white transition-all transform active:scale-[0.98] rounded-lg shadow-[0_0_30px_rgba(204,255,0,0.15)] flex items-center justify-center gap-3 disabled:opacity-50"
                         >
                             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Accept & Join <ArrowRight className="w-5 h-5" /></>}
+                        </button>
+                    ) : requiresIndividualPayment ? (
+                        <button 
+                            onClick={handleIndividualPaymentJoin}
+                            disabled={!waiverAccepted || isSubmitting}
+                            className="w-full py-5 bg-pitch-accent text-pitch-black font-black uppercase tracking-[0.2em] hover:bg-white transition-all transform active:scale-[0.98] rounded-lg shadow-[0_0_30px_rgba(204,255,0,0.15)] flex items-center justify-center gap-3 disabled:opacity-50"
+                        >
+                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Pay ${playerRegistrationFee} & Join <ArrowRight className="w-5 h-5" /></>}
                         </button>
                     ) : (
                         <div className="space-y-6">
@@ -214,6 +264,26 @@ export function InviteClient({
                     )}
                 </div>
             </div>
+
+            {/* Individual Payment Modal */}
+            {showPaymentModal && currentRegistrationId && (
+                <StripeCheckoutModal 
+                    isOpen={showPaymentModal}
+                    onClose={() => {
+                        setShowPaymentModal(false);
+                        setIsSubmitting(false);
+                    }}
+                    amount={playerRegistrationFee}
+                    title="Player Registration"
+                    description={`Join ${teamName} in ${tournamentName}`}
+                    eventId={tournamentId}
+                    registrationId={currentRegistrationId}
+                    onSuccess={() => {
+                        setShowPaymentModal(false);
+                        router.push('/dashboard?success=team-joined');
+                    }}
+                />
+            )}
         </div>
     );
 }
