@@ -18,7 +18,8 @@ export function TournamentRegistrationClient({
     payment_collection_type,
     description,
     strict_waiver_required,
-    waiver_details
+    waiver_details,
+    allow_free_agents
 }: { 
     tournamentId: string, 
     tournamentName: string, 
@@ -30,7 +31,8 @@ export function TournamentRegistrationClient({
     payment_collection_type?: 'stripe' | 'cash' | 'player_fees',
     description?: string | null,
     strict_waiver_required?: boolean,
-    waiver_details?: string | null
+    waiver_details?: string | null,
+    allow_free_agents?: boolean
 }) {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -204,12 +206,16 @@ export function TournamentRegistrationClient({
         }
     };
 
-    if (type !== 'team' && type !== 'free_agent') {
+    if ((type !== 'team' && type !== 'free_agent') || (type === 'free_agent' && allow_free_agents === false)) {
         return (
             <div className="text-center p-12 bg-black/50 border border-white/10 rounded-xl">
                 <AlertTriangle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
                 <h2 className="text-2xl font-black uppercase tracking-widest text-white mb-2">Invalid Setup</h2>
-                <p className="text-gray-400 font-medium">Please return to the schedule hub and select a valid registration type.</p>
+                <p className="text-gray-400 font-medium">
+                    {type === 'free_agent' && allow_free_agents === false 
+                        ? 'This tournament is not currently accepting free agents.' 
+                        : 'Please return to the schedule hub and select a valid registration type.'}
+                </p>
                 <button onClick={() => router.push('/schedule')} className="mt-6 px-6 py-3 bg-white/10 hover:bg-white/20 rounded font-bold uppercase tracking-widest text-xs transition-colors">Return to Hub</button>
             </div>
         );

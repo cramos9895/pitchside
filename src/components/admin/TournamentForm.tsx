@@ -110,6 +110,8 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
     // @ts-expect-error - Requires complex schema extension
     const [hasFreeAgentCredit, setHasFreeAgentCredit] = useState(initialData?.has_free_agent_credit ?? false);
     // @ts-expect-error - Requires complex schema extension
+    const [allowFreeAgents, setAllowFreeAgents] = useState(initialData?.allow_free_agents ?? false);
+    // @ts-expect-error - Requires complex schema extension
     const [refundCutoffDate, setRefundCutoffDate] = useState(getLocalDatetimeString(initialData?.refund_cutoff_date));
 
     // Brackets & Teams
@@ -229,6 +231,7 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
                 has_registration_fee_credit: hasRegistrationFee ? hasRegistrationFeeCredit : false,
                 free_agent_price: freeAgentPrice === '' ? null : freeAgentPrice,
                 has_free_agent_credit: hasFreeAgentCredit,
+                allow_free_agents: allowFreeAgents,
                 refund_cutoff_date: refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null,
                 min_teams: minTeams === '' ? null : minTeams,
                 max_teams: maxTourneyTeams === '' ? null : maxTourneyTeams,
@@ -335,6 +338,7 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
         setHasRegistrationFeeCredit(data.has_registration_fee_credit ?? false);
         setFreeAgentPrice(data.free_agent_price ?? '');
         setHasFreeAgentCredit(data.has_free_agent_credit ?? false);
+        setAllowFreeAgents(data.allow_free_agents ?? false);
         if (data.refund_cutoff_date) setRefundCutoffDate(new Date(data.refund_cutoff_date).toISOString().slice(0, 16));
         
         setMinTeams(data.min_teams ?? 4);
@@ -388,6 +392,7 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
                 has_registration_fee_credit: hasRegistrationFee ? hasRegistrationFeeCredit : false,
                 free_agent_price: freeAgentPrice === '' ? null : freeAgentPrice,
                 has_free_agent_credit: hasFreeAgentCredit,
+                allow_free_agents: allowFreeAgents,
                 refund_cutoff_date: refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null,
                 min_teams: minTeams === '' ? null : minTeams,
                 max_teams: maxTourneyTeams === '' ? null : maxTourneyTeams,
@@ -625,17 +630,24 @@ export function TournamentForm({ initialData, action = 'create', onSuccess }: To
                     </div>
 
                     <div className="space-y-6">
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Free Agent Sign Up Fee ($)</label>
-                            <input type="number" required min="0" step="0.01" value={freeAgentPrice} onChange={(e) => setFreeAgentPrice(e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
-                        </div>
-                        <div className="border border-white/10 p-4 rounded-sm bg-white/5 pt-[22px] pb-[22px]">
-                            <br/>
-                            <label className="flex items-center gap-2 cursor-pointer select-none">
-                                <input type="checkbox" checked={hasFreeAgentCredit} onChange={(e) => setHasFreeAgentCredit(e.target.checked)} className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer" />
-                                <span className="text-sm font-bold uppercase tracking-wider text-white">Free Agent Credit?</span>
+                        <div className="border border-white/10 p-4 rounded-sm bg-white/5 space-y-4">
+                            <label className="flex items-center justify-between cursor-pointer group">
+                                <span className="text-sm font-bold uppercase tracking-wider text-white group-hover:text-[#cbff00] transition-colors">Allow Free Agents?</span>
+                                <input type="checkbox" checked={allowFreeAgents} onChange={(e) => setAllowFreeAgents(e.target.checked)} className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer" />
                             </label>
-                            <br/><br/>
+                            
+                            {allowFreeAgents && (
+                                <div className="space-y-4 pt-2 border-t border-white/10 animate-in fade-in slide-in-from-top-2">
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Free Agent Sign Up Fee ($)</label>
+                                        <input type="number" required min="0" step="0.01" value={freeAgentPrice} onChange={(e) => setFreeAgentPrice(e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
+                                    </div>
+                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" checked={hasFreeAgentCredit} onChange={(e) => setHasFreeAgentCredit(e.target.checked)} className="w-4 h-4 accent-[#cbff00] rounded cursor-pointer" />
+                                        <span className="text-xs font-bold uppercase text-pitch-secondary">Free Agent Credit?</span>
+                                    </label>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -40,7 +40,8 @@ export default async function TournamentRegistrationPage({ params, searchParams 
             rules_description,
             strict_waiver_required,
             waiver_details,
-            league_format
+            league_format,
+            allow_free_agents
         `)
         .eq('id', tournamentId)
         .single();
@@ -59,7 +60,8 @@ export default async function TournamentRegistrationPage({ params, searchParams 
             description: gameTourney.rules_description,
             strict_waiver_required: gameTourney.strict_waiver_required,
             waiver_details: gameTourney.waiver_details,
-            isRolling: gameTourney.league_format === 'rolling'
+            isRolling: gameTourney.league_format === 'rolling',
+            allow_free_agents: gameTourney.allow_free_agents
         };
     } else {
         const { data: leagueTourney } = await supabase
@@ -74,7 +76,8 @@ export default async function TournamentRegistrationPage({ params, searchParams 
                 payment_collection_type,
                 description,
                 strict_waiver_required,
-                waiver_details
+                waiver_details,
+                accepting_free_agents
             `)
             .eq('id', tournamentId)
             .single();
@@ -90,7 +93,8 @@ export default async function TournamentRegistrationPage({ params, searchParams 
                 payment_collection_type: leagueTourney.payment_collection_type,
                 description: leagueTourney.description,
                 strict_waiver_required: leagueTourney.strict_waiver_required,
-                waiver_details: leagueTourney.waiver_details
+                waiver_details: leagueTourney.waiver_details,
+                allow_free_agents: leagueTourney.accepting_free_agents
             };
         } else {
             console.error('Tournament not found in either games or leagues tables.');
