@@ -558,25 +558,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
                 return m;
             });
 
-            const stats: unknown = {};
-            updatedMatches.forEach((m: any) => {
-                if (m.status !== 'completed' && m.status !== 'active' && m.status !== 'scheduled') return; // Should effectively be all completed
-                // Treat all as completed for calc
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                if (!stats[m.home_team]) stats[m.home_team] = 0;
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                if (!stats[m.away_team]) stats[m.away_team] = 0;
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                if (m.home_score > m.away_score) stats[m.home_team] += 3;
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                else if (m.away_score > m.home_score) stats[m.away_team] += 3;
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                else { stats[m.home_team] += 1; stats[m.away_team] += 1; }
-            });
-            // Winner with most points
-                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                        const winner = Object.entries(stats).sort(([, a]: unknown, [, b]: unknown) => b - a)[0]; // Simple sort
-            const winnerName = winner ? winner[0] : null;
+            const winnerName = calculateWinnerName(updatedMatches);
 
             if (winnerName) {
                 const { data: bookings } = await supabase.from('bookings').select('*, profiles!bookings_user_id_fkey(first_name, last_name, email)').eq('game_id', gameId);
@@ -836,10 +818,22 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
 
     // --- Finalization Logic ---
 
-    const calculateWinnerName = () => {
+    function calculateWinnerName(matchesList: any[] = matches) {
+        // If there's a final round match (round_number >= 100), the winner of the championship match is the champion.
+        const finalMatches = matchesList.filter((m: any) => (m.round_number || 0) >= 100 && (m.status === 'completed' || m.status === 'active' || m.status === 'scheduled'));
+        
+        if (finalMatches.length > 0) {
+            // Find the championship match (Field 1 is rank 1 vs 2, or fallback to the first final match)
+            const championshipMatch = finalMatches.find((m: any) => m.field_name === 'Field 1') || finalMatches[0];
+            if (championshipMatch) {
+                if (championshipMatch.home_score > championshipMatch.away_score) return championshipMatch.home_team;
+                if (championshipMatch.away_score > championshipMatch.home_score) return championshipMatch.away_team;
+            }
+        }
+
         const stats: Record<string, { pts: number, gd: number }> = {};
-        matches.forEach((m: any) => {
-            if (m.status !== 'completed') return;
+        matchesList.forEach((m: any) => {
+            if (m.status !== 'completed' && m.status !== 'active' && m.status !== 'scheduled') return;
             if (!stats[m.home_team]) stats[m.home_team] = { pts: 0, gd: 0 };
             if (!stats[m.away_team]) stats[m.away_team] = { pts: 0, gd: 0 };
 
@@ -857,7 +851,7 @@ export function MatchManager({ game, bookings, onUpdate, filterMode }: MatchMana
         });
 
         return sorted[0] ? sorted[0][0] : null;
-    };
+    }
 
     const handleFinalizeEvent = async () => {
         const winnerName = calculateWinnerName();
