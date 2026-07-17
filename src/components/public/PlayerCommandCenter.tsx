@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Trophy, Users, Calendar, MapPin, MessageSquare, Shield, Clock, Timer, CheckCircle2, Wallet, Info, FileText, LogOut, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StandingsTable, Match } from '@/components/admin/StandingsTable';
+import { BracketView } from './BracketView';
 import { ChatInterface } from '@/components/ChatInterface';
 import { leaveTournament } from '@/app/actions/tournament-registration';
 import { useRouter } from 'next/navigation';
@@ -118,7 +119,11 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
                     <div className="flex border-b border-white/5 overflow-x-auto scrollbar-hide">
                         {[
                             { id: 'hub', label: 'Command Center', icon: Shield },
-                            { id: 'standings', label: 'Standings', icon: Trophy },
+                            { 
+                                id: 'standings', 
+                                label: game.tournament_style === 'single_elimination' ? 'Bracket' : 'Standings', 
+                                icon: Trophy 
+                            },
                             { id: 'schedule', label: 'Schedule', icon: Calendar },
                             { id: 'rules', label: 'Rules & Info', icon: FileText },
                             { id: 'chat', label: 'Team Chat', icon: MessageSquare },
@@ -344,6 +349,8 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
                                         Waiting for Commissioner to release the schedule.
                                     </p>
                                 </div>
+                            ) : game.tournament_style === 'single_elimination' ? (
+                                <BracketView matches={matches} />
                             ) : (
                                 <StandingsTable 
                                     gameId={game.id} 

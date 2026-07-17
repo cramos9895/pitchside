@@ -19,6 +19,7 @@ import { upsertAttendance, getAttendanceForMatch } from '@/app/actions/attendanc
 import { supabase } from '@/lib/supabase/client';
 import { PitchSideConfirmModal } from './PitchSideConfirmModal';
 import { StandingsTable } from '@/components/admin/StandingsTable';
+import { BracketView } from './BracketView';
 import { cn } from '@/lib/utils';
 import { isLeagueLocked } from '@/lib/league-utils';
 // @ts-expect-error - Residual typing mismatch from extended schema mapping
@@ -405,7 +406,11 @@ export function CaptainDashboard({
                         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
                         ...(tournament.is_rolling ? [{ id: 'game-day', label: 'Game Day Prep', icon: HeartPulse }] : []),
                         { id: 'schedule', label: 'Schedule', icon: Calendar },
-                        { id: 'standings', label: 'Standings', icon: List },
+                        { 
+                            id: 'standings', 
+                            label: (tournament as any).tournament_style === 'single_elimination' ? 'Bracket' : 'Standings', 
+                            icon: List 
+                        },
                         { id: 'rules', label: 'Rules', icon: ScrollText },
                         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
                     ].map((tab) => (
@@ -1003,11 +1008,13 @@ export function CaptainDashboard({
                                         Waiting for Commissioner to release the schedule.
                                     </p>
                                 </div>
+                            ) : (tournament as any).tournament_style === 'single_elimination' ? (
+                                <BracketView matches={matches} />
                             ) : (
                                 <StandingsTable 
                                     gameId={tournament.id}
                                     teams={teams}
-                                                                        matches={matches}
+                                    matches={matches}
                                     isPublicMode={true}
                                     highlightTeamId={team.id}
                                 />

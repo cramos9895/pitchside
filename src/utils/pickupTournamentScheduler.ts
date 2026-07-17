@@ -7,12 +7,15 @@ export interface Team {
     name: string;
     color?: string;
     limit?: number;
+    id?: string;
 }
 
 export interface DraftMatch {
     id: string; // Temporary ID for React state mapping
     home_team: string; // Team A
     away_team: string; // Team B
+    home_team_id?: string;
+    away_team_id?: string;
     start_time: string; // ISO String
     field_name: string; // e.g. "Field 1"
     is_playoff: boolean;
@@ -129,11 +132,16 @@ export function generateTournamentSchedule({
 
                 const bestMatch = validMatches[bestMatchIndex];
                 
+                const homeTeamObj = teams.find(t => t.name === bestMatch.home);
+                const awayTeamObj = teams.find(t => t.name === bestMatch.away);
+
                 // Add to schedule
                 draftSchedule.push({
                     id: `draft_${draftSchedule.length}_${Date.now()}`,
                     home_team: bestMatch.home,
                     away_team: bestMatch.away,
+                    home_team_id: homeTeamObj?.id,
+                    away_team_id: awayTeamObj?.id,
                     start_time: currentStartTime.toISOString(),
                     field_name: `Field ${field}`,
                     is_playoff: bestMatch.is_playoff || false,
@@ -231,7 +239,14 @@ function buildSingleEliminationMatrix(teams: Team[]) {
     // A pure Single Elimination bracket requires precisely (N-1) matches.
     // Instead of building a complex geometric tree, we just output the required match rounds sequentially.
     let remainingTeams = teams.map(t => t.name);
-    let allMatches: { home: string, away: string, is_playoff?: boolean }[] = [];
+    
+    // Fisher-Yates Shuffle to randomize teams
+    for (let i = remainingTeams.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [remainingTeams[i], remainingTeams[j]] = [remainingTeams[j], remainingTeams[i]];
+    }
+
+    let allMatches: { home: string, away: string, is_playoff?: boolean, group_name?: string }[] = [];
 
     // Find the nearest power of 2
     let power = 1;
@@ -246,7 +261,12 @@ function buildSingleEliminationMatrix(teams: Team[]) {
     // Round 1 (Play-Ins)
     let playinWinners = [];
     for (let i = 0; i < numPlayins; i += 2) {
-        allMatches.push({ home: remainingTeams[i], away: remainingTeams[i + 1], is_playoff: true });
+        allMatches.push({ 
+            home: remainingTeams[i], 
+            away: remainingTeams[i + 1], 
+            is_playoff: true,
+            group_name: `Match ${matchIdx}`
+        });
         playinWinners.push(`Winner Match ${matchIdx}`);
         matchIdx++;
     }
@@ -258,7 +278,12 @@ function buildSingleEliminationMatrix(teams: Team[]) {
     while (round2Pool.length > 1) {
         let nextPool = [];
         for (let i = 0; i < round2Pool.length; i += 2) {
-            allMatches.push({ home: round2Pool[i], away: round2Pool[i + 1], is_playoff: true });
+            allMatches.push({ 
+                home: round2Pool[i], 
+                away: round2Pool[i + 1], 
+                is_playoff: true,
+                group_name: `Match ${matchIdx}`
+            });
             if (round2Pool.length === 2) {
                 // Championship!
             } else {

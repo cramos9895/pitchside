@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase/client';
 import { ShieldAlert, Activity, CheckCircle2, ChevronLeft, Flag, Square, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { processKnockoutAdvancement } from '@/app/actions/tournament';
 
 export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
     const router = useRouter();
@@ -80,6 +81,19 @@ export function LiveMatchClient({ initialMatch }: { initialMatch: any }) {
                 .update({ status: 'finalized', is_final: true, review_status: 'pending_report' })
                 .eq('id', match.id);
             if (error) throw error;
+            
+            if (match?.group_name && match.group_name.startsWith('Match ')) {
+                const homeScore = match.home_score || 0;
+                const awayScore = match.away_score || 0;
+                const winner = homeScore > awayScore ? match.home_team : match.away_team;
+                const winnerId = homeScore > awayScore ? match.home_team_id : match.away_team_id;
+                try {
+                    await processKnockoutAdvancement(match.game_id, winner, match.group_name, winnerId);
+                } catch (err) {
+                    console.error("Failed to process knockout advancement", err);
+                }
+            }
+            
             setMatch({ ...match, status: 'finalized', is_final: true });
             router.push(`/referee/matches/${match.id}/report`);
         } catch (e) {

@@ -167,10 +167,13 @@ export function TournamentScheduleTab({
                 status: 'scheduled',
                 home_team: m.home_team,
                 away_team: m.away_team,
+                home_team_id: m.home_team_id || null,
+                away_team_id: m.away_team_id || null,
                 start_time: m.start_time,
                 field_name: m.field_name,
                 is_playoff: m.is_playoff,
-                match_style: game.match_style || 'tournament'
+                match_style: game.match_style || 'tournament',
+                group_name: m.group_name
             }));
             const { error } = await supabase.from('matches').insert(matchesToInsert);
             if (error) throw error;

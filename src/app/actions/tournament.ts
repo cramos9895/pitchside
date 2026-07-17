@@ -163,3 +163,44 @@ export async function generateFinalRound(gameId: string) {
 
     return { success: true, message: `Generated ${knockoutMatches.length} Final Round Matches on ${amountOfFields} fields.` };
 }
+
+export async function processKnockoutAdvancement(gameId: string, winnerName: string, completedMatchGroupName: string, winnerId?: string | null) {
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const adminSupabase = createAdminClient();
+    
+    // We expect completedMatchGroupName to be like "Match 1"
+    // We need to look for a match that has "Winner Match 1" as either home_team or away_team
+    const searchTarget = `Winner ${completedMatchGroupName}`;
+
+    // 1. Find the next match waiting for this winner
+    const { data: nextMatches, error } = await adminSupabase
+        .from('matches')
+        .select('id, home_team, away_team')
+        .eq('game_id', gameId)
+        .or(`home_team.eq."${searchTarget}",away_team.eq."${searchTarget}"`);
+
+    if (error || !nextMatches || nextMatches.length === 0) {
+        return; // No subsequent match found (e.g. this was the Championship game)
+    }
+
+    const nextMatch = nextMatches[0];
+
+    // 2. Determine which side needs the update
+    const updatePayload: any = {};
+    if (nextMatch.home_team === searchTarget) {
+        updatePayload.home_team = winnerName;
+        if (winnerId) updatePayload.home_team_id = winnerId;
+    }
+    if (nextMatch.away_team === searchTarget) {
+        updatePayload.away_team = winnerName;
+        if (winnerId) updatePayload.away_team_id = winnerId;
+    }
+
+    // 3. Update the next match
+    await adminSupabase
+        .from('matches')
+        .update(updatePayload)
+        .eq('id', nextMatch.id);
+
+    revalidatePath(`/admin/games/${gameId}`);
+}
