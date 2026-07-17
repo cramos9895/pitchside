@@ -75,7 +75,8 @@ export function RollingLeagueCard({ league, userId, registrations }: RollingLeag
     const startTime = league.regular_season_start || league.start_time || league.start_date || null;
     const isCash = league.payment_collection_type === 'cash';
     
-    const uniqueTeamIds = new Set(registrations?.map(r => r.team_id).filter(Boolean));
+    const validRegistrations = registrations?.filter(r => ['registered', 'paid', 'active', 'confirmed'].includes(r.status?.toLowerCase() || 'registered')) || [];
+    const uniqueTeamIds = new Set(validRegistrations.map(r => r.team_id).filter(Boolean));
     const teamCount = uniqueTeamIds.size;
 
     const getPrizeDisplay = () => {

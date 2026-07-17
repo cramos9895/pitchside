@@ -65,6 +65,8 @@ interface Tournament {
     skipped_dates?: string[];
     teams_config?: any[];
     league_format?: 'rolling' | 'structured';
+    event_type?: string;
+    allow_free_agents?: boolean;
 }
 
 // Using Match interface from StandingsTable for consistency
@@ -636,7 +638,7 @@ export function TournamentCommandCenterView({
                         ) : null}
 
                         {/* SECTION C: The Free Agent Draft Board - CAPTAIN ONLY */}
-                        {isCaptain && !isLocked && (
+                        {isCaptain && !isLocked && tournament.allow_free_agents !== false && (
                             <div className="bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-2xl">
                                 <div className="flex justify-between items-start mb-6">
                                     <div>

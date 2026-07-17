@@ -100,6 +100,7 @@ export default async function SuccessPage({ searchParams }: Props) {
         const prizeSplitPreference = session.metadata?.prize_split_preference;
         const teamId = session.metadata?.team_id;
         const eventType = session.metadata?.type;
+        const registrationId = session.metadata?.registration_id;
 
         if (!gameId || !userId) {
             throw new Error("Missing metadata in Stripe session");
@@ -138,6 +139,26 @@ export default async function SuccessPage({ searchParams }: Props) {
             .select('*')
             .eq('checkout_session_id', sessionId)
             .maybeSingle();
+
+        // 2.5 Synchronously Update Tournament Registration (if applicable)
+        if (registrationId) {
+            try {
+                const { error: regError } = await adminSupabase
+                    .from('tournament_registrations')
+                    .update({
+                        status: 'registered',
+                        payment_status: 'paid',
+                        stripe_payment_intent_id: session.payment_intent || (session.setup_intent ? typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent.id : null)
+                    })
+                    .eq('id', registrationId);
+
+                if (regError) {
+                    console.error('[SUCCESS_DB_ERROR] Failed to finalize tournament registration synchronously:', regError);
+                }
+            } catch (err) {
+                console.error('[SUCCESS_DB_ERROR] Exception updating tournament registration:', err);
+            }
+        }
 
         let appliedCreditUnitsCents = 0;
         let guestIdsToInsert: string[] = [];

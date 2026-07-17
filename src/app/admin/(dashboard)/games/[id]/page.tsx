@@ -346,7 +346,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
             const currentGame = freshGame || game;
             if (!currentGame) return;
 
-            if (currentGame.event_type === 'tournament' || currentGame.event_type === 'league') {
+            if (currentGame.event_type === 'tournament' || currentGame.event_type === 'league' || (currentGame.event_type === 'pickup' && currentGame.match_style === 'Tourney')) {
                 // Re-fetch rolling teams
                 const { data: dbTeams } = await supabase
                     .from('teams')
@@ -457,7 +457,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
 
                 if (gameData.view_mode) {
                                         setViewMode(gameData.view_mode as any);
-                } else if (gameData.event_type === 'tournament' || gameData.event_type === 'league') {
+                } else if (gameData.event_type === 'tournament' || gameData.event_type === 'league' || (gameData.event_type === 'pickup' && gameData.match_style === 'Tourney')) {
                     setViewMode('tournament');
                 }
 
@@ -495,7 +495,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                 console.log("[fetchData] Starting second block");
                 let finalBookings: AdminGameBooking[] = [];
                 
-                                if (fetchedGame?.event_type === 'tournament' || fetchedGame?.event_type === 'league') {
+                                if (fetchedGame?.event_type === 'tournament' || fetchedGame?.event_type === 'league' || (fetchedGame?.event_type === 'pickup' && fetchedGame?.match_style === 'Tourney')) {
                     console.log("[fetchData] Fetching dbTeams");
                     // Fetch relational teams for rolling leagues natively
                     const { data: dbTeams, error: dbTeamsErr } = await supabase
@@ -513,8 +513,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         .from('tournament_registrations')
                         .select('*')
                         .eq('game_id', gameId)
-                        .neq('status', 'cancelled')
-                        .neq('status', 'pending'); // Exclude incomplete payment sessions (ghost entries)
+                        .neq('status', 'cancelled');
                         
                     if (regError) {
                         console.error("[CRITICAL] Failed to fetch tournament_registrations:", regError.message || regError);

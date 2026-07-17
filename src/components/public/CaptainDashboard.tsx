@@ -54,7 +54,8 @@ interface Tournament {
     deposit_amount?: number | null;
     has_registration_fee_credit?: boolean;
     free_agent_fee?: number | null;
-    payment_collection_type?: 'stripe' | 'cash';
+    payment_collection_type?: 'stripe' | 'cash' | 'player_fees' | 'team_fees';
+    allow_free_agents?: boolean;
     cash_amount?: number | null;
     cash_fee_structure?: string | null;
     is_rolling?: boolean;
@@ -589,7 +590,7 @@ export function CaptainDashboard({
                                     No online payment required. Please settle directly with the facility upon arrival at the field.
                                 </p>
                             </div>
-                        ) : (
+                        ) : (isCaptain && tournament.payment_collection_type !== 'player_fees') ? (
                             <div className="bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
                                 <h2 className="text-xl font-black uppercase italic tracking-widest mb-6 flex items-center gap-2">
                                     <DollarSign className="w-5 h-5 text-green-400" /> Financial Tracker
@@ -650,10 +651,10 @@ export function CaptainDashboard({
                                     </button>
                                 )}
                             </div>
-                        )}
+                        ) : null}
 
                         {/* SECTION C: The Free Agent Draft Board - CAPTAIN ONLY */}
-                        {isCaptain && !isLocked && (
+                        {isCaptain && !isLocked && tournament.allow_free_agents !== false && (
                             <div className="bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-2xl">
                                 <div className="flex justify-between items-start mb-6">
                                     <div>

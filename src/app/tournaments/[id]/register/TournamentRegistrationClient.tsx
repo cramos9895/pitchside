@@ -5,7 +5,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { ArrowRight, AlertTriangle, CheckCircle2, Trophy, CreditCard, ScrollText, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { registerTournamentTeam, registerTournamentFreeAgent, cancelPendingRegistration } from '@/app/actions/tournament-registration';
-import { StripeCheckoutModal } from '@/components/public/StripeCheckoutModal';
+import { EmbeddedCheckoutModal } from '@/components/EmbeddedCheckoutModal';
+import { supabase } from '@/lib/supabase/client';
 
 export function TournamentRegistrationClient({ 
     tournamentId, 
@@ -49,6 +50,7 @@ export function TournamentRegistrationClient({
     // Payment State
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [savedFormData, setSavedFormData] = useState<any>(null);
+    const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
     const [paymentIntentType, setPaymentIntentType] = useState<'team' | 'free_agent'>('team');
     const [currentRegistrationId, setCurrentRegistrationId] = useState<string | null>(null);
     const [currentTeamId, setCurrentTeamId] = useState<string | null>(null); // Track pending team for cleanup on cancel
@@ -129,6 +131,30 @@ export function TournamentRegistrationClient({
                     setCurrentEventType(res.eventType || 'league');
                     setPaymentIntentType('team');
                     setSavedFormData(payload);
+                    
+                    // Generate Checkout Session via backend
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) throw new Error("Authentication required.");
+
+                    const checkoutRes = await fetch('/api/checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            gameId: tournamentId,
+                            userId: user.id,
+                            price: captainChargeAmount,
+                            title: "Team Deposit Reservation",
+                            note: `Secure your spot in ${tournamentName}`,
+                            registrationId: res.registrationId,
+                            teamId: res.teamId,
+                            eventType: res.eventType || 'league'
+                        })
+                    });
+
+                    const checkoutData = await checkoutRes.json();
+                    if (checkoutData.error) throw new Error(checkoutData.error);
+                    
+                    setStripeClientSecret(checkoutData.clientSecret);
                     setShowPaymentModal(true);
                 } else {
                     throw new Error("Failed to initialize pending registration.");
@@ -197,6 +223,30 @@ export function TournamentRegistrationClient({
                     setCurrentEventType(res.eventType || 'league');
                     setPaymentIntentType('free_agent');
                     setSavedFormData(payload);
+
+                    // Generate Checkout Session via backend
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) throw new Error("Authentication required.");
+
+                    const checkoutRes = await fetch('/api/checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            gameId: tournamentId,
+                            userId: user.id,
+                            price: faPrice || 0,
+                            title: "Free Agent Registration",
+                            note: `Join the draft pool for ${tournamentName}`,
+                            registrationId: res.registrationId,
+                            isFreeAgent: true,
+                            eventType: res.eventType || 'league'
+                        })
+                    });
+
+                    const checkoutData = await checkoutRes.json();
+                    if (checkoutData.error) throw new Error(checkoutData.error);
+                    
+                    setStripeClientSecret(checkoutData.clientSecret);
                     setShowPaymentModal(true);
                 } else {
                     throw new Error("Failed to initialize pending registration.");
@@ -492,13 +542,13 @@ export function TournamentRegistrationClient({
             </div>
 
             {/* Embedded Stripe Checkout */}
-            {showPaymentModal && (paymentIntentType === 'team' ? captainChargeAmount > 0 : (faPrice !== null && faPrice > 0)) && (
-                <StripeCheckoutModal 
+            {showPaymentModal && stripeClientSecret && (
+                <EmbeddedCheckoutModal 
                     isOpen={showPaymentModal}
+                    clientSecret={stripeClientSecret}
                     onClose={async () => {
                         // User closed the payment modal without paying.
                         // Clean up the pending registration and orphaned team immediately
-                        // so they don't appear as ghost entries in the admin portal.
                         if (currentRegistrationId) {
                             await cancelPendingRegistration(currentRegistrationId, currentTeamId);
                             setCurrentRegistrationId(null);
@@ -506,22 +556,7 @@ export function TournamentRegistrationClient({
                         }
                         setShowPaymentModal(false);
                         setIsSubmitting(false);
-                    }}
-                    amount={paymentIntentType === 'team' ? captainChargeAmount : (faPrice || 0)}
-                    title={paymentIntentType === 'team' ? "Team Deposit Reservation" : "Free Agent Registration"}
-                    description={paymentIntentType === 'team' ? `Secure your spot in ${tournamentName}` : `Join the draft pool for ${tournamentName}`}
-                    eventId={tournamentId}
-                    registrationId={currentRegistrationId || undefined}
-                    eventType={currentEventType || undefined}
-                    onSuccess={() => {
-                        setShowPaymentModal(false);
-                        if (savedFormData) {
-                            if (paymentIntentType === 'team') {
-                                finalizeTeamRegistration(savedFormData);
-                            } else {
-                                finalizeFARegistration(savedFormData);
-                            }
-                        }
+                        setStripeClientSecret(null);
                     }}
                 />
             )}
