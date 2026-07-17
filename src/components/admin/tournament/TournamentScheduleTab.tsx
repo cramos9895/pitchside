@@ -120,14 +120,27 @@ export function TournamentScheduleTab({
         setIsGenerating(true);
         try {
             const activeTeamsForDraft = teams.filter((t: any) => !excludedTeams.has(t.name));
+            
+            let startDateTime = new Date();
+            if (game?.start_time) {
+                startDateTime = new Date(game.start_time);
+            }
+            const [hours, minutes] = editConstraintStartTime.split(':').map(Number);
+            startDateTime.setHours(hours, minutes, 0, 0);
+
+            let formattedEndTime = editConstraintEndTime;
+            if (formattedEndTime.split(':').length === 2) {
+                formattedEndTime = `${formattedEndTime}:00`;
+            }
+
             const schedule = generateTournamentSchedule({
                 teams: activeTeamsForDraft,
-                amountOfFields: game.amount_of_fields || 1,
-                halfLength: game.half_length || 20,
-                halftimeLength: game.halftime_length || 5,
-                breakBetweenGames: game.break_between_games || 5,
-                earliestStartTime: game.start_time,
-                endTime: game.end_time || "23:59:00",
+                amountOfFields: parseInt(editAmountOfFields) || 1,
+                halfLength: parseInt(editHalfLength) || 20,
+                halftimeLength: parseInt(editHalftimeLength) || 5,
+                breakBetweenGames: parseInt(editBreakBetweenGames) || 5,
+                earliestStartTime: startDateTime.toISOString(),
+                endTime: formattedEndTime,
                 tournamentStyle: game.tournament_style || 'group_stage',
                 minGamesPerTeam: localMinGames
             });
