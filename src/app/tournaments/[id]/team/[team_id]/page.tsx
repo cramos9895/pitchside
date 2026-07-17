@@ -35,7 +35,7 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
     let hasCredit = false;
     let faFee: number | null = null;
     let tournamentFound = false;
-    let paymentCollectionType: 'stripe' | 'cash' = 'stripe';
+    let paymentCollectionType: string = 'stripe';
     let cashAmount: number | null = null;
     let cashFeeStructure: string | null = null;
     let isRolling = false;
@@ -149,6 +149,7 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
             id,
             user_id,
             status,
+            payment_status,
             preferred_positions,
             profiles (
                 first_name,

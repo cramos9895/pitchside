@@ -57,6 +57,7 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
         .from('games')
         .select(`
             title, 
+            description,
             team_registration_fee, 
             min_players_per_team, 
             max_players_per_team,
@@ -77,11 +78,12 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
         // Fallback: check the leagues table
         const { data: leagueData } = await supabase
             .from('leagues')
-            .select('name, price_per_team, waiver_details')
+            .select('name, description, price_per_team, waiver_details')
             .eq('id', tournamentId)
             .single();
         
         if (leagueData) {
+            gameData = leagueData;
             tournamentName = leagueData.name;
             totalFee = leagueData.price_per_team || 0;
         }
@@ -125,6 +127,7 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
                     playerRegistrationFee={gameData?.player_registration_fee || 0}
                     perGameFee={gameData?.cash_amount || gameData?.price || 0}
                     waiverDetails={gameData?.waiver_details || ''}
+                    description={gameData?.description || ''}
                 />
             </div>
         </main>

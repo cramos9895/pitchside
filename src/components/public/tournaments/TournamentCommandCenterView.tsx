@@ -35,8 +35,7 @@ interface Player {
         last_name: string;
         avatar_url: string | null;
     };
-    // Placeholder for actual payment tracking if implemented.
-    // For this UI, we will assume everyone owes an equal share if unpaid
+    payment_status?: string;
     has_paid?: boolean; 
 }
 
@@ -54,7 +53,7 @@ interface Tournament {
     deposit_amount?: number | null;
     has_registration_fee_credit?: boolean;
     free_agent_fee?: number | null;
-    payment_collection_type?: 'stripe' | 'cash';
+    payment_collection_type?: 'stripe' | 'cash' | 'player_fees' | string;
     cash_amount?: number | null;
     cash_fee_structure?: string | null;
     is_rolling?: boolean;
@@ -532,11 +531,11 @@ export function TournamentCommandCenterView({
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2 shrink-0">
-                                                    {player.status === 'paid' || player.status === 'confirmed' ? (
+                                                    {player.payment_status === 'paid' || player.payment_status === 'confirmed' || player.status === 'confirmed' ? (
                                                         <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#ccff00] bg-[#ccff00]/10 px-2 py-1 rounded border border-[#ccff00]/20">
                                                             <CheckCircle2 className="w-3 h-3" /> Paid
                                                         </span>
-                                                    ) : (player.status === 'registered' || player.status === 'drafted') ? (
+                                                    ) : (player.status === 'registered' || player.status === 'drafted' || player.payment_status === 'free_join') ? (
                                                         <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-white bg-white/10 px-2 py-1 rounded border border-white/20">
                                                             <CheckCircle2 className="w-3 h-3" /> Reg
                                                         </span>
@@ -557,7 +556,6 @@ export function TournamentCommandCenterView({
                     {/* Right Column: Finances & Free Agents */}
                     <div className="space-y-8">
                         
-                        {/* SECTION B: The Financial Tracker or Cash Block */}
                         {tournament.payment_collection_type === 'cash' ? (
                             <div className="bg-pitch-accent text-pitch-black rounded-2xl p-8 shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
                                 <Zap className="w-12 h-12 mb-4 animate-pulse" />
@@ -574,7 +572,7 @@ export function TournamentCommandCenterView({
                                     No online payment required. Please settle directly with the facility upon arrival at the field.
                                 </p>
                             </div>
-                        ) : (
+                        ) : (isCaptain && tournament.payment_collection_type !== 'player_fees') ? (
                             <div className="bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
                                 <h2 className="text-xl font-black uppercase italic tracking-widest mb-6 flex items-center gap-2">
                                     <DollarSign className="w-5 h-5 text-green-400" /> Financial Tracker
@@ -635,7 +633,7 @@ export function TournamentCommandCenterView({
                                     </button>
                                 )}
                             </div>
-                        )}
+                        ) : null}
 
                         {/* SECTION C: The Free Agent Draft Board - CAPTAIN ONLY */}
                         {isCaptain && !isLocked && (
