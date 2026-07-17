@@ -17,6 +17,7 @@ interface RollingLeague {
     location_nickname?: string;
     start_time: string;
     description?: string;
+    rules_description?: string; // The "Event Rules & Description" field from the TournamentForm
     
     // Financials
     payment_collection_type?: 'stripe' | 'cash';
@@ -252,7 +253,8 @@ export function TournamentSalesView({ game, primaryHost, registeredTeams = [] }:
                                 <ScrollText className="w-5 h-5 md:w-6 md:h-6 text-pitch-accent" /> Description
                             </h3>
                             <div className="bg-black/40 border border-white/10 p-6 md:p-8 rounded-sm text-sm text-gray-400 leading-relaxed font-medium whitespace-pre-wrap max-h-[400px] overflow-y-auto custom-scrollbar italic tracking-wide">
-                                {game.description || 'No description provided for this event.'}
+                                {/* rules_description is saved by TournamentForm; description is a fallback */}
+                                {game.rules_description || game.description || 'No description provided for this event.'}
                             </div>
                         </section>
 
