@@ -20,7 +20,7 @@ export interface DraftMatch {
     field_name: string; // e.g. "Field 1"
     is_playoff: boolean;
     round_number: number;
-    group_name?: string;
+    match_phase?: string;
 }
 
 interface SchedulerParams {
@@ -74,7 +74,7 @@ export function generateTournamentSchedule({
     const maxMatchSlotsPerField = Math.floor(totalAvailableMinutes / slotDurationMinutes);
     const absoluteCapacity = maxMatchSlotsPerField * amountOfFields;
 
-    let matchMatrix: { home: string, away: string, is_playoff?: boolean, group_name?: string }[] = [];
+    let matchMatrix: { home: string, away: string, is_playoff?: boolean, match_phase?: string }[] = [];
 
     // --- PHASE 2: ALGORITHM ROUTING ---
     if (tournamentStyle === 'group_stage') {
@@ -146,7 +146,7 @@ export function generateTournamentSchedule({
                     field_name: `Field ${field}`,
                     is_playoff: bestMatch.is_playoff || false,
                     round_number: currentSlotIndex + 1,
-                    group_name: bestMatch.group_name
+                    match_phase: bestMatch.match_phase
                 });
 
                 // Mark teams as playing
@@ -174,7 +174,7 @@ export function generateTournamentSchedule({
  * HELPER: Generates a grouped round-robin matrix hitting an exact quota.
  */
 function buildGroupStageMatrix(teams: Team[], minGames: number) {
-    let allMatches: { home: string, away: string, is_playoff?: boolean, group_name?: string }[] = [];
+    let allMatches: { home: string, away: string, is_playoff?: boolean, match_phase?: string }[] = [];
 
     // 1. Group Division Logic
     const groups: { name: string, teams: string[] }[] = [];
@@ -188,7 +188,7 @@ function buildGroupStageMatrix(teams: Team[], minGames: number) {
 
     // 2. Generate matches per group
     const generator = (group: string[], groupName: string) => {
-        const subset: { home: string, away: string, group_name: string }[] = [];
+        const subset: { home: string, away: string, match_phase: string }[] = [];
         let rTeams = [...group];
         const hasBye = rTeams.length % 2 !== 0;
         if (hasBye) rTeams.push("BYE");
@@ -207,12 +207,12 @@ function buildGroupStageMatrix(teams: Team[], minGames: number) {
             const teamA = pivot;
             const teamB = rotating[rotating.length - 1];
             
-            if (teamA !== "BYE" && teamB !== "BYE") subset.push({ home: teamA, away: teamB, group_name: groupName });
+            if (teamA !== "BYE" && teamB !== "BYE") subset.push({ home: teamA, away: teamB, match_phase: groupName });
 
             for (let i = 0; i < matchesPerRound - 1; i++) {
                 const h = rotating[i];
                 const a = rotating[rotating.length - 2 - i];
-                if (h !== "BYE" && a !== "BYE") subset.push({ home: h, away: a, group_name: groupName });
+                if (h !== "BYE" && a !== "BYE") subset.push({ home: h, away: a, match_phase: groupName });
             }
 
             const lastEl = rotating.pop()!;
@@ -246,7 +246,7 @@ function buildSingleEliminationMatrix(teams: Team[]) {
         [remainingTeams[i], remainingTeams[j]] = [remainingTeams[j], remainingTeams[i]];
     }
 
-    let allMatches: { home: string, away: string, is_playoff?: boolean, group_name?: string }[] = [];
+    let allMatches: { home: string, away: string, is_playoff?: boolean, match_phase?: string }[] = [];
 
     // Find the nearest power of 2
     let power = 1;
@@ -265,7 +265,7 @@ function buildSingleEliminationMatrix(teams: Team[]) {
             home: remainingTeams[i], 
             away: remainingTeams[i + 1], 
             is_playoff: true,
-            group_name: `Match ${matchIdx}`
+            match_phase: `Match ${matchIdx}`
         });
         playinWinners.push(`Winner Match ${matchIdx}`);
         matchIdx++;
@@ -282,7 +282,7 @@ function buildSingleEliminationMatrix(teams: Team[]) {
                 home: round2Pool[i], 
                 away: round2Pool[i + 1], 
                 is_playoff: true,
-                group_name: `Match ${matchIdx}`
+                match_phase: `Match ${matchIdx}`
             });
             if (round2Pool.length === 2) {
                 // Championship!

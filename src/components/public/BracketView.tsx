@@ -21,7 +21,7 @@ export function BracketView({ matches }: BracketViewProps) {
             if (m.away_team?.startsWith('Winner Match ')) referencedNames.add(m.away_team.replace('Winner ', ''));
         });
 
-        const roots = matches.filter(m => m.group_name && !referencedNames.has(m.group_name));
+        const roots = matches.filter(m => m.match_phase && !referencedNames.has(m.match_phase));
 
         if (roots.length === 0) return []; // Fallback
 
@@ -31,8 +31,8 @@ export function BracketView({ matches }: BracketViewProps) {
             if (!roundsMap.has(depth)) roundsMap.set(depth, []);
             roundsMap.get(depth)!.push(match);
 
-            const homeChild = matches.find(m => `Winner ${m.group_name}` === match.home_team);
-            const awayChild = matches.find(m => `Winner ${m.group_name}` === match.away_team);
+            const homeChild = matches.find(m => `Winner ${m.match_phase}` === match.home_team);
+            const awayChild = matches.find(m => `Winner ${m.match_phase}` === match.away_team);
 
             if (homeChild) traverse(homeChild, depth + 1);
             if (awayChild) traverse(awayChild, depth + 1);
@@ -59,7 +59,7 @@ export function BracketView({ matches }: BracketViewProps) {
             <div className="space-y-4">
                 {matches.map(m => (
                     <div key={m.id} className="bg-white/5 p-4 rounded-lg text-sm font-bold uppercase">
-                        <span className="text-pitch-accent">{m.group_name || 'Match'}</span>: {m.home_team || 'TBD'} vs {m.away_team || 'TBD'}
+                        <span className="text-pitch-accent">{m.match_phase || 'Match'}</span>: {m.home_team || 'TBD'} vs {m.away_team || 'TBD'}
                     </div>
                 ))}
             </div>
@@ -87,7 +87,7 @@ export function BracketView({ matches }: BracketViewProps) {
                                         )}
                                         
                                         <div className="text-[10px] font-black uppercase text-gray-500 mb-3 flex justify-between items-center border-b border-white/5 pb-2">
-                                            <span>{match.group_name || `Match`}</span>
+                                            <span>{match.match_phase || `Match`}</span>
                                             {match.start_time && (
                                                 <span className="text-white/40">{new Date(match.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                             )}

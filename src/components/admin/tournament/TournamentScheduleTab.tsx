@@ -173,7 +173,7 @@ export function TournamentScheduleTab({
                 field_name: m.field_name,
                 is_playoff: m.is_playoff,
                 match_style: game.match_style || 'tournament',
-                group_name: m.group_name
+                match_phase: m.match_phase
             }));
             const { error } = await supabase.from('matches').insert(matchesToInsert);
             if (error) throw error;
@@ -244,7 +244,8 @@ export function TournamentScheduleTab({
                 start_time: new Date(baseTime.getTime() + (i * 30 * 60000) + (15 * 60000)).toISOString(), 
                 field_name: game.amount_of_fields > 1 ? `Field ${(i % game.amount_of_fields) + 1}` : 'Field 1',
                 is_playoff: true,
-                match_style: 'tournament'
+                match_style: 'tournament',
+                match_phase: m.label
             }));
 
             const { error: insertError } = await supabase.from('matches').insert(finalMatches);
@@ -625,8 +626,8 @@ export function TournamentScheduleTab({
                                                     <div className="text-left border-l border-white/10 pl-4">
                                                         <div className="text-[10px] font-black uppercase text-gray-500">Field</div>
                                                         <div className="text-sm font-bold text-gray-300">{match.field_name}</div>
-                                                        {match.group_name && (
-                                                            <div className="text-[9px] font-bold text-pitch-accent uppercase">{match.group_name}</div>
+                                                        {match.match_phase && (
+                                                            <div className="text-[9px] font-bold text-pitch-accent uppercase">{match.match_phase}</div>
                                                         )}
                                                     </div>
                                                 </div>

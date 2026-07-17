@@ -123,7 +123,7 @@ export function TournamentCard({ tournament, userId, registrations }: Tournament
                         <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-red-500 transition-colors flex items-center gap-1">
                             <Users className="w-4 h-4" /> Teams
                         </div>
-                        <div className="text-white font-bold text-sm uppercase">{teamCount} / {tournament.max_teams || '∞'}</div>
+                        <div className="text-white font-bold text-sm uppercase">{tournament.max_teams ? `${teamCount} / ${tournament.max_teams}` : `${teamCount} Registered`}</div>
                     </div>
                 </div>
 

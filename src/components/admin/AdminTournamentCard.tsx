@@ -90,7 +90,7 @@ export function AdminTournamentCard({ game, onEdit, onCancel, onHardDelete }: Ad
                                 <LayoutGrid className="w-3 h-3 text-red-500" /> Structure
                             </span>
                             <div className="text-sm font-bold text-white">
-                                {game.max_teams ? `${game.current_teams || 0}/${game.max_teams} Teams` : 'TBD'} <br />
+                                {game.max_teams ? `${game.current_teams || 0}/${game.max_teams} Teams` : `${game.current_teams || 0} Registered`} <br />
                                 <span className="text-pitch-secondary text-xs capitalize">{game.tournament_style?.replace('_', ' ')}</span>
                             </div>
                         </div>

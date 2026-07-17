@@ -121,7 +121,7 @@ export function CaptainDashboard({
     const myMatches = matches.filter((m: any) => m.home_team_id === team.id || m.away_team_id === team.id);
 
     const getTeamPathMatches = () => {
-        if ((tournament as any).tournament_style !== 'single_elimination') return myMatches;
+        if ((tournament as any).tournament_style !== 'single_elimination') return myMatches.map((m: any) => ({ ...m, isPotential: false }));
         
         const path: any[] = [];
         const searchTargets = new Set<string>();
@@ -129,8 +129,8 @@ export function CaptainDashboard({
         // 1. Add guaranteed matches
         matches.forEach((m: any) => {
             if (m.home_team_id === team.id || m.away_team_id === team.id) {
-                path.push(m);
-                if (m.group_name) searchTargets.add(`Winner ${m.group_name}`);
+                path.push({ ...m, isPotential: false });
+                if (m.match_phase) searchTargets.add(`Winner ${m.match_phase}`);
             }
         });
 
@@ -141,8 +141,8 @@ export function CaptainDashboard({
             matches.forEach((m: any) => {
                 if (!path.find(p => p.id === m.id)) {
                     if (searchTargets.has(m.home_team) || searchTargets.has(m.away_team)) {
-                        path.push(m);
-                        if (m.group_name) searchTargets.add(`Winner ${m.group_name}`);
+                        path.push({ ...m, isPotential: true });
+                        if (m.match_phase) searchTargets.add(`Winner ${m.match_phase}`);
                         added = true;
                     }
                 }
@@ -895,7 +895,7 @@ export function CaptainDashboard({
                                 </div>
                             ) : (
                                 scheduleMatches.map((match: any, idx) => {
-                                    const isPotentialMatch = match.home_team_id !== team.id && match.away_team_id !== team.id;
+                                    const isPotentialMatch = match.isPotential;
                                     
                                     return (
                                         <div key={match.id} className={cn(

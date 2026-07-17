@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TournamentHeader } from './TournamentHeader';
 import { TournamentGameDayTab } from './TournamentGameDayTab';
@@ -20,7 +21,16 @@ export function AdminTournamentManager({
     game,
     onRefresh
 }: any) {
+    const searchParams = useSearchParams();
+    const urlTab = searchParams.get('tab') || 'gameday';
+    
     const [loading, setLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState(urlTab);
+
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab) setActiveTab(tab);
+    }, [searchParams]);
 
     const handleRefresh = async () => {
         setLoading(true);
@@ -46,7 +56,7 @@ export function AdminTournamentManager({
                 loading={loading}
             />
 
-            <Tabs defaultValue="gameday" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="w-full justify-start flex-nowrap bg-black border-b border-white/10 rounded-none mb-8 p-0 h-auto gap-6 sm:gap-8 overflow-x-auto hide-scrollbar">
                     <TabsTrigger 
                         value="gameday" 

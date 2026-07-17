@@ -60,16 +60,16 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
     const nextMatch = teamMatches.find(m => m.status === 'scheduled' || m.status === 'active');
 
     const getTeamPathMatches = () => {
-        if (game.tournament_style !== 'single_elimination') return matches;
+        if (game.tournament_style !== 'single_elimination') return matches.map(m => ({ ...m, isPotential: false }));
         
-        const path: Match[] = [];
+        const path: (Match & { isPotential?: boolean })[] = [];
         const searchTargets = new Set<string>();
 
         // 1. Add guaranteed matches
         matches.forEach(m => {
             if (m.home_team_id === teamId || m.away_team_id === teamId) {
-                path.push(m);
-                if (m.group_name) searchTargets.add(`Winner ${m.group_name}`);
+                path.push({ ...m, isPotential: false });
+                if (m.match_phase) searchTargets.add(`Winner ${m.match_phase}`);
             }
         });
 
@@ -80,8 +80,8 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
             matches.forEach(m => {
                 if (!path.find(p => p.id === m.id)) {
                     if (searchTargets.has(m.home_team) || searchTargets.has(m.away_team)) {
-                        path.push(m);
-                        if (m.group_name) searchTargets.add(`Winner ${m.group_name}`);
+                        path.push({ ...m, isPotential: true });
+                        if (m.match_phase) searchTargets.add(`Winner ${m.match_phase}`);
                         added = true;
                     }
                 }
@@ -415,13 +415,13 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {scheduleMatches.map((match) => {
-                                        const isUserMatch = match.home_team_id === teamId || match.away_team_id === teamId;
+                                        const isPotentialMatch = match.isPotential;
                                         return (
                                             <div 
                                                 key={match.id} 
                                                 className={cn(
                                                     "p-4 border rounded-sm transition-all",
-                                                    isUserMatch 
+                                                    !isPotentialMatch 
                                                         ? "bg-pitch-accent/5 border-pitch-accent" 
                                                         : "bg-white/5 border-white/10 opacity-60 grayscale-[0.5]"
                                                 )}
