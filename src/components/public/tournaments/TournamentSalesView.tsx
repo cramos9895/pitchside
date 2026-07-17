@@ -120,7 +120,7 @@ export function TournamentSalesView({ game, primaryHost, registeredTeams = [] }:
                 <div className="mb-10 md:mb-20 text-center md:text-left">
                     <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-6 md:mb-8">
                         <div className="bg-pitch-accent text-pitch-black text-[10px] font-black px-3 py-1 rounded uppercase tracking-[0.2em]">
-                            Rolling League
+                            Tournament
                         </div>
                         {isCash && (
                             <div className="bg-orange-500/20 text-orange-400 text-[10px] font-black px-3 py-1 rounded border border-orange-500/30 uppercase tracking-[0.2em] flex items-center gap-2">

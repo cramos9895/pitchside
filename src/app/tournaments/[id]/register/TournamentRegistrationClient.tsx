@@ -560,27 +560,33 @@ function RulesAndTerms({
                 Tournament Rules & Terms
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4">
                 {description && (
-                    <div className="space-y-3">
-                        <div className="text-[10px] font-black uppercase text-pitch-secondary tracking-widest">Event Rules</div>
-                        <div className="bg-black/40 border border-white/10 p-6 rounded-sm max-h-[400px] overflow-y-auto custom-scrollbar">
+                    <details className="bg-black/40 border border-white/10 rounded-sm group">
+                        <summary className="p-4 cursor-pointer list-none flex justify-between items-center text-[10px] font-black uppercase text-pitch-secondary tracking-widest hover:text-white transition-colors">
+                            Event Rules
+                            <span className="text-pitch-accent group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div className="p-4 pt-0 border-t border-white/5 mt-2 max-h-[400px] overflow-y-auto custom-scrollbar">
                             <div className="space-y-4">
                                 {parseMarkdown(description)}
                             </div>
                         </div>
-                    </div>
+                    </details>
                 )}
 
                 {strictWaiverRequired && (
-                    <div className="space-y-3">
-                        <div className="text-[10px] font-black uppercase text-pitch-secondary tracking-widest">Legal Waiver</div>
-                        <div className="bg-black/40 border border-white/10 p-6 rounded-sm max-h-[400px] overflow-y-auto custom-scrollbar">
+                    <details className="bg-black/40 border border-white/10 rounded-sm group">
+                        <summary className="p-4 cursor-pointer list-none flex justify-between items-center text-[10px] font-black uppercase text-pitch-secondary tracking-widest hover:text-white transition-colors">
+                            Legal Waiver
+                            <span className="text-pitch-accent group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div className="p-4 pt-0 border-t border-white/5 mt-2 max-h-[400px] overflow-y-auto custom-scrollbar">
                              <div className="space-y-4">
                                 {parseMarkdown(waiverDetails || "No additional waiver language specified.")}
                             </div>
                         </div>
-                    </div>
+                    </details>
                 )}
             </div>
 
