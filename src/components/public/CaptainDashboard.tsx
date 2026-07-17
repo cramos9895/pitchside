@@ -54,7 +54,8 @@ interface Tournament {
     deposit_amount?: number | null;
     has_registration_fee_credit?: boolean;
     free_agent_fee?: number | null;
-    payment_collection_type?: 'stripe' | 'cash';
+    payment_collection_type?: 'stripe' | 'cash' | 'player_fees' | 'team_fees';
+    allow_free_agents?: boolean;
     cash_amount?: number | null;
     cash_fee_structure?: string | null;
     is_rolling?: boolean;
