@@ -326,29 +326,31 @@ export function TournamentGameDayTab({ registrations, teams, gameId, game, onRef
                         <div className="bg-pitch-card border border-white/10 p-6 rounded-lg">
                             <div className="text-[10px] font-black uppercase tracking-widest text-yellow-500 mb-2">Awaiting Payment</div>
                             <div className="text-3xl font-black italic uppercase text-yellow-500">
-                                {safeRegistrations.filter((r: any) => r.payment_status === 'card_saved' || r.payment_status === 'pending' || r.payment_status === 'unpaid').length}
+                                {safeRegistrations.filter((r: any) => r.status !== 'cancelled' && (r.payment_status === 'card_saved' || r.payment_status === 'pending' || r.payment_status === 'unpaid')).length}
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-pitch-card border border-white/5 rounded-lg p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-[#cbff00]" />
-                        <div className="space-y-2">
-                            <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Stripe "Lock & Charge"</h3>
-                            <p className="text-sm text-gray-400 max-w-md">
-                                Execute secure off-session charges for all registrations with saved cards. 
-                                Useful for game-day compliance.
-                            </p>
+                    {game?.payment_collection_type !== 'player_fees' && (
+                        <div className="bg-pitch-card border border-white/5 rounded-lg p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden mt-6">
+                            <div className="absolute top-0 left-0 w-1 h-full bg-[#cbff00]" />
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Stripe "Lock & Charge"</h3>
+                                <p className="text-sm text-gray-400 max-w-md">
+                                    Execute secure off-session charges for all registrations with saved cards. 
+                                    Useful for game-day compliance.
+                                </p>
+                            </div>
+                            <button
+                                onClick={handleProcessPayments}
+                                disabled={processing}
+                                className="w-full md:w-auto px-10 py-4 bg-[#cbff00] text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(204,255,0,0.2)] rounded-sm disabled:opacity-50"
+                            >
+                                {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                                Lock & Charge
+                            </button>
                         </div>
-                        <button
-                            onClick={handleProcessPayments}
-                            disabled={processing}
-                            className="w-full md:w-auto px-10 py-4 bg-[#cbff00] text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(204,255,0,0.2)] rounded-sm disabled:opacity-50"
-                        >
-                            {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                            Lock & Charge
-                        </button>
-                    </div>
+                    )}
                 </>
             )}
         </div>
