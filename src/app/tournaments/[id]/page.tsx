@@ -122,7 +122,7 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
             `)
             .eq('game_id', gameId)
             .not('team_id', 'is', null)
-            .neq('status', 'cancelled'),
+            .in('status', ['registered', 'paid', 'active', 'confirmed']),
         game.host_ids?.[0] 
             ? supabase.from('profiles').select('first_name, last_name, email').eq('id', game.host_ids[0]).maybeSingle()
             : Promise.resolve({ data: null }),
