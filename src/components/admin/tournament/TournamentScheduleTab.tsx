@@ -55,25 +55,50 @@ export function TournamentScheduleTab({
 
     // Constraints State
     const [constraintsExpanded, setConstraintsExpanded] = useState(false);
+    
+    // Parse times for local inputs
+    const initialStartTime = game?.start_time ? new Date(game.start_time).toTimeString().split(' ')[0].slice(0,5) : "10:00";
+    let initialEndTime = "22:00";
+    if (game?.end_time) {
+        if (game.end_time.includes('T')) initialEndTime = new Date(game.end_time).toTimeString().slice(0, 5);
+        else initialEndTime = game.end_time.slice(0, 5);
+    }
+
     const [editAmountOfFields, setEditAmountOfFields] = useState(game?.amount_of_fields?.toString() || "1");
-    const [editConstraintStartTime, setEditConstraintStartTime] = useState(game?.start_time || "18:00");
-    const [editConstraintEndTime, setEditConstraintEndTime] = useState(game?.end_time || "22:00");
+    const [editConstraintStartTime, setEditConstraintStartTime] = useState(initialStartTime);
+    const [editConstraintEndTime, setEditConstraintEndTime] = useState(initialEndTime);
     const [editHalfLength, setEditHalfLength] = useState(game?.half_length?.toString() || "20");
     const [editHalftimeLength, setEditHalftimeLength] = useState(game?.halftime_length?.toString() || "5");
     const [editBreakBetweenGames, setEditBreakBetweenGames] = useState(game?.break_between_games?.toString() || "5");
     const [isUpdatingConstraints, setIsUpdatingConstraints] = useState(false);
+
+    // Formatted display values
+    const displayStartTime = initialStartTime;
+    const displayEndTime = initialEndTime;
 
     // --- ACTIONS ---
     const handleUpdateConstraints = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsUpdatingConstraints(true);
         try {
+            let startDateTime = null;
+            if (game?.start_time) {
+                startDateTime = new Date(game.start_time);
+                const [hours, minutes] = editConstraintStartTime.split(':').map(Number);
+                startDateTime.setHours(hours, minutes, 0, 0);
+            }
+
+            let formattedEndTime = editConstraintEndTime;
+            if (formattedEndTime.split(':').length === 2) {
+                formattedEndTime = `${formattedEndTime}:00`;
+            }
+
             const { error } = await supabase
                 .from('games')
                 .update({
                     amount_of_fields: parseInt(editAmountOfFields),
-                    start_time: editConstraintStartTime,
-                    end_time: editConstraintEndTime,
+                    start_time: startDateTime ? startDateTime.toISOString() : null,
+                    end_time: formattedEndTime,
                     half_length: parseInt(editHalfLength),
                     halftime_length: parseInt(editHalftimeLength),
                     break_between_games: parseInt(editBreakBetweenGames),
@@ -302,7 +327,7 @@ export function TournamentScheduleTab({
                             <div className="hidden md:flex text-[10px] text-gray-500 uppercase font-black tracking-widest gap-4">
                                 <span>{game?.amount_of_fields || 1} Field(s)</span>
                                 <span>•</span>
-                                <span>{game?.start_time?.slice(0,5)} - {game?.end_time?.slice(0,5)}</span>
+                                <span>{displayStartTime} - {displayEndTime}</span>
                                 <span>•</span>
                                 <span>{game?.half_length || 20}m Halves</span>
                             </div>
