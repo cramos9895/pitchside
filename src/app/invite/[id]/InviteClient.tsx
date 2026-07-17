@@ -7,7 +7,8 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { CheckCircle2, Trophy, ArrowRight, ShieldCheck, Info, Loader2, CreditCard, Lock } from 'lucide-react';
 import { acceptTeamInvite } from '@/app/actions/invite-actions';
 import { createSetupIntent } from '@/app/actions/stripe-payment';
-import { StripeCheckoutModal } from '@/components/public/StripeCheckoutModal';
+import { EmbeddedCheckoutModal } from '@/components/EmbeddedCheckoutModal';
+import { supabase } from '@/lib/supabase/client';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
 
@@ -101,8 +102,26 @@ export function InviteClient({
                 waiverAccepted: true,
                 status: 'pending' // Just create the shell so webhook can update it
             });
-            if (res.success && res.registrationId) {
-                setCurrentRegistrationId(res.registrationId);
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) throw new Error("Authentication required.");
+
+                const checkoutRes = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        gameId: tournamentId,
+                        userId: user.id,
+                        price: playerRegistrationFee,
+                        title: "Player Registration",
+                        note: `Join ${teamName} in ${tournamentName}`,
+                        registrationId: res.registrationId,
+                        eventType: 'tournament_player'
+                    })
+                });
+                const checkoutData = await checkoutRes.json();
+                if (checkoutData.error) throw new Error(checkoutData.error);
+                
+                setClientSecret(checkoutData.clientSecret);
                 setShowPaymentModal(true);
             } else {
                 throw new Error("Failed to initialize pending registration.");
@@ -308,22 +327,14 @@ export function InviteClient({
             </div>
 
             {/* Individual Payment Modal */}
-            {showPaymentModal && currentRegistrationId && (
-                <StripeCheckoutModal 
+            {showPaymentModal && clientSecret && (
+                <EmbeddedCheckoutModal 
                     isOpen={showPaymentModal}
                     onClose={() => {
                         setShowPaymentModal(false);
                         setIsSubmitting(false);
                     }}
-                    amount={playerRegistrationFee}
-                    title="Player Registration"
-                    description={`Join ${teamName} in ${tournamentName}`}
-                    eventId={tournamentId}
-                    registrationId={currentRegistrationId}
-                    onSuccess={() => {
-                        setShowPaymentModal(false);
-                        router.push('/dashboard?success=team-joined');
-                    }}
+                    clientSecret={clientSecret}
                 />
             )}
         </div>

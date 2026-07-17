@@ -7,7 +7,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { ArrowRight, AlertTriangle, Trophy, CreditCard, ScrollText, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { registerRollingCaptain, registerRollingFreeAgent } from '@/app/actions/rolling-league-registration';
-import { StripeCheckoutModal } from '@/components/public/StripeCheckoutModal';
+import { EmbeddedCheckoutModal } from '@/components/EmbeddedCheckoutModal';
+import { supabase } from '@/lib/supabase/client';
 
 export function RollingRegistrationClient({ 
     league,
@@ -46,6 +47,7 @@ export function RollingRegistrationClient({
     const [paymentIntentType, setPaymentIntentType] = useState<'team' | 'free_agent'>(type);
     const [registrationId, setRegistrationId] = useState<string | null>(null);
     const [eventType, setEventType] = useState<string | null>(null);
+    const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
 
     const isCashLeague = league.payment_collection_type === 'cash';
     
@@ -127,10 +129,31 @@ export function RollingRegistrationClient({
                 if (res?.registrationId) {
                     setRegistrationId(res.registrationId);
                     setEventType(res.eventType || 'rolling_league');
+                    
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) throw new Error("Authentication required.");
+
+                    const checkoutRes = await fetch('/api/checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            gameId: league.id,
+                            userId: user.id,
+                            price: stripeAmount,
+                            title: league.title,
+                            note: type === 'team' ? "Team Registration" : "Free Agent Registration",
+                            registrationId: res.registrationId,
+                            eventType: res.eventType || 'rolling_league',
+                            isFreeAgent: type === 'free_agent'
+                        })
+                    });
+                    const checkoutData = await checkoutRes.json();
+                    if (checkoutData.error) throw new Error(checkoutData.error);
+                    
+                    setStripeClientSecret(checkoutData.clientSecret);
                     setShowPaymentModal(true);
                     setIsSubmitting(false);
                 }
-            } catch (err) {
                 // Error handled in handleRegistration
             }
         } else {
@@ -295,23 +318,14 @@ export function RollingRegistrationClient({
                 </form>
             </div>
 
-            {showPaymentModal && registrationFee > 0 && (
-                 <StripeCheckoutModal 
+            {showPaymentModal && stripeClientSecret && (
+                 <EmbeddedCheckoutModal 
                     isOpen={showPaymentModal}
                     onClose={() => {
                         setShowPaymentModal(false);
                         setIsSubmitting(false);
                     }}
-                    amount={registrationFee}
-                    title="League Registration"
-                    description={`Initial registration for ${league.title}`}
-                    eventId={league.id}
-                    registrationId={registrationId || undefined}
-                    eventType={eventType || undefined}
-                    onSuccess={() => {
-                        setShowPaymentModal(false);
-                        handleRegistration('registered');
-                    }}
+                    clientSecret={stripeClientSecret}
                 />
             )}
         </div>
