@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trophy, AlertTriangle, Users, Pencil, Trash2, ExternalLink } from 'lucide-react';
+import { Trophy, AlertTriangle, Users, Pencil, Trash2, ExternalLink, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/Toast';
@@ -53,7 +53,44 @@ export function TournamentScheduleTab({
     const [localMinGames, setLocalMinGames] = useState<number>(game.minimum_games_per_team || 3);
     const [excludedTeams, setExcludedTeams] = useState<Set<string>>(new Set());
 
+    // Constraints State
+    const [constraintsExpanded, setConstraintsExpanded] = useState(false);
+    const [editAmountOfFields, setEditAmountOfFields] = useState(game?.amount_of_fields?.toString() || "1");
+    const [editConstraintStartTime, setEditConstraintStartTime] = useState(game?.start_time || "18:00");
+    const [editConstraintEndTime, setEditConstraintEndTime] = useState(game?.end_time || "22:00");
+    const [editHalfLength, setEditHalfLength] = useState(game?.half_length?.toString() || "20");
+    const [editHalftimeLength, setEditHalftimeLength] = useState(game?.halftime_length?.toString() || "5");
+    const [editBreakBetweenGames, setEditBreakBetweenGames] = useState(game?.break_between_games?.toString() || "5");
+    const [isUpdatingConstraints, setIsUpdatingConstraints] = useState(false);
+
     // --- ACTIONS ---
+    const handleUpdateConstraints = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsUpdatingConstraints(true);
+        try {
+            const { error } = await supabase
+                .from('games')
+                .update({
+                    amount_of_fields: parseInt(editAmountOfFields),
+                    start_time: editConstraintStartTime,
+                    end_time: editConstraintEndTime,
+                    half_length: parseInt(editHalfLength),
+                    halftime_length: parseInt(editHalftimeLength),
+                    break_between_games: parseInt(editBreakBetweenGames),
+                })
+                .eq('id', gameId);
+
+            if (error) throw error;
+            success("Tournament constraints updated successfully.");
+            onRefresh();
+            setConstraintsExpanded(false);
+        } catch (err: any) {
+            toastError("Failed to update constraints: " + err.message);
+        } finally {
+            setIsUpdatingConstraints(false);
+        }
+    };
+
     const handleGenerateDraft = () => {
         setIsGenerating(true);
         try {
@@ -250,6 +287,79 @@ export function TournamentScheduleTab({
 
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
+            {/* SCHEDULER CONSTRAINTS */}
+            <div className="bg-black/40 border border-white/10 rounded-sm overflow-hidden">
+                <div 
+                    className="p-4 bg-white/5 border-b border-white/10 flex justify-between items-center cursor-pointer hover:bg-white/10 transition-colors"
+                    onClick={() => setConstraintsExpanded(!constraintsExpanded)}
+                >
+                    <div className="flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-pitch-accent" />
+                        <h3 className="font-heading text-lg font-bold italic uppercase text-white">Scheduler Constraints</h3>
+                    </div>
+                    <div className="flex items-center gap-4 group">
+                        {!constraintsExpanded && (
+                            <div className="hidden md:flex text-[10px] text-gray-500 uppercase font-black tracking-widest gap-4">
+                                <span>{game?.amount_of_fields || 1} Field(s)</span>
+                                <span>•</span>
+                                <span>{game?.start_time?.slice(0,5)} - {game?.end_time?.slice(0,5)}</span>
+                                <span>•</span>
+                                <span>{game?.half_length || 20}m Halves</span>
+                            </div>
+                        )}
+                        {constraintsExpanded ? <ChevronUp className="w-5 h-5 text-gray-400 group-hover:text-white" /> : <ChevronDown className="w-5 h-5 text-gray-400 group-hover:text-white" />}
+                    </div>
+                </div>
+
+                {constraintsExpanded && (
+                    <form onSubmit={handleUpdateConstraints} className="p-6 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Available Fields</label>
+                                <input type="number" min="1" value={editAmountOfFields} onChange={(e) => setEditAmountOfFields(e.target.value)} className="bg-black border border-white/20 rounded p-3 text-white focus:border-pitch-accent outline-none" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Earliest Start Time</label>
+                                <input type="time" step="900" value={editConstraintStartTime} onChange={(e) => setEditConstraintStartTime(e.target.value)} className="bg-black border border-white/20 rounded p-3 text-white focus:border-pitch-accent outline-none [color-scheme:dark]" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Latest End Time</label>
+                                <input type="time" step="900" value={editConstraintEndTime} onChange={(e) => setEditConstraintEndTime(e.target.value)} className="bg-black border border-white/20 rounded p-3 text-white focus:border-pitch-accent outline-none [color-scheme:dark]" />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Half Length (min)</label>
+                                <input type="number" min="1" value={editHalfLength} onChange={(e) => setEditHalfLength(e.target.value)} className="bg-black border border-white/20 rounded p-3 text-white focus:border-pitch-accent outline-none" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Halftime (min)</label>
+                                <input type="number" min="0" value={editHalftimeLength} onChange={(e) => setEditHalftimeLength(e.target.value)} className="bg-black border border-white/20 rounded p-3 text-white focus:border-pitch-accent outline-none" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Break Between Games (min)</label>
+                                <input type="number" min="0" value={editBreakBetweenGames} onChange={(e) => setEditBreakBetweenGames(e.target.value)} className="bg-black border border-white/20 rounded p-3 text-white focus:border-pitch-accent outline-none" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-pitch-accent tracking-widest mb-2">Total Match Slot</label>
+                                <div className="bg-pitch-accent/5 border border-pitch-accent/20 rounded p-3 text-pitch-accent font-bold h-[46px] flex items-center">
+                                    {(parseInt(editHalfLength) || 0) * 2 + (parseInt(editHalftimeLength) || 0) + (parseInt(editBreakBetweenGames) || 0)} minutes
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end pt-4 border-t border-white/10">
+                            <button
+                                type="submit"
+                                disabled={isUpdatingConstraints}
+                                className="px-8 py-3 bg-white text-black font-black uppercase tracking-wider rounded transition-colors hover:bg-gray-200 disabled:opacity-50 text-sm"
+                            >
+                                {isUpdatingConstraints ? 'Saving...' : 'Update Constraints'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </div>
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 gap-4">
                 <div className="flex items-center gap-4">
                     <div>
