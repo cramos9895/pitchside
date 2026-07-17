@@ -1164,7 +1164,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     leagueTitle={game.title}
                     registrations={bookings}
                     matches={matches}
-                    teams={teams}
+                    teams={rollingTeams}
                     facilityId={game.facility_id || ''}
                     game={game}
                     onRefresh={async () => {
