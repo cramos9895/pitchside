@@ -16,13 +16,9 @@ export function TournamentScheduleTab({
 }: any) {
     const { success, error: toastError } = useToast();
     
-    // Derived state
-    const activePlayers = registrations.filter((b: any) => 
-        ['active', 'paid', 'confirmed', 'registered', 'pending'].includes(b.status) || 
-        b.roster_status === 'confirmed'
-    );
-    const uniqueRegisteredTeamIds = new Set(activePlayers.map((p: any) => p.team_id).filter(Boolean));
-    const registeredTeamsCount = uniqueRegisteredTeamIds.size;
+    // In Tournaments, a team is participating simply by existing in the 'teams' array, 
+    // since admins might manually create teams and assign players later.
+    const activeTeamsCount = teams.length;
     
     // Match Segmentation
     const groupMatches = matches.filter((m: any) => !m.is_playoff).sort((a: any, b: any) => {
@@ -61,9 +57,9 @@ export function TournamentScheduleTab({
     const handleGenerateDraft = () => {
         setIsGenerating(true);
         try {
-            const registeredTeams = teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id) && !excludedTeams.has(t.name));
+            const activeTeamsForDraft = teams.filter((t: any) => !excludedTeams.has(t.name));
             const schedule = generateTournamentSchedule({
-                teams: registeredTeams,
+                teams: activeTeamsForDraft,
                 amountOfFields: game.amount_of_fields || 1,
                 halfLength: game.half_length || 20,
                 halftimeLength: game.halftime_length || 5,
@@ -306,38 +302,52 @@ export function TournamentScheduleTab({
             {matches.length === 0 && draftSchedule.length === 0 && (
                 <div className="bg-white/5 border border-white/10 p-4 rounded-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-center">
                     <div>
-                        <label className="block text-[10px] uppercase font-black text-gray-500 tracking-widest mb-1">Registered Teams</label>
-                        <p className="text-xl font-bold text-white">{registeredTeamsCount}</p>
+                        <p className="text-xl font-bold text-white">{activeTeamsCount}</p>
                     </div>
-                    <div>
-                        <label className="block text-[10px] uppercase font-black text-gray-500 tracking-widest mb-1">Max Possible Games</label>
-                        <p className="text-xl font-bold text-pitch-accent">{Math.max(0, Math.ceil(registeredTeamsCount / 2) - 1)}</p>
-                    </div>
-                    <div className="lg:col-span-2">
-                        <label className="block text-[10px] uppercase font-black text-pitch-accent tracking-widest mb-2">Override Minimum Games (Group Stage)</label>
-                        <div className="flex items-center gap-4">
-                            <input 
-                                type="number"
-                                value={localMinGames}
-                                onChange={(e) => setLocalMinGames(Number(e.target.value))}
-                                className="w-20 bg-black border border-pitch-accent/30 rounded p-2 text-white font-bold text-center focus:border-pitch-accent transition-colors"
-                            />
-                            <div className="flex-1">
-                                {localMinGames > (Math.ceil(registeredTeamsCount / 2) - 1) ? (
-                                    <div className="flex items-start gap-2 text-red-500 animate-in fade-in slide-in-from-left-2">
-                                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                                        <p className="text-[10px] leading-tight uppercase font-bold">Impossible: Not enough opponents. Please reduce to {Math.max(0, Math.ceil(registeredTeamsCount / 2) - 1)} or less.</p>
-                                    </div>
-                                ) : (
-                                    <p className="text-[10px] text-gray-500 italic">Adjusting this only affects the current draft session.</p>
-                                )}
+                    {game.tournament_style === 'group_stage' || !game.tournament_style ? (
+                        <>
+                            <div>
+                                <label className="block text-[10px] uppercase font-black text-gray-500 tracking-widest mb-1">Max Possible Games</label>
+                                <p className="text-xl font-bold text-pitch-accent">{Math.max(0, Math.ceil(activeTeamsCount / 2) - 1)}</p>
                             </div>
+                            <div className="lg:col-span-2">
+                                <label className="block text-[10px] uppercase font-black text-pitch-accent tracking-widest mb-2">Override Minimum Games (Group Stage)</label>
+                                <div className="flex items-center gap-4">
+                                    <input 
+                                        type="number"
+                                        value={localMinGames}
+                                        onChange={(e) => setLocalMinGames(Number(e.target.value))}
+                                        className="w-20 bg-black border border-pitch-accent/30 rounded p-2 text-white font-bold text-center focus:border-pitch-accent transition-colors"
+                                    />
+                                    <div className="flex-1">
+                                        {localMinGames > (Math.ceil(activeTeamsCount / 2) - 1) ? (
+                                            <div className="flex items-start gap-2 text-red-500 animate-in fade-in slide-in-from-left-2">
+                                                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                                                <p className="text-[10px] leading-tight uppercase font-bold">Impossible: Not enough opponents. Please reduce to {Math.max(0, Math.ceil(activeTeamsCount / 2) - 1)} or less.</p>
+                                            </div>
+                                        ) : (
+                                            <p className="text-[10px] text-gray-500 italic">Adjusting this only affects the current draft session.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="lg:col-span-3">
+                            <label className="block text-[10px] uppercase font-black text-pitch-accent tracking-widest mb-1">Tournament Format</label>
+                            <p className="text-lg font-bold text-white flex items-center gap-2">
+                                <Trophy className="w-4 h-4 text-pitch-accent" />
+                                Single Elimination Knockout Bracket
+                            </p>
+                            <p className="text-[10px] text-gray-500 italic mt-1">
+                                The engine will automatically generate exactly {Math.max(0, activeTeamsCount - 1)} matches based on {activeTeamsCount} participating teams.
+                            </p>
                         </div>
-                    </div>
+                    )}
                     <div className="lg:col-span-4 mt-4 pt-4 border-t border-white/5">
                         <label className="block text-[10px] uppercase font-black text-gray-500 tracking-widest mb-2">Participating Teams</label>
                         <div className="flex flex-wrap gap-2">
-                            {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => {
+                            {teams.map((t: any) => {
                                 const isExcluded = excludedTeams.has(t.name);
                                 return (
                                     <button
@@ -408,7 +418,7 @@ export function TournamentScheduleTab({
                                                     <div className="flex items-center justify-between px-8">
                                                         <div className="flex-1 text-right min-w-0">
                                                             <select value={editHomeTeam} onChange={e => setEditHomeTeam(e.target.value)} className="w-full bg-black border border-white/20 rounded p-1 text-xs text-white">
-                                                                {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => (
+                                                                {teams.map((t: any) => (
                                                                     <option key={t.id} value={t.name}>{t.name}</option>
                                                                 ))}
                                                                 <option value="TBD">TBD</option>
@@ -422,7 +432,7 @@ export function TournamentScheduleTab({
 
                                                         <div className="flex-1 text-left min-w-0">
                                                             <select value={editAwayTeam} onChange={e => setEditAwayTeam(e.target.value)} className="w-full bg-black border border-white/20 rounded p-1 text-xs text-white">
-                                                                {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => (
+                                                                {teams.map((t: any) => (
                                                                     <option key={t.id} value={t.name}>{t.name}</option>
                                                                 ))}
                                                                 <option value="TBD">TBD</option>
@@ -582,7 +592,7 @@ export function TournamentScheduleTab({
                                                     <div className="flex items-center justify-between px-8">
                                                         <div className="flex-1 text-right min-w-0">
                                                             <select value={editHomeTeam} onChange={e => setEditHomeTeam(e.target.value)} className="w-full bg-black border border-white/20 rounded p-1 text-xs text-white">
-                                                                {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => (
+                                                                {teams.map((t: any) => (
                                                                     <option key={t.id} value={t.name}>{t.name}</option>
                                                                 ))}
                                                                 <option value="TBD">TBD</option>
@@ -596,7 +606,7 @@ export function TournamentScheduleTab({
 
                                                         <div className="flex-1 text-left min-w-0">
                                                             <select value={editAwayTeam} onChange={e => setEditAwayTeam(e.target.value)} className="w-full bg-black border border-white/20 rounded p-1 text-xs text-white">
-                                                                {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => (
+                                                                {teams.map((t: any) => (
                                                                     <option key={t.id} value={t.name}>{t.name}</option>
                                                                 ))}
                                                                 <option value="TBD">TBD</option>
