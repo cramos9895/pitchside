@@ -1020,11 +1020,11 @@ export function TournamentCommandCenterView({
                             <div className="absolute -inset-1 bg-gradient-to-r from-pitch-accent/20 to-transparent blur-2xl opacity-50 transition-opacity" />
                             <div className="bg-pitch-card border border-white/5 rounded-2xl p-8 md:p-12 shadow-2xl relative">
                                 <h1 className="text-4xl font-black uppercase italic tracking-tighter mb-8 border-b border-white/10 pb-4">
-                                    Rules & Event Policy
+                                    Event Description
                                 </h1>
                                 
                                 {tournament.description ? (
-                                    <div className="rules-content space-y-6 text-gray-300 leading-relaxed font-medium">
+                                    <div className="rules-content space-y-6 text-gray-300 leading-relaxed font-medium mb-12">
                                         {/* Simple Sanitized Multi-line Renderer for MVP stability */}
                                         {tournament.description.split('\n').map((line: string, i: number) => {
                                             if (!line.trim()) return <br key={i} />;
@@ -1044,11 +1044,43 @@ export function TournamentCommandCenterView({
                                         })}
                                     </div>
                                 ) : (
-                                    <div className="text-center py-24 text-gray-600">
+                                    <div className="text-center py-12 text-gray-600 mb-12">
                                         <ScrollText className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                                        <p className="font-bold uppercase text-[10px] tracking-[0.3em]">No custom rules defined for this event</p>
+                                        <p className="font-bold uppercase text-[10px] tracking-[0.3em]">No custom description provided for this event</p>
                                     </div>
                                 )}
+
+                                <h2 className="text-3xl font-black uppercase italic tracking-tighter mb-8 border-b border-white/10 pb-4 mt-8">
+                                    Rules & Event Policy
+                                </h2>
+                                <div className="space-y-6 text-sm text-gray-300 leading-relaxed font-medium">
+                                    <p>By participating in any soccer matches, tournaments, or events organized by Pitch Side, you acknowledge and agree to the following terms:</p>
+                                    
+                                    <div>
+                                        <strong className="text-pitch-accent uppercase text-xs block mb-1">1. Assumption of Risk</strong>
+                                        <p>You understand that soccer is a physical contact sport. Participation involves inherent risks of physical injury, illness, or property damage. You voluntarily assume all risks associated with playing in Pitch Side events, whether known or unknown, and take full responsibility for your participation.</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <strong className="text-pitch-accent uppercase text-xs block mb-1">2. Release of Liability</strong>
+                                        <p>You hereby release, waive, and discharge Pitch Side, its organizers, administrators, facility owners, and other participants from any and all claims, liabilities, or demands arising from your participation. This includes claims resulting from ordinary negligence but does not include gross negligence or willful misconduct.</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <strong className="text-pitch-accent uppercase text-xs block mb-1">3. Medical Consent</strong>
+                                        <p>In the event of an emergency, you grant permission to Pitch Side organizers to seek medical treatment on your behalf if you are unable to do so yourself. You acknowledge that you are solely responsible for any medical costs or transportation incurred.</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <strong className="text-pitch-accent uppercase text-xs block mb-1">4. Media Release</strong>
+                                        <p>You grant Pitch Side the right to take photographs and videos of you during events. You consent to the use of these media materials for promotional purposes on the Pitch Side app, website, and social media channels without any compensation.</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <strong className="text-pitch-accent uppercase text-xs block mb-1">5. Code of Conduct</strong>
+                                        <p>You agree to play safely, respect the organizers and other players, and follow all rules of the venue. Pitch Side reserves the right to remove or ban any player for dangerous play, fighting, or unsporting behavior without a refund.</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
