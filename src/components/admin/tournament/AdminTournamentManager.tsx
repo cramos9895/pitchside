@@ -45,6 +45,14 @@ export function AdminTournamentManager({
     const uniqueRegisteredTeamIds = new Set(activePlayers.map((p: any) => p.team_id).filter(Boolean));
     const registeredTeamsCount = uniqueRegisteredTeamIds.size;
 
+    // Filter out "ghost teams" where the captain abandoned checkout (status is pending)
+    const validTeams = teams.filter((t: any) => {
+        if (!t.captain_id) return true;
+        const captainReg = registrations.find((r: any) => r.user_id === t.captain_id && r.team_id === t.id);
+        if (captainReg && captainReg.status === 'pending') return false;
+        return true;
+    });
+
     return (
         <div className="w-full max-w-7xl mx-auto p-4 md:p-8">
             <TournamentHeader 
@@ -109,7 +117,7 @@ export function AdminTournamentManager({
                 <TabsContent value="squads" className="outline-none">
                     <TournamentSquadsTab 
                         registrations={registrations} 
-                        teams={teams}
+                        teams={validTeams}
                         gameId={gameId}
                         game={game}
                         onRefresh={handleRefresh}
@@ -118,8 +126,8 @@ export function AdminTournamentManager({
 
                 <TabsContent value="schedule" className="outline-none">
                     <TournamentScheduleTab 
-                        matches={matches}
-                        teams={teams}
+                        matches={matches} 
+                        teams={validTeams} 
                         gameId={gameId}
                         game={game}
                         registrations={registrations}
@@ -131,7 +139,7 @@ export function AdminTournamentManager({
                 <TabsContent value="leaderboard" className="outline-none">
                     <TournamentLeaderboardTab 
                         game={game}
-                        teams={teams}
+                        teams={validTeams}
                         matches={matches}
                     />
                 </TabsContent>
