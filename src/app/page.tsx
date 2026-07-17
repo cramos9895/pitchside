@@ -106,10 +106,10 @@ export default async function Home() {
     }
   }
 
-  // Fetch upcoming games not joined by user
+  // Fetch upcoming games
   let query = supabase
     .from('games')
-    .select('*')
+    .select('*, tournament_registrations(user_id, team_id, role, status)')
     .eq('is_active', true)
     .neq('status', 'cancelled')
     .gt('start_time', new Date().toISOString()) // Only future games
@@ -183,6 +183,7 @@ export default async function Home() {
             <div className="flex overflow-x-auto -mx-6 px-6 gap-6 md:grid md:grid-cols-3 md:pb-0 md:mx-0 md:px-0 scrollbar-hide snap-x snap-mandatory items-stretch">
               {games.map((game: any) => {
                 const registrations = userRegistrationsMap.get(game.id) || [];
+                const globalRegistrations = game.tournament_registrations || [];
 
                 return (
                   <div key={game.id} className="min-w-[85vw] md:min-w-0 snap-center flex flex-col h-full">
@@ -197,20 +198,20 @@ export default async function Home() {
                       <TournamentCard
                         tournament={game}
                         userId={user?.id}
-                        registrations={registrations}
+                        registrations={globalRegistrations}
                       />
                     ) : game.event_type === 'league' ? (
                       game.league_format === 'rolling' ? (
                         <RollingLeagueCard
                           league={game}
                           userId={user?.id}
-                          registrations={registrations}
+                          registrations={globalRegistrations}
                         />
                       ) : (
                         <LeagueCard
                           league={game}
                           userId={user?.id}
-                          registrations={registrations}
+                          registrations={globalRegistrations}
                         />
                       )
                     ) : (
