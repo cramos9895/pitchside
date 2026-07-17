@@ -24,6 +24,7 @@ interface RollingLeague {
     cash_fee_structure?: string;
     team_price?: number;
     team_registration_fee?: number;
+    signup_fee?: number;
     price?: number;
     allow_free_agents?: boolean;
     free_agent_price?: number;
@@ -69,7 +70,18 @@ export function TournamentSalesView({ game, primaryHost, registeredTeams = [] }:
         
         // Handle descriptive strings from GameForm
         if (!game.prize_type || type?.includes('no official') || type === 'none') return 'Bragging Rights';
-        if (type?.includes('percentage pool') || type === 'pool') return `${game.prize_pool_percentage}% Pool`;
+        
+        if (type?.includes('percentage pool') || type === 'pool') {
+            const totalPlayers = registeredTeams.reduce((sum, t) => sum + (t.player_count || 0), 0);
+            // Fallback sequence for player pricing: player_registration_fee -> signup_fee -> free_agent_price -> 0
+            const playerPrice = game.player_registration_fee || game.signup_fee || game.free_agent_price || 0;
+            const currentPool = totalPlayers * playerPrice;
+            const percentage = game.prize_pool_percentage || 100;
+            const calculatedPrize = (currentPool * percentage) / 100;
+            
+            return calculatedPrize > 0 ? `$${calculatedPrize.toFixed(2)} (Estimated)` : `${percentage}% Pool`;
+        }
+        
         if (type?.includes('fixed cash bounty') || type === 'fixed') return `$${game.fixed_prize_amount}`;
         if (type?.includes('physical item') || type === 'physical') return game.reward || 'Trophy';
         
@@ -282,82 +294,24 @@ export function TournamentSalesView({ game, primaryHost, registeredTeams = [] }:
                     <div className="order-2 lg:order-none lg:col-span-4 lg:col-start-9 lg:row-start-1 lg:row-span-3 space-y-6">
                         <section className="bg-pitch-accent text-pitch-black p-6 md:p-8 rounded-sm relative shadow-[0_0_50px_rgba(204,255,0,0.1)]">
                             <h3 className="text-xs font-black uppercase tracking-[0.3em] mb-6 border-b border-black/10 pb-4">
-                                Season Pricing
+                                Price
                             </h3>
                             
                             <div className="space-y-6">
-                                {/* 1. Team Registration Fee */}
+                                {/* Player Registration Fee */}
                                 <div className="space-y-2">
                                     <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
-                                        <Users className="w-3 h-3" /> Team Registration Fee
+                                        <ShieldCheck className="w-3 h-3" /> Player Registration
                                     </p>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-4xl font-black italic">
-                                            ${game.team_registration_fee || 0}
+                                            ${game.player_registration_fee || game.signup_fee || game.free_agent_price || 0}
                                         </span>
                                     </div>
                                     <p className="text-[9px] font-black uppercase tracking-wider opacity-40 mt-1">
-                                        One time fee to register a team
+                                        One time fee for tournament entry
                                     </p>
                                 </div>
-
-                                {/* 2. Player Registration Fee (Optional) */}
-                                {(game.player_registration_fee ?? 0) > 0 && (
-                                    <div className="space-y-2 pt-6 border-t border-black/10">
-                                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
-                                            <ShieldCheck className="w-3 h-3" /> Player Registration
-                                        </p>
-                                        <div className="flex items-baseline gap-2">
-                                            <span className="text-4xl font-black italic">
-                                                ${game.player_registration_fee}
-                                            </span>
-                                            <span className="text-[10px] font-black uppercase opacity-60">
-                                                Upfront Fee
-                                            </span>
-                                        </div>
-                                        <p className="text-[9px] font-black uppercase tracking-wider opacity-40 mt-1">
-                                            Paid In person at first game
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* 3. Player Game Fee (Standard) */}
-                                <div className="space-y-2 pt-6 border-t border-black/10">
-                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
-                                        <Activity className="w-3 h-3" /> Players
-                                    </p>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-4xl font-black italic">
-                                            ${isCash ? (game.cash_amount || 0) : (game.price || 0)}
-                                        </span>
-                                        <span className="text-[10px] font-black uppercase opacity-60">
-                                            / Per Match
-                                        </span>
-                                    </div>
-                                    <p className="text-[9px] font-black uppercase tracking-wider opacity-40 mt-1">
-                                        Standard ongoing match cost
-                                    </p>
-                                </div>
-
-                                {/* 4. Free Agent Pool Entry (If fee exists) */}
-                                {game.allow_free_agents && (game.free_agent_price ?? 0) > 0 && (
-                                    <div className="space-y-2 pt-6 border-t border-black/10">
-                                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
-                                            <UserPlus className="w-3 h-3" /> Free Agents
-                                        </p>
-                                        <div className="flex items-baseline gap-2">
-                                            <span className="text-4xl font-black italic">
-                                                ${game.free_agent_price}
-                                            </span>
-                                            <span className="text-[10px] font-black uppercase opacity-60">
-                                                Entry Fee
-                                            </span>
-                                        </div>
-                                        <p className="text-[9px] font-black uppercase tracking-wider opacity-40 mt-1">
-                                            Registration fee to join the free agent pool
-                                        </p>
-                                    </div>
-                                )}
                             </div>
 
                             <div className="mt-8 pt-6 border-t border-black/10">
@@ -391,7 +345,7 @@ export function TournamentSalesView({ game, primaryHost, registeredTeams = [] }:
                     ) : (
                         <>
                             <Link
-                                href={`/leagues/${game.id}/register?type=team`}
+                                href={`/tournaments/${game.id}/register?type=team`}
                                 className="flex-1 py-5 bg-pitch-accent text-pitch-black font-black uppercase tracking-[0.2em] text-sm hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(204,255,0,0.15)] rounded-sm"
                             >
                                 Register as Captain <ArrowRight className="w-4 h-4" />
@@ -399,7 +353,7 @@ export function TournamentSalesView({ game, primaryHost, registeredTeams = [] }:
                             
                             {game.allow_free_agents && (
                                 <Link
-                                    href={`/leagues/${game.id}/register?type=free_agent`}
+                                    href={`/tournaments/${game.id}/register?type=free_agent`}
                                     className="flex-1 py-5 bg-white text-black font-black uppercase tracking-[0.2em] text-sm hover:bg-pitch-accent transition-all transform active:scale-95 flex items-center justify-center gap-3 rounded-sm"
                                 >
                                     Join as Free Agent <ArrowRight className="w-4 h-4" />
