@@ -88,8 +88,7 @@ interface CaptainDashboardProps {
     tournament: Tournament;
     roster: Player[];
     freeAgents: Player[];
-    // @ts-expect-error - Residual typing mismatch from extended schema mapping
-    matches: MatchWithTeams[];
+    matches: any[];
     teams: any[];
     initialMessages: Message[];
     tournamentUrlBase: string; // e.g., "https://pitchside.com/tournaments/123"
@@ -119,8 +118,41 @@ export function CaptainDashboard({
     const [attendance, setAttendance] = useState<any[]>([]);
     
     // Filter live matches sequentially hooked to this Captain's team ID (UUID)
-    // @ts-expect-error - Residual typing mismatch from extended schema mapping
-    const myMatches = matches.filter((m: MatchWithTeams) => m.home_team_id === team.id || m.away_team_id === team.id); // m.home_team_id === team.id || m.away_team_id === team.id);
+    const myMatches = matches.filter((m: any) => m.home_team_id === team.id || m.away_team_id === team.id);
+
+    const getTeamPathMatches = () => {
+        if ((tournament as any).tournament_style !== 'single_elimination') return myMatches;
+        
+        const path: any[] = [];
+        const searchTargets = new Set<string>();
+
+        // 1. Add guaranteed matches
+        matches.forEach((m: any) => {
+            if (m.home_team_id === team.id || m.away_team_id === team.id) {
+                path.push(m);
+                if (m.group_name) searchTargets.add(`Winner ${m.group_name}`);
+            }
+        });
+
+        // 2. Trace future potential matches
+        let added = true;
+        while (added) {
+            added = false;
+            matches.forEach((m: any) => {
+                if (!path.find(p => p.id === m.id)) {
+                    if (searchTargets.has(m.home_team) || searchTargets.has(m.away_team)) {
+                        path.push(m);
+                        if (m.group_name) searchTargets.add(`Winner ${m.group_name}`);
+                        added = true;
+                    }
+                }
+            });
+        }
+
+        return path.sort((a, b) => new Date(a.start_time || '').getTime() - new Date(b.start_time || '').getTime());
+    };
+
+    const scheduleMatches = getTeamPathMatches();
     const sortedMatches = [...matches].sort((a, b) => {
         const dateA = new Date(a.start_time || '').getTime();
         const dateB = new Date(b.start_time || '').getTime();
@@ -852,7 +884,7 @@ export function CaptainDashboard({
 
                         {/* 2. Concrete Matches (From DB) */}
                         <div className="space-y-4">
-                            {myMatches.length === 0 ? (
+                            {scheduleMatches.length === 0 ? (
                                 <div className="bg-[#171717] border border-dashed border-white/5 rounded-2xl p-16 text-center">
                                     <Calendar className="w-12 h-12 text-pitch-secondary mx-auto mb-6 opacity-20" />
                                     <h4 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Schedule Pending</h4>
@@ -862,38 +894,43 @@ export function CaptainDashboard({
                                     </p>
                                 </div>
                             ) : (
-                                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                                myMatches.map((match: MatchWithTeams, idx) => (
-                                    <div key={match.id} className="bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center gap-8 relative group overflow-hidden">
+                                scheduleMatches.map((match: any, idx) => {
+                                    const isPotentialMatch = match.home_team_id !== team.id && match.away_team_id !== team.id;
                                     
-                                    {/* Match Date Label */}
-                                    <div className="flex flex-col items-center justify-center p-4 bg-white/5 rounded-xl border border-white/10 w-24 shrink-0">
-                                        <span className="text-[10px] font-black uppercase text-pitch-secondary">
-                                            {new Date(match.start_time || '').toLocaleString('default', { month: 'short' })}
-                                        </span>
-                                        <span className="text-3xl font-black italic tracking-tighter">
-                                            {new Date(match.start_time || '').getDate()}
-                                        </span>
-                                    </div>
+                                    return (
+                                        <div key={match.id} className={cn(
+                                            "bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center gap-8 relative group overflow-hidden transition-all",
+                                            isPotentialMatch && "opacity-60 grayscale-[0.5] border-dashed border-white/10"
+                                        )}>
+                                        
+                                        {/* Match Date Label */}
+                                        <div className="flex flex-col items-center justify-center p-4 bg-white/5 rounded-xl border border-white/10 w-24 shrink-0">
+                                            <span className="text-[10px] font-black uppercase text-pitch-secondary">
+                                                {new Date(match.start_time || '').toLocaleString('default', { month: 'short' })}
+                                            </span>
+                                            <span className="text-3xl font-black italic tracking-tighter">
+                                                {new Date(match.start_time || '').getDate()}
+                                            </span>
+                                        </div>
 
-                                    {/* Opponents */}
-                                    <div className="flex-1 flex items-center justify-between gap-4 w-full px-4">
-                                        <div className="text-center md:text-left flex-1">
-                                            <p className="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">{new Date(match.start_time || '').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
-                                            <h3 className="font-heading text-xl md:text-2xl font-black uppercase italic truncate">
-                                                                                                {match.home_team_obj?.name || match.home_team || 'Home Team'}
-                                            </h3>
+                                        {/* Opponents */}
+                                        <div className="flex-1 flex items-center justify-between gap-4 w-full px-4">
+                                            <div className="text-center md:text-left flex-1">
+                                                <p className="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">{new Date(match.start_time || '').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                                                <h3 className={cn("font-heading text-xl md:text-2xl font-black uppercase italic truncate", match.home_team_id === team.id && "text-pitch-accent")}>
+                                                    {match.home_team_obj?.name || match.home_team || 'Home Team'}
+                                                </h3>
+                                            </div>
+                                            <div className="bg-white/10 px-4 py-2 rounded font-black italic text-lg text-pitch-accent">
+                                                {match.status === 'completed' ? `${match.home_score} - ${match.away_score}` : 'VS'}
+                                            </div>
+                                            <div className="text-center md:text-right flex-1">
+                                                <p className="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">{new Date(match.start_time || '').toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
+                                                <h3 className={cn("font-heading text-xl md:text-2xl font-black uppercase italic truncate", match.away_team_id === team.id && "text-pitch-accent")}>
+                                                    {match.away_team_obj?.name || match.away_team || 'Away Team'}
+                                                </h3>
+                                            </div>
                                         </div>
-                                        <div className="bg-white/10 px-4 py-2 rounded font-black italic text-lg text-pitch-accent">
-                                            {match.status === 'completed' ? `${match.home_score} - ${match.away_score}` : 'VS'}
-                                        </div>
-                                        <div className="text-center md:text-right flex-1">
-                                            <p className="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">{new Date(match.start_time || '').toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
-                                            <h3 className="font-heading text-xl md:text-2xl font-black uppercase italic truncate">
-                                                                                                {match.away_team_obj?.name || match.away_team || 'Away Team'}
-                                            </h3>
-                                        </div>
-                                    </div>
 
                                     {/* Status Badge */}
                                     <div className="shrink-0 flex flex-col items-center md:items-end">
@@ -951,10 +988,14 @@ export function CaptainDashboard({
                                         })()}
                                     </div>
                                 </div>
-                            )))}
+                            );
+                        })
+                        )}
 
                             {/* 3. Autopilot Projections (The Phase Shift Seam) */}
                             {(() => {
+                                if ((tournament as any).tournament_style === 'single_elimination') return null;
+
                                 const lastConcreteDate = myMatches.length > 0 ? myMatches[myMatches.length - 1].start_time : null;
                                 const futureCount = Math.max(0, 8 - myMatches.length);
                                 if (futureCount <= 0) return null;

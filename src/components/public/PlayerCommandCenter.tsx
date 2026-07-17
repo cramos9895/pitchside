@@ -59,6 +59,40 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
     // Sort matches by upcoming
     const nextMatch = teamMatches.find(m => m.status === 'scheduled' || m.status === 'active');
 
+    const getTeamPathMatches = () => {
+        if (game.tournament_style !== 'single_elimination') return matches;
+        
+        const path: Match[] = [];
+        const searchTargets = new Set<string>();
+
+        // 1. Add guaranteed matches
+        matches.forEach(m => {
+            if (m.home_team_id === teamId || m.away_team_id === teamId) {
+                path.push(m);
+                if (m.group_name) searchTargets.add(`Winner ${m.group_name}`);
+            }
+        });
+
+        // 2. Trace future potential matches
+        let added = true;
+        while (added) {
+            added = false;
+            matches.forEach(m => {
+                if (!path.find(p => p.id === m.id)) {
+                    if (searchTargets.has(m.home_team) || searchTargets.has(m.away_team)) {
+                        path.push(m);
+                        if (m.group_name) searchTargets.add(`Winner ${m.group_name}`);
+                        added = true;
+                    }
+                }
+            });
+        }
+
+        return path.sort((a, b) => new Date(a.start_time || '').getTime() - new Date(b.start_time || '').getTime());
+    };
+
+    const scheduleMatches = getTeamPathMatches();
+
     // Split Pay calculation
     const teamSize = roster.length;
     const basePrice = game.team_price || 0;
@@ -380,7 +414,7 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {matches.map((match) => {
+                                    {scheduleMatches.map((match) => {
                                         const isUserMatch = match.home_team_id === teamId || match.away_team_id === teamId;
                                         return (
                                             <div 
@@ -398,11 +432,11 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
                                                 </div>
                                                 <div className="flex items-center justify-between gap-2">
                                                     <div className={cn("flex-1 text-sm font-bold uppercase truncate", match.home_team_id === teamId && "text-pitch-accent")}>
-                                                        {match.home_team_name || 'Home'}
+                                                        {match.home_team_name || match.home_team || 'Home'}
                                                     </div>
                                                     <div className="text-[10px] font-black text-white/20 italic">VS</div>
                                                     <div className={cn("flex-1 text-right text-sm font-bold uppercase truncate", match.away_team_id === teamId && "text-pitch-accent")}>
-                                                        {match.away_team_name || 'Away'}
+                                                        {match.away_team_name || match.away_team || 'Away'}
                                                     </div>
                                                 </div>
                                                 {match.status === 'completed' && (
