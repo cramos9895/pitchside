@@ -8,22 +8,22 @@ import {
     XCircle, Clock, Trash2, ShieldCheck, HeartPulse, User, ShieldAlert
 } from 'lucide-react';
 import { toggleAcceptingFreeAgents, draftFreeAgent } from '@/app/actions/draft-player';
-import { getGameSuspensions } from '@/app/actions/suspensions';
-import { leaveRollingTeam, disbandRollingTeam } from '@/app/actions/rolling-league-registration';
-import { rateReferee } from '@/app/actions/referee-actions';
-import { useTransition } from 'react';
-import { DraftConfirmationModal } from './DraftConfirmationModal';
-import { useRouter } from 'next/navigation';
+import { DraftConfirmationModal } from '../DraftConfirmationModal';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { calculateNextMatch, calculateProjectedMatches } from '@/lib/match-logic';
 import { upsertAttendance, getAttendanceForMatch } from '@/app/actions/attendance';
+import { getGameSuspensions } from '@/app/actions/suspensions';
+import { leaveRollingTeam, disbandRollingTeam } from '@/app/actions/rolling-league-registration';
+import { useTransition } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { PitchSideConfirmModal } from './PitchSideConfirmModal';
-import { StandingsTable } from '@/components/admin/StandingsTable';
-import { BracketView } from './BracketView';
+import { PitchSideConfirmModal } from '../PitchSideConfirmModal';
+import { StandingsTable, Match } from '@/components/admin/StandingsTable';
 import { cn } from '@/lib/utils';
 import { isLeagueLocked } from '@/lib/league-utils';
-// @ts-expect-error - Residual typing mismatch from extended schema mapping
-import { Game, Booking, Profile, Match, Team } from "@/types/index";
+import { RollingMatchHistory } from '../RollingMatchHistory';
+import { TacticalBoard } from '../tactics/TacticalBoard';
+import { PlayerQRCard } from '../checkin/PlayerQRCard';
+import { Game, Booking, Profile } from "@/types/index";
 
 interface Player {
     id: string;
@@ -35,8 +35,7 @@ interface Player {
         last_name: string;
         avatar_url: string | null;
     };
-    // Placeholder for actual payment tracking if implemented.
-    // For this UI, we will assume everyone owes an equal share if unpaid
+    payment_status?: string;
     has_paid?: boolean; 
 }
 
@@ -54,7 +53,7 @@ interface Tournament {
     deposit_amount?: number | null;
     has_registration_fee_credit?: boolean;
     free_agent_fee?: number | null;
-    payment_collection_type?: 'stripe' | 'cash';
+    payment_collection_type?: 'stripe' | 'cash' | 'player_fees' | string;
     cash_amount?: number | null;
     cash_fee_structure?: string | null;
     is_rolling?: boolean;
@@ -65,6 +64,7 @@ interface Tournament {
     lifecycle_end_date?: string | null;
     skipped_dates?: string[];
     teams_config?: any[];
+    league_format?: 'rolling' | 'structured';
 }
 
 // Using Match interface from StandingsTable for consistency
@@ -83,20 +83,21 @@ interface Message {
     };
 }
 
-interface CaptainDashboardProps {
+interface TournamentCommandCenterViewProps {
     team: Team;
     tournament: Tournament;
     roster: Player[];
     freeAgents: Player[];
-    matches: any[];
+    matches: Match[];
     teams: any[];
     initialMessages: Message[];
     tournamentUrlBase: string; // e.g., "https://pitchside.com/tournaments/123"
     isCaptain: boolean;
     currentUserId: string;
+    lineups: any[];
 }
 
-export function CaptainDashboard({ 
+export function TournamentCommandCenterView({ 
     team, 
     tournament, 
     roster, 
@@ -106,53 +107,33 @@ export function CaptainDashboard({
     initialMessages, 
     tournamentUrlBase, 
     isCaptain, 
-    currentUserId 
-}: CaptainDashboardProps) {
+    currentUserId,
+    lineups
+}: TournamentCommandCenterViewProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
     const [copied, setCopied] = useState(false);
     const [isAcceptingAgents, setIsAcceptingAgents] = useState(team.accepting_free_agents);
     const [isProcessing, setIsProcessing] = useState<string | null>(null);
     const [confirmDraftPlayer, setConfirmDraftPlayer] = useState<Player | null>(null);
     const [inviteLink, setInviteLink] = useState('');
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'game-day' | 'schedule' | 'standings' | 'rules' | 'chat'>('dashboard');
+    // Get initial tab from URL or default to dashboard
+    const initialTab = searchParams.get('tab') || 'dashboard';
+        // @ts-expect-error - Residual typing mismatch from extended schema mapping
+        const [activeTab, setActiveTab] = useState<'dashboard' | 'game-day' | 'schedule' | 'standings' | 'rules' | 'chat'>(initialTab);
+
+    // Sync URL when tab changes
+    const handleTabChange = (tabId: string) => {
+        setActiveTab(tabId as any);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('tab', tabId);
+        router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    };
     const [attendance, setAttendance] = useState<any[]>([]);
     
     // Filter live matches sequentially hooked to this Captain's team ID (UUID)
-    const myMatches = matches.filter((m: any) => m.home_team_id === team.id || m.away_team_id === team.id);
-
-    const getTeamPathMatches = () => {
-        if ((tournament as any).tournament_style !== 'single_elimination') return myMatches.map((m: any) => ({ ...m, isPotential: false }));
-        
-        const path: any[] = [];
-        const searchTargets = new Set<string>();
-
-        // 1. Add guaranteed matches
-        matches.forEach((m: any) => {
-            if (m.home_team_id === team.id || m.away_team_id === team.id) {
-                path.push({ ...m, isPotential: false });
-                if (m.match_phase) searchTargets.add(`Winner ${m.match_phase}`);
-            }
-        });
-
-        // 2. Trace future potential matches
-        let added = true;
-        while (added) {
-            added = false;
-            matches.forEach((m: any) => {
-                if (!path.find(p => p.id === m.id)) {
-                    if (searchTargets.has(m.home_team) || searchTargets.has(m.away_team)) {
-                        path.push({ ...m, isPotential: true });
-                        if (m.match_phase) searchTargets.add(`Winner ${m.match_phase}`);
-                        added = true;
-                    }
-                }
-            });
-        }
-
-        return path.sort((a, b) => new Date(a.start_time || '').getTime() - new Date(b.start_time || '').getTime());
-    };
-
-    const scheduleMatches = getTeamPathMatches();
+    const myMatches = matches.filter((m: Match) => m.home_team_id === team.id || m.away_team_id === team.id);
     const sortedMatches = [...matches].sort((a, b) => {
         const dateA = new Date(a.start_time || '').getTime();
         const dateB = new Date(b.start_time || '').getTime();
@@ -179,14 +160,16 @@ export function CaptainDashboard({
     const [messages, setMessages] = useState<Message[]>(initialMessages);
     const [newMessage, setNewMessage] = useState('');
 
-    let matchDateResult = tournament.is_rolling 
+    const isRolling = tournament.is_rolling || tournament.league_format === 'rolling';
+
+    let matchDateResult = isRolling 
         ? calculateNextMatch(tournament as any) 
         : { status: 'concluded' as const, date: null as string | null };
 
     let nextMatchField: string | null = null;
 
     // OVERRIDE: If an explicit schedule was generated, prefer the actual next match date for this team.
-    const upcomingScheduledMatch = myMatches.find((m: any) => m.status === 'scheduled' || m.status === 'active');
+    const upcomingScheduledMatch = myMatches.find((m: Match) => m.status === 'scheduled' || m.status === 'active');
     if (upcomingScheduledMatch && upcomingScheduledMatch.start_time) {
         matchDateResult = {
             status: 'active',
@@ -212,24 +195,32 @@ export function CaptainDashboard({
         }
     }, [activeTab, tournament.id, matchDateResult.date]);
 
-
-    const handleUpdateJersey = async (id: string, value: string) => {
-        try {
-            await supabase.from('tournament_registrations').update({ jersey_number: value }).eq('id', id);
-        } catch (err) {
-            console.error('Failed to update jersey', err);
-        }
-    };
-
     const handleRsvp = async (status: 'committed' | 'out') => {
-        if (!matchDateResult.date) return;
+        if (!matchDateResult.date) {
+            console.error("RSVP Error: No match date found.");
+            return;
+        }
+
+        const matchDate = matchDateResult.date.split('T')[0];
+        console.log("Attempting RSVP:", { 
+            gameId: tournament.id, 
+            teamId: team.id, 
+            matchDate, 
+            status 
+        });
+
         setIsRsvping(status);
         try {
-            await upsertAttendance(tournament.id, team.id, matchDateResult.date.split('T')[0], status);
+            await upsertAttendance(tournament.id, team.id, matchDate, status);
+            
+            // Small delay to ensure consistency
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
             // Refresh attendance list
-            const data = await getAttendanceForMatch(tournament.id, matchDateResult.date.split('T')[0]);
+            const data = await getAttendanceForMatch(tournament.id, matchDate);
             setAttendance(data);
-        } catch (error) {
+            router.refresh();
+        } catch (error: unknown) {
             console.error("Failed to RSVP:", error);
         } finally {
             setIsRsvping(null);
@@ -257,8 +248,9 @@ export function CaptainDashboard({
                                                 .eq('id', payload.new.user_id)
                         .single();
 
+                                        // @ts-expect-error - Residual typing mismatch from extended schema mapping
                                         const newMsg: Message = {
-                        ...(payload.new as Message),
+                        ...(payload.new as Record<string, unknown>),
                         profiles: profile || { first_name: 'Unknown', last_name: '', avatar_url: null }
                     };
 
@@ -407,12 +399,12 @@ export function CaptainDashboard({
 
                         {/* Escape Hatches (Disband / Leave) */}
                         {!isLocked && (
-                            <div className="flex gap-3 mt-4 md:mt-0">
+                            <div className="flex flex-col sm:flex-row gap-3 mt-4 md:mt-0 w-full sm:w-auto">
                                 {isCaptain ? (
                                     <button
                                         onClick={() => setActiveHatch('disband')}
                                         disabled={isLeaving}
-                                        className="px-6 py-3 border border-red-500/30 text-red-500/70 hover:text-red-500 hover:border-red-500 hover:bg-red-500/5 transition-all font-black uppercase tracking-widest text-[10px] flex items-center gap-2 rounded-lg disabled:opacity-50"
+                                        className="w-full sm:w-auto px-6 py-4 border border-red-500/30 text-red-500/70 hover:text-red-500 hover:border-red-500 hover:bg-red-500/5 transition-all font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 rounded-lg disabled:opacity-50 min-h-[44px]"
                                     >
                                         <Trash2 className="w-4 h-4" /> 
                                         {isLeaving ? 'Disbanding...' : 'Disband Team'}
@@ -421,7 +413,7 @@ export function CaptainDashboard({
                                     <button
                                         onClick={() => setActiveHatch('leave')}
                                         disabled={isLeaving}
-                                        className="px-6 py-3 border border-red-500/30 text-red-500/70 hover:text-red-500 hover:border-red-500 hover:bg-red-500/5 transition-all font-black uppercase tracking-widest text-[10px] flex items-center gap-2 rounded-lg disabled:opacity-50"
+                                        className="w-full sm:w-auto px-6 py-4 border border-red-500/30 text-red-500/70 hover:text-red-500 hover:border-red-500 hover:bg-red-500/5 transition-all font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 rounded-lg disabled:opacity-50 min-h-[44px]"
                                     >
                                         <XCircle className="w-4 h-4" /> 
                                         {isLeaving ? 'Leaving...' : 'Leave Team'}
@@ -436,19 +428,15 @@ export function CaptainDashboard({
                 <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto hide-scrollbar sticky top-[72px] z-40 backdrop-blur-md">
                     {[
                         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-                        ...(tournament.is_rolling ? [{ id: 'game-day', label: 'Game Day Prep', icon: HeartPulse }] : []),
+                        ...(isRolling ? [{ id: 'game-day', label: 'Game Day Prep', icon: HeartPulse }] : []),
                         { id: 'schedule', label: 'Schedule', icon: Calendar },
-                        { 
-                            id: 'standings', 
-                            label: (tournament as any).tournament_style === 'single_elimination' ? 'Bracket' : 'Standings', 
-                            icon: List 
-                        },
+                        { id: 'standings', label: 'Standings', icon: List },
                         { id: 'rules', label: 'Rules', icon: ScrollText },
                         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
                     ].map((tab) => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
+                            onClick={() => handleTabChange(tab.id)}
                             className={`flex items-center gap-2 px-6 py-3 text-xs font-black uppercase tracking-widest transition-all rounded-lg whitespace-nowrap ${
                                 activeTab === tab.id
                                     ? 'bg-pitch-accent text-pitch-black shadow-lg shadow-pitch-accent/20'
@@ -467,6 +455,11 @@ export function CaptainDashboard({
                     {/* Left Column: Roster & Invites */}
                     <div className="lg:col-span-2 space-y-8">
                         
+                        {/* SECTION: Universal Player Passport */}
+                        <div className="mb-8">
+                            <PlayerQRCard userId={currentUserId} />
+                        </div>
+
                         {/* SECTION A: Viral Invite Engine - CAPTAIN ONLY */}
                         {isCaptain && !isLocked && (
                             <div className="bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-2xl relative overflow-hidden group">
@@ -479,7 +472,7 @@ export function CaptainDashboard({
                                 </p>
                                 <button
                                     onClick={handleCopy}
-                                    className={`w-full py-5 rounded-lg flex items-center justify-center gap-3 font-black uppercase tracking-[0.2em] transition-all transform active:scale-[0.98] ${
+                                    className={`w-full py-5 rounded-lg flex items-center justify-center gap-3 font-black uppercase tracking-[0.2em] transition-all transform active:scale-[0.98] min-h-[44px] ${
                                         copied 
                                         ? 'bg-green-500 text-pitch-black shadow-[0_0_30px_rgba(34,197,94,0.3)]' 
                                         : 'bg-pitch-accent text-pitch-black hover:bg-white shadow-[0_0_30px_rgba(204,255,0,0.15)]'
@@ -487,11 +480,11 @@ export function CaptainDashboard({
                                 >
                                     {copied ? (
                                         <>
-                                            <CheckCircle2 className="w-6 h-6" /> Link Copied to Clipboard!
+                                            <CheckCircle2 className="w-6 h-6" /> Link Copied!
                                         </>
                                     ) : (
                                         <>
-                                            <Copy className="w-6 h-6" /> Copy Tournament Invite Link
+                                            <Copy className="w-6 h-6" /> Copy Invite Link
                                         </>
                                     )}
                                 </button>
@@ -509,59 +502,53 @@ export function CaptainDashboard({
                                 </span>
                             </div>
                             
-                            <div className="space-y-3">
-                                {roster.length === 0 ? (
-                                    <div className="text-center py-12 bg-black/50 rounded-xl border border-dashed border-white/10">
-                                        <Users className="w-8 h-8 text-gray-600 mx-auto mb-3" />
-                                        <p className="text-gray-500 font-bold uppercase text-xs tracking-widest">No players drafted yet</p>
-                                    </div>
-                                ) : (
-                                    roster.map(player => (
-                                        <div key={player.id} className="flex items-center justify-between p-4 bg-black/50 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-white/20">
-                                                    {player.profiles.avatar_url ? (
-                                                        <img src={player.profiles.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                            <div className="overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0">
+                                <div className="space-y-3 min-w-[300px]">
+                                    {roster.length === 0 ? (
+                                        <div className="text-center py-12 bg-black/50 rounded-xl border border-dashed border-white/10">
+                                            <Users className="w-8 h-8 text-gray-600 mx-auto mb-3" />
+                                            <p className="text-gray-500 font-bold uppercase text-xs tracking-widest">No players drafted yet</p>
+                                        </div>
+                                    ) : (
+                                        roster.map(player => (
+                                            <div key={player.id} className="flex items-center justify-between p-4 bg-black/50 rounded-xl border border-white/5 hover:border-white/10 transition-colors gap-4">
+                                                <div className="flex items-center gap-4 min-w-0">
+                                                    <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-white/20 shrink-0">
+                                                        {player.profiles.avatar_url ? (
+                                                            <img src={player.profiles.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <Users className="w-5 h-5 text-gray-500" />
+                                                        )}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="font-bold uppercase tracking-wider text-sm flex items-center gap-2 truncate">
+                                                            {player.profiles.first_name} {player.profiles.last_name || 'Unknown Player'}
+                                                            {suspendedUserIds.has(player.user_id) && <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-black tracking-widest flex items-center gap-1 shrink-0"><ShieldAlert className="w-3 h-3" /> SUSP</span>}
+                                                        </div>
+                                                        <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1 truncate">
+                                                            {player.preferred_positions?.join(', ') || 'No preference'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    {player.payment_status === 'paid' || player.payment_status === 'confirmed' || player.status === 'confirmed' ? (
+                                                        <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#ccff00] bg-[#ccff00]/10 px-2 py-1 rounded border border-[#ccff00]/20">
+                                                            <CheckCircle2 className="w-3 h-3" /> Paid
+                                                        </span>
+                                                    ) : (player.status === 'registered' || player.status === 'drafted' || player.payment_status === 'free_join') ? (
+                                                        <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-white bg-white/10 px-2 py-1 rounded border border-white/20">
+                                                            <CheckCircle2 className="w-3 h-3" /> Reg
+                                                        </span>
                                                     ) : (
-                                                        <Users className="w-5 h-5 text-gray-500" />
+                                                        <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20">
+                                                            <AlertTriangle className="w-3 h-3" /> Pend
+                                                        </span>
                                                     )}
                                                 </div>
-                                                <div>
-                                                    <div className="font-bold uppercase tracking-wider text-sm flex items-center gap-2">
-                                                        {player.profiles.first_name} {player.profiles.last_name || 'Unknown Player'}
-                                                        <input
-                                                            type="text"
-                                                            placeholder="#"
-                                                            defaultValue={(player as any).jersey_number || ''}
-                                                            onBlur={(e) => handleUpdateJersey(player.id, e.target.value)}
-                                                            className="w-12 h-6 bg-white/10 border border-white/20 rounded px-1 text-xs text-center font-black uppercase placeholder:text-gray-600 focus:outline-none focus:border-[#ccff00] transition-colors"
-                                                            maxLength={3}
-                                                        />
-                                                        {suspendedUserIds.has(player.user_id) && <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-black tracking-widest flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> SUSPENDED</span>}
-                                                    </div>
-                                                    <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1">
-                                                        {player.preferred_positions?.join(', ') || 'No preference'}
-                                                    </div>
-                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                {player.status === 'paid' || player.status === 'confirmed' ? (
-                                                    <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#ccff00] bg-[#ccff00]/10 px-2 py-1 rounded border border-[#ccff00]/20">
-                                                        <CheckCircle2 className="w-3 h-3" /> Paid
-                                                    </span>
-                                                ) : player.status === 'registered' ? (
-                                                    <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-white bg-white/10 px-2 py-1 rounded border border-white/20">
-                                                        <CheckCircle2 className="w-3 h-3" /> Registered
-                                                    </span>
-                                                ) : (
-                                                    <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20">
-                                                        <AlertTriangle className="w-3 h-3" /> Pending
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
+                                        ))
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -569,12 +556,8 @@ export function CaptainDashboard({
                     {/* Right Column: Finances & Free Agents */}
                     <div className="space-y-8">
                         
-                        {/* SECTION B: The Financial Tracker or Cash Block */}
                         {tournament.payment_collection_type === 'cash' ? (
                             <div className="bg-pitch-accent text-pitch-black rounded-2xl p-8 shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
-                                <div className="absolute -right-4 -top-4 opacity-10">
-                                    <DollarSign className="w-32 h-32" />
-                                </div>
                                 <Zap className="w-12 h-12 mb-4 animate-pulse" />
                                 <h3 className="text-xs font-black uppercase tracking-[0.3em] mb-2 opacity-70">Payment Mode</h3>
                                 <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-6">Cash at Door</h2>
@@ -582,14 +565,14 @@ export function CaptainDashboard({
                                 <div className="w-full bg-black/10 p-6 rounded-xl border border-black/5 mb-6">
                                     <p className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-60">Amount Required</p>
                                     <p className="text-5xl font-black italic tracking-tighter mb-1">${tournament.cash_amount || 0}</p>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">{tournament.cash_fee_structure || 'Per Selection'}</p>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">{tournament.cash_fee_structure || 'Per Game'}</p>
                                 </div>
                                 
                                 <p className="text-[10px] uppercase font-bold leading-relaxed tracking-widest px-4 opacity-80">
                                     No online payment required. Please settle directly with the facility upon arrival at the field.
                                 </p>
                             </div>
-                        ) : (
+                        ) : (isCaptain && tournament.payment_collection_type !== 'player_fees') ? (
                             <div className="bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
                                 <h2 className="text-xl font-black uppercase italic tracking-widest mb-6 flex items-center gap-2">
                                     <DollarSign className="w-5 h-5 text-green-400" /> Financial Tracker
@@ -650,7 +633,7 @@ export function CaptainDashboard({
                                     </button>
                                 )}
                             </div>
-                        )}
+                        ) : null}
 
                         {/* SECTION C: The Free Agent Draft Board - CAPTAIN ONLY */}
                         {isCaptain && !isLocked && (
@@ -664,11 +647,9 @@ export function CaptainDashboard({
                                     </div>
                                     
                                     {/* Toggle Switch */}
-                                    <label htmlFor="acceptingFreeAgents" className="flex items-center cursor-pointer">
+                                    <label className="flex items-center cursor-pointer">
                                         <div className="relative">
                                             <input 
-                                                id="acceptingFreeAgents"
-                                                name="acceptingFreeAgents"
                                                 type="checkbox" 
                                                 className="sr-only" 
                                                 checked={isAcceptingAgents}
@@ -739,10 +720,6 @@ export function CaptainDashboard({
                 {activeTab === 'game-day' && (
                     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="bg-pitch-card border border-white/5 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-8 opacity-10">
-                                <HeartPulse className="w-24 h-24" />
-                            </div>
-                            
                             <div className="mb-8">
                                 <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-2">Game Day Prep</h2>
                                 <p className="text-pitch-secondary text-xs font-bold uppercase tracking-widest">RSVP & Match Commitment</p>
@@ -823,10 +800,10 @@ export function CaptainDashboard({
                                             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-pitch-secondary">Team Commitment</h4>
                                             <div className="flex gap-4">
                                                 <span className="text-[10px] font-bold uppercase text-green-500">
-                                                    {attendance.filter(a => a.status === 'committed').length} In
+                                                    {attendance.filter(a => a.team_id === team.id && a.status === 'committed').length} In
                                                 </span>
                                                 <span className="text-[10px] font-bold uppercase text-red-500">
-                                                    {attendance.filter(a => a.status === 'out').length} Out
+                                                    {attendance.filter(a => a.team_id === team.id && a.status === 'out').length} Out
                                                 </span>
                                             </div>
                                         </div>
@@ -863,6 +840,26 @@ export function CaptainDashboard({
                                             })}
                                         </div>
                                     </div>
+
+                                    {/* TACTICAL BOARD SECTION */}
+                                    {matchDateResult.date && myMatches.length > 0 && (
+                                        <div className="border-t border-white/10 pt-12">
+                                            <div className="mb-8 text-center md:text-left">
+                                                <h2 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Tactical Board</h2>
+                                                <p className="text-pitch-secondary text-[10px] font-black uppercase tracking-[0.2em]">Match-Specific Lineup Builder</p>
+                                            </div>
+                                            
+                                            <TacticalBoard 
+                                                matchId={myMatches.find((m: Match) => m.start_time?.startsWith(matchDateResult.date!.split('T')[0]))?.id || myMatches[0]?.id}
+                                                teamId={team.id}
+                                                format={tournament.teams_config?.[0]?.max_players ? `${tournament.teams_config[0].max_players}v${tournament.teams_config[0].max_players}` : '5v5'}
+                                                roster={roster}
+                                                attendance={attendance}
+                                                isCaptain={isCaptain}
+                                                initialLineup={lineups.find(l => l.match_id === (myMatches.find((m: Match) => m.start_time?.startsWith(matchDateResult.date!.split('T')[0]))?.id || myMatches[0]?.id))}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -884,53 +881,46 @@ export function CaptainDashboard({
 
                         {/* 2. Concrete Matches (From DB) */}
                         <div className="space-y-4">
-                            {scheduleMatches.length === 0 ? (
+                            {myMatches.length === 0 ? (
                                 <div className="bg-[#171717] border border-dashed border-white/5 rounded-2xl p-16 text-center">
                                     <Calendar className="w-12 h-12 text-pitch-secondary mx-auto mb-6 opacity-20" />
                                     <h4 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Schedule Pending</h4>
-
                                     <p className="text-xs text-pitch-secondary uppercase tracking-widest leading-relaxed max-w-sm mx-auto">
                                         Waiting for Commissioner to release the schedule.
                                     </p>
                                 </div>
                             ) : (
-                                scheduleMatches.map((match: any, idx) => {
-                                    const isPotentialMatch = match.isPotential;
+                                myMatches.map((match: Match, idx) => (
+                                    <div key={match.id} className="bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center gap-8 relative group overflow-hidden">
                                     
-                                    return (
-                                        <div key={match.id} className={cn(
-                                            "bg-pitch-card border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center gap-8 relative group overflow-hidden transition-all",
-                                            isPotentialMatch && "opacity-60 grayscale-[0.5] border-dashed border-white/10"
-                                        )}>
-                                        
-                                        {/* Match Date Label */}
-                                        <div className="flex flex-col items-center justify-center p-4 bg-white/5 rounded-xl border border-white/10 w-24 shrink-0">
-                                            <span className="text-[10px] font-black uppercase text-pitch-secondary">
-                                                {new Date(match.start_time || '').toLocaleString('default', { month: 'short' })}
-                                            </span>
-                                            <span className="text-3xl font-black italic tracking-tighter">
-                                                {new Date(match.start_time || '').getDate()}
-                                            </span>
-                                        </div>
+                                    {/* Match Date Label */}
+                                    <div className="flex flex-col items-center justify-center p-4 bg-white/5 rounded-xl border border-white/10 w-24 shrink-0">
+                                        <span className="text-[10px] font-black uppercase text-pitch-secondary">
+                                            {new Date(match.start_time || '').toLocaleString('default', { month: 'short' })}
+                                        </span>
+                                        <span className="text-3xl font-black italic tracking-tighter">
+                                            {new Date(match.start_time || '').getDate()}
+                                        </span>
+                                    </div>
 
-                                        {/* Opponents */}
-                                        <div className="flex-1 flex items-center justify-between gap-4 w-full px-4">
-                                            <div className="text-center md:text-left flex-1">
-                                                <p className="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">{new Date(match.start_time || '').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
-                                                <h3 className={cn("font-heading text-xl md:text-2xl font-black uppercase italic truncate", match.home_team_id === team.id && "text-pitch-accent")}>
-                                                    {match.home_team_obj?.name || match.home_team || 'Home Team'}
-                                                </h3>
-                                            </div>
-                                            <div className="bg-white/10 px-4 py-2 rounded font-black italic text-lg text-pitch-accent">
-                                                {match.status === 'completed' ? `${match.home_score} - ${match.away_score}` : 'VS'}
-                                            </div>
-                                            <div className="text-center md:text-right flex-1">
-                                                <p className="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">{new Date(match.start_time || '').toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
-                                                <h3 className={cn("font-heading text-xl md:text-2xl font-black uppercase italic truncate", match.away_team_id === team.id && "text-pitch-accent")}>
-                                                    {match.away_team_obj?.name || match.away_team || 'Away Team'}
-                                                </h3>
-                                            </div>
+                                    {/* Opponents */}
+                                    <div className="flex-1 flex items-center justify-between gap-4 w-full px-4">
+                                        <div className="text-center md:text-left flex-1">
+                                            <p className="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">{new Date(match.start_time || '').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                                            <h3 className="font-heading text-xl md:text-2xl font-black uppercase italic truncate">
+                                                {match.home_team_obj?.name || match.home_team || 'Home Team'}
+                                            </h3>
                                         </div>
+                                        <div className="bg-white/10 px-4 py-2 rounded font-black italic text-lg text-pitch-accent">
+                                            {match.status === 'completed' ? `${match.home_score} - ${match.away_score}` : 'VS'}
+                                        </div>
+                                        <div className="text-center md:text-right flex-1">
+                                            <p className="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">{new Date(match.start_time || '').toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
+                                            <h3 className="font-heading text-xl md:text-2xl font-black uppercase italic truncate">
+                                                {match.away_team_obj?.name || match.away_team || 'Away Team'}
+                                            </h3>
+                                        </div>
+                                    </div>
 
                                     {/* Status Badge */}
                                     <div className="shrink-0 flex flex-col items-center md:items-end">
@@ -942,60 +932,12 @@ export function CaptainDashboard({
                                         <span className="text-[10px] font-bold text-gray-500 mt-2 uppercase">
                                             {match.field_name || 'Field 1'}
                                         </span>
-
-                                        {/* Referee Info & Rating */}
-                                        {(() => {
-                                            const primaryRef = match.match_officials?.find((o: any) => o.role === 'Primary' && o.status === 'Confirmed');
-                                            if (!primaryRef) return null;
-
-                                            const refName = primaryRef.off_platform_name || `${primaryRef.profiles?.first_name} ${primaryRef.profiles?.last_name}`;
-
-                                            return (
-                                                <div className="mt-4 flex flex-col items-center md:items-end w-full">
-                                                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-widest flex items-center gap-1">
-                                                        <ShieldCheck className="w-3 h-3 text-[#cbff00]" /> Ref: {refName}
-                                                    </span>
-                                                    
-                                                    {match.status === 'completed' && isCaptain && !primaryRef.captain_rating && (
-                                                        <div className="flex items-center gap-1 mt-2">
-                                                            {[1, 2, 3, 4, 5].map((star) => (
-                                                                <button 
-                                                                    key={star}
-                                                                    onClick={async () => {
-                                                                        try {
-                                                                            await rateReferee(primaryRef.id, star);
-                                                                            alert('Rating submitted successfully!');
-                                                                        } catch (err) {
-                                                                            console.error(err);
-                                                                            alert('Failed to submit rating.');
-                                                                        }
-                                                                    }}
-                                                                    className="w-6 h-6 flex items-center justify-center bg-white/5 hover:bg-[#cbff00]/20 hover:text-[#cbff00] text-gray-600 rounded text-xs transition-colors"
-                                                                    title={`Rate ${star} Stars`}
-                                                                >
-                                                                    ★
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                    {primaryRef.captain_rating && (
-                                                        <div className="flex items-center gap-1 mt-2 text-[#cbff00] text-[10px] font-black uppercase tracking-widest">
-                                                            Rated: {primaryRef.captain_rating} ★
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })()}
                                     </div>
                                 </div>
-                            );
-                        })
-                        )}
+                            )))}
 
                             {/* 3. Autopilot Projections (The Phase Shift Seam) */}
                             {(() => {
-                                if ((tournament as any).tournament_style === 'single_elimination') return null;
-
                                 const lastConcreteDate = myMatches.length > 0 ? myMatches[myMatches.length - 1].start_time : null;
                                 const futureCount = Math.max(0, 8 - myMatches.length);
                                 if (futureCount <= 0) return null;
@@ -1049,8 +991,6 @@ export function CaptainDashboard({
                                         Waiting for Commissioner to release the schedule.
                                     </p>
                                 </div>
-                            ) : (tournament as any).tournament_style === 'single_elimination' ? (
-                                <BracketView matches={matches} />
                             ) : (
                                 <StandingsTable 
                                     gameId={tournament.id}
@@ -1061,6 +1001,13 @@ export function CaptainDashboard({
                                 />
                             )}
                         </div>
+
+                        {/* Historical Results Section */}
+                        <RollingMatchHistory 
+                            matches={matches}
+                            teams={teams}
+                            userTeamId={team.id}
+                        />
                     </div>
                 )}
 

@@ -21,7 +21,18 @@ export async function registerTournamentTeam(formData: FormData) {
         throw new Error("Team Name is required.");
     }
 
-    if (!liabilityAcknowledged) {
+    // 1. Determine if this tournament corresponds to a game or a league
+    const { data: gameCheck } = await supabase.from('games').select('id, event_type, payment_collection_type').eq('id', tournamentId).maybeSingle();
+    const isGame = !!gameCheck;
+    
+    let paymentCollectionType = gameCheck?.payment_collection_type;
+
+    if (!isGame) {
+        const { data: leagueCheck } = await supabase.from('leagues').select('id, payment_collection_type').eq('id', tournamentId).single();
+        paymentCollectionType = leagueCheck?.payment_collection_type;
+    }
+
+    if (paymentCollectionType !== 'player_fees' && !liabilityAcknowledged) {
         throw new Error("You must acknowledge financial liability.");
     }
 
@@ -41,9 +52,7 @@ export async function registerTournamentTeam(formData: FormData) {
         throw new Error("You are already registered for this tournament/league.");
     }
 
-    // 1. Determine if this tournament corresponds to a game or a league
-    const { data: gameCheck } = await supabase.from('games').select('id, event_type').eq('id', tournamentId).single();
-    const isGame = !!gameCheck;
+    // Determine if Game or League (already checked above)
     const eventType = gameCheck?.event_type || 'league';
 
     const teamPayload: any = {

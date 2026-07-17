@@ -32,7 +32,7 @@ import { PlayerVerificationModal } from '@/components/admin/PlayerVerificationMo
 import { CheckInManager } from '@/components/public/checkin/CheckInManager';
 import { checkInPlayer, toggleManualWaiver, updatePlayerPhoto } from '@/app/actions/compliance';
 import { MatchRefereeAssigner } from '@/components/admin/MatchRefereeAssigner';
-
+import { processKnockoutAdvancement } from '@/app/actions/tournament';
 
 export default function MatchControlRoom({ params }: { params: Promise<{ match_id: string }> }) {
     const { match_id: matchId } = use(params);
@@ -281,6 +281,18 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
     const handleCompleteMatch = async () => {
         if (!confirm("Finalize match results? This will mark it as Completed.")) return;
         await handleUpdateMatch({ status: 'completed' });
+        
+        if (match?.group_name && match.group_name.startsWith('Match ')) {
+            const homeScore = match.home_score || 0;
+            const awayScore = match.away_score || 0;
+            const winner = homeScore > awayScore ? match.home_team : match.away_team;
+            const winnerId = homeScore > awayScore ? match.home_team_id : match.away_team_id;
+            try {
+                await processKnockoutAdvancement(match.game_id, winner, match.group_name, winnerId);
+            } catch (err) {
+                console.error("Failed to process knockout advancement", err);
+            }
+        }
         success("Match finalized!");
     };
 
@@ -396,7 +408,7 @@ export default function MatchControlRoom({ params }: { params: Promise<{ match_i
             <div className="h-16 border-b border-white/10 bg-gray-900/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-50">
                 <div className="flex items-center gap-6">
                     <Link 
-                        href={`/admin/games/${match.game_id}`}
+                        href={`/admin/games/${match.game_id}?tab=schedule`}
                         className="p-2 hover:bg-white/10 rounded-full transition-colors text-gray-400 hover:text-white"
                     >
                         <ArrowLeft className="w-5 h-5" />

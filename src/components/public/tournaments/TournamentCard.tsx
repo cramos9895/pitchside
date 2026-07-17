@@ -123,7 +123,7 @@ export function TournamentCard({ tournament, userId, registrations }: Tournament
                         <div className="text-[10px] text-gray-500 font-black uppercase mb-1 tracking-widest group-hover/item:text-red-500 transition-colors flex items-center gap-1">
                             <Users className="w-4 h-4" /> Teams
                         </div>
-                        <div className="text-white font-bold text-sm uppercase">{teamCount} / {tournament.max_teams || '∞'}</div>
+                        <div className="text-white font-bold text-sm uppercase">{tournament.max_teams ? `${teamCount} / ${tournament.max_teams}` : `${teamCount} Registered`}</div>
                     </div>
                 </div>
 
@@ -160,28 +160,14 @@ export function TournamentCard({ tournament, userId, registrations }: Tournament
                             View Tournament Lobby <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                         </button>
                     ) : (
-                        <>
-                            <button
-                                onClick={() => {
-                                    router.push(`/tournaments/${tournament.id}/register?type=team`);
-                                }}
-                                className="w-full py-4 bg-red-600 text-white font-black uppercase tracking-widest text-xs hover:bg-white hover:text-black transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 group/btn shadow-[0_0_20px_rgba(220,38,38,0.15)] rounded-sm"
-                            >
-                                <span className="flex items-center gap-2">Register Team <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" /></span>
-                                {tournament.team_price !== null && <span className="text-[10px] opacity-70">(${tournament.team_price})</span>}
-                            </button>
-                            {(tournament.free_agent_price !== null && tournament.free_agent_price >= 0) && (
-                                <button
-                                    onClick={() => {
-                                        router.push(`/tournaments/${tournament.id}/register?type=free_agent`);
-                                    }}
-                                    className="w-full py-4 border border-red-600/50 text-red-500 font-black uppercase tracking-widest text-xs hover:bg-red-600/10 transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 rounded-sm"
-                                >
-                                    <span>Join Free Agent</span>
-                                    <span className="text-[10px] opacity-70">(${tournament.free_agent_price})</span>
-                                </button>
-                            )}
-                        </>
+                        <button
+                            onClick={() => {
+                                router.push(`/tournaments/${tournament.id}`);
+                            }}
+                            className="col-span-1 sm:col-span-2 w-full py-4 bg-red-600 text-white font-black uppercase tracking-widest text-xs hover:bg-white hover:text-black transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 group/btn shadow-[0_0_20px_rgba(220,38,38,0.15)] rounded-sm"
+                        >
+                            <span className="flex items-center gap-2">See Details <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" /></span>
+                        </button>
                     )}
                 </div>
             </div>

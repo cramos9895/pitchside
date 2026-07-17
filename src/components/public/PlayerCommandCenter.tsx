@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Trophy, Users, Calendar, MapPin, MessageSquare, Shield, Clock, Timer, CheckCircle2, Wallet, Info, FileText, LogOut, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StandingsTable, Match } from '@/components/admin/StandingsTable';
+import { BracketView } from './BracketView';
 import { ChatInterface } from '@/components/ChatInterface';
 import { leaveTournament } from '@/app/actions/tournament-registration';
 import { useRouter } from 'next/navigation';
@@ -57,6 +58,40 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
     
     // Sort matches by upcoming
     const nextMatch = teamMatches.find(m => m.status === 'scheduled' || m.status === 'active');
+
+    const getTeamPathMatches = () => {
+        if (game.tournament_style !== 'single_elimination') return matches.map(m => ({ ...m, isPotential: false }));
+        
+        const path: (Match & { isPotential?: boolean })[] = [];
+        const searchTargets = new Set<string>();
+
+        // 1. Add guaranteed matches
+        matches.forEach(m => {
+            if (m.home_team_id === teamId || m.away_team_id === teamId) {
+                path.push({ ...m, isPotential: false });
+                if (m.match_phase) searchTargets.add(`Winner ${m.match_phase}`);
+            }
+        });
+
+        // 2. Trace future potential matches
+        let added = true;
+        while (added) {
+            added = false;
+            matches.forEach(m => {
+                if (!path.find(p => p.id === m.id)) {
+                    if (searchTargets.has(m.home_team) || searchTargets.has(m.away_team)) {
+                        path.push({ ...m, isPotential: true });
+                        if (m.match_phase) searchTargets.add(`Winner ${m.match_phase}`);
+                        added = true;
+                    }
+                }
+            });
+        }
+
+        return path.sort((a, b) => new Date(a.start_time || '').getTime() - new Date(b.start_time || '').getTime());
+    };
+
+    const scheduleMatches = getTeamPathMatches();
 
     // Split Pay calculation
     const teamSize = roster.length;
@@ -118,7 +153,11 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
                     <div className="flex border-b border-white/5 overflow-x-auto scrollbar-hide">
                         {[
                             { id: 'hub', label: 'Command Center', icon: Shield },
-                            { id: 'standings', label: 'Standings', icon: Trophy },
+                            { 
+                                id: 'standings', 
+                                label: game.tournament_style === 'single_elimination' ? 'Bracket' : 'Standings', 
+                                icon: Trophy 
+                            },
                             { id: 'schedule', label: 'Schedule', icon: Calendar },
                             { id: 'rules', label: 'Rules & Info', icon: FileText },
                             { id: 'chat', label: 'Team Chat', icon: MessageSquare },
@@ -344,6 +383,8 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
                                         Waiting for Commissioner to release the schedule.
                                     </p>
                                 </div>
+                            ) : game.tournament_style === 'single_elimination' ? (
+                                <BracketView matches={matches} />
                             ) : (
                                 <StandingsTable 
                                     gameId={game.id} 
@@ -373,14 +414,14 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {matches.map((match) => {
-                                        const isUserMatch = match.home_team_id === teamId || match.away_team_id === teamId;
+                                    {scheduleMatches.map((match) => {
+                                        const isPotentialMatch = match.isPotential;
                                         return (
                                             <div 
                                                 key={match.id} 
                                                 className={cn(
                                                     "p-4 border rounded-sm transition-all",
-                                                    isUserMatch 
+                                                    !isPotentialMatch 
                                                         ? "bg-pitch-accent/5 border-pitch-accent" 
                                                         : "bg-white/5 border-white/10 opacity-60 grayscale-[0.5]"
                                                 )}
@@ -391,11 +432,11 @@ export function PlayerCommandCenter({ user, registration, game, roster, matches,
                                                 </div>
                                                 <div className="flex items-center justify-between gap-2">
                                                     <div className={cn("flex-1 text-sm font-bold uppercase truncate", match.home_team_id === teamId && "text-pitch-accent")}>
-                                                        {match.home_team_name || 'Home'}
+                                                        {match.home_team_name || match.home_team || 'Home'}
                                                     </div>
                                                     <div className="text-[10px] font-black text-white/20 italic">VS</div>
                                                     <div className={cn("flex-1 text-right text-sm font-bold uppercase truncate", match.away_team_id === teamId && "text-pitch-accent")}>
-                                                        {match.away_team_name || 'Away'}
+                                                        {match.away_team_name || match.away_team || 'Away'}
                                                     </div>
                                                 </div>
                                                 {match.status === 'completed' && (

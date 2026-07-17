@@ -20,7 +20,7 @@ export interface Match {
     away_score: number | null;
     status: 'scheduled' | 'active' | 'completed' | 'cancelled';
     field_name?: string;
-    group_name?: string;
+    match_phase?: string;
     is_playoff?: boolean;
 }
 
@@ -54,10 +54,10 @@ export function StandingsTable({
         const groups: Record<string, any[]> = {};
         
         // Identify unique groups from matches
-        const uniqueGroups = Array.from(new Set(matches.map(m => m.group_name || 'Group A'))).sort();
+        const uniqueGroups = Array.from(new Set(matches.map(m => m.match_phase || 'Group A'))).sort();
         
         uniqueGroups.forEach(groupName => {
-            const groupMatches = matches.filter(m => (m.group_name || 'Group A') === groupName);
+            const groupMatches = matches.filter(m => (m.match_phase || 'Group A') === groupName);
             
             // 1. Initialize stats strictly from teams configuration
             const stats: Record<string, { name: string, id: string, gp: number, w: number, d: number, l: number, gf: number, ga: number, pts: number }> = {};

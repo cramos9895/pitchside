@@ -18,7 +18,9 @@ export function TournamentRegistrationClient({
     payment_collection_type,
     description,
     strict_waiver_required,
-    waiver_details
+    waiver_details,
+    allow_free_agents,
+    takenColors
 }: { 
     tournamentId: string, 
     tournamentName: string, 
@@ -27,10 +29,12 @@ export function TournamentRegistrationClient({
     dbDepositAmount: number | null,
     signup_fee?: number | null,
     cash_amount?: number | null,
-    payment_collection_type?: 'stripe' | 'cash',
+    payment_collection_type?: 'stripe' | 'cash' | 'player_fees',
     description?: string | null,
     strict_waiver_required?: boolean,
-    waiver_details?: string | null
+    waiver_details?: string | null,
+    allow_free_agents?: boolean,
+    takenColors?: string[]
 }) {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -50,12 +54,18 @@ export function TournamentRegistrationClient({
     const [currentEventType, setCurrentEventType] = useState<string | null>(null);
 
     const isCashLeague = payment_collection_type === 'cash';
+    const isPlayerPricing = payment_collection_type === 'player_fees';
     const registrationFee = signup_fee ?? 0;
     const perGameFee = isCashLeague ? (faPrice ?? cash_amount ?? 0) : 0;
 
-    const depositAmount = dbDepositAmount !== null 
-        ? dbDepositAmount 
-        : (teamPrice ? Math.min(50, teamPrice) : 0);
+    let captainChargeAmount = 0;
+    if (isPlayerPricing) {
+        captainChargeAmount = registrationFee;
+    } else {
+        captainChargeAmount = dbDepositAmount !== null 
+            ? dbDepositAmount 
+            : (teamPrice ? Math.min(50, teamPrice) : 0);
+    }
 
     const isFormValid = () => {
         const waiverValid = strict_waiver_required ? waiverAccepted : true;
@@ -97,11 +107,11 @@ export function TournamentRegistrationClient({
                 liability_acknowledged: formData.get('liability_acknowledged')
             };
             
-            if (!payload.liability_acknowledged) {
+            if (!isPlayerPricing && !payload.liability_acknowledged) {
                 throw new Error("You must accept financial responsibility.");
             }
 
-            if (depositAmount > 0 && !isCashLeague) {
+            if (captainChargeAmount > 0 && !isCashLeague) {
                 // Step 1: Create/Update a PENDING registration in the DB
                 const pendingFormData = new FormData();
                 Object.entries(payload).forEach(([key, value]) => {
@@ -198,12 +208,16 @@ export function TournamentRegistrationClient({
         }
     };
 
-    if (type !== 'team' && type !== 'free_agent') {
+    if ((type !== 'team' && type !== 'free_agent') || (type === 'free_agent' && allow_free_agents === false)) {
         return (
             <div className="text-center p-12 bg-black/50 border border-white/10 rounded-xl">
                 <AlertTriangle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
                 <h2 className="text-2xl font-black uppercase tracking-widest text-white mb-2">Invalid Setup</h2>
-                <p className="text-gray-400 font-medium">Please return to the schedule hub and select a valid registration type.</p>
+                <p className="text-gray-400 font-medium">
+                    {type === 'free_agent' && allow_free_agents === false 
+                        ? 'This tournament is not currently accepting free agents.' 
+                        : 'Please return to the schedule hub and select a valid registration type.'}
+                </p>
                 <button onClick={() => router.push('/schedule')} className="mt-6 px-6 py-3 bg-white/10 hover:bg-white/20 rounded font-bold uppercase tracking-widest text-xs transition-colors">Return to Hub</button>
             </div>
         );
@@ -249,14 +263,23 @@ export function TournamentRegistrationClient({
                                     />
                                 </div>
                                 <div>
-                                    <label htmlFor="primary_color" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Primary Jersey Color</label>
-                                    <input 
-                                        type="text" 
-                                        id="primary_color" 
-                                        name="primary_color" 
-                                        placeholder="e.g. RED / WHITE / BLACK"
-                                        className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent transition-colors block uppercase"
-                                    />
+                                    <label htmlFor="primary_color" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Primary Jersey Color *</label>
+                                    <select
+                                        id="primary_color"
+                                        name="primary_color"
+                                        required
+                                        className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent transition-colors block uppercase appearance-none cursor-pointer"
+                                    >
+                                        <option value="" disabled selected>Select Team Color</option>
+                                        {['Red', 'Orange', 'Neon Green', 'Blue', 'Black', 'White', 'Purple', 'Pink'].map(color => {
+                                            const isTaken = takenColors?.includes(color.toLowerCase());
+                                            return (
+                                                <option key={color} value={color} disabled={isTaken}>
+                                                    {color} {isTaken ? '(Taken)' : ''}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -267,18 +290,30 @@ export function TournamentRegistrationClient({
                                 <h3 className="text-sm font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
                                     <CreditCard className="w-4 h-4" /> Entry Strategy
                                 </h3>
-                                <span className="text-xl font-black text-white">${teamPrice || 0}</span>
+                                <span className="text-xl font-black text-white">${isPlayerPricing ? registrationFee : (teamPrice || 0)}</span>
                             </div>
 
                             <div className="p-4 rounded-xl border bg-pitch-accent/10 border-pitch-accent text-pitch-accent shadow-[0_0_20px_rgba(204,255,0,0.1)] relative overflow-hidden flex justify-between items-center">
                                 <div>
-                                    <span className="block text-xs font-black uppercase tracking-widest mb-1">{isCashLeague ? 'Register Full Team (Cash)' : `Deposit Required: $${depositAmount}`}</span>
-                                    <span className="block text-[10px] uppercase font-bold tracking-widest opacity-80 mt-1">{isCashLeague ? 'All fees collected in-person' : "Settle full balance via Captain's Dashboard"}</span>
+                                    <span className="block text-xs font-black uppercase tracking-widest mb-1">
+                                        {isCashLeague 
+                                            ? 'Register Full Team (Cash)' 
+                                            : isPlayerPricing 
+                                                ? `Individual Captain Fee: $${captainChargeAmount}`
+                                                : `Deposit Required: $${captainChargeAmount}`}
+                                    </span>
+                                    <span className="block text-[10px] uppercase font-bold tracking-widest opacity-80 mt-1">
+                                        {isCashLeague 
+                                            ? 'All fees collected in-person' 
+                                            : isPlayerPricing 
+                                                ? "Your teammates will pay their own individual fees when joining."
+                                                : "Settle full balance via Captain's Dashboard"}
+                                    </span>
                                 </div>
                                 <CheckCircle2 className="w-6 h-6 shrink-0" />
                             </div>
 
-                            {!isCashLeague && (
+                            {(!isCashLeague && !isPlayerPricing) && (
                                 <div className="mt-6 p-4 bg-orange-500/5 border border-orange-500/30 rounded-lg">
                                     <label htmlFor="liability_acknowledged" className="flex items-start gap-4 cursor-pointer group">
                                         <div className="relative flex items-center justify-center mt-1">
@@ -454,14 +489,14 @@ export function TournamentRegistrationClient({
             </div>
 
             {/* Embedded Stripe Checkout */}
-            {showPaymentModal && (paymentIntentType === 'team' ? depositAmount > 0 : (faPrice !== null && faPrice > 0)) && (
+            {showPaymentModal && (paymentIntentType === 'team' ? captainChargeAmount > 0 : (faPrice !== null && faPrice > 0)) && (
                 <StripeCheckoutModal 
                     isOpen={showPaymentModal}
                     onClose={() => {
                         setShowPaymentModal(false);
                         setIsSubmitting(false);
                     }}
-                    amount={paymentIntentType === 'team' ? depositAmount : (faPrice || 0)}
+                    amount={paymentIntentType === 'team' ? captainChargeAmount : (faPrice || 0)}
                     title={paymentIntentType === 'team' ? "Team Deposit Reservation" : "Free Agent Registration"}
                     description={paymentIntentType === 'team' ? `Secure your spot in ${tournamentName}` : `Join the draft pool for ${tournamentName}`}
                     eventId={tournamentId}
@@ -525,27 +560,33 @@ function RulesAndTerms({
                 Tournament Rules & Terms
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4">
                 {description && (
-                    <div className="space-y-3">
-                        <div className="text-[10px] font-black uppercase text-pitch-secondary tracking-widest">Event Rules</div>
-                        <div className="bg-black/40 border border-white/10 p-6 rounded-sm max-h-[400px] overflow-y-auto custom-scrollbar">
+                    <details className="bg-black/40 border border-white/10 rounded-sm group">
+                        <summary className="p-4 cursor-pointer list-none flex justify-between items-center text-[10px] font-black uppercase text-pitch-secondary tracking-widest hover:text-white transition-colors">
+                            Event Rules
+                            <span className="text-pitch-accent group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div className="p-4 pt-0 border-t border-white/5 mt-2 max-h-[400px] overflow-y-auto custom-scrollbar">
                             <div className="space-y-4">
                                 {parseMarkdown(description)}
                             </div>
                         </div>
-                    </div>
+                    </details>
                 )}
 
                 {strictWaiverRequired && (
-                    <div className="space-y-3">
-                        <div className="text-[10px] font-black uppercase text-pitch-secondary tracking-widest">Legal Waiver</div>
-                        <div className="bg-black/40 border border-white/10 p-6 rounded-sm max-h-[400px] overflow-y-auto custom-scrollbar">
+                    <details className="bg-black/40 border border-white/10 rounded-sm group">
+                        <summary className="p-4 cursor-pointer list-none flex justify-between items-center text-[10px] font-black uppercase text-pitch-secondary tracking-widest hover:text-white transition-colors">
+                            Legal Waiver
+                            <span className="text-pitch-accent group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div className="p-4 pt-0 border-t border-white/5 mt-2 max-h-[400px] overflow-y-auto custom-scrollbar">
                              <div className="space-y-4">
                                 {parseMarkdown(waiverDetails || "No additional waiver language specified.")}
                             </div>
                         </div>
-                    </div>
+                    </details>
                 )}
             </div>
 

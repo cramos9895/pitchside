@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
         const supabaseAdmin = createAdminClient();
         const { data, error } = await supabaseAdmin
             .from('matches')
-            .select('id, game_id, home_team_id, away_team_id, home_team, away_team, home_score, away_score, is_final, created_at, round_number, status, start_time, field_name, is_playoff, match_style, timer_status, timer_started_at, paused_elapsed_seconds, match_officials(status), match_bids(status)')
+            .select('id, game_id, home_team_id, away_team_id, home_team, away_team, home_score, away_score, is_final, created_at, round_number, status, start_time, field_name, is_playoff, match_style, match_phase, timer_status, timer_started_at, paused_elapsed_seconds, match_officials(status), match_bids(status)')
             .eq('game_id', gameId)
             .order('created_at', { ascending: true });
 

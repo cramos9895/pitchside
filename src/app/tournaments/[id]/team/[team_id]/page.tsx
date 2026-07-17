@@ -35,7 +35,7 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
     let hasCredit = false;
     let faFee: number | null = null;
     let tournamentFound = false;
-    let paymentCollectionType: 'stripe' | 'cash' = 'stripe';
+    let paymentCollectionType: string = 'stripe';
     let cashAmount: number | null = null;
     let cashFeeStructure: string | null = null;
     let isRolling = false;
@@ -149,6 +149,7 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
             id,
             user_id,
             status,
+            payment_status,
             preferred_positions,
             profiles (
                 first_name,
@@ -182,8 +183,8 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
     // Map relations to expected naming convention for legacy support if needed
     const processedMatches = (matches || []).map(m => ({
         ...m,
-        home_team: m.home_team_rel?.name, // Can be null if TBD
-        away_team: m.away_team_rel?.name, // Can be null if TBD
+        home_team: m.home_team_rel?.name || m.home_team, 
+        away_team: m.away_team_rel?.name || m.away_team, 
         home_team_obj: m.home_team_rel, // object for UI
         away_team_obj: m.away_team_rel  // object for UI
     }));

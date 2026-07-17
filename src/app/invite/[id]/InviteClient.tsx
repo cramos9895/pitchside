@@ -7,6 +7,7 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { CheckCircle2, Trophy, ArrowRight, ShieldCheck, Info, Loader2, CreditCard, Lock } from 'lucide-react';
 import { acceptTeamInvite } from '@/app/actions/invite-actions';
 import { createSetupIntent } from '@/app/actions/stripe-payment';
+import { StripeCheckoutModal } from '@/components/public/StripeCheckoutModal';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
 
@@ -25,6 +26,7 @@ interface InviteClientProps {
     playerRegistrationFee: number;
     perGameFee: number;
     waiverDetails?: string;
+    description?: string;
 }
 
 export function InviteClient({ 
@@ -41,7 +43,8 @@ export function InviteClient({
     paymentCollectionType,
     playerRegistrationFee,
     perGameFee,
-    waiverDetails
+    waiverDetails,
+    description
 }: InviteClientProps) {
     const router = useRouter();
     const [waiverAccepted, setWaiverAccepted] = useState(false);
@@ -49,18 +52,26 @@ export function InviteClient({
     const [error, setError] = useState<string | null>(null);
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [setupIntentId, setSetupIntentId] = useState<string | null>(null);
+    
+    // For Individual Player Pricing
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [currentRegistrationId, setCurrentRegistrationId] = useState<string | null>(null);
 
     const minSplit = (totalFee / (maxPlayers || 12)).toFixed(2);
     const maxSplit = (totalFee / (minPlayers || 5)).toFixed(2);
 
+    const isPlayerPricing = paymentCollectionType === 'player_fees';
+    const requiresIndividualPayment = isPlayerPricing && playerRegistrationFee > 0;
+    const canFreeJoin = !requiresIndividualPayment && (isFullPay || totalFee === 0 || paymentCollectionType === 'cash');
+
     useEffect(() => {
-        if (!isFullPay && totalFee > 0) {
+        if (!canFreeJoin && !requiresIndividualPayment && totalFee > 0) {
             createSetupIntent().then(res => {
                 setClientSecret(res.clientSecret);
                 setSetupIntentId(res.id);
             });
         }
-    }, [isFullPay, totalFee]);
+    }, [canFreeJoin, requiresIndividualPayment, totalFee]);
 
     const handleFreeJoin = async () => {
         if (!waiverAccepted) return;
@@ -75,6 +86,29 @@ export function InviteClient({
             if (res.success) router.push('/dashboard?success=team-joined');
         } catch (err: any) {
             setError(err.message || 'Failed to join team.');
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleIndividualPaymentJoin = async () => {
+        if (!waiverAccepted) return;
+        setIsSubmitting(true);
+        setError(null);
+        try {
+            const res = await acceptTeamInvite({
+                teamId,
+                tournamentId,
+                waiverAccepted: true,
+                status: 'pending' // Just create the shell so webhook can update it
+            });
+            if (res.success && res.registrationId) {
+                setCurrentRegistrationId(res.registrationId);
+                setShowPaymentModal(true);
+            } else {
+                throw new Error("Failed to initialize pending registration.");
+            }
+        } catch (err: any) {
+            setError(err.message || 'Failed to initialize payment.');
             setIsSubmitting(false);
         }
     };
@@ -130,6 +164,16 @@ export function InviteClient({
                                     </div>
                                 </div>
                             </div>
+                        ) : paymentCollectionType === 'player_fees' ? (
+                            <div className="space-y-4">
+                                <p className="text-gray-400 text-sm font-medium leading-relaxed">
+                                    This event uses individual player pricing. You must pay the registration fee to join the roster.
+                                </p>
+                                <div className="bg-white/5 p-4 rounded-lg border border-white/5">
+                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Registration Fee</p>
+                                    <p className="text-2xl font-black text-white italic">${playerRegistrationFee}</p>
+                                </div>
+                            </div>
                         ) : (
                             <>
                                 <p className="text-gray-400 text-sm font-medium leading-relaxed">
@@ -156,42 +200,90 @@ export function InviteClient({
                         )}
                     </div>
 
-                    {/* The Liability Trap */}
-                     <div className="p-4 bg-orange-500/5 border border-orange-500/20 rounded-lg space-y-4">
-                        <div className="flex items-center gap-2 text-orange-400">
-                            <ShieldCheck className="w-4 h-4" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Legal Consent</span>
-                        </div>
-                        
-                        <div className="max-h-32 overflow-y-auto text-xs text-gray-400 bg-black/40 border border-white/5 p-4 rounded-sm leading-relaxed custom-scrollbar font-medium whitespace-pre-wrap italic italic">
-                            {waiverDetails || "Players must adhere to the facility rules. No dangerous play allowed. Respect the referee decision. All registrations are final once the season begins."}
-                        </div>
+                    <div className="grid grid-cols-1 gap-4 pt-4">
+                        {description && (
+                            <details className="bg-black/40 border border-white/10 rounded-sm group">
+                                <summary className="p-4 cursor-pointer list-none flex justify-between items-center text-[10px] font-black uppercase text-pitch-secondary tracking-widest hover:text-white transition-colors">
+                                    Event Rules
+                                    <span className="text-pitch-accent group-open:rotate-180 transition-transform">▼</span>
+                                </summary>
+                                <div className="p-4 pt-0 border-t border-white/5 mt-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+                                    <div className="space-y-4">
+                                        {description.split('\n').map((line, i) => {
+                                            if (!line.trim()) return <br key={i} />;
+                                            if (line.startsWith('# ')) return <h2 key={i} className="text-sm font-black uppercase italic text-white mt-4 first:mt-0 border-l-2 border-pitch-accent pl-3">{line.replace('# ', '')}</h2>;
+                                            if (line.startsWith('## ')) return <h3 key={i} className="text-[11px] font-black uppercase text-pitch-accent mt-3 first:mt-0">{line.replace('## ', '')}</h3>;
+                                            if (line.startsWith('- ')) return <div key={i} className="flex gap-3 items-start ml-1 text-[11px] text-gray-400 leading-relaxed"><div className="w-1 h-1 bg-pitch-accent rounded-full mt-1.5 shrink-0" /><span>{line.replace('- ', '')}</span></div>;
+                                            return (
+                                                <p key={i} className="text-gray-400 text-[11px] leading-relaxed italic">
+                                                    {line.split('**').map((part, index) => (
+                                                        index % 2 === 1 ? <strong key={index} className="text-white font-black">{part}</strong> : part
+                                                    ))}
+                                                </p>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </details>
+                        )}
 
-                        <label className="flex items-center gap-4 cursor-pointer group pt-2">
-                            <div className="relative flex items-center justify-center">
-                                <input 
-                                    type="checkbox" 
-                                    checked={waiverAccepted}
-                                    onChange={(e) => setWaiverAccepted(e.target.checked)}
-                                    className="sr-only peer"
-                                />
-                                <div className="w-6 h-6 border-2 border-orange-500/40 rounded flex items-center justify-center peer-checked:bg-orange-500 peer-checked:border-orange-500 transition-colors">
-                                    <svg className="w-4 h-4 text-pitch-black font-bold scale-0 peer-checked:scale-100 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
+                        <details className="bg-black/40 border border-white/10 rounded-sm group">
+                            <summary className="p-4 cursor-pointer list-none flex justify-between items-center text-[10px] font-black uppercase text-pitch-secondary tracking-widest hover:text-white transition-colors">
+                                Legal Waiver
+                                <span className="text-pitch-accent group-open:rotate-180 transition-transform">▼</span>
+                            </summary>
+                            <div className="p-4 pt-0 border-t border-white/5 mt-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+                                <div className="space-y-4">
+                                    {(waiverDetails || "Players must adhere to the facility rules. No dangerous play allowed. Respect the referee decision. All registrations are final once the season begins.").split('\n').map((line, i) => {
+                                        if (!line.trim()) return <br key={i} />;
+                                        if (line.startsWith('# ')) return <h2 key={i} className="text-sm font-black uppercase italic text-white mt-4 first:mt-0 border-l-2 border-pitch-accent pl-3">{line.replace('# ', '')}</h2>;
+                                        if (line.startsWith('## ')) return <h3 key={i} className="text-[11px] font-black uppercase text-pitch-accent mt-3 first:mt-0">{line.replace('## ', '')}</h3>;
+                                        if (line.startsWith('- ')) return <div key={i} className="flex gap-3 items-start ml-1 text-[11px] text-gray-400 leading-relaxed"><div className="w-1 h-1 bg-pitch-accent rounded-full mt-1.5 shrink-0" /><span>{line.replace('- ', '')}</span></div>;
+                                        return (
+                                            <p key={i} className="text-gray-400 text-[11px] leading-relaxed italic">
+                                                {line.split('**').map((part, index) => (
+                                                    index % 2 === 1 ? <strong key={index} className="text-white font-black">{part}</strong> : part
+                                                ))}
+                                            </p>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                            <span className="text-sm font-bold uppercase tracking-wider text-orange-400 mb-0">I have read and agree to the liability waiver.</span>
-                        </label>
+                        </details>
                     </div>
 
-                    {isFullPay || totalFee === 0 || paymentCollectionType === 'cash' ? (
+                    <label className="flex items-center gap-4 cursor-pointer group pt-2 pb-4">
+                        <div className="relative flex items-center justify-center">
+                            <input 
+                                type="checkbox" 
+                                checked={waiverAccepted}
+                                onChange={(e) => setWaiverAccepted(e.target.checked)}
+                                className="sr-only peer"
+                            />
+                            <div className="w-6 h-6 border-2 border-orange-500/40 rounded flex items-center justify-center peer-checked:bg-orange-500 peer-checked:border-orange-500 transition-colors">
+                                <svg className="w-4 h-4 text-pitch-black font-bold scale-0 peer-checked:scale-100 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                            </div>
+                        </div>
+                        <span className="text-sm font-bold uppercase tracking-wider text-orange-400 mb-0">I have read and agree to the event terms.</span>
+                    </label>
+
+                    {canFreeJoin ? (
                         <button 
                             onClick={handleFreeJoin}
                             disabled={!waiverAccepted || isSubmitting}
                             className="w-full py-5 bg-pitch-accent text-pitch-black font-black uppercase tracking-[0.2em] hover:bg-white transition-all transform active:scale-[0.98] rounded-lg shadow-[0_0_30px_rgba(204,255,0,0.15)] flex items-center justify-center gap-3 disabled:opacity-50"
                         >
                             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Accept & Join <ArrowRight className="w-5 h-5" /></>}
+                        </button>
+                    ) : requiresIndividualPayment ? (
+                        <button 
+                            onClick={handleIndividualPaymentJoin}
+                            disabled={!waiverAccepted || isSubmitting}
+                            className="w-full py-5 bg-pitch-accent text-pitch-black font-black uppercase tracking-[0.2em] hover:bg-white transition-all transform active:scale-[0.98] rounded-lg shadow-[0_0_30px_rgba(204,255,0,0.15)] flex items-center justify-center gap-3 disabled:opacity-50"
+                        >
+                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Pay ${playerRegistrationFee} & Join <ArrowRight className="w-5 h-5" /></>}
                         </button>
                     ) : (
                         <div className="space-y-6">
@@ -214,6 +306,26 @@ export function InviteClient({
                     )}
                 </div>
             </div>
+
+            {/* Individual Payment Modal */}
+            {showPaymentModal && currentRegistrationId && (
+                <StripeCheckoutModal 
+                    isOpen={showPaymentModal}
+                    onClose={() => {
+                        setShowPaymentModal(false);
+                        setIsSubmitting(false);
+                    }}
+                    amount={playerRegistrationFee}
+                    title="Player Registration"
+                    description={`Join ${teamName} in ${tournamentName}`}
+                    eventId={tournamentId}
+                    registrationId={currentRegistrationId}
+                    onSuccess={() => {
+                        setShowPaymentModal(false);
+                        router.push('/dashboard?success=team-joined');
+                    }}
+                />
+            )}
         </div>
     );
 }
@@ -258,7 +370,14 @@ function SetupIntentForm({ teamId, tournamentId, setupIntentId, waiverAccepted, 
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <PaymentElement />
+            <PaymentElement 
+                options={{
+                    wallets: {
+                        applePay: 'auto',
+                        googlePay: 'auto'
+                    }
+                }}
+            />
             <button
                 type="submit"
                 disabled={!stripe || !waiverAccepted || isProcessing}

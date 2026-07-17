@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { ArrowLeft, Check, Shirt, User as UserIcon, Users, X, Trophy, Save, Loader2, Swords, Calendar, Trash2, Shield, MoreVertical, MonitorPlay, UserCheck, UserX, Award, Scan, Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { MatchManager } from '@/components/admin/MatchManager';
 import { StandingsTable } from '@/components/admin/StandingsTable';
 import { ScheduleGenerator } from '@/components/admin/ScheduleGenerator';
@@ -160,6 +160,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const resolvedParams = use(params);
     const gameId = resolvedParams.id;
     const { success, error: toastError } = useToast();
+    const searchParams = useSearchParams();
 
     const [bookings, setBookings] = useState<AdminGameBooking[]>([]);
     const [game, setGame] = useState<AdminGameDetails | null>(null);
@@ -167,7 +168,10 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const [rollingTeams, setRollingTeams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [finalizing, setFinalizing] = useState(false);
-    const [activeTab, setActiveTab] = useState('player-manager');
+    
+    // Default to search param or fallback to player-manager
+    const initialTab = searchParams.get('tab') || 'player-manager';
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [rosterSort, setRosterSort] = useState('alphabetical');
     const [resolvedTeammateNames, setResolvedTeammateNames] = useState<Record<string, string>>({});
     const [hostProfiles, setHostProfiles] = useState<Record<string, string>>({});
@@ -195,8 +199,14 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     // Sync tab state with localStorage to survive hard refreshes
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem(`adminTab-${gameId}`);
-            if (saved) setActiveTab(saved);
+            const urlTab = searchParams.get('tab');
+            if (urlTab) {
+                setActiveTab(urlTab);
+                localStorage.setItem(`adminTab-${gameId}`, urlTab);
+            } else {
+                const saved = localStorage.getItem(`adminTab-${gameId}`);
+                if (saved) setActiveTab(saved);
+            }
         }
     }, [gameId]);
 
@@ -1164,7 +1174,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                     leagueTitle={game.title}
                     registrations={bookings}
                     matches={matches}
-                    teams={teams}
+                    teams={rollingTeams}
                     facilityId={game.facility_id || ''}
                     game={game}
                     onRefresh={async () => {

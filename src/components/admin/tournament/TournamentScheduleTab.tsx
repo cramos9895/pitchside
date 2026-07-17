@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trophy, AlertTriangle, Users, Pencil, Trash2, ExternalLink } from 'lucide-react';
+import { Trophy, AlertTriangle, Users, Pencil, Trash2, ExternalLink, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/Toast';
@@ -16,13 +16,9 @@ export function TournamentScheduleTab({
 }: any) {
     const { success, error: toastError } = useToast();
     
-    // Derived state
-    const activePlayers = registrations.filter((b: any) => 
-        ['active', 'paid', 'confirmed', 'registered'].includes(b.status) || 
-        b.roster_status === 'confirmed'
-    );
-    const uniqueRegisteredTeamIds = new Set(activePlayers.map((p: any) => p.team_id).filter(Boolean));
-    const registeredTeamsCount = uniqueRegisteredTeamIds.size;
+    // In Tournaments, a team is participating simply by existing in the 'teams' array, 
+    // since admins might manually create teams and assign players later.
+    const activeTeamsCount = teams.length;
     
     // Match Segmentation
     const groupMatches = matches.filter((m: any) => !m.is_playoff).sort((a: any, b: any) => {
@@ -57,19 +53,99 @@ export function TournamentScheduleTab({
     const [localMinGames, setLocalMinGames] = useState<number>(game.minimum_games_per_team || 3);
     const [excludedTeams, setExcludedTeams] = useState<Set<string>>(new Set());
 
+    // Constraints State
+    const [constraintsExpanded, setConstraintsExpanded] = useState(false);
+    
+    // Parse times for local inputs
+    const initialStartTime = game?.start_time ? new Date(game.start_time).toTimeString().split(' ')[0].slice(0,5) : "10:00";
+    let initialEndTime = "22:00";
+    if (game?.end_time) {
+        if (game.end_time.includes('T')) initialEndTime = new Date(game.end_time).toTimeString().slice(0, 5);
+        else initialEndTime = game.end_time.slice(0, 5);
+    }
+
+    const [editAmountOfFields, setEditAmountOfFields] = useState(game?.amount_of_fields?.toString() || "1");
+    const [editConstraintStartTime, setEditConstraintStartTime] = useState(initialStartTime);
+    const [editConstraintEndTime, setEditConstraintEndTime] = useState(initialEndTime);
+    const [editHalfLength, setEditHalfLength] = useState(game?.half_length?.toString() || "20");
+    const [editHalftimeLength, setEditHalftimeLength] = useState(game?.halftime_length?.toString() || "5");
+    const [editBreakBetweenGames, setEditBreakBetweenGames] = useState(game?.break_between_games?.toString() || "5");
+    const [isUpdatingConstraints, setIsUpdatingConstraints] = useState(false);
+
+    // Formatted display values
+    const displayStartTime = initialStartTime;
+    const displayEndTime = initialEndTime;
+
     // --- ACTIONS ---
+    const handleUpdateConstraints = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsUpdatingConstraints(true);
+        try {
+            let startDateTime = null;
+            if (game?.start_time) {
+                startDateTime = new Date(game.start_time);
+                const [hours, minutes] = editConstraintStartTime.split(':').map(Number);
+                startDateTime.setHours(hours, minutes, 0, 0);
+            }
+
+            let formattedEndTime = editConstraintEndTime;
+            if (formattedEndTime.split(':').length === 2) {
+                formattedEndTime = `${formattedEndTime}:00`;
+            }
+
+            const { error } = await supabase
+                .from('games')
+                .update({
+                    amount_of_fields: parseInt(editAmountOfFields),
+                    start_time: startDateTime ? startDateTime.toISOString() : null,
+                    end_time: formattedEndTime,
+                    half_length: parseInt(editHalfLength),
+                    halftime_length: parseInt(editHalftimeLength),
+                    break_between_games: parseInt(editBreakBetweenGames),
+                })
+                .eq('id', gameId);
+
+            if (error) throw error;
+            success("Tournament constraints updated successfully.");
+            onRefresh();
+            setConstraintsExpanded(false);
+        } catch (err: any) {
+            toastError("Failed to update constraints: " + err.message);
+        } finally {
+            setIsUpdatingConstraints(false);
+        }
+    };
+
     const handleGenerateDraft = () => {
         setIsGenerating(true);
         try {
-            const registeredTeams = teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id) && !excludedTeams.has(t.name));
+            const activeTeamsForDraft = teams.filter((t: any) => !excludedTeams.has(t.name));
+            
+            let startDateTime = new Date();
+            if (game?.start_time) {
+                startDateTime = new Date(game.start_time);
+            }
+            const [hours, minutes] = editConstraintStartTime.split(':').map(Number);
+            startDateTime.setHours(hours, minutes, 0, 0);
+
+            let formattedEndTime = editConstraintEndTime;
+            if (formattedEndTime.split(':').length === 2) {
+                formattedEndTime = `${formattedEndTime}:00`;
+            }
+
+            const parsedAmountOfFields = parseInt(editAmountOfFields);
+            const parsedHalfLength = parseInt(editHalfLength);
+            const parsedHalftimeLength = parseInt(editHalftimeLength);
+            const parsedBreakBetweenGames = parseInt(editBreakBetweenGames);
+
             const schedule = generateTournamentSchedule({
-                teams: registeredTeams,
-                amountOfFields: game.amount_of_fields || 1,
-                halfLength: game.half_length || 20,
-                halftimeLength: game.halftime_length || 5,
-                breakBetweenGames: game.break_between_games || 5,
-                earliestStartTime: game.start_time,
-                endTime: game.end_time || "23:59:00",
+                teams: activeTeamsForDraft,
+                amountOfFields: isNaN(parsedAmountOfFields) ? 1 : parsedAmountOfFields,
+                halfLength: isNaN(parsedHalfLength) ? 20 : parsedHalfLength,
+                halftimeLength: isNaN(parsedHalftimeLength) ? 5 : parsedHalftimeLength,
+                breakBetweenGames: isNaN(parsedBreakBetweenGames) ? 5 : parsedBreakBetweenGames,
+                earliestStartTime: startDateTime.toISOString(),
+                endTime: formattedEndTime,
                 tournamentStyle: game.tournament_style || 'group_stage',
                 minGamesPerTeam: localMinGames
             });
@@ -91,10 +167,13 @@ export function TournamentScheduleTab({
                 status: 'scheduled',
                 home_team: m.home_team,
                 away_team: m.away_team,
+                home_team_id: m.home_team_id || null,
+                away_team_id: m.away_team_id || null,
                 start_time: m.start_time,
                 field_name: m.field_name,
                 is_playoff: m.is_playoff,
-                match_style: game.match_style || 'tournament'
+                match_style: game.match_style || 'tournament',
+                match_phase: m.match_phase
             }));
             const { error } = await supabase.from('matches').insert(matchesToInsert);
             if (error) throw error;
@@ -165,7 +244,8 @@ export function TournamentScheduleTab({
                 start_time: new Date(baseTime.getTime() + (i * 30 * 60000) + (15 * 60000)).toISOString(), 
                 field_name: game.amount_of_fields > 1 ? `Field ${(i % game.amount_of_fields) + 1}` : 'Field 1',
                 is_playoff: true,
-                match_style: 'tournament'
+                match_style: 'tournament',
+                match_phase: m.label
             }));
 
             const { error: insertError } = await supabase.from('matches').insert(finalMatches);
@@ -254,6 +334,79 @@ export function TournamentScheduleTab({
 
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
+            {/* SCHEDULER CONSTRAINTS */}
+            <div className="bg-black/40 border border-white/10 rounded-sm overflow-hidden">
+                <div 
+                    className="p-4 bg-white/5 border-b border-white/10 flex justify-between items-center cursor-pointer hover:bg-white/10 transition-colors"
+                    onClick={() => setConstraintsExpanded(!constraintsExpanded)}
+                >
+                    <div className="flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-pitch-accent" />
+                        <h3 className="font-heading text-lg font-bold italic uppercase text-white">Scheduler Constraints</h3>
+                    </div>
+                    <div className="flex items-center gap-4 group">
+                        {!constraintsExpanded && (
+                            <div className="hidden md:flex text-[10px] text-gray-500 uppercase font-black tracking-widest gap-4">
+                                <span>{game?.amount_of_fields || 1} Field(s)</span>
+                                <span>•</span>
+                                <span>{displayStartTime} - {displayEndTime}</span>
+                                <span>•</span>
+                                <span>{game?.half_length || 20}m Halves</span>
+                            </div>
+                        )}
+                        {constraintsExpanded ? <ChevronUp className="w-5 h-5 text-gray-400 group-hover:text-white" /> : <ChevronDown className="w-5 h-5 text-gray-400 group-hover:text-white" />}
+                    </div>
+                </div>
+
+                {constraintsExpanded && (
+                    <form onSubmit={handleUpdateConstraints} className="p-6 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Available Fields</label>
+                                <input type="number" min="1" value={editAmountOfFields} onChange={(e) => setEditAmountOfFields(e.target.value)} className="bg-black border border-white/20 rounded p-3 text-white focus:border-pitch-accent outline-none" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Earliest Start Time</label>
+                                <input type="time" step="900" value={editConstraintStartTime} onChange={(e) => setEditConstraintStartTime(e.target.value)} className="bg-black border border-white/20 rounded p-3 text-white focus:border-pitch-accent outline-none [color-scheme:dark]" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Latest End Time</label>
+                                <input type="time" step="900" value={editConstraintEndTime} onChange={(e) => setEditConstraintEndTime(e.target.value)} className="bg-black border border-white/20 rounded p-3 text-white focus:border-pitch-accent outline-none [color-scheme:dark]" />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Half Length (min)</label>
+                                <input type="number" min="1" value={editHalfLength} onChange={(e) => setEditHalfLength(e.target.value)} className="bg-black border border-white/20 rounded p-3 text-white focus:border-pitch-accent outline-none" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Halftime (min)</label>
+                                <input type="number" min="0" value={editHalftimeLength} onChange={(e) => setEditHalftimeLength(e.target.value)} className="bg-black border border-white/20 rounded p-3 text-white focus:border-pitch-accent outline-none" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Break Between Games (min)</label>
+                                <input type="number" min="0" value={editBreakBetweenGames} onChange={(e) => setEditBreakBetweenGames(e.target.value)} className="bg-black border border-white/20 rounded p-3 text-white focus:border-pitch-accent outline-none" />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="text-[10px] font-black uppercase text-pitch-accent tracking-widest mb-2">Total Match Slot</label>
+                                <div className="bg-pitch-accent/5 border border-pitch-accent/20 rounded p-3 text-pitch-accent font-bold h-[46px] flex items-center">
+                                    {(parseInt(editHalfLength) || 0) * 2 + (parseInt(editHalftimeLength) || 0) + (parseInt(editBreakBetweenGames) || 0)} minutes
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end pt-4 border-t border-white/10">
+                            <button
+                                type="submit"
+                                disabled={isUpdatingConstraints}
+                                className="px-8 py-3 bg-white text-black font-black uppercase tracking-wider rounded transition-colors hover:bg-gray-200 disabled:opacity-50 text-sm"
+                            >
+                                {isUpdatingConstraints ? 'Saving...' : 'Update Constraints'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </div>
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/10 pb-4 gap-4">
                 <div className="flex items-center gap-4">
                     <div>
@@ -306,38 +459,52 @@ export function TournamentScheduleTab({
             {matches.length === 0 && draftSchedule.length === 0 && (
                 <div className="bg-white/5 border border-white/10 p-4 rounded-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-center">
                     <div>
-                        <label className="block text-[10px] uppercase font-black text-gray-500 tracking-widest mb-1">Registered Teams</label>
-                        <p className="text-xl font-bold text-white">{registeredTeamsCount}</p>
+                        <p className="text-xl font-bold text-white">{activeTeamsCount}</p>
                     </div>
-                    <div>
-                        <label className="block text-[10px] uppercase font-black text-gray-500 tracking-widest mb-1">Max Possible Games</label>
-                        <p className="text-xl font-bold text-pitch-accent">{Math.max(0, Math.ceil(registeredTeamsCount / 2) - 1)}</p>
-                    </div>
-                    <div className="lg:col-span-2">
-                        <label className="block text-[10px] uppercase font-black text-pitch-accent tracking-widest mb-2">Override Minimum Games (Group Stage)</label>
-                        <div className="flex items-center gap-4">
-                            <input 
-                                type="number"
-                                value={localMinGames}
-                                onChange={(e) => setLocalMinGames(Number(e.target.value))}
-                                className="w-20 bg-black border border-pitch-accent/30 rounded p-2 text-white font-bold text-center focus:border-pitch-accent transition-colors"
-                            />
-                            <div className="flex-1">
-                                {localMinGames > (Math.ceil(registeredTeamsCount / 2) - 1) ? (
-                                    <div className="flex items-start gap-2 text-red-500 animate-in fade-in slide-in-from-left-2">
-                                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                                        <p className="text-[10px] leading-tight uppercase font-bold">Impossible: Not enough opponents. Please reduce to {Math.max(0, Math.ceil(registeredTeamsCount / 2) - 1)} or less.</p>
-                                    </div>
-                                ) : (
-                                    <p className="text-[10px] text-gray-500 italic">Adjusting this only affects the current draft session.</p>
-                                )}
+                    {game.tournament_style === 'group_stage' || !game.tournament_style ? (
+                        <>
+                            <div>
+                                <label className="block text-[10px] uppercase font-black text-gray-500 tracking-widest mb-1">Max Possible Games</label>
+                                <p className="text-xl font-bold text-pitch-accent">{Math.max(0, Math.ceil(activeTeamsCount / 2) - 1)}</p>
                             </div>
+                            <div className="lg:col-span-2">
+                                <label className="block text-[10px] uppercase font-black text-pitch-accent tracking-widest mb-2">Override Minimum Games (Group Stage)</label>
+                                <div className="flex items-center gap-4">
+                                    <input 
+                                        type="number"
+                                        value={localMinGames}
+                                        onChange={(e) => setLocalMinGames(Number(e.target.value))}
+                                        className="w-20 bg-black border border-pitch-accent/30 rounded p-2 text-white font-bold text-center focus:border-pitch-accent transition-colors"
+                                    />
+                                    <div className="flex-1">
+                                        {localMinGames > (Math.ceil(activeTeamsCount / 2) - 1) ? (
+                                            <div className="flex items-start gap-2 text-red-500 animate-in fade-in slide-in-from-left-2">
+                                                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                                                <p className="text-[10px] leading-tight uppercase font-bold">Impossible: Not enough opponents. Please reduce to {Math.max(0, Math.ceil(activeTeamsCount / 2) - 1)} or less.</p>
+                                            </div>
+                                        ) : (
+                                            <p className="text-[10px] text-gray-500 italic">Adjusting this only affects the current draft session.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="lg:col-span-3">
+                            <label className="block text-[10px] uppercase font-black text-pitch-accent tracking-widest mb-1">Tournament Format</label>
+                            <p className="text-lg font-bold text-white flex items-center gap-2">
+                                <Trophy className="w-4 h-4 text-pitch-accent" />
+                                Single Elimination Knockout Bracket
+                            </p>
+                            <p className="text-[10px] text-gray-500 italic mt-1">
+                                The engine will automatically generate exactly {Math.max(0, activeTeamsCount - 1)} matches based on {activeTeamsCount} participating teams.
+                            </p>
                         </div>
-                    </div>
+                    )}
                     <div className="lg:col-span-4 mt-4 pt-4 border-t border-white/5">
                         <label className="block text-[10px] uppercase font-black text-gray-500 tracking-widest mb-2">Participating Teams</label>
                         <div className="flex flex-wrap gap-2">
-                            {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => {
+                            {teams.map((t: any) => {
                                 const isExcluded = excludedTeams.has(t.name);
                                 return (
                                     <button
@@ -408,7 +575,7 @@ export function TournamentScheduleTab({
                                                     <div className="flex items-center justify-between px-8">
                                                         <div className="flex-1 text-right min-w-0">
                                                             <select value={editHomeTeam} onChange={e => setEditHomeTeam(e.target.value)} className="w-full bg-black border border-white/20 rounded p-1 text-xs text-white">
-                                                                {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => (
+                                                                {teams.map((t: any) => (
                                                                     <option key={t.id} value={t.name}>{t.name}</option>
                                                                 ))}
                                                                 <option value="TBD">TBD</option>
@@ -422,7 +589,7 @@ export function TournamentScheduleTab({
 
                                                         <div className="flex-1 text-left min-w-0">
                                                             <select value={editAwayTeam} onChange={e => setEditAwayTeam(e.target.value)} className="w-full bg-black border border-white/20 rounded p-1 text-xs text-white">
-                                                                {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => (
+                                                                {teams.map((t: any) => (
                                                                     <option key={t.id} value={t.name}>{t.name}</option>
                                                                 ))}
                                                                 <option value="TBD">TBD</option>
@@ -459,8 +626,8 @@ export function TournamentScheduleTab({
                                                     <div className="text-left border-l border-white/10 pl-4">
                                                         <div className="text-[10px] font-black uppercase text-gray-500">Field</div>
                                                         <div className="text-sm font-bold text-gray-300">{match.field_name}</div>
-                                                        {match.group_name && (
-                                                            <div className="text-[9px] font-bold text-pitch-accent uppercase">{match.group_name}</div>
+                                                        {match.match_phase && (
+                                                            <div className="text-[9px] font-bold text-pitch-accent uppercase">{match.match_phase}</div>
                                                         )}
                                                     </div>
                                                 </div>
@@ -582,7 +749,7 @@ export function TournamentScheduleTab({
                                                     <div className="flex items-center justify-between px-8">
                                                         <div className="flex-1 text-right min-w-0">
                                                             <select value={editHomeTeam} onChange={e => setEditHomeTeam(e.target.value)} className="w-full bg-black border border-white/20 rounded p-1 text-xs text-white">
-                                                                {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => (
+                                                                {teams.map((t: any) => (
                                                                     <option key={t.id} value={t.name}>{t.name}</option>
                                                                 ))}
                                                                 <option value="TBD">TBD</option>
@@ -596,7 +763,7 @@ export function TournamentScheduleTab({
 
                                                         <div className="flex-1 text-left min-w-0">
                                                             <select value={editAwayTeam} onChange={e => setEditAwayTeam(e.target.value)} className="w-full bg-black border border-white/20 rounded p-1 text-xs text-white">
-                                                                {teams.filter((t: any) => uniqueRegisteredTeamIds.has(t.id)).map((t: any) => (
+                                                                {teams.map((t: any) => (
                                                                     <option key={t.id} value={t.name}>{t.name}</option>
                                                                 ))}
                                                                 <option value="TBD">TBD</option>

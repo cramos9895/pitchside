@@ -74,12 +74,12 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
     // Map relations to expected naming convention for legacy support
     const processedMatches = (matches || []).map(m => ({
         ...m,
-        home_team: m.home_team_rel?.name, // Can be null if TBD
-        away_team: m.away_team_rel?.name, // Can be null if TBD
+        home_team: m.home_team_rel?.name || m.home_team, 
+        away_team: m.away_team_rel?.name || m.away_team, 
         home_team_obj: m.home_team_rel,
         away_team_obj: m.away_team_rel,
-        home_team_name: m.home_team_rel?.name,
-        away_team_name: m.away_team_rel?.name
+        home_team_name: m.home_team_rel?.name || m.home_team,
+        away_team_name: m.away_team_rel?.name || m.away_team
     }));
 
     // 5. Fetch Official Teams (For Standings row generation)
