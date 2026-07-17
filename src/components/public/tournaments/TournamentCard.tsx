@@ -26,6 +26,7 @@ interface TournamentRegistration {
     user_id: string;
     team_id: string | null;
     role: string;
+    status?: string;
 }
 
 interface TournamentCardProps {
@@ -41,7 +42,8 @@ export function TournamentCard({ tournament, userId, registrations }: Tournament
     const userRole = userReg?.role;
     const userTeamId = userReg?.team_id;
     
-    const uniqueTeamIds = new Set(registrations?.map(r => r.team_id).filter(Boolean));
+    const validRegistrations = registrations?.filter(r => ['registered', 'paid', 'active', 'confirmed'].includes(r.status?.toLowerCase() || 'registered')) || [];
+    const uniqueTeamIds = new Set(validRegistrations.map(r => r.team_id).filter(Boolean));
     const teamCount = uniqueTeamIds.size;
 
     const formatDate = (dateString: string) => {

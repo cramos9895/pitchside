@@ -35,6 +35,7 @@ interface TournamentRegistration {
     user_id: string;
     team_id: string | null;
     role: string;
+    status?: string;
 }
 
 interface LeagueCardProps {
@@ -59,7 +60,8 @@ export function LeagueCard({ league, userId, registrations }: LeagueCardProps) {
     
     const isLocked = isLeagueLocked(league);
     
-    const uniqueTeamIds = new Set(registrations?.map(r => r.team_id).filter(Boolean));
+    const validRegistrations = registrations?.filter(r => ['registered', 'paid', 'active', 'confirmed'].includes(r.status?.toLowerCase() || 'registered')) || [];
+    const uniqueTeamIds = new Set(validRegistrations.map(r => r.team_id).filter(Boolean));
     const teamCount = uniqueTeamIds.size;
 
     const formatDate = (dateString: string | null) => {

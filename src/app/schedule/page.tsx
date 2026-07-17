@@ -127,14 +127,14 @@ export default async function SchedulePage({
         const [leaguesRes, leagueGamesRes] = await Promise.all([
             supabase
                 .from('leagues')
-                .select('*')
+                .select('*, tournament_registrations(user_id, team_id, role, status)')
                 .eq('is_active', true)
                 .neq('status', 'cancelled')
                 .or('event_type.eq.league,event_type.is.null')
                 .order('start_date', { ascending: true }),
             supabase
                 .from('games')
-                .select('*')
+                .select('*, tournament_registrations(user_id, team_id, role, status)')
                 .eq('event_type', 'league')
                 .eq('is_active', true)
                 .neq('status', 'cancelled')
@@ -156,7 +156,7 @@ export default async function SchedulePage({
     if (activeView === 'all' || activeView === 'tournaments') {
         const res = await supabase
             .from('games')
-            .select('*, tournament_registrations(user_id, team_id, role)')
+            .select('*, tournament_registrations(user_id, team_id, role, status)')
             .eq('event_type', 'tournament')
             .eq('is_active', true)
             .neq('status', 'cancelled')
