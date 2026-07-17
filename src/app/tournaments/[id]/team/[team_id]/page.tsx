@@ -117,7 +117,7 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
         cash_amount: cashAmount,
         cash_fee_structure: cashFeeStructure,
         is_rolling: isRolling,
-        description: gameTourney?.description || leagueTourney?.description
+        description: gameTourney?.description || leagueTourney?.description || null
     };
 
     // 2. Fetch Team Info
@@ -183,10 +183,10 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
     // Map relations to expected naming convention for legacy support if needed
     const processedMatches = (matches || []).map(m => ({
         ...m,
-        home_team: m.home_team_rel?.name || m.home_team, 
-        away_team: m.away_team_rel?.name || m.away_team, 
-        home_team_obj: m.home_team_rel, // object for UI
-        away_team_obj: m.away_team_rel  // object for UI
+        home_team: m.home_team_rel?.name || m.home_team || null, 
+        away_team: m.away_team_rel?.name || m.away_team || null, 
+        home_team_obj: m.home_team_rel || null, 
+        away_team_obj: m.away_team_rel || null  
     }));
 
     // 5. Fetch Team Messages (For Chat)
