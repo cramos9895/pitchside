@@ -154,6 +154,7 @@ export function RollingRegistrationClient({
                     setShowPaymentModal(true);
                     setIsSubmitting(false);
                 }
+            } catch (err) {
                 // Error handled in handleRegistration
             }
         } else {

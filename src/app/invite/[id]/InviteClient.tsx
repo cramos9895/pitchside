@@ -102,6 +102,9 @@ export function InviteClient({
                 waiverAccepted: true,
                 status: 'pending' // Just create the shell so webhook can update it
             });
+            
+            if (res.success && res.registrationId) {
+                setCurrentRegistrationId(res.registrationId);
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) throw new Error("Authentication required.");
 
