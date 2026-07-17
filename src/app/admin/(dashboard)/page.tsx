@@ -18,7 +18,8 @@ export default async function AdminDashboard() {
         .select(`
             *,
             tournament_registrations (
-                team_id
+                team_id,
+                status
             ),
             bookings (
                 id,
@@ -38,19 +39,31 @@ export default async function AdminDashboard() {
         console.error('Error fetching games:', error);
     }
 
-    // Process games to calculate unique team counts
+    // Process games to calculate unique team counts.
+    // Only count ACTIVE registrations (registered, drafted, waitlisted) —
+    // 'pending' means payment hasn't been completed yet, and 'cancelled' means withdrawn.
+    const ACTIVE_REG_STATUSES = ['registered', 'drafted', 'waitlisted'];
+
     const enrichedGames = (games || []).map(game => {
         const registrations = game.tournament_registrations || [];
-        const uniqueTeams = new Set(registrations.map((r: any) => r.team_id).filter(Boolean));
+
+        // Only count teams from fully active registrations (not pending/cancelled ghost entries)
+        const activeRegistrations = registrations.filter((r: any) =>
+            ACTIVE_REG_STATUSES.includes(r.status)
+        );
+        const uniqueTeams = new Set(
+            activeRegistrations.map((r: any) => r.team_id).filter(Boolean)
+        );
         
         // Accurate count from bookings (used for pickup games)
         const activeBookings = (game.bookings || []).filter((b: any) => 
             ['active', 'paid'].includes(b.status)
         );
 
-        // Result: Prefer the active bookings count for pickup games, 
-        // fall back to tournament_registrations for structured events.
-        const currentPlayers = Math.max(registrations.length, activeBookings.length);
+        // Accurate player count: use active tournament registrations or active bookings
+        const currentPlayers = game.event_type === 'tournament'
+            ? activeRegistrations.length
+            : Math.max(activeRegistrations.length, activeBookings.length);
 
         return {
             ...game,

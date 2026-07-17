@@ -95,6 +95,7 @@ export function TournamentRegistrationClient({
 
     const handleTeamSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        if (isSubmitting) return;
         if (!isFormValid()) return;
 
         setIsSubmitting(true);
