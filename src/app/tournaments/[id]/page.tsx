@@ -27,7 +27,7 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
             id, title, start_time, end_time, location, location_nickname, 
             league_format, host_ids, team_registration_fee, min_players_per_team, 
             max_players_per_team, payment_collection_type, player_registration_fee, 
-            cash_amount, price, waiver_details, 
+            cash_amount, price, waiver_details, description,
             has_registration_fee_credit, deposit_amount, lifecycle_status,
             lifecycle_end_date, skipped_dates, teams_config, event_type, status, is_active,
             prize_type, prize_pool_percentage, fixed_prize_amount, reward,

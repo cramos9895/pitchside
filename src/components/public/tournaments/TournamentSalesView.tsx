@@ -246,16 +246,27 @@ export function TournamentSalesView({ game, primaryHost, registeredTeams = [] }:
                             </div>
                         </section>
 
-                        <section className="order-3 lg:order-none lg:col-span-8 lg:col-start-1 bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm">
+                        {game.description && (
+                            <section className="order-3 lg:order-none lg:col-span-8 lg:col-start-1 bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm">
+                                <h3 className="font-heading text-xl md:text-2xl font-black italic uppercase mb-6 md:mb-8 flex items-center gap-3 text-white">
+                                    <ScrollText className="w-5 h-5 md:w-6 md:h-6 text-pitch-accent" /> Event Overview
+                                </h3>
+                                <div className="text-gray-400 text-sm leading-relaxed font-medium whitespace-pre-wrap italic tracking-wide">
+                                    {game.description}
+                                </div>
+                            </section>
+                        )}
+
+                        <section className="order-4 lg:order-none lg:col-span-8 lg:col-start-1 bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm">
                             <h3 className="font-heading text-xl md:text-2xl font-black italic uppercase mb-6 md:mb-8 flex items-center gap-3 text-white">
-                                <ScrollText className="w-5 h-5 md:w-6 md:h-6 text-pitch-accent" /> Terms & Rules
+                                <ShieldCheck className="w-5 h-5 md:w-6 md:h-6 text-pitch-accent" /> Terms & Rules
                             </h3>
                             <div className="bg-black/40 border border-white/10 p-6 md:p-8 rounded-sm text-sm text-gray-400 leading-relaxed font-medium whitespace-pre-wrap max-h-[400px] overflow-y-auto custom-scrollbar italic tracking-wide">
                                 {game.waiver_details || "Players must adhere to the facility rules. No dangerous play allowed. Respect the referee decision. All registrations are final once the season begins."}
                             </div>
                         </section>
 
-                        <section className="order-4 lg:order-none lg:col-span-8 lg:col-start-1 bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm">
+                        <section className="order-5 lg:order-none lg:col-span-8 lg:col-start-1 bg-pitch-card border border-white/5 p-6 md:p-10 rounded-sm">
                             <h3 className="font-heading text-xl md:text-2xl font-black italic uppercase mb-6 md:mb-8 flex items-center gap-3 text-white">
                                 <Users className="w-5 h-5 md:w-6 md:h-6 text-pitch-accent" /> Competing Squads
                             </h3>
