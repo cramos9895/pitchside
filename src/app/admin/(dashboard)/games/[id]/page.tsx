@@ -513,7 +513,8 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
                         .from('tournament_registrations')
                         .select('*')
                         .eq('game_id', gameId)
-                        .neq('status', 'cancelled');
+                        .neq('status', 'cancelled')
+                        .neq('status', 'pending'); // Exclude incomplete payment sessions (ghost entries)
                         
                     if (regError) {
                         console.error("[CRITICAL] Failed to fetch tournament_registrations:", regError.message || regError);

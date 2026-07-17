@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ArrowRight, AlertTriangle, CheckCircle2, Trophy, CreditCard, ScrollText, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { registerTournamentTeam, registerTournamentFreeAgent } from '@/app/actions/tournament-registration';
+import { registerTournamentTeam, registerTournamentFreeAgent, cancelPendingRegistration } from '@/app/actions/tournament-registration';
 import { StripeCheckoutModal } from '@/components/public/StripeCheckoutModal';
 
 export function TournamentRegistrationClient({ 
@@ -51,6 +51,7 @@ export function TournamentRegistrationClient({
     const [savedFormData, setSavedFormData] = useState<any>(null);
     const [paymentIntentType, setPaymentIntentType] = useState<'team' | 'free_agent'>('team');
     const [currentRegistrationId, setCurrentRegistrationId] = useState<string | null>(null);
+    const [currentTeamId, setCurrentTeamId] = useState<string | null>(null); // Track pending team for cleanup on cancel
     const [currentEventType, setCurrentEventType] = useState<string | null>(null);
 
     const isCashLeague = payment_collection_type === 'cash';
@@ -124,6 +125,7 @@ export function TournamentRegistrationClient({
                 const res = await registerTournamentTeam(pendingFormData);
                 if (res.success && res.registrationId) {
                     setCurrentRegistrationId(res.registrationId);
+                    setCurrentTeamId(res.teamId || null); // Save teamId so we can clean up on cancel
                     setCurrentEventType(res.eventType || 'league');
                     setPaymentIntentType('team');
                     setSavedFormData(payload);
@@ -493,7 +495,15 @@ export function TournamentRegistrationClient({
             {showPaymentModal && (paymentIntentType === 'team' ? captainChargeAmount > 0 : (faPrice !== null && faPrice > 0)) && (
                 <StripeCheckoutModal 
                     isOpen={showPaymentModal}
-                    onClose={() => {
+                    onClose={async () => {
+                        // User closed the payment modal without paying.
+                        // Clean up the pending registration and orphaned team immediately
+                        // so they don't appear as ghost entries in the admin portal.
+                        if (currentRegistrationId) {
+                            await cancelPendingRegistration(currentRegistrationId, currentTeamId);
+                            setCurrentRegistrationId(null);
+                            setCurrentTeamId(null);
+                        }
                         setShowPaymentModal(false);
                         setIsSubmitting(false);
                     }}
