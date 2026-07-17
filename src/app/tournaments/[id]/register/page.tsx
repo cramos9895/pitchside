@@ -102,6 +102,14 @@ export default async function TournamentRegistrationPage({ params, searchParams 
         }
     }
 
+    const { data: takenTeams } = await supabase
+        .from('teams')
+        .select('primary_color')
+        .or(`game_id.eq.${tournamentId},league_id.eq.${tournamentId}`)
+        .not('primary_color', 'is', null);
+
+    const takenColors = takenTeams?.map(t => t.primary_color?.toLowerCase()).filter(Boolean) || [];
+
     return (
         <main className="bg-pitch-black min-h-screen pt-32 px-4 pb-24">
             <div className="max-w-3xl mx-auto border-t-4 pt-8" style={{ borderColor: '#cbff00' }}>
@@ -112,6 +120,7 @@ export default async function TournamentRegistrationPage({ params, searchParams 
                         teamPrice={teamPrice}
                         faPrice={faPrice}
                         dbDepositAmount={deposit}
+                        takenColors={takenColors}
                         {...details}
                     />
                 </Suspense>

@@ -19,7 +19,8 @@ export function TournamentRegistrationClient({
     description,
     strict_waiver_required,
     waiver_details,
-    allow_free_agents
+    allow_free_agents,
+    takenColors
 }: { 
     tournamentId: string, 
     tournamentName: string, 
@@ -32,7 +33,8 @@ export function TournamentRegistrationClient({
     description?: string | null,
     strict_waiver_required?: boolean,
     waiver_details?: string | null,
-    allow_free_agents?: boolean
+    allow_free_agents?: boolean,
+    takenColors?: string[]
 }) {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -105,7 +107,7 @@ export function TournamentRegistrationClient({
                 liability_acknowledged: formData.get('liability_acknowledged')
             };
             
-            if (!payload.liability_acknowledged) {
+            if (!isPlayerPricing && !payload.liability_acknowledged) {
                 throw new Error("You must accept financial responsibility.");
             }
 
@@ -261,14 +263,23 @@ export function TournamentRegistrationClient({
                                     />
                                 </div>
                                 <div>
-                                    <label htmlFor="primary_color" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Primary Jersey Color</label>
-                                    <input 
-                                        type="text" 
-                                        id="primary_color" 
-                                        name="primary_color" 
-                                        placeholder="e.g. RED / WHITE / BLACK"
-                                        className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent transition-colors block uppercase"
-                                    />
+                                    <label htmlFor="primary_color" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Primary Jersey Color *</label>
+                                    <select
+                                        id="primary_color"
+                                        name="primary_color"
+                                        required
+                                        className="w-full bg-black/50 border border-white/10 rounded-sm px-4 py-3 text-white focus:outline-none focus:border-pitch-accent transition-colors block uppercase appearance-none cursor-pointer"
+                                    >
+                                        <option value="" disabled selected>Select Team Color</option>
+                                        {['Red', 'Orange', 'Neon Green', 'Blue', 'Black', 'White', 'Purple', 'Pink'].map(color => {
+                                            const isTaken = takenColors?.includes(color.toLowerCase());
+                                            return (
+                                                <option key={color} value={color} disabled={isTaken}>
+                                                    {color} {isTaken ? '(Taken)' : ''}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -302,7 +313,7 @@ export function TournamentRegistrationClient({
                                 <CheckCircle2 className="w-6 h-6 shrink-0" />
                             </div>
 
-                            {!isCashLeague && (
+                            {(!isCashLeague && !isPlayerPricing) && (
                                 <div className="mt-6 p-4 bg-orange-500/5 border border-orange-500/30 rounded-lg">
                                     <label htmlFor="liability_acknowledged" className="flex items-start gap-4 cursor-pointer group">
                                         <div className="relative flex items-center justify-center mt-1">

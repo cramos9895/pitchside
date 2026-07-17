@@ -143,28 +143,14 @@ export function TournamentCard({ tournament, userId, registrations }: Tournament
                             View Tournament Lobby <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                         </button>
                     ) : (
-                        <>
-                            <button
-                                onClick={() => {
-                                    router.push(`/tournaments/${tournament.id}/register?type=team`);
-                                }}
-                                className="w-full py-4 bg-[#cbff00] text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 group/btn shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm"
-                            >
-                                <span className="flex items-center gap-2">Register Team <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" /></span>
-                                {tournament.team_price !== null && <span className="text-[10px] opacity-70">(${tournament.team_price})</span>}
-                            </button>
-                            {(tournament.free_agent_price !== null && tournament.free_agent_price >= 0) && (
-                                <button
-                                    onClick={() => {
-                                        router.push(`/tournaments/${tournament.id}/register?type=free_agent`);
-                                    }}
-                                    className="w-full py-4 border border-[#cbff00]/50 text-[#cbff00] font-black uppercase tracking-widest text-xs hover:bg-[#cbff00]/10 transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 rounded-sm"
-                                >
-                                    <span>Join Free Agent</span>
-                                    <span className="text-[10px] opacity-70">(${tournament.free_agent_price})</span>
-                                </button>
-                            )}
-                        </>
+                        <button
+                            onClick={() => {
+                                router.push(`/tournaments/${tournament.id}`);
+                            }}
+                            className="w-full py-4 bg-[#cbff00] text-black font-black uppercase tracking-widest text-xs hover:bg-white transition-all transform active:scale-95 flex flex-col items-center justify-center gap-1 group/btn shadow-[0_0_20px_rgba(204,255,0,0.15)] rounded-sm"
+                        >
+                            <span className="flex items-center gap-2">See Details <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" /></span>
+                        </button>
                     )}
                 </div>
             </div>

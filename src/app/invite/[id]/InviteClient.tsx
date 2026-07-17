@@ -328,7 +328,14 @@ function SetupIntentForm({ teamId, tournamentId, setupIntentId, waiverAccepted, 
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <PaymentElement />
+            <PaymentElement 
+                options={{
+                    wallets: {
+                        applePay: 'auto',
+                        googlePay: 'auto'
+                    }
+                }}
+            />
             <button
                 type="submit"
                 disabled={!stripe || !waiverAccepted || isProcessing}
