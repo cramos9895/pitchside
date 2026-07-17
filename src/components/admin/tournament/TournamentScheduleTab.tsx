@@ -133,12 +133,17 @@ export function TournamentScheduleTab({
                 formattedEndTime = `${formattedEndTime}:00`;
             }
 
+            const parsedAmountOfFields = parseInt(editAmountOfFields);
+            const parsedHalfLength = parseInt(editHalfLength);
+            const parsedHalftimeLength = parseInt(editHalftimeLength);
+            const parsedBreakBetweenGames = parseInt(editBreakBetweenGames);
+
             const schedule = generateTournamentSchedule({
                 teams: activeTeamsForDraft,
-                amountOfFields: parseInt(editAmountOfFields) || 1,
-                halfLength: parseInt(editHalfLength) || 20,
-                halftimeLength: parseInt(editHalftimeLength) || 5,
-                breakBetweenGames: parseInt(editBreakBetweenGames) || 5,
+                amountOfFields: isNaN(parsedAmountOfFields) ? 1 : parsedAmountOfFields,
+                halfLength: isNaN(parsedHalfLength) ? 20 : parsedHalfLength,
+                halftimeLength: isNaN(parsedHalftimeLength) ? 5 : parsedHalftimeLength,
+                breakBetweenGames: isNaN(parsedBreakBetweenGames) ? 5 : parsedBreakBetweenGames,
                 earliestStartTime: startDateTime.toISOString(),
                 endTime: formattedEndTime,
                 tournamentStyle: game.tournament_style || 'group_stage',
