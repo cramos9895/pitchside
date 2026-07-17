@@ -810,7 +810,7 @@ export default function RosterPage({ params }: { params: Promise<{ id: string }>
     const validBookings = bookings.filter(b => b.status !== 'cancelled' && b.roster_status !== 'dropped');
 
     // ACTIVE ROSTER: Status precisely equals 'confirmed', or legacy fallbacks 'paid' / 'active'
-    const roster = validBookings.filter(b => ['confirmed', 'paid', 'active'].includes(b.status) || b.roster_status === 'confirmed');
+    const roster = validBookings.filter(b => ['confirmed', 'paid', 'active', 'registered'].includes(b.status) || b.roster_status === 'confirmed');
 
     // WAITLIST QUEUE: Status precisely equals 'waitlisted', or legacy fallbacks 'waitlist'
     const waitlist = validBookings.filter(b => ['waitlisted', 'waitlist'].includes(b.status) || b.roster_status === 'waitlisted')
