@@ -140,25 +140,7 @@ export default async function SuccessPage({ searchParams }: Props) {
             .eq('checkout_session_id', sessionId)
             .maybeSingle();
 
-        // 2.5 Synchronously Update Tournament Registration (if applicable)
-        if (registrationId) {
-            try {
-                const { error: regError } = await adminSupabase
-                    .from('tournament_registrations')
-                    .update({
-                        status: 'registered',
-                        payment_status: 'paid',
-                        stripe_payment_intent_id: session.payment_intent || (session.setup_intent ? typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent.id : null)
-                    })
-                    .eq('id', registrationId);
-
-                if (regError) {
-                    console.error('[SUCCESS_DB_ERROR] Failed to finalize tournament registration synchronously:', regError);
-                }
-            } catch (err) {
-                console.error('[SUCCESS_DB_ERROR] Exception updating tournament registration:', err);
-            }
-        }
+        // 2.5 (Removed) Tournament Registration update moved to the passengers loop below
 
         let appliedCreditUnitsCents = 0;
         let guestIdsToInsert: string[] = [];
@@ -261,6 +243,23 @@ export default async function SuccessPage({ searchParams }: Props) {
                         console.error(`[SUCCESS_FAIL] Insert failed for user ${passenger.user_id}:`, insertError);
                     } else {
                         atLeastOneSuccess = true;
+                    }
+                }
+
+                // If Tournament or League, also update their pending tournament_registrations row
+                if (eventType === 'tournament' || eventType === 'league') {
+                    const { error: regError } = await adminSupabase
+                        .from('tournament_registrations')
+                        .update({
+                            status: 'registered',
+                            payment_status: 'paid',
+                            stripe_payment_intent_id: session.payment_intent || (session.setup_intent ? typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent.id : null)
+                        })
+                        .eq('game_id', passenger.game_id)
+                        .eq('user_id', passenger.user_id);
+                    
+                    if (regError) {
+                        console.error(`[SUCCESS_DB_ERROR] Failed to finalize tournament registration for user ${passenger.user_id}:`, regError);
                     }
                 }
             } catch (err) {

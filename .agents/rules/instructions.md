@@ -19,6 +19,7 @@ This document outlines the strict operational and coding standards for the Pitch
     - **No Shared Component Helpers:** Copied components must keep their specific helpers, types, or hooks self-contained in their own file to prevent side effects.
     - **Separate Components Over Flags:** Avoid combining distinct user roles or layouts into one component via conditional rendering (e.g., do not use `isAdmin ? <GameCard admin /> : <GameCard />`). Create standalone components (e.g., `GameCardAdmin.tsx` and `GameCardPlayer.tsx`) and serve them on their respective pages.
     - **Naming Convention:** Use clear descriptive suffixes for component variants (e.g., `GameCardHost`, `GameCardGuest`).
+- **Composition Over Duplication Pattern:** When a feature requires different backend logic or data flows based on the event type (e.g., Tournaments vs. Pickups), do *not* build massive monolithic files with `if/else` statements. Instead, create isolated parent wrappers (e.g., `<TournamentClientPage>` and `<PickupClientPage>`). However, for shared visual elements (like Chat windows, generic Registration Modals, or Payment UIs), build them as "Dumb UI Components" and *inject* them into the isolated wrappers. This ensures a unified design language across the platform while keeping data processing completely segregated.
 - **Tech Stack Consistency:** Stick to the established tech stack:
     - **Frontend:** Next.js (App Router), React, Tailwind CSS.
     - **Backend/DB:** Supabase (Auth, DB, Storage).
@@ -80,3 +81,7 @@ This document outlines the strict operational and coding standards for the Pitch
 - **Pickup Tournaments (Match Style):** If the `event_type === 'pickup'` but `match_style === 'Tourney'`, the logic is split:
     - **Scheduling:** `src/components/admin/ScheduleGenerator.tsx` handles generating the Most Rested First round-robin schedule and team exclusions.
     - **Match Management:** `src/components/admin/MatchManager.tsx` handles displaying the matches, live scoring, and inline match editing for scheduled matches.
+
+## 11. Agent Scope & Bounding Limits
+- **Strict Scope Containment:** The agent MUST NOT attempt to proactively refactor, debug, or modify components, database tables, or event types outside the explicit scope requested by the user, even if an opportunity for "optimization" is identified.
+- **No Unauthorized Cross-Contamination:** When tasked with updating a feature for one specific event type (e.g., `tournament`), the agent must explicitly verify that the changes will not alter the behavior, data fetching, or visual layout of the other event types (e.g., `pickup` or `league`). If shared code must be modified, the agent must pause and request permission before proceeding.

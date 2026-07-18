@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 
-import { GameClientPage } from './GameClientPage';
+import { TournamentClientPage } from './TournamentClientPage';
+import { PickupClientPage } from './PickupClientPage';
+import { LeagueClientPage } from './LeagueClientPage';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 
@@ -152,16 +154,42 @@ export default async function GameDetailsPage({ params }: { params: Promise<{ id
     }
 
 
-    // Otherwise, show the full Interactive Page (Client Side)
-    return (
-        <GameClientPage 
-            initialGame={game}
-            initialHost={primaryHost}
-            registeredTeams={registeredTeams}
-            params={{ id: gameId }}
-            currentUser={user}
-            isParticipantServer={isParticipant}
-            isFreeAgentServer={isFreeAgent}
-        />
-    );
+    // Otherwise, show the full Interactive Page (Client Side) based on event type
+    if (game.event_type === 'tournament') {
+        return (
+            <TournamentClientPage 
+                initialGame={game}
+                initialHost={primaryHost}
+                registeredTeams={registeredTeams}
+                params={{ id: gameId }}
+                currentUser={user}
+                isParticipantServer={isParticipant}
+                isFreeAgentServer={isFreeAgent}
+            />
+        );
+    } else if (game.event_type === 'pickup') {
+        return (
+            <PickupClientPage 
+                initialGame={game}
+                initialHost={primaryHost}
+                registeredTeams={registeredTeams}
+                params={{ id: gameId }}
+                currentUser={user}
+                isParticipantServer={isParticipant}
+                isFreeAgentServer={isFreeAgent}
+            />
+        );
+    } else {
+        return (
+            <LeagueClientPage 
+                initialGame={game}
+                initialHost={primaryHost}
+                registeredTeams={registeredTeams}
+                params={{ id: gameId }}
+                currentUser={user}
+                isParticipantServer={isParticipant}
+                isFreeAgentServer={isFreeAgent}
+            />
+        );
+    }
 }
