@@ -247,7 +247,21 @@ export default async function SuccessPage({ searchParams }: Props) {
                 }
 
                 // If Tournament or League, also update their pending tournament_registrations row
-                if (eventType === 'tournament' || eventType === 'league') {
+                if (passenger.registration_id) {
+                    const { error: regError } = await adminSupabase
+                        .from('tournament_registrations')
+                        .update({
+                            status: 'registered',
+                            payment_status: 'paid',
+                            stripe_payment_intent_id: session.payment_intent || (session.setup_intent ? typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent.id : null)
+                        })
+                        .eq('id', passenger.registration_id);
+                    
+                    if (regError) {
+                        console.error(`[SUCCESS_DB_ERROR] Failed to finalize tournament registration for user ${passenger.user_id}:`, regError);
+                    }
+                } else if (eventType === 'tournament' || eventType === 'league') {
+                    // Fallback for legacy sessions that didn't pass registration_id in metadata
                     const { error: regError } = await adminSupabase
                         .from('tournament_registrations')
                         .update({
@@ -259,7 +273,7 @@ export default async function SuccessPage({ searchParams }: Props) {
                         .eq('user_id', passenger.user_id);
                     
                     if (regError) {
-                        console.error(`[SUCCESS_DB_ERROR] Failed to finalize tournament registration for user ${passenger.user_id}:`, regError);
+                        console.error(`[SUCCESS_DB_ERROR] Failed to finalize tournament registration via fallback for user ${passenger.user_id}:`, regError);
                     }
                 }
             } catch (err) {
