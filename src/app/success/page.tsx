@@ -176,6 +176,7 @@ export default async function SuccessPage({ searchParams }: Props) {
                 roster_status: isWaitlistVaulting ? 'waitlisted' : 'confirmed',
                 note: note,
                 stripe_payment_method_id: paymentMethodId,
+                registration_id: registrationId || null,
                 ...(teamAssignment && { team_assignment: teamAssignment }),
                 ...(prizeSplitPreference && { prize_split_preference: prizeSplitPreference })
             }
