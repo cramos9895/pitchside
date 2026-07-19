@@ -136,7 +136,7 @@ export function TournamentRegistrationClient({
                     const { data: { user } } = await supabase.auth.getUser();
                     if (!user) throw new Error("Authentication required.");
 
-                    const checkoutRes = await fetch('/api/checkout', {
+                    const checkoutRes = await fetch('/api/checkout/tournament', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -228,7 +228,7 @@ export function TournamentRegistrationClient({
                     const { data: { user } } = await supabase.auth.getUser();
                     if (!user) throw new Error("Authentication required.");
 
-                    const checkoutRes = await fetch('/api/checkout', {
+                    const checkoutRes = await fetch('/api/checkout/tournament', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
