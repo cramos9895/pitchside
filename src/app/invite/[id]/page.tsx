@@ -128,6 +128,7 @@ export default async function InvitePage({ params }: { params: Promise<{ id: str
                     perGameFee={gameData?.cash_amount || gameData?.price || 0}
                     waiverDetails={gameData?.waiver_details || ''}
                     description={gameData?.description || ''}
+                    eventType={gData ? 'tournament' : 'league'}
                 />
             </div>
         </main>

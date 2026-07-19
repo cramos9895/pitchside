@@ -28,6 +28,7 @@ interface InviteClientProps {
     perGameFee: number;
     waiverDetails?: string;
     description?: string;
+    eventType: 'tournament' | 'league';
 }
 
 export function InviteClient({ 
@@ -45,7 +46,8 @@ export function InviteClient({
     playerRegistrationFee,
     perGameFee,
     waiverDetails,
-    description
+    description,
+    eventType
 }: InviteClientProps) {
     const router = useRouter();
     const [waiverAccepted, setWaiverAccepted] = useState(false);
@@ -108,7 +110,9 @@ export function InviteClient({
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) throw new Error("Authentication required.");
 
-                const checkoutRes = await fetch('/api/checkout', {
+                const endpoint = eventType === 'tournament' ? '/api/checkout/tournament' : '/api/checkout';
+                
+                const checkoutRes = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -118,7 +122,8 @@ export function InviteClient({
                         title: "Player Registration",
                         note: `Join ${teamName} in ${tournamentName}`,
                         registrationId: res.registrationId,
-                        eventType: 'tournament_player'
+                        teamId: teamId,
+                        eventType: eventType
                     })
                 });
                 const checkoutData = await checkoutRes.json();

@@ -112,9 +112,27 @@ export async function acceptTeamInvite({
         throw new Error("Failed to join team roster. You may already be registered.");
     }
 
-    if (regError) {
-        console.error("Invite Registration Error:", regError);
-        throw new Error("Failed to join team roster.");
+    // --- LEGACY SYNC: Also insert into `bookings` for the frontend roster ---
+    if (isGame) {
+        // Fetch team name for legacy team_assignment
+        const { data: teamData } = await supabase.from('teams').select('name').eq('id', teamId).single();
+        if (teamData) {
+            const bookingPayload = {
+                game_id: tournamentId,
+                user_id: user.id,
+                status: 'paid',
+                payment_status: paymentStatus === 'card_saved' ? 'verified' : 'free',
+                roster_status: 'confirmed',
+                team_assignment: teamData.name
+            };
+            
+            await supabase
+                .from('bookings')
+                .upsert(bookingPayload, { 
+                    onConflict: 'game_id,user_id',
+                    ignoreDuplicates: false 
+                });
+        }
     }
 
     revalidatePath('/dashboard');
