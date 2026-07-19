@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound, redirect } from 'next/navigation';
 import { CaptainDashboard } from '@/components/public/CaptainDashboard';
 import { headers } from 'next/headers';
@@ -6,9 +7,16 @@ import { headers } from 'next/headers';
 export const revalidate = 0; // Dynamic data
 
 // Next.js 15 requires params to be a Promise
-export default async function CaptainCommandCenter({ params }: { params: Promise<{ id: string; team_id: string }> }) {
+export default async function CaptainCommandCenter({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ id: string; team_id: string }>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
     const supabase = await createClient();
     const { id, team_id } = await params;
+    const resolvedSearchParams = await searchParams;
 
     // 1. FAST PATH: Check for Rolling League and Redirect IMMEDIATELY
     // We do this before auth or any other heavy lifting to avoid 404s on legacy routes.
@@ -163,6 +171,32 @@ export default async function CaptainCommandCenter({ params }: { params: Promise
     if (rosterError) {
         console.error('Error fetching roster:', rosterError.message);
     }
+
+    // --- SELF-HEALING: Promote pending captain registration to 'registered' ---
+    // This is a defense-in-depth safeguard that runs ONLY for tournament team pages.
+    // If the captain arrives with '?success=registration' in the URL AND their
+    // registration is still 'pending' (e.g. the /success page update silently failed),
+    // we use the admin client (service role) to finalize their status here.
+    // This block has zero impact on pickup, league, or rolling league routes.
+    if (resolvedSearchParams.success === 'registration' && isCaptain) {
+        const captainReg = roster?.find((r: any) => r.user_id === user.id && r.status === 'pending');
+        if (captainReg) {
+            console.log(`[SELF_HEAL] Promoting pending registration ${captainReg.id} to registered for captain ${user.id}`);
+            const adminSupabase = createAdminClient();
+            const { error: healError } = await adminSupabase
+                .from('tournament_registrations')
+                .update({ status: 'registered', payment_status: 'paid' })
+                .eq('id', captainReg.id);
+            if (healError) {
+                console.error('[SELF_HEAL] Failed to promote registration:', healError);
+            } else {
+                // Mutate the local roster data so the page renders the correct status immediately
+                captainReg.status = 'registered';
+                captainReg.payment_status = 'paid';
+            }
+        }
+    }
+    // ---------------------------------------------------------------------------
 
     // 4. Fetch Matches (For Schedule & Standings)
     // Always use the 'matches' table for live data sync

@@ -264,32 +264,50 @@ export default async function SuccessPage({ searchParams }: Props) {
 
                 // If Tournament or League, also update their pending tournament_registrations row
                 if (passenger.registration_id) {
+                    // Update tournament_registrations status to registered/paid.
+                    // NOTE: The column is 'stripe_setup_intent_id' (not stripe_payment_intent_id).
+                    // Passing a non-existent column name causes Supabase to silently fail the update.
+                    const intentId = session.payment_intent
+                        ? (typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent.id)
+                        : session.setup_intent
+                            ? (typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent.id)
+                            : null;
                     const { error: regError } = await adminSupabase
                         .from('tournament_registrations')
                         .update({
                             status: 'registered',
                             payment_status: 'paid',
-                            stripe_payment_intent_id: session.payment_intent || (session.setup_intent ? typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent.id : null)
+                            stripe_setup_intent_id: intentId
                         })
                         .eq('id', passenger.registration_id);
                     
                     if (regError) {
                         console.error(`[SUCCESS_DB_ERROR] Failed to finalize tournament registration for user ${passenger.user_id}:`, regError);
+                    } else {
+                        console.log(`[SUCCESS_OK] Tournament registration ${passenger.registration_id} finalized for user ${passenger.user_id}`);
                     }
                 } else if (eventType === 'tournament' || eventType === 'league') {
-                    // Fallback for legacy sessions that didn't pass registration_id in metadata
+                    // Fallback for sessions that didn't pass registration_id in metadata.
+                    // Same column fix: the table has stripe_setup_intent_id, not stripe_payment_intent_id.
+                    const fallbackIntentId = session.payment_intent
+                        ? (typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent.id)
+                        : session.setup_intent
+                            ? (typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent.id)
+                            : null;
                     const { error: regError } = await adminSupabase
                         .from('tournament_registrations')
                         .update({
                             status: 'registered',
                             payment_status: 'paid',
-                            stripe_payment_intent_id: session.payment_intent || (session.setup_intent ? typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent.id : null)
+                            stripe_setup_intent_id: fallbackIntentId
                         })
                         .eq('game_id', passenger.game_id)
                         .eq('user_id', passenger.user_id);
                     
                     if (regError) {
                         console.error(`[SUCCESS_DB_ERROR] Failed to finalize tournament registration via fallback for user ${passenger.user_id}:`, regError);
+                    } else {
+                        console.log(`[SUCCESS_OK] Tournament registration finalized via fallback for user ${passenger.user_id} in game ${passenger.game_id}`);
                     }
                 }
             } catch (err) {
@@ -434,11 +452,16 @@ export default async function SuccessPage({ searchParams }: Props) {
                         href={
                             eventType === 'league' 
                                 ? (teamId ? `/leagues/${gameId}/team/${teamId}` : '/dashboard/schedule')
-                                : '/'
+                                // For tournaments: send captains back to their command center with a
+                                // ?success=registration flag so the self-healing fallback can fire
+                                // if the /success DB update silently failed.
+                                : (eventType === 'tournament' && teamId)
+                                    ? `/tournaments/${gameId}/team/${teamId}?success=registration`
+                                    : '/'
                         }
                         className="inline-block w-full py-4 bg-pitch-accent text-pitch-black font-black uppercase tracking-wider rounded-sm hover:bg-white transition-colors"
                     >
-                        {eventType === 'league' ? 'Go to Command Center' : 'Back to Pitch'}
+                        {(eventType === 'league' || eventType === 'tournament') ? 'Go to Command Center' : 'Back to Pitch'}
                     </Link>
                 </div>
             </div>
