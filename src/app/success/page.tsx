@@ -236,9 +236,24 @@ export default async function SuccessPage({ searchParams }: Props) {
                     }
                 } else {
                     // INSERT new row
+                    const bookingInsertData = {
+                        game_id: passenger.game_id,
+                        user_id: passenger.user_id,
+                        buyer_id: passenger.buyer_id,
+                        linked_booking_id: passenger.linked_booking_id,
+                        status: passenger.status,
+                        payment_status: passenger.payment_status,
+                        payment_method: passenger.payment_method,
+                        payment_amount: passenger.payment_amount,
+                        roster_status: passenger.roster_status,
+                        note: passenger.note || null,
+                        stripe_payment_method_id: passenger.stripe_payment_method_id || null,
+                        team_assignment: passenger.team_assignment || null,
+                    };
+
                     const { error: insertError } = await dbClient
                         .from('bookings')
-                        .insert([passenger]);
+                        .insert([bookingInsertData]);
 
                     if (insertError) {
                         console.error(`[SUCCESS_FAIL] Insert failed for user ${passenger.user_id}:`, insertError);
