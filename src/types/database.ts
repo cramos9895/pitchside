@@ -1397,7 +1397,6 @@ export type Database = {
           is_playoff: boolean | null
           match_phase: string | null
           match_style: string | null
-          group_name: string | null
           paused_elapsed_seconds: number | null
           review_status: string | null
           round_number: number | null
@@ -1424,7 +1423,6 @@ export type Database = {
           is_playoff?: boolean | null
           match_phase?: string | null
           match_style?: string | null
-          group_name?: string | null
           paused_elapsed_seconds?: number | null
           review_status?: string | null
           round_number?: number | null
@@ -1451,7 +1449,6 @@ export type Database = {
           is_playoff?: boolean | null
           match_phase?: string | null
           match_style?: string | null
-          group_name?: string | null
           paused_elapsed_seconds?: number | null
           review_status?: string | null
           round_number?: number | null
