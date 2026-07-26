@@ -1005,69 +1005,95 @@ export function PickupClientPage({
                                             No players joined yet. Be the first to claim a spot!
                                         </div>
                                     ) : (
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                                            {activeRoster.map((player) => {
-                                                const profile = Array.isArray(player.profiles) ? player.profiles[0] : player.profiles;
-                                                const firstName = profile?.first_name || '';
-                                                const lastName = profile?.last_name || '';
-                                                const email = profile?.email || '';
-                                                const name = firstName ? `${firstName} ${lastName}`.trim() : email || 'Player';
-                                                const initials = getPlayerInitials(firstName, lastName, email);
-                                                const isMe = currentUser?.id === player.user_id;
-                                                const isConfirmed = ['paid', 'active'].includes(player.status || '') || player.roster_status === 'confirmed';
+                                        (() => {
+                                            const COLOR_MAP: Record<string, string> = {
+                                                'Neon Orange': 'border-orange-500/50 bg-orange-500/10',
+                                                'Neon Blue': 'border-cyan-400/50 bg-cyan-400/10',
+                                                'Neon Green': 'border-[#ccff00]/50 bg-[#ccff00]/10',
+                                                'White': 'border-white/50 bg-white/10',
+                                                'Black': 'border-gray-600 bg-gray-950',
+                                                'Red': 'border-red-500/50 bg-red-500/10',
+                                                'Yellow': 'border-yellow-400/50 bg-yellow-400/10',
+                                                'Light Blue': 'border-blue-400/50 bg-blue-400/10',
+                                                'Pink': 'border-pink-500/50 bg-pink-500/10',
+                                                'Purple': 'border-purple-500/50 bg-purple-500/10',
+                                                'Blue': 'border-blue-600/50 bg-blue-600/10',
+                                                'Grey': 'border-gray-500/50 bg-gray-500/10'
+                                            };
+                                            const HEX_COLOR_MAP: Record<string, string> = {
+                                                'Neon Orange': '#ff4f00', 'Neon Blue': '#00ccff', 'Neon Green': '#ccff00',
+                                                'White': '#ffffff', 'Black': '#333333', 'Red': '#ef4444',
+                                                'Yellow': '#eab308', 'Light Blue': '#60a5fa', 'Pink': '#ec4899',
+                                                'Purple': '#a855f7', 'Blue': '#2563eb', 'Grey': '#6b7280'
+                                            };
 
-                                                return (
-                                                    <div
-                                                        key={player.id}
-                                                        className={cn(
-                                                            "bg-black/40 border rounded-lg p-5 flex flex-col items-center justify-between text-center transition-all duration-200 hover:scale-[1.03] relative group shadow-md",
-                                                            isMe 
-                                                                ? "border-pitch-accent/80 bg-gradient-to-b from-pitch-accent/15 via-black/50 to-black/60 shadow-[0_0_20px_rgba(204,255,0,0.15)]" 
-                                                                : "border-white/10 hover:border-pitch-accent/40 hover:bg-white/[0.06]"
-                                                        )}
-                                                    >
-                                                        {/* YOU Badge */}
-                                                        {isMe && (
-                                                            <span className="absolute top-2 right-2 bg-pitch-accent text-pitch-black text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow">
-                                                                YOU
-                                                            </span>
-                                                        )}
-
-                                                        {/* Initials Circle */}
-                                                        <div
-                                                            className={cn(
-                                                                "w-16 h-16 rounded-full flex items-center justify-center font-black text-xl mb-3 border-2 transition-transform duration-200 group-hover:scale-105 shrink-0",
-                                                                isMe
-                                                                    ? "bg-pitch-accent text-pitch-black border-white shadow-[0_0_15px_rgba(204,255,0,0.4)]"
-                                                                    : "bg-white/5 text-pitch-accent border-pitch-accent/30 group-hover:bg-pitch-accent group-hover:text-pitch-black group-hover:border-pitch-accent"
-                                                            )}
-                                                        >
-                                                            {initials}
-                                                        </div>
-
-                                                        {/* Name & Details */}
-                                                        <div className="w-full space-y-1.5">
-                                                            <h4 className={cn("font-bold text-sm md:text-base truncate tracking-tight font-sans", isMe ? "text-pitch-accent font-extrabold" : "text-white group-hover:text-pitch-accent transition-colors")} title={name}>
-                                                                {name}
-                                                            </h4>
-                                                            
-                                                            <div className="flex flex-col items-center gap-1 pt-0.5">
-                                                                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border bg-black/60 border-white/10 text-gray-400 max-w-full truncate">
-                                                                    {(!player.team_assignment || player.team_assignment === 'free_agent') ? 'Unassigned' : player.team_assignment}
-                                                                </span>
-
-                                                                {isConfirmed && (
-                                                                    <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-green-400">
-                                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                                                                        Confirmed
-                                                                    </span>
-                                                                )}
+                                            const teams = game.teams_config || [];
+                                            const unassigned = activeRoster.filter(p => !p.team_assignment || p.team_assignment === 'free_agent');
+                                            
+                                            return (
+                                                <div className={cn("grid gap-4", teams.length >= 3 ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 md:grid-cols-3")}>
+                                                    {/* UNASSIGNED */}
+                                                    <div className="border rounded-sm flex flex-col border-gray-500/30 bg-gray-900/50">
+                                                        <div className="p-3 border-b border-white/5 bg-black/20 flex justify-between items-center relative overflow-hidden">
+                                                            <div className="absolute bottom-0 left-0 h-1 transition-all duration-500" style={{ width: '0%', backgroundColor: '#4b5563' }} />
+                                                            <h4 className="font-bold uppercase tracking-wider text-sm text-gray-400">Unassigned</h4>
+                                                            <div className="flex items-center gap-2 relative z-10">
+                                                                <span className="text-xs text-gray-400 font-mono">{unassigned.length} / -</span>
                                                             </div>
                                                         </div>
+                                                        <div className="p-2 space-y-1">
+                                                            {unassigned.map(player => {
+                                                                const profile = Array.isArray(player.profiles) ? player.profiles[0] : player.profiles;
+                                                                const name = profile?.first_name ? `${profile.first_name} ${profile.last_name}`.trim() : profile?.email || 'Player';
+                                                                const isMe = currentUser?.id === player.user_id;
+                                                                const isConfirmed = ['paid', 'active'].includes(player.status || '') || player.roster_status === 'confirmed';
+                                                                return (
+                                                                    <div key={player.id} className={cn("px-2 py-1.5 rounded border flex items-center gap-2 transition-all duration-200", isMe ? "bg-pitch-accent/10 border-pitch-accent ring-1 ring-pitch-accent text-white" : "bg-black/40 border-white/5 text-gray-200")}>
+                                                                        <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", isConfirmed ? "bg-green-500" : player.status === 'waitlist' ? "bg-yellow-500" : "bg-gray-500")} />
+                                                                        <div className="text-xs truncate flex-1 text-left font-bold">{name} {isMe && "(YOU)"}</div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
+
+                                                    {/* DYNAMIC TEAMS */}
+                                                    {teams.map((team: any) => {
+                                                        const teamPlayers = activeRoster.filter(p => p.team_assignment === team.name);
+                                                        const colorClass = COLOR_MAP[team.color] || 'border-gray-600 bg-gray-800';
+                                                        const limit = team.limit || 10;
+                                                        const percentage = Math.min(100, (teamPlayers.length / limit) * 100);
+                                                        const barValues = HEX_COLOR_MAP[team.color] || '#4b5563';
+
+                                                        return (
+                                                            <div key={team.name} className={cn("border rounded-sm flex flex-col", colorClass)}>
+                                                                <div className="p-3 border-b border-white/5 bg-black/20 flex justify-between items-center relative overflow-hidden">
+                                                                    <div className="absolute bottom-0 left-0 h-1 transition-all duration-500" style={{ width: `${percentage}%`, backgroundColor: barValues }} />
+                                                                    <h4 className="font-bold uppercase tracking-wider text-sm text-white">{team.name}</h4>
+                                                                    <div className="flex items-center gap-2 relative z-10">
+                                                                        <span className="text-xs text-gray-400 font-mono">{teamPlayers.length} / {limit}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="p-2 space-y-1">
+                                                                    {teamPlayers.map(player => {
+                                                                        const profile = Array.isArray(player.profiles) ? player.profiles[0] : player.profiles;
+                                                                        const name = profile?.first_name ? `${profile.first_name} ${profile.last_name}`.trim() : profile?.email || 'Player';
+                                                                        const isMe = currentUser?.id === player.user_id;
+                                                                        const isConfirmed = ['paid', 'active'].includes(player.status || '') || player.roster_status === 'confirmed';
+                                                                        return (
+                                                                            <div key={player.id} className={cn("px-2 py-1.5 rounded border flex items-center gap-2 transition-all duration-200", isMe ? "bg-pitch-accent/10 border-pitch-accent ring-1 ring-pitch-accent text-white" : "bg-black/40 border-white/5 text-gray-200")}>
+                                                                                <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", isConfirmed ? "bg-green-500" : player.status === 'waitlist' ? "bg-yellow-500" : "bg-gray-500")} />
+                                                                                <div className="text-xs truncate flex-1 text-left font-bold">{name} {isMe && "(YOU)"}</div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
+                                        })()
                                     )}
                                 </div>
                             </div>
