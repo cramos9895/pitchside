@@ -96,7 +96,7 @@ export default async function SuccessPage({ searchParams }: Props) {
         const isFreeAgent = session.metadata?.is_free_agent === 'true';
         const isLeagueCaptain = session.metadata?.is_league_captain === 'true';
         const isWaitlistVaulting = session.metadata?.is_waitlist_vaulting === 'true';
-        const teamAssignment = session.metadata?.team_assignment || null;
+        let teamAssignment = session.metadata?.team_assignment || null;
         const prizeSplitPreference = session.metadata?.prize_split_preference;
         const teamId = session.metadata?.team_id;
         const eventType = session.metadata?.type;

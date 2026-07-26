@@ -311,6 +311,7 @@ export async function POST(request: Request) {
             },
             return_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
         });
+        }
 
         // STAGE IN PENDING CHECKOUTS
         const { error: pendingError } = await adminSupabase.from('pending_checkouts').insert({
