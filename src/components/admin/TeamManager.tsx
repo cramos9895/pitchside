@@ -92,6 +92,8 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
     }, [playersJson]);
 
     // Filter only active/paid players for team assignment
+    const activePlayers = localPlayers.filter(p => p.status === 'active' || p.status === 'paid');
+
     const highlightedUserIds = useMemo(() => {
         if (!hoveredPlayerId) return new Set<string>();
         const hoveredPlayer = activePlayers.find(p => p.id === hoveredPlayerId);
@@ -357,6 +359,9 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
                             onMovePlayer={handleMovePlayerRequest}
                             hoveredLinkId={hoveredLinkId}
                             setHoveredLinkId={setHoveredLinkId}
+                            hoveredPlayerId={hoveredPlayerId}
+                            setHoveredPlayerId={setHoveredPlayerId}
+                            highlightedUserIds={highlightedUserIds}
                             linkedGroups={linkedGroups}
                         />
                     );
@@ -431,6 +436,9 @@ function TeamColumn({
     onMovePlayer,
     hoveredLinkId,
     setHoveredLinkId,
+    hoveredPlayerId,
+    setHoveredPlayerId,
+    highlightedUserIds,
     linkedGroups
 }: {
     title: string,
