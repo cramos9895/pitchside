@@ -394,8 +394,9 @@ export function AdminLeagueDashboard({ params }: { params: Promise<{ id: string 
                                                         cash_paid_current_round: r.cash_paid_current_round,
                             profiles: profile || null,
                             teams: team ? { name: team.name } : null,
-                                                        created_at: r.created_at
-                        };
+                                                        created_at: r.created_at,
+                                                        requested_teammate_ids: r.requested_teammate_ids
+                                                    };
                     });
 
                     // Waiver enrichment
@@ -562,8 +563,9 @@ export function AdminLeagueDashboard({ params }: { params: Promise<{ id: string 
                                                                 cash_paid_current_round: r.cash_paid_current_round,
                                 profiles: profile || null,
                                 teams: team ? { name: team.name } : null,
-                                                                created_at: r.created_at
-                            };
+                                                                created_at: r.created_at,
+                                                        requested_teammate_ids: r.requested_teammate_ids
+                                                    };
                         });
                     }
                 } else {
@@ -1396,6 +1398,7 @@ export function AdminLeagueDashboard({ params }: { params: Promise<{ id: string 
                                             id: b.id,
                                             userId: b.user_id,
                                             linked_booking_id: b.linked_booking_id,
+                                            requested_teammate_ids: b.requested_teammate_ids,
                                             name: Array.isArray(b.profiles) ? (b.profiles[0]?.first_name ? `${b.profiles[0].first_name} ${b.profiles[0].last_name}` : 'Unknown') : (b.profiles?.first_name ? `${b.profiles.first_name} ${b.profiles.last_name}` : 'Unknown'),
                                             email: Array.isArray(b.profiles) ? b.profiles[0]?.email : b.profiles?.email || '',
                                             team: b.team_assignment === 'free_agent' ? null : (b.team_assignment as any || null),
@@ -1672,6 +1675,7 @@ export function AdminLeagueDashboard({ params }: { params: Promise<{ id: string 
                                             id: b.id,
                                             userId: b.user_id,
                                             linked_booking_id: b.linked_booking_id,
+                                            requested_teammate_ids: b.requested_teammate_ids,
                                             name: Array.isArray(b.profiles) ? (b.profiles[0]?.first_name ? `${b.profiles[0].first_name} ${b.profiles[0].last_name}` : 'Unknown') : (b.profiles?.first_name ? `${b.profiles.first_name} ${b.profiles.last_name}` : 'Unknown'),
                                             email: Array.isArray(b.profiles) ? b.profiles[0]?.email : b.profiles?.email || '',
                                             team: b.team_assignment === 'free_agent' ? null : (b.team_assignment as any || null),

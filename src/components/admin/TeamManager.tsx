@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { User, Shuffle, Crown, Link as LinkIcon, AlertTriangle, X } from 'lucide-react';
+import { User, Shuffle, Crown, Link as LinkIcon, AlertTriangle, X, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import { supabase } from '@/lib/supabase/client';
@@ -9,6 +9,7 @@ interface Player {
     id: string; // booking_id
     userId: string;
     linked_booking_id?: string | null;
+    requested_teammate_ids?: string[] | null;
     name: string;
     email: string;
     team: 'A' | 'B' | null;
@@ -80,6 +81,8 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
     const [loading, setLoading] = useState(false);
     const [localPlayers, setLocalPlayers] = useState<Player[]>(players);
     const [hoveredLinkId, setHoveredLinkId] = useState<string | null>(null);
+    const [hoveredPlayerId, setHoveredPlayerId] = useState<string | null>(null);
+
     const [groupMoveState, setGroupMoveState] = useState<{bookingId: string, newTeam: string | null, linkedBookingId: string, limit: number, count: number, exceedsCapacity: boolean} | null>(null);
 
     const playersJson = JSON.stringify(players);
@@ -89,8 +92,27 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
     }, [playersJson]);
 
     // Filter only active/paid players for team assignment
-    const activePlayers = localPlayers.filter(p => p.status === 'active' || p.status === 'paid');
-
+    const highlightedUserIds = useMemo(() => {
+        if (!hoveredPlayerId) return new Set<string>();
+        const hoveredPlayer = activePlayers.find(p => p.id === hoveredPlayerId);
+        if (!hoveredPlayer) return new Set<string>();
+        
+        const highlighted = new Set<string>();
+        
+        // Players hoveredPlayer requested
+        const requestedIds = hoveredPlayer.requested_teammate_ids || [];
+        
+        // Players who requested hoveredPlayer
+        const requesters = activePlayers.filter(p => p.requested_teammate_ids?.includes(hoveredPlayer.userId));
+        
+        if (requestedIds.length > 0 || requesters.length > 0) {
+            highlighted.add(hoveredPlayer.userId);
+            requestedIds.forEach(id => highlighted.add(id));
+            requesters.forEach(p => highlighted.add(p.userId));
+        }
+        
+        return highlighted;
+    }, [hoveredPlayerId, activePlayers]);
     const linkedGroups = useMemo(() => {
         const counts: Record<string, number> = {};
         activePlayers.forEach(p => {
@@ -312,6 +334,9 @@ export function TeamManager({ gameId, players, teams, onUpdate }: TeamManagerPro
                     onMovePlayer={handleMovePlayerRequest}
                     hoveredLinkId={hoveredLinkId}
                     setHoveredLinkId={setHoveredLinkId}
+                    hoveredPlayerId={hoveredPlayerId}
+                    setHoveredPlayerId={setHoveredPlayerId}
+                    highlightedUserIds={highlightedUserIds}
                     linkedGroups={linkedGroups}
                 />
 
@@ -416,6 +441,9 @@ function TeamColumn({
     onMovePlayer: (id: string, team: string | null) => void;
     hoveredLinkId: string | null;
     setHoveredLinkId: (id: string | null) => void;
+    hoveredPlayerId: string | null;
+    setHoveredPlayerId: (id: string | null) => void;
+    highlightedUserIds: Set<string>;
     linkedGroups: Record<string, number>;
 }) {
     // Find the team config for this column to get limit/color info
@@ -449,19 +477,29 @@ function TeamColumn({
             <div className="p-2 space-y-1">
                 {players.map(p => {
                     const isGrouped = p.linked_booking_id && linkedGroups[p.linked_booking_id] > 1;
-                    const isHovered = isGrouped && hoveredLinkId === p.linked_booking_id;
+                    const isHoveredGroup = isGrouped && hoveredLinkId === p.linked_booking_id;
+                    const isHighlightedTeammate = highlightedUserIds.has(p.userId);
+                    const hasTeammateRequest = (p.requested_teammate_ids?.length || 0) > 0;
                     
                     return (
                         <div 
                             key={p.id}
                             className={cn(
                                 "px-2 py-1.5 rounded border flex items-center gap-2 group transition-all duration-200",
-                                isHovered 
-                                    ? "bg-[#ccff00]/10 border-[#ccff00] ring-1 ring-[#ccff00] scale-[1.02]" 
-                                    : "bg-black/40 border-white/5 hover:border-white/20 hover:bg-white/5"
+                                isHighlightedTeammate
+                                    ? "bg-yellow-400/20 border-yellow-400/80 ring-1 ring-yellow-400/50 shadow-[0_0_8px_rgba(250,204,21,0.4)] z-10 relative scale-[1.02]"
+                                    : isHoveredGroup 
+                                        ? "bg-[#ccff00]/10 border-[#ccff00] ring-1 ring-[#ccff00] scale-[1.02]" 
+                                        : "bg-black/40 border-white/5 hover:border-white/20 hover:bg-white/5"
                             )}
-                            onMouseEnter={() => { if (isGrouped) setHoveredLinkId(p.linked_booking_id!); }}
-                            onMouseLeave={() => setHoveredLinkId(null)}
+                            onMouseEnter={() => { 
+                                if (isGrouped) setHoveredLinkId(p.linked_booking_id!);
+                                setHoveredPlayerId(p.id);
+                            }}
+                            onMouseLeave={() => {
+                                setHoveredLinkId(null);
+                                setHoveredPlayerId(null);
+                            }}
                         >
                             <div className={cn(
                                 "w-1.5 h-1.5 rounded-full shrink-0",
@@ -470,10 +508,11 @@ function TeamColumn({
                             )} title={`Payment: ${p.payment_status}`} />
                             
                             {isGrouped && (
-                                <LinkIcon className={cn("w-3 h-3 shrink-0", isHovered ? "text-[#ccff00]" : "text-[#ccff00] opacity-80")} />
+                                <LinkIcon className={cn("w-3 h-3 shrink-0", isHoveredGroup ? "text-[#ccff00]" : "text-[#ccff00] opacity-80")} />
                             )}
 
-                            <div className={cn("text-xs truncate flex-1 text-left", isHovered ? "text-white font-bold" : "text-gray-200")}>{p.name}</div>
+                            <div className={cn("text-xs truncate flex-1 text-left", isHighlightedTeammate ? "text-yellow-100 font-bold" :
+                                isHoveredGroup ? "text-white font-bold" : "text-gray-200")}>{p.name}</div>
                             
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
