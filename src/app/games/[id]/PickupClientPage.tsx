@@ -101,6 +101,18 @@ interface GameClientPageProps {
     isFreeAgentServer?: boolean;
 }
 
+function getPlayerInitials(firstName?: string | null, lastName?: string | null, email?: string | null): string {
+    if (firstName && firstName.trim().length > 0) {
+        const firstInitial = firstName.trim().charAt(0).toUpperCase();
+        const lastInitial = lastName && lastName.trim().length > 0 ? lastName.trim().charAt(0).toUpperCase() : '';
+        return firstInitial + (lastInitial || '');
+    }
+    if (email && email.trim().length > 0) {
+        return email.trim().substring(0, 2).toUpperCase();
+    }
+    return '?';
+}
+
 export function PickupClientPage({ 
     initialGame, 
     initialHost, 
@@ -149,17 +161,20 @@ export function PickupClientPage({
     const router = useRouter();
 
     useEffect(() => {
-        const fetchUserDataAndRoster = async () => {
-            setLoading(true);
+        let isMounted = true;
+
+        const fetchUserDataAndRoster = async (isInitial = false) => {
+            if (isInitial) setLoading(true);
 
             // 1. Get User Profile if logged in
-            if (currentUser) {
+            if (currentUser && isInitial) {
                 const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-                setUserProfile(profile);
+                if (isMounted) setUserProfile(profile);
             }
 
-            // 2. Fetch Roster & Matches (These change frequently, so we re-fetch on mount)
-            const [rosterRes, matchesRes] = await Promise.all([
+            // 2. Fetch Game, Roster & Matches
+            const [gameRes, rosterRes, matchesRes] = await Promise.all([
+                supabase.from('games').select('*').eq('id', gameId).single(),
                 supabase
                     .from('bookings')
                     .select('*, profiles!bookings_user_id_fkey(id, first_name, last_name, email)')
@@ -169,6 +184,12 @@ export function PickupClientPage({
                     ? supabase.from('matches').select('*').eq('game_id', gameId).order('created_at', { ascending: true })
                     : Promise.resolve({ data: [] })
             ]);
+
+            if (!isMounted) return;
+
+            if (gameRes.data) {
+                setGame(gameRes.data);
+            }
 
             if (rosterRes.data) {
                 setBookings(rosterRes.data as any);
@@ -188,31 +209,67 @@ export function PickupClientPage({
                             .in('role', ['admin', 'master_admin'])
                             .maybeSingle();
 
-                        if (game.host_ids?.includes(currentUser.id) || !!roleData) {
+                        if (isMounted && ((gameRes.data?.host_ids as string[])?.includes(currentUser.id) || !!roleData)) {
                             setIsHost(true);
                         }
 
                         // Captain check
-                        if (game.is_league && myBooking.team_assignment && myBooking.stripe_payment_method_id) {
+                        if (gameRes.data?.is_league && myBooking.team_assignment && myBooking.stripe_payment_method_id) {
                             setIsCaptain(true);
                             setCustomInviteFee(myBooking.custom_invite_fee ?? '');
                         }
+                    } else {
+                        setUserBooking(null);
+                        setIsParticipant(false);
                     }
                 }
             }
             
             if (matchesRes.data) setMatches(matchesRes.data);
 
-            // Check if voting is open
             const now = new Date();
-            const start = new Date(game.start_time);
+            const start = new Date(gameRes.data?.start_time || initialGame.start_time);
             setIsVotingOpen(now >= start);
 
-            setLoading(false);
+            if (isInitial) setLoading(false);
         };
 
-        fetchUserDataAndRoster();
-    }, [gameId, currentUser, game, supabase]);
+        fetchUserDataAndRoster(true);
+
+        // Supabase Realtime channel subscription for live lobby updates
+        const channel = supabase
+            .channel(`pickup-lobby-${gameId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'bookings',
+                    filter: `game_id=eq.${gameId}`
+                },
+                () => {
+                    fetchUserDataAndRoster(false);
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'games',
+                    filter: `id=eq.${gameId}`
+                },
+                () => {
+                    fetchUserDataAndRoster(false);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            isMounted = false;
+            supabase.removeChannel(channel);
+        };
+    }, [gameId, currentUser]);
 
     const proceedToJoin = async (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; isWaitlistVaulting?: boolean; guestIds?: string[] }) => {
         if (!game || !currentUser) {
@@ -915,39 +972,102 @@ export function PickupClientPage({
                     {/* ROSTER TAB */}
                     {activeTab === 'roster' && (
                         <div className="space-y-8">
-                            <div className="bg-pitch-card border border-white/10 rounded-sm overflow-hidden">
-                                <div className="p-4 bg-white/5 border-b border-white/10 font-bold uppercase text-sm text-pitch-secondary">
-                                    Active Squad ({activeRoster.length}/{game.max_players})
+                            {/* Active Squad Card */}
+                            <div className="bg-pitch-card border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                                {/* Header with Stats & Progress */}
+                                <div className="p-6 bg-white/5 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div>
+                                        <h3 className="text-xl font-black italic uppercase tracking-wider text-white flex items-center gap-2">
+                                            <Users className="w-5 h-5 text-pitch-accent" /> Active Roster
+                                        </h3>
+                                        <p className="text-xs text-gray-400 font-medium mt-1">
+                                            {activeRoster.length} of {game.max_players} player spots filled
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-right hidden sm:block">
+                                            <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest block">Capacity</span>
+                                            <span className="text-sm font-extrabold text-pitch-accent">{Math.round((activeRoster.length / (game.max_players || 1)) * 100)}%</span>
+                                        </div>
+                                        <div className="w-32 bg-black/50 h-3 rounded-full overflow-hidden border border-white/10">
+                                            <div 
+                                                className="h-full bg-pitch-accent transition-all duration-500"
+                                                style={{ width: `${Math.min(100, (activeRoster.length / (game.max_players || 1)) * 100)}%` }}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="divide-y divide-white/5">
-                                    {activeRoster.length === 0 ? (
-                                        <div className="p-8 text-center text-gray-500 italic">No players joined yet. Be the first!</div>
-                                    ) : (
-                                        activeRoster.map((player) => {
-                                            const name = player.profiles?.first_name ? `${player.profiles.first_name} ${player.profiles.last_name}` : player.profiles?.email || 'Unknown';
-                                            const isMe = currentUser?.id === player.user_id;
 
-                                            return (
-                                                <div key={player.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 font-bold">
-                                                            {name.charAt(0)}
+                                {/* Visual Grid of Player Tiles */}
+                                <div className="p-6">
+                                    {activeRoster.length === 0 ? (
+                                        <div className="py-16 text-center text-gray-500 font-bold uppercase tracking-widest text-sm">
+                                            No players joined yet. Be the first to claim a spot!
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                                            {activeRoster.map((player) => {
+                                                const profile = Array.isArray(player.profiles) ? player.profiles[0] : player.profiles;
+                                                const firstName = profile?.first_name || '';
+                                                const lastName = profile?.last_name || '';
+                                                const email = profile?.email || '';
+                                                const name = firstName ? `${firstName} ${lastName}`.trim() : email || 'Player';
+                                                const initials = getPlayerInitials(firstName, lastName, email);
+                                                const isMe = currentUser?.id === player.user_id;
+                                                const isConfirmed = ['paid', 'active'].includes(player.status || '') || player.roster_status === 'confirmed';
+
+                                                return (
+                                                    <div
+                                                        key={player.id}
+                                                        className={cn(
+                                                            "bg-black/40 border rounded-lg p-5 flex flex-col items-center justify-between text-center transition-all duration-200 hover:scale-[1.03] relative group shadow-md",
+                                                            isMe 
+                                                                ? "border-pitch-accent/80 bg-gradient-to-b from-pitch-accent/15 via-black/50 to-black/60 shadow-[0_0_20px_rgba(204,255,0,0.15)]" 
+                                                                : "border-white/10 hover:border-pitch-accent/40 hover:bg-white/[0.06]"
+                                                        )}
+                                                    >
+                                                        {/* YOU Badge */}
+                                                        {isMe && (
+                                                            <span className="absolute top-2 right-2 bg-pitch-accent text-pitch-black text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow">
+                                                                YOU
+                                                            </span>
+                                                        )}
+
+                                                        {/* Initials Circle */}
+                                                        <div
+                                                            className={cn(
+                                                                "w-16 h-16 rounded-full flex items-center justify-center font-black text-xl mb-3 border-2 transition-transform duration-200 group-hover:scale-105 shrink-0",
+                                                                isMe
+                                                                    ? "bg-pitch-accent text-pitch-black border-white shadow-[0_0_15px_rgba(204,255,0,0.4)]"
+                                                                    : "bg-white/5 text-pitch-accent border-pitch-accent/30 group-hover:bg-pitch-accent group-hover:text-pitch-black group-hover:border-pitch-accent"
+                                                            )}
+                                                        >
+                                                            {initials}
                                                         </div>
-                                                        <div>
-                                                            <div className={cn("font-bold", isMe ? "text-pitch-accent" : "text-white")}>
-                                                                {name} {isMe && "(You)"}
-                                                            </div>
-                                                            <div className="text-xs text-gray-400 uppercase font-bold mt-0.5 max-w-[120px] truncate">
-                                                                {(!player.team_assignment || player.team_assignment === 'free_agent') ? 'Unassigned' : player.team_assignment}
+
+                                                        {/* Name & Details */}
+                                                        <div className="w-full space-y-1.5">
+                                                            <h4 className={cn("font-bold text-sm md:text-base truncate tracking-tight font-sans", isMe ? "text-pitch-accent font-extrabold" : "text-white group-hover:text-pitch-accent transition-colors")} title={name}>
+                                                                {name}
+                                                            </h4>
+                                                            
+                                                            <div className="flex flex-col items-center gap-1 pt-0.5">
+                                                                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border bg-black/60 border-white/10 text-gray-400 max-w-full truncate">
+                                                                    {(!player.team_assignment || player.team_assignment === 'free_agent') ? 'Unassigned' : player.team_assignment}
+                                                                </span>
+
+                                                                {isConfirmed && (
+                                                                    <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-green-400">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                                                                        Confirmed
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    {['paid', 'active'].includes(player.status || '') && (
-                                                        <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded font-bold uppercase">Confirmed</span>
-                                                    )}
-                                                </div>
-                                            );
-                                        })
+                                                );
+                                            })}
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -973,9 +1093,6 @@ export function PickupClientPage({
                                         </p>
                                         <div className="flex overflow-x-auto gap-6 pb-8 snap-x p-2 custom-scrollbar">
                                             {freeAgents.map((fa) => {
-                                                // Create a slimmed mock player object based on Profile fields available.
-                                                // In a real scenario we might fetch their OVR, matches_played, etc. 
-                                                // We'll use defaults for the aesthetic.
                                                 const faProfile = Array.isArray(fa.profiles) ? fa.profiles[0] : fa.profiles;
                                                 const mockPlayer = {
                                                     id: fa.user_id,
@@ -999,7 +1116,6 @@ export function PickupClientPage({
                                                                 const result = await draftFreeAgent(bookingId, teamAssignment);
                                                                 if (!result.success) throw new Error(result.error);
 
-                                                                // Optimistic update
                                                                 setBookings(prev => prev.map(b =>
                                                                     b.id === bookingId ? { ...b, status: 'paid', team_assignment: teamAssignment } : b
                                                                 ));
@@ -1015,21 +1131,33 @@ export function PickupClientPage({
 
                             {/* Waitlist */}
                             {waitlist.length > 0 && (
-                                <div className="bg-pitch-card border border-white/10 rounded-sm overflow-hidden opacity-75">
+                                <div className="bg-pitch-card border border-white/10 rounded-lg overflow-hidden shadow-lg">
                                     <div className="p-4 bg-white/5 border-b border-white/10 font-bold uppercase text-sm text-yellow-500 flex items-center gap-2">
                                         <Clock className="w-4 h-4" /> Waitlist ({waitlist.length})
                                     </div>
-                                    <div className="divide-y divide-white/5">
-                                        {waitlist.map((player) => {
-                                            const name = player.profiles?.first_name ? `${player.profiles.first_name} ${player.profiles.last_name}` : player.profiles?.email || 'Unknown';
+                                    <div className="p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                        {waitlist.map((player, idx) => {
+                                            const profile = Array.isArray(player.profiles) ? player.profiles[0] : player.profiles;
+                                            const firstName = profile?.first_name || '';
+                                            const lastName = profile?.last_name || '';
+                                            const email = profile?.email || '';
+                                            const name = firstName ? `${firstName} ${lastName}`.trim() : email || 'Unknown';
+                                            const initials = getPlayerInitials(firstName, lastName, email);
+                                            const isMe = currentUser?.id === player.user_id;
+
                                             return (
-                                                <div key={player.id} className="p-4 flex items-center gap-3">
-                                                    <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-gray-500 text-xs">
-                                                        WL
+                                                <div key={player.id} className="bg-black/30 border border-white/5 rounded-lg p-4 flex flex-col items-center text-center opacity-80 relative">
+                                                    <span className="absolute top-2 right-2 text-[9px] font-extrabold uppercase bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-1.5 py-0.5 rounded">
+                                                        WL #{idx + 1}
+                                                    </span>
+                                                    <div className="w-12 h-12 rounded-full bg-gray-800 border border-white/10 text-gray-400 flex items-center justify-center font-bold text-sm mb-2">
+                                                        {initials}
                                                     </div>
-                                                    <div className="text-gray-400 text-sm font-medium">{name}</div>
+                                                    <div className={cn("text-xs font-bold truncate max-w-full", isMe ? "text-pitch-accent" : "text-gray-300")}>
+                                                        {name} {isMe && "(You)"}
+                                                    </div>
                                                 </div>
-                                            )
+                                            );
                                         })}
                                     </div>
                                 </div>

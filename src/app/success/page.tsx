@@ -119,7 +119,7 @@ export default async function SuccessPage({ searchParams }: Props) {
             // Optional: Save the Stripe Customer ID to Profile if it was newly created
             if (session.customer) {
                 const customerId = typeof session.customer === 'string' ? session.customer : session.customer.id;
-                await supabase.from('profiles').update({ stripe_customer_id: customerId }).eq('id', userId);
+                await adminSupabase.from('profiles').update({ stripe_customer_id: customerId }).eq('id', userId);
             }
         } else if (session.mode === 'payment' && session.payment_intent && isLeagueCaptain) {
             // Vaulting during a deposit charge
@@ -129,12 +129,12 @@ export default async function SuccessPage({ searchParams }: Props) {
 
             if (session.customer) {
                 const customerId = typeof session.customer === 'string' ? session.customer : session.customer.id;
-                await supabase.from('profiles').update({ stripe_customer_id: customerId }).eq('id', userId);
+                await adminSupabase.from('profiles').update({ stripe_customer_id: customerId }).eq('id', userId);
             }
         }
 
         // 2. Fetch Staged Pending Checkout
-        const { data: pendingCheckout } = await supabase
+        const { data: pendingCheckout } = await adminSupabase
             .from('pending_checkouts')
             .select('*')
             .eq('checkout_session_id', sessionId)
@@ -149,6 +149,9 @@ export default async function SuccessPage({ searchParams }: Props) {
             appliedCreditUnitsCents = pendingCheckout.credit_used || pendingCheckout.applied_credit || 0;
             if (pendingCheckout.guest_ids && Array.isArray(pendingCheckout.guest_ids)) {
                 guestIdsToInsert = pendingCheckout.guest_ids;
+            }
+            if (!teamAssignment && pendingCheckout.team_assignment) {
+                teamAssignment = pendingCheckout.team_assignment;
             }
         } else {
             console.warn(`[SUCCESS_WARNING] pending_checkout missing for session ${sessionId}. Falling back to Stripe metadata.`);
@@ -221,6 +224,7 @@ export default async function SuccessPage({ searchParams }: Props) {
                         .update({
                             status: passenger.status,
                             payment_status: passenger.payment_status,
+                            payment_method: passenger.payment_method,
                             roster_status: passenger.roster_status,
                             stripe_payment_method_id: passenger.stripe_payment_method_id || null,
                             team_assignment: passenger.team_assignment || null,

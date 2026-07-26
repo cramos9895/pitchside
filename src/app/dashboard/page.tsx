@@ -111,7 +111,7 @@ function DashboardContent() {
                         .gte('start_time', now)
                         .order('start_time', { ascending: true }),
                     supabase.from('bookings')
-                        .select('id, game:games(id, start_time, end_time, title, facility:facilities(name), max_players, current_players, match_style, game_format, location, location_nickname)')
+                        .select('id, game:games(id, start_time, end_time, title, facility:facilities(name), max_players, current_players, match_style, game_format, location, location_nickname, status)')
                         .eq('user_id', user.id)
                         .in('status', ['paid', 'confirmed'])
                         .not('roster_status', 'eq', 'dropped'),
@@ -187,7 +187,7 @@ function DashboardContent() {
                 if (gamesRes.data) {
                     gamesRes.data.forEach((b: any) => {
                                                                                                 const g = b.game as any;
-                                                                                                if (g && new Date(g.start_time).toISOString() >= now) {
+                                                                                                if (g && (new Date(g.start_time).toISOString() >= now || g.status === 'active')) {
                             events.push({
                                 type: 'game',
                                                                                                                                 id: b.id, 

@@ -179,9 +179,23 @@ export async function POST(request: Request) {
         }
 
         // --- STRIPE SESSION SETUP ---
+        let stripeCustomerId = userProfile?.stripe_customer_id;
+
+        if (!stripeCustomerId && (isWaitlistVaulting || (isFreeAgent && eventType !== 'pickup') || isLeagueCaptainVaulting)) {
+            const customer = await stripe.customers.create({
+                email: userProfile?.email || undefined,
+                metadata: { supabase_user_id: userId }
+            });
+            stripeCustomerId = customer.id;
+            await adminSupabase
+                .from('profiles')
+                .update({ stripe_customer_id: stripeCustomerId })
+                .eq('id', userId);
+        }
+
         const customerParams: any = {};
-        if (userProfile?.stripe_customer_id) {
-            customerParams.customer = userProfile.stripe_customer_id;
+        if (stripeCustomerId) {
+            customerParams.customer = stripeCustomerId;
         } else {
             customerParams.customer_creation = 'always';
             if (userProfile?.email) {
@@ -189,8 +203,10 @@ export async function POST(request: Request) {
             }
         }
 
+        let session;
+
         if (isFreeAgent && eventType !== 'pickup') {
-            const session = await stripe.checkout.sessions.create({
+            session = await stripe.checkout.sessions.create({
                 mode: 'setup',
                 ui_mode: 'embedded',
                 payment_method_types: ['card'],
@@ -207,10 +223,7 @@ export async function POST(request: Request) {
                 },
                 return_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
             });
-            return NextResponse.json({ clientSecret: session.client_secret });
-        }
-
-        if (isLeagueCaptainVaulting) {
+        } else if (isLeagueCaptainVaulting) {
             // Fetch the deposit_amount for the league
             const { data: gameData } = await adminSupabase
                 .from('games')
@@ -220,7 +233,7 @@ export async function POST(request: Request) {
 
             const depositAmt = gameData?.deposit_amount || price;
 
-            const session = await stripe.checkout.sessions.create({
+            session = await stripe.checkout.sessions.create({
                 mode: 'payment',
                 ui_mode: 'embedded',
                 payment_intent_data: {
@@ -251,11 +264,8 @@ export async function POST(request: Request) {
                 },
                 return_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
             });
-            return NextResponse.json({ clientSecret: session.client_secret });
-        }
-
-        if (isWaitlistVaulting) {
-            const session = await stripe.checkout.sessions.create({
+        } else if (isWaitlistVaulting) {
+            session = await stripe.checkout.sessions.create({
                 mode: 'setup',
                 ui_mode: 'embedded',
                 payment_method_types: ['card'],
@@ -270,11 +280,9 @@ export async function POST(request: Request) {
                 },
                 return_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
             });
-            return NextResponse.json({ clientSecret: session.client_secret });
-        }
-
-        // --- STANDARD PAYMENT SESSION ---
-        const session = await stripe.checkout.sessions.create({
+        } else {
+            // --- STANDARD PAYMENT SESSION ---
+            session = await stripe.checkout.sessions.create({
             mode: 'payment',
             ui_mode: 'embedded',
             ...customerParams,
