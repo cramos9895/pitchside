@@ -271,7 +271,7 @@ export function PickupClientPage({
         };
     }, [gameId, currentUser]);
 
-    const proceedToJoin = async (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; isWaitlistVaulting?: boolean; guestIds?: string[] }) => {
+    const proceedToJoin = async (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; prizeSplitPreference?: string; isLeagueCaptainVaulting?: boolean; isWaitlistVaulting?: boolean; guestIds?: string[]; requestedTeamId?: string | null; requestedTeamName?: string | null; requestedTeammateIds?: string[] }) => {
         if (!game || !currentUser) {
             if (!currentUser) router.push('/login');
             return;
@@ -318,7 +318,10 @@ export function PickupClientPage({
                         isFreeAgent: data.isFreeAgent,
                         isLeagueCaptainVaulting: data.isLeagueCaptainVaulting,
                         isWaitlistVaulting: data.isWaitlistVaulting,
-                        guestIds: data.guestIds || []
+                        guestIds: data.guestIds || [],
+                        requestedTeamId: data.requestedTeamId,
+                        requestedTeamName: data.requestedTeamName,
+                        requestedTeammateIds: data.requestedTeammateIds || []
                     })
                 });
 
@@ -352,7 +355,10 @@ export function PickupClientPage({
                     paymentMethod: data.paymentMethod || ((game.price === 0) ? 'promo' : null),
                     promoCodeId: data.promoCodeId,
                     teamAssignment: data.teamAssignment,
-                    guestIds: data.guestIds || []
+                    guestIds: data.guestIds || [],
+                    requestedTeamId: data.requestedTeamId,
+                    requestedTeamName: data.requestedTeamName,
+                    requestedTeammateIds: data.requestedTeammateIds || []
                 })
             });
 

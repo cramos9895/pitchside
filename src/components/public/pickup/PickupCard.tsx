@@ -189,7 +189,7 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
         }
     }, [user, supabase]);
 
-    const proceedToJoin = async (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; event_type?: string; guestIds?: string[] }) => {
+    const proceedToJoin = async (data: { note: string; paymentMethod: string | null; promoCodeId?: string; teamAssignment?: string; isFreeAgent?: boolean; event_type?: string; guestIds?: string[]; requestedTeamId?: string | null; requestedTeamName?: string | null; requestedTeammateIds?: string[] }) => {
         setLoading(true);
 
         try {
@@ -216,7 +216,10 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
                         teamAssignment: data.teamAssignment,
                         isFreeAgent: data.isFreeAgent,
                         event_type: 'pickup',
-                        guestIds: data.guestIds || []
+                        guestIds: data.guestIds || [],
+                        requestedTeamId: data.requestedTeamId,
+                        requestedTeamName: data.requestedTeamName,
+                        requestedTeammateIds: data.requestedTeammateIds || []
                     })
                 });
 
@@ -252,7 +255,10 @@ export function PickupCard({ game, user, bookingStatus, hasUnreadMessages, booki
                         paymentMethod: data.paymentMethod || ((finalCost === 0) ? 'promo' : null),
                         promoCodeId: data.promoCodeId,
                         teamAssignment: data.teamAssignment,
-                        guestIds: data.guestIds || []
+                        guestIds: data.guestIds || [],
+                        requestedTeamId: data.requestedTeamId,
+                        requestedTeamName: data.requestedTeamName,
+                        requestedTeammateIds: data.requestedTeammateIds || []
                     })
                 });
 
