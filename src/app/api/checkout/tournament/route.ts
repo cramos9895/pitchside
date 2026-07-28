@@ -20,7 +20,10 @@ export async function POST(request: Request) {
             isWaitlistVaulting,
             registrationId,
             teamId,
-            guestIds = [] 
+            guestIds = [],
+            requestedTeammateIds = [],
+            requestedTeamId = null,
+            requestedTeamName = null
         } = await request.json();
 
         // --- SECURITY: RATE LIMITING ---
@@ -149,7 +152,7 @@ export async function POST(request: Request) {
             // Process Bookings (Check-Then-Update Pattern)
             const linkedBookingId = crypto.randomUUID();
             const passengersToProcess: any[] = [
-                { game_id: gameId, user_id: userId, status: 'paid', payment_status: 'verified', roster_status: 'confirmed', linked_booking_id: linkedBookingId, note, ...(teamAssignment && { team_assignment: teamAssignment }) }
+                { game_id: gameId, user_id: userId, status: 'paid', payment_status: 'verified', roster_status: 'confirmed', linked_booking_id: linkedBookingId, note, ...(teamAssignment && { team_assignment: teamAssignment }), requested_teammate_ids: requestedTeammateIds, requested_team_id: requestedTeamId, requested_team_name: requestedTeamName }
             ];
             for (const gid of guestIds) {
                 passengersToProcess.push({
@@ -205,7 +208,10 @@ export async function POST(request: Request) {
                                 payment_status: passenger.payment_status,
                                 roster_status: passenger.roster_status,
                                 team_assignment: passenger.team_assignment || null,
-                                note: passenger.note || null
+                                note: passenger.note || null,
+                                requested_teammate_ids: passenger.requested_teammate_ids || null,
+                                requested_team_id: passenger.requested_team_id || null,
+                                requested_team_name: passenger.requested_team_name || null
                             })
                             .eq('id', existingBooking.id);
                     } else {
@@ -395,7 +401,10 @@ export async function POST(request: Request) {
             game_id: gameId,
             guest_ids: guestIds,
             credit_used: Math.round(appliedCreditUnits * 100),
-            ...(teamAssignment && { team_assignment: teamAssignment.toString() })
+            ...(teamAssignment && { team_assignment: teamAssignment.toString() }),
+            requested_teammate_ids: requestedTeammateIds,
+            requested_team_id: requestedTeamId,
+            requested_team_name: requestedTeamName
         });
 
         if (pendingError) {

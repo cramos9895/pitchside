@@ -1665,6 +1665,9 @@ export type Database = {
           game_id: string
           guest_ids: string[] | null
           id: string
+          requested_team_id: string | null
+          requested_team_name: string | null
+          requested_teammate_ids: string[] | null
           team_assignment: string | null
         }
         Insert: {
@@ -1675,6 +1678,9 @@ export type Database = {
           game_id: string
           guest_ids?: string[] | null
           id?: string
+          requested_team_id?: string | null
+          requested_team_name?: string | null
+          requested_teammate_ids?: string[] | null
           team_assignment?: string | null
         }
         Update: {
@@ -1685,6 +1691,9 @@ export type Database = {
           game_id?: string
           guest_ids?: string[] | null
           id?: string
+          requested_team_id?: string | null
+          requested_team_name?: string | null
+          requested_teammate_ids?: string[] | null
           team_assignment?: string | null
         }
         Relationships: [

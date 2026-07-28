@@ -20,7 +20,10 @@ export async function POST(request: Request) {
             isWaitlistVaulting,
             registrationId,
             teamId,
-            guestIds = [] 
+            guestIds = [],
+            requestedTeammateIds = [],
+            requestedTeamId = null,
+            requestedTeamName = null
         } = await request.json();
 
         // --- SECURITY: RATE LIMITING ---
@@ -131,7 +134,7 @@ export async function POST(request: Request) {
             // Process Bookings (Check-Then-Update Pattern)
             const linkedBookingId = crypto.randomUUID();
             const passengersToProcess: any[] = [
-                { game_id: gameId, user_id: userId, status: 'paid', payment_status: 'verified', roster_status: 'confirmed', linked_booking_id: linkedBookingId, note, ...(teamAssignment && { team_assignment: teamAssignment }) }
+                { game_id: gameId, user_id: userId, status: 'paid', payment_status: 'verified', roster_status: 'confirmed', linked_booking_id: linkedBookingId, note, ...(teamAssignment && { team_assignment: teamAssignment }), requested_teammate_ids: requestedTeammateIds, requested_team_id: requestedTeamId, requested_team_name: requestedTeamName }
             ];
             for (const gid of guestIds) {
                 passengersToProcess.push({
@@ -320,7 +323,10 @@ export async function POST(request: Request) {
             game_id: gameId,
             guest_ids: guestIds,
             credit_used: Math.round(appliedCreditUnits * 100),
-            ...(teamAssignment && { team_assignment: teamAssignment.toString() })
+            ...(teamAssignment && { team_assignment: teamAssignment.toString() }),
+            requested_teammate_ids: requestedTeammateIds,
+            requested_team_id: requestedTeamId,
+            requested_team_name: requestedTeamName
         });
 
         if (pendingError) {

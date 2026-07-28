@@ -181,7 +181,10 @@ export default async function SuccessPage({ searchParams }: Props) {
                 stripe_payment_method_id: paymentMethodId,
                 registration_id: registrationId || null,
                 ...(teamAssignment && { team_assignment: teamAssignment }),
-                ...(prizeSplitPreference && { prize_split_preference: prizeSplitPreference })
+                ...(prizeSplitPreference && { prize_split_preference: prizeSplitPreference }),
+                ...(pendingCheckout?.requested_teammate_ids && { requested_teammate_ids: pendingCheckout.requested_teammate_ids }),
+                ...(pendingCheckout?.requested_team_id && { requested_team_id: pendingCheckout.requested_team_id }),
+                ...(pendingCheckout?.requested_team_name && { requested_team_name: pendingCheckout.requested_team_name })
             }
         ];
 
@@ -197,7 +200,10 @@ export default async function SuccessPage({ searchParams }: Props) {
                 payment_amount: baseAmount,
                 roster_status: isWaitlistVaulting ? 'waitlisted' : 'confirmed',
                 stripe_payment_method_id: paymentMethodId,
-                ...(teamAssignment && { team_assignment: teamAssignment })
+                ...(teamAssignment && { team_assignment: teamAssignment }),
+                ...(pendingCheckout?.requested_teammate_ids && { requested_teammate_ids: pendingCheckout.requested_teammate_ids }),
+                ...(pendingCheckout?.requested_team_id && { requested_team_id: pendingCheckout.requested_team_id }),
+                ...(pendingCheckout?.requested_team_name && { requested_team_name: pendingCheckout.requested_team_name })
             });
         }
 
@@ -229,7 +235,10 @@ export default async function SuccessPage({ searchParams }: Props) {
                             stripe_payment_method_id: passenger.stripe_payment_method_id || null,
                             team_assignment: passenger.team_assignment || null,
                             note: passenger.note || null,
-                            payment_amount: passenger.payment_amount
+                            payment_amount: passenger.payment_amount,
+                            requested_teammate_ids: passenger.requested_teammate_ids || null,
+                            requested_team_id: passenger.requested_team_id || null,
+                            requested_team_name: passenger.requested_team_name || null
                         })
                         .eq('id', existingBooking.id);
 
@@ -253,6 +262,9 @@ export default async function SuccessPage({ searchParams }: Props) {
                         note: passenger.note || null,
                         stripe_payment_method_id: passenger.stripe_payment_method_id || null,
                         team_assignment: passenger.team_assignment || null,
+                        requested_teammate_ids: passenger.requested_teammate_ids || null,
+                        requested_team_id: passenger.requested_team_id || null,
+                        requested_team_name: passenger.requested_team_name || null,
                     };
 
                     const { error: insertError } = await dbClient
