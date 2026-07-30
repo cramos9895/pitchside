@@ -1155,6 +1155,36 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <div>
+                                        <p className="font-bold uppercase text-xs text-white">Player Registration Fee</p>
+                                        <p className="text-[10px] text-pitch-secondary uppercase font-medium">Charge an upfront player fee</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setHasPlayerRegistrationFee(!hasPlayerRegistrationFee)}
+                                        className={`w-12 h-6 rounded-full transition-colors relative ${hasPlayerRegistrationFee ? 'bg-[#cbff00]' : 'bg-white/10'}`}
+                                    >
+                                        <div className={`absolute top-1 w-4 h-4 rounded-full transition-all ${hasPlayerRegistrationFee ? 'right-1 bg-black' : 'left-1 bg-white'}`} />
+                                    </button>
+                                </div>
+                                {hasPlayerRegistrationFee && (
+                                    <div className="animate-in fade-in slide-in-from-top-2">
+                                        <input
+                                            type="number"
+                                            required
+                                            value={playerRegistrationFee}
+                                            onChange={(e) => setPlayerRegistrationFee(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                            placeholder="Individual reg. amount ($)"
+                                            className="w-full bg-black/40 border border-[#cbff00]/20 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-white/5 rounded-sm border border-white/10">
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
                                         <p className="font-bold uppercase text-xs text-white">Allow Free Agents</p>
                                         <p className="text-[10px] text-pitch-secondary uppercase font-medium">Individual players can join without a team</p>
                                     </div>

@@ -24,6 +24,7 @@ interface RollingLeague {
     cash_fee_structure?: string;
     team_price?: number;
     team_registration_fee?: number;
+    deduct_team_reg_fee?: boolean;
     price?: number;
     allow_free_agents?: boolean;
     free_agent_price?: number;
@@ -286,8 +287,25 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                             </h3>
                             
                             <div className="space-y-6">
+                                {/* 0. Season Fee (Stripe Only) */}
+                                {!isCash && (
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
+                                            <Trophy className="w-3 h-3" /> Season Fee
+                                        </p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-4xl font-black italic">
+                                                ${game.team_price || 0}
+                                            </span>
+                                        </div>
+                                        <p className="text-[9px] font-black uppercase tracking-wider opacity-40 mt-1">
+                                            Total cost for a full team for the season
+                                        </p>
+                                    </div>
+                                )}
+
                                 {/* 1. Team Registration Fee */}
-                                <div className="space-y-2">
+                                <div className={!isCash ? "space-y-2 pt-6 border-t border-black/10" : "space-y-2"}>
                                     <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
                                         <Users className="w-3 h-3" /> Team Registration Fee
                                     </p>
@@ -299,6 +317,11 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                     <p className="text-[9px] font-black uppercase tracking-wider opacity-40 mt-1">
                                         One time fee to register a team
                                     </p>
+                                    {!isCash && game.deduct_team_reg_fee && (
+                                        <p className="text-[9px] font-black uppercase tracking-wider text-[#cbff00] mt-1">
+                                            Fee deducted from overall team fee
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* 2. Player Registration Fee (Optional) */}
@@ -316,28 +339,30 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                                             </span>
                                         </div>
                                         <p className="text-[9px] font-black uppercase tracking-wider opacity-40 mt-1">
-                                            Paid In person at first game
+                                            {isCash ? "Paid in person at first game" : "One time fee required at sign up"}
                                         </p>
                                     </div>
                                 )}
 
-                                {/* 3. Player Game Fee (Standard) */}
-                                <div className="space-y-2 pt-6 border-t border-black/10">
-                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
-                                        <Activity className="w-3 h-3" /> Players
-                                    </p>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-4xl font-black italic">
-                                            ${isCash ? (game.cash_amount || 0) : (game.price || 0)}
-                                        </span>
-                                        <span className="text-[10px] font-black uppercase opacity-60">
-                                            / Per Match
-                                        </span>
+                                {/* 3. Player Game Fee (Standard - Cash Only) */}
+                                {isCash && (
+                                    <div className="space-y-2 pt-6 border-t border-black/10">
+                                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
+                                            <Activity className="w-3 h-3" /> Players
+                                        </p>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-4xl font-black italic">
+                                                ${game.cash_amount || 0}
+                                            </span>
+                                            <span className="text-[10px] font-black uppercase opacity-60">
+                                                / Per Match
+                                            </span>
+                                        </div>
+                                        <p className="text-[9px] font-black uppercase tracking-wider opacity-40 mt-1">
+                                            Standard ongoing match cost
+                                        </p>
                                     </div>
-                                    <p className="text-[9px] font-black uppercase tracking-wider opacity-40 mt-1">
-                                        Standard ongoing match cost
-                                    </p>
-                                </div>
+                                )}
 
                                 {/* 4. Free Agent Pool Entry (If fee exists) */}
                                 {game.allow_free_agents && (game.free_agent_price ?? 0) > 0 && (
