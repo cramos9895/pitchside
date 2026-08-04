@@ -594,7 +594,7 @@ export function PickupClientPage({
                         { id: 'details', label: 'Details', icon: Info },
                         { id: 'roster', label: `Players (${activeRoster.length})`, icon: Users },
                         ...((game.event_type === 'tournament' || game.match_style === 'Tourney' || game.match_style === 'King') ? [{ id: 'game-time', label: 'Game Time', icon: Trophy }] : []),
-                        { id: 'chat', label: 'Chat', icon: MessageSquare, hasUnread: hasUnreadChat }
+                        ...((isParticipant || isHost) ? [{ id: 'chat', label: 'Chat', icon: MessageSquare, hasUnread: hasUnreadChat }] : [])
                     ].map((tab: any) => (
                         <button
                             key={tab.id}
