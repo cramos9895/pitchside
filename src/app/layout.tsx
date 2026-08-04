@@ -39,6 +39,8 @@ export const metadata: Metadata = {
 import { ToastProvider } from "@/components/ui/Toast";
 import { Footer } from "@/components/layout/Footer";
 import { headers } from "next/headers";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export default async function RootLayout({
   children,
@@ -60,6 +62,8 @@ export default async function RootLayout({
           {children}
           {!isProjector && <Footer />}
         </ToastProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
