@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useEffect } from 'react';
+import { compressImage } from '@/lib/image-compression';
 
 interface PlayerVerificationModalProps {
     isOpen: boolean;
@@ -71,9 +72,11 @@ export function PlayerVerificationModal({
         setCameraActive(false);
     };
 
-    const uploadFile = async (file: File) => {
+    const uploadFile = async (originalFile: File) => {
         setIsUploading(true);
         try {
+            // Compress the image before handing it off to the server action or parent handler
+            const file = await compressImage(originalFile, { maxSizeMB: 0.5, maxWidthOrHeight: 1000 });
             await onPhotoUpload(file);
             setShowOptions(false);
             setCameraActive(false);

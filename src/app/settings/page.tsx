@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { InstallPrompt } from '@/components/InstallPrompt';
 import { Game, Booking, Profile, Match, Team } from "@/types/index";
+import { compressImage } from '@/lib/image-compression';
 
 const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/4205/4205634.png"; // Fallback URL if we need an image URL, but we use Lucide icons mostly now.
 
@@ -112,12 +113,16 @@ export default function SettingsPage() {
         if (!event.target.files || event.target.files.length === 0) return;
 
         setUploading(true);
-        const file = event.target.files[0];
-        const fileExt = file.name.split('.').pop();
-                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                const fileName = `${user.id}/${Math.random()}.${fileExt}`;
-
+        const originalFile = event.target.files[0];
+        
         try {
+            // Compress the image before upload
+            const file = await compressImage(originalFile, { maxSizeMB: 0.5, maxWidthOrHeight: 1000 });
+            
+            const fileExt = file.name.split('.').pop() || 'webp';
+            // @ts-expect-error - Residual typing mismatch from extended schema mapping
+            const fileName = `${user.id}/${Math.random()}.${fileExt}`;
+
             const { error: uploadError } = await supabase.storage
                 .from('avatars')
                 .upload(fileName, file, { upsert: true });

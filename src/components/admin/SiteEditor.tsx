@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useEffect, useState, useRef } from 'react';
 import { Loader2, Save, Image as ImageIcon, LayoutTemplate } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { compressImage } from '@/lib/image-compression';
 
 interface SiteContent {
     id: number;
@@ -72,14 +73,17 @@ export function SiteEditor() {
     };
 
     const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, field: 'hero_image_url' | 'how_it_works_image_url') => {
-        const file = event.target.files?.[0];
-        if (!file || !content) return;
+        const originalFile = event.target.files?.[0];
+        if (!originalFile || !content) return;
 
         const isHero = field === 'hero_image_url';
         isHero ? setUploadingHero(true) : setUploadingHow(true);
 
         try {
-            const fileExt = file.name.split('.').pop();
+            // Compress the image before upload
+            const file = await compressImage(originalFile, { maxSizeMB: 0.5, maxWidthOrHeight: 1920 });
+
+            const fileExt = file.name.split('.').pop() || 'webp';
             const fileName = `${field}_${Date.now()}.${fileExt}`;
             const filePath = `${fileName}`;
 
