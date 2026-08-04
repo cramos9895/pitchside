@@ -263,7 +263,20 @@ export function PickupClientPage({
                     fetchUserDataAndRoster(false);
                 }
             )
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'matches',
+                    filter: `game_id=eq.${gameId}`
+                },
+                () => {
+                    fetchUserDataAndRoster(false);
+                }
+            )
             .subscribe();
+
 
         return () => {
             isMounted = false;
@@ -1230,10 +1243,10 @@ export function PickupClientPage({
                                 <>
                                     {/* LIVE ROUND LOGIC */}
                                     {(() => {
-                                        const activeMatches = matches.filter(m => m.status === 'active');
-                                        const currentRound = activeMatches.length > 0 
-                                            ? activeMatches[0].round_number 
-                                            : matches.find(m => m.status === 'scheduled')?.round_number || Math.max(...matches.map(m => m.round_number), 1);
+                                        const unfinishedMatches = matches.filter((m: any) => m.status !== 'completed' && m.status !== 'cancelled');
+                                        const currentRound = unfinishedMatches.length > 0 
+                                            ? Math.min(...unfinishedMatches.map((m: any) => m.round_number || 1))
+                                            : Math.max(...matches.map((m: any) => m.round_number || 1), 1);
                                         
                                         const matchesInCurrentRound = matches.filter(m => m.round_number === currentRound);
                                         const matchesInNextRound = matches.filter(m => m.round_number === currentRound + 1);
