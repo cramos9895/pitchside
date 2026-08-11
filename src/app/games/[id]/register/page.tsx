@@ -55,7 +55,12 @@ export default async function RollingLeagueRegistrationPage({
             cash_amount,
             strict_waiver_required,
             waiver_details,
-            league_format
+            league_format,
+            pass_processing_fees,
+            uniforms_provided,
+            uniform_colors,
+            charge_team_registration_fee,
+            deduct_team_reg_fee
         `)
         .eq('id', gameId)
         .single();

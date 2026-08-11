@@ -552,6 +552,7 @@ export type Database = {
           min_teams: number | null
           minimum_games_per_team: number | null
           mvp_player_id: string | null
+          pass_processing_fees: boolean | null
           payment_collection_type: string | null
           payment_method: string | null
           player_registration_fee: number | null
@@ -591,6 +592,8 @@ export type Database = {
           title: string
           total_game_time: number | null
           total_weeks: number | null
+          uniform_colors: string[] | null
+          uniforms_provided: boolean | null
           tournament_style: string | null
           view_mode: string | null
           waiver_details: string | null
@@ -661,6 +664,7 @@ export type Database = {
           min_teams?: number | null
           minimum_games_per_team?: number | null
           mvp_player_id?: string | null
+          pass_processing_fees?: boolean | null
           payment_collection_type?: string | null
           payment_method?: string | null
           player_registration_fee?: number | null
@@ -700,6 +704,8 @@ export type Database = {
           title: string
           total_game_time?: number | null
           total_weeks?: number | null
+          uniform_colors?: string[] | null
+          uniforms_provided?: boolean | null
           tournament_style?: string | null
           view_mode?: string | null
           waiver_details?: string | null
@@ -770,6 +776,7 @@ export type Database = {
           min_teams?: number | null
           minimum_games_per_team?: number | null
           mvp_player_id?: string | null
+          pass_processing_fees?: boolean | null
           payment_collection_type?: string | null
           payment_method?: string | null
           player_registration_fee?: number | null
@@ -809,6 +816,8 @@ export type Database = {
           title?: string
           total_game_time?: number | null
           total_weeks?: number | null
+          uniform_colors?: string[] | null
+          uniforms_provided?: boolean | null
           tournament_style?: string | null
           view_mode?: string | null
           waiver_details?: string | null

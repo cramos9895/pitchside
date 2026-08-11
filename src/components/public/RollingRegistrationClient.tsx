@@ -26,6 +26,11 @@ export function RollingRegistrationClient({
         rules_description?: string;
         strict_waiver_required?: boolean;
         waiver_details?: string | null;
+        pass_processing_fees?: boolean | null;
+        uniforms_provided?: boolean | null;
+        uniform_colors?: string[] | null;
+        charge_team_registration_fee?: boolean | null;
+        deduct_team_reg_fee?: boolean | null;
     },
     type: 'team' | 'free_agent'
 }) {
@@ -43,6 +48,7 @@ export function RollingRegistrationClient({
     const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
 
     // Payment State
+    const [paymentOption, setPaymentOption] = useState<'deposit' | 'full'>('deposit');
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentIntentType, setPaymentIntentType] = useState<'team' | 'free_agent'>(type);
     const [registrationId, setRegistrationId] = useState<string | null>(null);
@@ -62,6 +68,29 @@ export function RollingRegistrationClient({
     const upfrontLeaguePrice = type === 'team' 
         ? (league.team_price ?? 0) 
         : (league.free_agent_price ?? 0);
+
+    // Fee Calculation
+    const deductRegFee = league.deduct_team_reg_fee ?? false;
+    let baseAmount = 0;
+    
+    if (isCashLeague) {
+        baseAmount = registrationFee; // Usually cash leagues only display this as upfront
+    } else {
+        if (type === 'team') {
+            if (paymentOption === 'deposit') {
+                baseAmount = registrationFee;
+            } else {
+                baseAmount = deductRegFee ? upfrontLeaguePrice : upfrontLeaguePrice + registrationFee;
+            }
+        } else {
+            baseAmount = upfrontLeaguePrice + registrationFee;
+        }
+    }
+    
+    const processingFee = (league.pass_processing_fees && baseAmount > 0 && !isCashLeague) 
+        ? Number((((baseAmount + 0.30) / (1 - 0.035)) - baseAmount).toFixed(2)) 
+        : 0;
+    const stripeAmount = !isCashLeague ? (baseAmount + processingFee) : 0;
 
     const isFormValid = () => {
         const waiverValid = league.strict_waiver_required ? waiverAccepted : true;
@@ -120,7 +149,7 @@ export function RollingRegistrationClient({
         if (!isFormValid()) return;
 
         // Determine if payment is required upfront (Stripe)
-        const stripeAmount = !isCashLeague ? (upfrontLeaguePrice + registrationFee) : 0;
+        // (stripeAmount is already calculated above)
 
         if (stripeAmount > 0) {
             // Create pending first
@@ -207,15 +236,32 @@ export function RollingRegistrationClient({
                                 </div>
                                 <div>
                                     <label htmlFor="primaryColor" className="block text-xs font-black uppercase text-gray-500 tracking-widest mb-3">Primary Jersey Color</label>
-                                    <input 
-                                        id="primaryColor"
-                                        name="primaryColor"
-                                        type="text"
-                                        value={primaryColor}
-                                        onChange={e => setPrimaryColor(e.target.value)}
-                                        placeholder="E.G. NEON VOLT / NOIR"
-                                        className="w-full bg-black/50 border border-white/10 rounded-sm p-4 text-white font-black uppercase focus:border-pitch-accent focus:ring-1 focus:ring-pitch-accent outline-none transition-all"
-                                    />
+                                    {league.uniforms_provided && league.uniform_colors && league.uniform_colors.length > 0 ? (
+                                        <select
+                                            id="primaryColor"
+                                            name="primaryColor"
+                                            required
+                                            value={primaryColor}
+                                            onChange={e => setPrimaryColor(e.target.value)}
+                                            className="w-full bg-black/50 border border-white/10 rounded-sm p-4 text-white font-black uppercase focus:border-pitch-accent focus:ring-1 focus:ring-pitch-accent outline-none transition-all appearance-none"
+                                        >
+                                            <option value="" disabled>SELECT COLOR</option>
+                                            {league.uniform_colors.map(color => (
+                                                <option key={color} value={color}>{color}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input 
+                                            id="primaryColor"
+                                            name="primaryColor"
+                                            type="text"
+                                            required
+                                            value={primaryColor}
+                                            onChange={e => setPrimaryColor(e.target.value)}
+                                            placeholder="E.G. NEON VOLT / NOIR"
+                                            className="w-full bg-black/50 border border-white/10 rounded-sm p-4 text-white font-black uppercase focus:border-pitch-accent focus:ring-1 focus:ring-pitch-accent outline-none transition-all"
+                                        />
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -259,15 +305,79 @@ export function RollingRegistrationClient({
                                 <CreditCard className="w-4 h-4 text-pitch-accent" /> Financial Roadmap
                             </div>
 
+                            {type === 'team' && !isCashLeague && registrationFee > 0 && (
+                                <div className="space-y-3 mb-6">
+                                    <label className="block text-xs font-black uppercase text-gray-400 tracking-widest">Payment Option</label>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentOption('deposit')}
+                                            className={cn(
+                                                "p-4 border rounded-sm transition-all text-left group",
+                                                paymentOption === 'deposit' ? "bg-pitch-accent/10 border-pitch-accent" : "bg-black/20 border-white/5 hover:border-white/20"
+                                            )}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className={cn("text-[10px] font-black uppercase tracking-widest", paymentOption === 'deposit' ? "text-pitch-accent" : "text-gray-400")}>Pay Deposit</span>
+                                                <div className={cn("w-2 h-2 rounded-full", paymentOption === 'deposit' ? "bg-pitch-accent shadow-[0_0_10px_rgba(204,255,0,0.5)]" : "bg-white/10")} />
+                                            </div>
+                                            <p className="text-[10px] text-gray-500 font-bold uppercase">Captain pays ${registrationFee} now. Players pay remainder.</p>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentOption('full')}
+                                            className={cn(
+                                                "p-4 border rounded-sm transition-all text-left group",
+                                                paymentOption === 'full' ? "bg-pitch-accent/10 border-pitch-accent" : "bg-black/20 border-white/5 hover:border-white/20"
+                                            )}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className={cn("text-[10px] font-black uppercase tracking-widest", paymentOption === 'full' ? "text-pitch-accent" : "text-gray-400")}>Pay Full Team</span>
+                                                <div className={cn("w-2 h-2 rounded-full", paymentOption === 'full' ? "bg-pitch-accent shadow-[0_0_10px_rgba(204,255,0,0.5)]" : "bg-white/10")} />
+                                            </div>
+                                            <p className="text-[10px] text-gray-500 font-bold uppercase">Cover all costs upfront.</p>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="space-y-6">
-                                {/* Registration Fee Block */}
-                                {registrationFee > 0 && (
+                                {/* Base Amount Block */}
+                                {baseAmount > 0 && (
                                     <div className="flex justify-between items-end border-b border-white/5 pb-4">
                                         <div className="space-y-1">
-                                            <span className="block text-[10px] font-black uppercase tracking-tighter text-gray-500">Registration Fee</span>
-                                            <p className="text-xs text-pitch-accent font-bold uppercase italic tabular-nums leading-none">Due At First Game (CASH)</p>
+                                            <span className="block text-[10px] font-black uppercase tracking-tighter text-gray-500">
+                                                {isCashLeague 
+                                                    ? 'Registration Fee' 
+                                                    : (type === 'team' ? (paymentOption === 'deposit' ? 'Captain Deposit' : 'Full Team Fee') : 'Registration Fee')
+                                                }
+                                            </span>
+                                            <p className="text-xs text-pitch-accent font-bold uppercase italic tabular-nums leading-none">
+                                                {isCashLeague ? 'Due At First Game (CASH)' : 'Due Today'}
+                                            </p>
                                         </div>
-                                        <span className="text-3xl font-black text-white italic">${registrationFee}</span>
+                                        <span className="text-3xl font-black text-white italic">${baseAmount.toFixed(2)}</span>
+                                    </div>
+                                )}
+
+                                {/* Processing Fee Block */}
+                                {processingFee > 0 && (
+                                    <div className="flex justify-between items-end border-b border-white/5 pb-4">
+                                        <div className="space-y-1">
+                                            <span className="block text-[10px] font-black uppercase tracking-tighter text-gray-500">Processing Fee</span>
+                                            <p className="text-[10px] text-pitch-secondary font-bold uppercase italic leading-none">Stripe Transaction Cost</p>
+                                        </div>
+                                        <span className="text-xl font-black text-white italic">${processingFee.toFixed(2)}</span>
+                                    </div>
+                                )}
+
+                                {/* Total Stripe Block */}
+                                {stripeAmount > 0 && (
+                                    <div className="flex justify-between items-end border-b border-white/5 pb-4">
+                                        <div className="space-y-1">
+                                            <span className="block text-[10px] font-black uppercase tracking-tighter text-white">Total Charge</span>
+                                        </div>
+                                        <span className="text-3xl font-black text-pitch-accent italic">${stripeAmount.toFixed(2)}</span>
                                     </div>
                                 )}
 
@@ -278,7 +388,7 @@ export function RollingRegistrationClient({
                                             <span className="block text-[10px] font-black uppercase tracking-tighter text-gray-500">Weekly Door Fee</span>
                                             <p className="text-xs text-pitch-secondary font-bold uppercase italic tabular-nums leading-none">DUE PER GAME (CASH)</p>
                                         </div>
-                                        <span className="text-3xl font-black text-white italic">${weeklyDoorFee}</span>
+                                        <span className="text-3xl font-black text-white italic">${weeklyDoorFee.toFixed(2)}</span>
                                     </div>
                                 )}
                             </div>

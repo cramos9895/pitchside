@@ -164,6 +164,13 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
     const [hasFreeAgentCredit, setHasFreeAgentCredit] = useState(initialData?.has_free_agent_credit ?? false);
     // @ts-expect-error - Requires complex schema extension
     const [isRefundable, setIsRefundable] = useState(initialData?.is_refundable ?? true);
+    // @ts-expect-error - Requires complex schema extension
+    const [passProcessingFees, setPassProcessingFees] = useState<boolean>(initialData?.pass_processing_fees ?? false);
+    // @ts-expect-error - Requires complex schema extension
+    const [uniformsProvided, setUniformsProvided] = useState<boolean>((initialData as any)?.uniforms_provided ?? false);
+    const [uniformColorsString, setUniformColorsString] = useState<string>(
+        Array.isArray((initialData as any)?.uniform_colors) ? (initialData as any).uniform_colors.join(', ') : ''
+    );
 
     // Bracket & Season Transitions
     // @ts-expect-error - Requires complex schema extension
@@ -261,6 +268,9 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
                 waiver_details: waiverDetails || null,
                 skipped_dates: skippedDates, max_players: null, is_refundable: paymentCollectionType === 'cash' ? false : isRefundable,
                 refund_cutoff_date: teamSignupCutoff ? new Date(teamSignupCutoff).toISOString() : null,
+                pass_processing_fees: passProcessingFees,
+                uniforms_provided: uniformsProvided,
+                uniform_colors: uniformsProvided ? uniformColorsString.split(',').map(s => s.trim()).filter(Boolean) : null,
                 team_price: teamPrice === '' ? null : teamPrice,
                 free_agent_price: paymentCollectionType === 'cash' && cashFeeStructure === 'per_game' ? null : (freeAgentPrice === '' ? null : freeAgentPrice),
                 has_free_agent_credit: hasFreeAgentCredit, strict_waiver_required: strictWaiverRequired,
@@ -362,6 +372,9 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
         setFreeAgentPrice(data.free_agent_price ?? '');
         setHasFreeAgentCredit(data.has_free_agent_credit ?? false);
         setIsRefundable(data.is_refundable ?? true);
+        setPassProcessingFees(data.pass_processing_fees ?? false);
+        setUniformsProvided(data.uniforms_provided ?? false);
+        setUniformColorsString(Array.isArray(data.uniform_colors) ? data.uniform_colors.join(', ') : '');
 
         setMinTeams(data.min_teams ?? 4);
         setMaxTourneyTeams(data.max_teams ?? 8);
@@ -404,6 +417,9 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
                 waiver_details: waiverDetails || null,
                 skipped_dates: skippedDates, max_players: null, is_refundable: paymentCollectionType === 'cash' ? false : isRefundable,
                 refund_cutoff_date: teamSignupCutoff ? new Date(teamSignupCutoff).toISOString() : null,
+                pass_processing_fees: passProcessingFees,
+                uniforms_provided: uniformsProvided,
+                uniform_colors: uniformsProvided ? uniformColorsString.split(',').map(s => s.trim()).filter(Boolean) : null,
                 team_price: teamPrice === '' ? null : teamPrice,
                 free_agent_price: paymentCollectionType === 'cash' && cashFeeStructure === 'per_game' ? null : (freeAgentPrice === '' ? null : freeAgentPrice),
                 has_free_agent_credit: hasFreeAgentCredit, strict_waiver_required: strictWaiverRequired,
@@ -799,6 +815,29 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
                             placeholder={maxPlayersPerTeam === '' ? 'Unlimited Roster' : ''}
                         />
                     </div>
+                </div>
+
+                <div className="border border-white/10 p-4 rounded-sm bg-white/5 space-y-4">
+                    <label className="flex items-center justify-between cursor-pointer group">
+                        <span className="text-sm font-bold uppercase tracking-wider text-white group-hover:text-[#cbff00] transition-colors">Facility Provides Uniforms?</span>
+                        <input type="checkbox" checked={uniformsProvided} onChange={(e) => setUniformsProvided(e.target.checked)} className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer" />
+                    </label>
+                    {uniformsProvided && (
+                        <div className="space-y-4 pt-2 border-t border-white/10 animate-in fade-in slide-in-from-top-2">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Available Uniform Colors</label>
+                                <input 
+                                    type="text" 
+                                    required 
+                                    placeholder="e.g. Red, Blue, Green, Yellow, Black, White"
+                                    value={uniformColorsString} 
+                                    onChange={(e) => setUniformColorsString(e.target.value)} 
+                                    className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" 
+                                />
+                                <p className="text-[10px] text-pitch-secondary uppercase font-medium mt-1">Comma-separated list of colors you have in stock.</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
              </div>
 
@@ -1235,6 +1274,15 @@ export function RollingLeagueForm({ initialData, action = 'create', onSuccess }:
                                     />
                                     <span className="text-[10px] font-bold uppercase">Refundable</span>
                                 </label>
+                            </div>
+                            <div className="border border-white/10 p-4 rounded-sm bg-white/5 space-y-4 mt-6">
+                                <label className="flex items-center justify-between cursor-pointer group">
+                                    <span className="text-sm font-bold uppercase tracking-wider text-white group-hover:text-[#cbff00] transition-colors">Pass Processing Fees to Customer?</span>
+                                    <input type="checkbox" checked={passProcessingFees} onChange={(e) => setPassProcessingFees(e.target.checked)} className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer" />
+                                </label>
+                                {passProcessingFees && (
+                                    <p className="text-[10px] text-pitch-secondary uppercase font-medium mt-1">Customers will pay an additional fee (~3.5% + $0.30) to cover Stripe transaction costs.</p>
+                                )}
                             </div>
                         </div>
                     </div>

@@ -89,6 +89,7 @@ function DashboardContent() {
                 setUser(user);
 
                 const now = new Date().toISOString();
+                const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
                 // 2. Parallel Fetching (Independent Queries)
                 const [
@@ -187,7 +188,7 @@ function DashboardContent() {
                 if (gamesRes.data) {
                     gamesRes.data.forEach((b: any) => {
                                                                                                 const g = b.game as any;
-                                                                                                if (g && (new Date(g.start_time).toISOString() >= now || g.status === 'active')) {
+                                                                                                if (g && (new Date(g.end_time || g.start_time).toISOString() >= thirtyMinsAgo || g.status === 'active')) {
                             events.push({
                                 type: 'game',
                                                                                                                                 id: b.id, 
@@ -212,7 +213,7 @@ function DashboardContent() {
                         const isLeague = g.event_type === 'league';
                         const isActive = g.status === 'active' || g.status === 'scheduled';
                         
-                                                                                                if (new Date(g.start_time).toISOString() >= now || isActive) {
+                                                                                                if (new Date(g.end_time || g.start_time).toISOString() >= thirtyMinsAgo || isActive) {
                             events.push({
                                 type: isLeague ? 'league' : 'tournament',
                                 id: reg.id,

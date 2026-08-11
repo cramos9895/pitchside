@@ -57,6 +57,13 @@ export async function POST(req: Request) {
             }
 
             if (registrationId) {
+                // Fetch the registration to see if there's an associated team
+                const { data: regData } = await adminSupabase
+                    .from('tournament_registrations')
+                    .select('team_id')
+                    .eq('id', registrationId)
+                    .single();
+
                 // Finalize tournament/league registration
                 const { error } = await adminSupabase
                     .from('tournament_registrations')
@@ -68,6 +75,15 @@ export async function POST(req: Request) {
                     .eq('id', registrationId);
                 
                 if (error) console.error('[WEBHOOK_DB_ERROR] Failed to finalize registration:', error);
+
+                // Elevate team status from pending to approved
+                if (regData?.team_id) {
+                    const { error: teamError } = await adminSupabase
+                        .from('teams')
+                        .update({ status: 'approved' })
+                        .eq('id', regData.team_id);
+                    if (teamError) console.error('[WEBHOOK_DB_ERROR] Failed to elevate team status:', teamError);
+                }
             }
         } 
         
@@ -78,6 +94,12 @@ export async function POST(req: Request) {
 
             // Handle registration fulfillment
             if (registrationId && (type === 'league_payment' || type === 'league' || type === 'tournament' || type === 'pickup')) {
+                const { data: regData } = await adminSupabase
+                    .from('tournament_registrations')
+                    .select('team_id')
+                    .eq('id', registrationId)
+                    .single();
+
                 await adminSupabase
                     .from('tournament_registrations')
                     .update({
@@ -86,6 +108,10 @@ export async function POST(req: Request) {
                         stripe_payment_intent_id: pi.id
                     })
                     .eq('id', registrationId);
+
+                if (regData?.team_id) {
+                    await adminSupabase.from('teams').update({ status: 'approved' }).eq('id', regData.team_id);
+                }
             }
             
             // Handle legacy off-session payments

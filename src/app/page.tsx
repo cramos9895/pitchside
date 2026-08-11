@@ -107,13 +107,13 @@ export default async function Home() {
   }
 
   // Fetch upcoming games
-  const now = new Date().toISOString();
+  const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
   let query = supabase
     .from('games')
     .select('*, tournament_registrations(user_id, team_id, role, status)')
     .eq('is_active', true)
     .neq('status', 'cancelled')
-    .or(`start_time.gt.${now},status.eq.active`)
+    .or(`end_time.gte.${thirtyMinsAgo},start_time.gte.${thirtyMinsAgo},status.eq.active`)
     .order('start_time', { ascending: true })
     .limit(3);
 

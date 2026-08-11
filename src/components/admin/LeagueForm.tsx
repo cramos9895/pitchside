@@ -116,6 +116,13 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
     const [allowFreeAgents, setAllowFreeAgents] = useState<boolean>(initialData?.allow_free_agents ?? true);
     // @ts-expect-error - Requires complex schema extension
     const [refundCutoffDate, setRefundCutoffDate] = useState(getLocalDatetimeString(initialData?.refund_cutoff_date));
+    // @ts-expect-error - Requires complex schema extension
+    const [passProcessingFees, setPassProcessingFees] = useState<boolean>(initialData?.pass_processing_fees ?? false);
+    // @ts-expect-error - Requires complex schema extension
+    const [uniformsProvided, setUniformsProvided] = useState<boolean>((initialData as any)?.uniforms_provided ?? false);
+    const [uniformColorsString, setUniformColorsString] = useState<string>(
+        Array.isArray((initialData as any)?.uniform_colors) ? (initialData as any).uniform_colors.join(', ') : ''
+    );
 
     // Teams & Playoffs
     // @ts-expect-error - Requires complex schema extension
@@ -226,6 +233,9 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
                 has_free_agent_credit: allowFreeAgents ? hasFreeAgentCredit : false,
                 allow_free_agents: allowFreeAgents,
                 refund_cutoff_date: refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null,
+                pass_processing_fees: passProcessingFees,
+                uniforms_provided: uniformsProvided,
+                uniform_colors: uniformsProvided ? uniformColorsString.split(',').map(s => s.trim()).filter(Boolean) : null,
                 min_teams: minTeams === '' ? null : minTeams,
                 max_teams: maxTourneyTeams === '' ? null : maxTourneyTeams,
                 min_players_per_team: minPlayersPerTeam === '' ? null : minPlayersPerTeam,
@@ -311,6 +321,9 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
         if (data.roster_freeze_date) setRosterFreezeDate(new Date(data.roster_freeze_date).toISOString().slice(0, 16));
         if (data.playoff_start_date) setPlayoffStartDate(new Date(data.playoff_start_date).toISOString().slice(0, 16));
         if (data.refund_cutoff_date) setRefundCutoffDate(new Date(data.refund_cutoff_date).toISOString().slice(0, 16));
+        setPassProcessingFees(data.pass_processing_fees ?? false);
+        setUniformsProvided(data.uniforms_provided ?? false);
+        setUniformColorsString(Array.isArray(data.uniform_colors) ? data.uniform_colors.join(', ') : '');
 
         setEarliestGameStartTime(data.earliest_game_start_time || '');
         setLatestGameStartTime(data.latest_game_start_time || '');
@@ -376,6 +389,9 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
                 has_free_agent_credit: allowFreeAgents ? hasFreeAgentCredit : false,
                 allow_free_agents: allowFreeAgents,
                 refund_cutoff_date: refundCutoffDate ? new Date(refundCutoffDate).toISOString() : null,
+                pass_processing_fees: passProcessingFees,
+                uniforms_provided: uniformsProvided,
+                uniform_colors: uniformsProvided ? uniformColorsString.split(',').map(s => s.trim()).filter(Boolean) : null,
                 min_teams: minTeams === '' ? null : minTeams,
                 max_teams: maxTourneyTeams === '' ? null : maxTourneyTeams,
                 min_players_per_team: minPlayersPerTeam === '' ? null : minPlayersPerTeam,
@@ -626,6 +642,15 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
                                 </div>
                             )}
                         </div>
+                        <div className="border border-white/10 p-4 rounded-sm bg-white/5 space-y-4">
+                            <label className="flex items-center justify-between cursor-pointer group">
+                                <span className="text-sm font-bold uppercase tracking-wider text-white group-hover:text-[#cbff00] transition-colors">Pass Processing Fees to Customer?</span>
+                                <input type="checkbox" checked={passProcessingFees} onChange={(e) => setPassProcessingFees(e.target.checked)} className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer" />
+                            </label>
+                            {passProcessingFees && (
+                                <p className="text-[10px] text-pitch-secondary uppercase font-medium mt-1">Customers will pay an additional fee (~3.5% + $0.30) to cover Stripe transaction costs.</p>
+                            )}
+                        </div>
                     </div>
 
                     <div className="space-y-6">
@@ -710,6 +735,29 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
                         <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Max Players / Team</label>
                         <input type="number" min="1" required value={maxPlayersPerTeam} onChange={(e) => setMaxPlayersPerTeam(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" />
                     </div>
+                </div>
+
+                <div className="border border-white/10 p-4 rounded-sm bg-white/5 space-y-4">
+                    <label className="flex items-center justify-between cursor-pointer group">
+                        <span className="text-sm font-bold uppercase tracking-wider text-white group-hover:text-[#cbff00] transition-colors">Facility Provides Uniforms?</span>
+                        <input type="checkbox" checked={uniformsProvided} onChange={(e) => setUniformsProvided(e.target.checked)} className="w-5 h-5 accent-[#cbff00] rounded cursor-pointer" />
+                    </label>
+                    {uniformsProvided && (
+                        <div className="space-y-4 pt-2 border-t border-white/10 animate-in fade-in slide-in-from-top-2">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-pitch-secondary mb-2">Available Uniform Colors</label>
+                                <input 
+                                    type="text" 
+                                    required 
+                                    placeholder="e.g. Red, Blue, Green, Yellow, Black, White"
+                                    value={uniformColorsString} 
+                                    onChange={(e) => setUniformColorsString(e.target.value)} 
+                                    className="w-full bg-black/30 border border-white/10 rounded-sm p-3 text-white focus:outline-none focus:border-[#cbff00] transition-colors" 
+                                />
+                                <p className="text-[10px] text-pitch-secondary uppercase font-medium mt-1">Comma-separated list of colors you have in stock.</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
