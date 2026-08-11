@@ -416,7 +416,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                     ) : (
                         <>
                             <Link
-                                href={`/leagues/${game.id}/register?type=team`}
+                                href={`/games/${game.id}/register?type=team`}
                                 className="flex-1 py-5 bg-pitch-accent text-pitch-black font-black uppercase tracking-[0.2em] text-sm hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(204,255,0,0.15)] rounded-sm"
                             >
                                 Register as Captain <ArrowRight className="w-4 h-4" />
@@ -424,7 +424,7 @@ export function RollingSalesView({ game, primaryHost, registeredTeams = [] }: Ro
                             
                             {game.allow_free_agents && (
                                 <Link
-                                    href={`/leagues/${game.id}/register?type=free_agent`}
+                                    href={`/games/${game.id}/register?type=free_agent`}
                                     className="flex-1 py-5 bg-white text-black font-black uppercase tracking-[0.2em] text-sm hover:bg-pitch-accent transition-all transform active:scale-95 flex items-center justify-center gap-3 rounded-sm"
                                 >
                                     Join as Free Agent <ArrowRight className="w-4 h-4" />

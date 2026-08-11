@@ -118,7 +118,6 @@ export function LeagueForm({ initialData, action = 'create', onSuccess }: League
     const [refundCutoffDate, setRefundCutoffDate] = useState(getLocalDatetimeString(initialData?.refund_cutoff_date));
     // @ts-expect-error - Requires complex schema extension
     const [passProcessingFees, setPassProcessingFees] = useState<boolean>(initialData?.pass_processing_fees ?? false);
-    // @ts-expect-error - Requires complex schema extension
     const [uniformsProvided, setUniformsProvided] = useState<boolean>((initialData as any)?.uniforms_provided ?? false);
     const [uniformColorsString, setUniformColorsString] = useState<string>(
         Array.isArray((initialData as any)?.uniform_colors) ? (initialData as any).uniform_colors.join(', ') : ''
