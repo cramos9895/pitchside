@@ -107,13 +107,15 @@ export default async function Home() {
   }
 
   // Fetch upcoming games
-  const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  // We use a 3-hour buffer on start_time so games stay visible while they are running
+  // (assuming ~2hr average duration + ~1hr buffer). Active games are always shown.
+  const bufferTime = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
   let query = supabase
     .from('games')
     .select('*, tournament_registrations(user_id, team_id, role, status)')
     .eq('is_active', true)
     .neq('status', 'cancelled')
-    .or(`end_time.gte.${thirtyMinsAgo},start_time.gte.${thirtyMinsAgo},status.eq.active`)
+    .or(`start_time.gte.${bufferTime},status.eq.active`)
     .order('start_time', { ascending: true })
     .limit(3);
 
