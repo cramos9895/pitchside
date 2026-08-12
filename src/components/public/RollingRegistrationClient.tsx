@@ -30,6 +30,7 @@ export function RollingRegistrationClient({
         uniforms_provided?: boolean | null;
         uniform_colors?: string[] | null;
         charge_team_registration_fee?: boolean | null;
+        team_registration_fee?: number | null;
         deduct_team_reg_fee?: boolean | null;
     },
     type: 'team' | 'free_agent'
@@ -58,32 +59,47 @@ export function RollingRegistrationClient({
     const isCashLeague = league.payment_collection_type === 'cash';
     
     // EXPLICIT FEE MAPPING (Phase 2 Decoupling)
-    // Registration Fee = Upfront cost requested by user
-    const registrationFee = league.player_registration_fee ?? 0;
-    
-    // Weekly Door Fee = The cash amount collected per game
+    const playerRegFee = league.player_registration_fee ?? 0;
     const weeklyDoorFee = league.cash_amount ?? 0;
-
+    const teamRegFee = (league.charge_team_registration_fee && league.team_registration_fee) ? league.team_registration_fee : 0;
+    const deductRegFee = league.deduct_team_reg_fee ?? false;
+    
     // Fixed League Pricing (Stripe-based fallback)
     const upfrontLeaguePrice = type === 'team' 
         ? (league.team_price ?? 0) 
         : (league.free_agent_price ?? 0);
 
-    // Fee Calculation
-    const deductRegFee = league.deduct_team_reg_fee ?? false;
+    let displayTeamPrice = 0;
+    let displayTeamDeposit = 0;
+    let displayPlayerFee = playerRegFee;
+    let displayNonDeductibleTeamFee = 0;
+
     let baseAmount = 0;
     
     if (isCashLeague) {
-        baseAmount = registrationFee; // Usually cash leagues only display this as upfront
+        if (type === 'team') {
+            displayTeamDeposit = teamRegFee;
+            baseAmount = teamRegFee + playerRegFee;
+        } else {
+            baseAmount = playerRegFee;
+        }
     } else {
         if (type === 'team') {
             if (paymentOption === 'deposit') {
-                baseAmount = registrationFee;
+                displayTeamDeposit = teamRegFee;
+                baseAmount = teamRegFee + playerRegFee;
             } else {
-                baseAmount = deductRegFee ? upfrontLeaguePrice : upfrontLeaguePrice + registrationFee;
+                displayTeamPrice = upfrontLeaguePrice;
+                if (!deductRegFee && teamRegFee > 0) {
+                    displayNonDeductibleTeamFee = teamRegFee;
+                    baseAmount = upfrontLeaguePrice + playerRegFee + teamRegFee;
+                } else {
+                    baseAmount = upfrontLeaguePrice + playerRegFee;
+                }
             }
         } else {
-            baseAmount = upfrontLeaguePrice + registrationFee;
+            displayTeamPrice = upfrontLeaguePrice;
+            baseAmount = upfrontLeaguePrice + playerRegFee;
         }
     }
     
@@ -305,7 +321,7 @@ export function RollingRegistrationClient({
                                 <CreditCard className="w-4 h-4 text-pitch-accent" /> Financial Roadmap
                             </div>
 
-                            {type === 'team' && !isCashLeague && registrationFee > 0 && (
+                            {type === 'team' && !isCashLeague && (teamRegFee > 0 || upfrontLeaguePrice > 0) && (
                                 <div className="space-y-3 mb-6">
                                     <label className="block text-xs font-black uppercase text-gray-400 tracking-widest">Payment Option</label>
                                     <div className="grid grid-cols-2 gap-4">
@@ -321,7 +337,7 @@ export function RollingRegistrationClient({
                                                 <span className={cn("text-[10px] font-black uppercase tracking-widest", paymentOption === 'deposit' ? "text-pitch-accent" : "text-gray-400")}>Pay Deposit</span>
                                                 <div className={cn("w-2 h-2 rounded-full", paymentOption === 'deposit' ? "bg-pitch-accent shadow-[0_0_10px_rgba(204,255,0,0.5)]" : "bg-white/10")} />
                                             </div>
-                                            <p className="text-[10px] text-gray-500 font-bold uppercase">Captain pays ${registrationFee} now. Players pay remainder.</p>
+                                            <p className="text-[10px] text-gray-500 font-bold uppercase">Pay the deposit now. Players pay remainder.</p>
                                         </button>
                                         <button
                                             type="button"
@@ -342,21 +358,70 @@ export function RollingRegistrationClient({
                             )}
 
                             <div className="space-y-6">
-                                {/* Base Amount Block */}
-                                {baseAmount > 0 && (
+                                {/* Line Items */}
+                                {displayTeamPrice > 0 && (
                                     <div className="flex justify-between items-end border-b border-white/5 pb-4">
                                         <div className="space-y-1">
                                             <span className="block text-[10px] font-black uppercase tracking-tighter text-gray-500">
-                                                {isCashLeague 
-                                                    ? 'Registration Fee' 
-                                                    : (type === 'team' ? (paymentOption === 'deposit' ? 'Captain Deposit' : 'Full Team Fee') : 'Registration Fee')
-                                                }
+                                                {type === 'team' ? 'Full Team League Fee' : 'Free Agent Fee'}
                                             </span>
                                             <p className="text-xs text-pitch-accent font-bold uppercase italic tabular-nums leading-none">
-                                                {isCashLeague ? 'Due At First Game (CASH)' : 'Due Today'}
+                                                Due Today
                                             </p>
                                         </div>
-                                        <span className="text-3xl font-black text-white italic">${baseAmount.toFixed(2)}</span>
+                                        <span className="text-xl font-black text-white italic">${displayTeamPrice.toFixed(2)}</span>
+                                    </div>
+                                )}
+                                
+                                {displayTeamDeposit > 0 && (
+                                    <div className="flex justify-between items-end border-b border-white/5 pb-4">
+                                        <div className="space-y-1">
+                                            <span className="block text-[10px] font-black uppercase tracking-tighter text-gray-500">
+                                                Team Registration Fee
+                                            </span>
+                                            <p className="text-xs text-pitch-accent font-bold uppercase italic tabular-nums leading-none">
+                                                {isCashLeague ? 'Due At First Game (CASH)' : 'Captain Deposit'}
+                                            </p>
+                                        </div>
+                                        <span className="text-xl font-black text-white italic">${displayTeamDeposit.toFixed(2)}</span>
+                                    </div>
+                                )}
+                                
+                                {displayNonDeductibleTeamFee > 0 && (
+                                    <div className="flex justify-between items-end border-b border-white/5 pb-4">
+                                        <div className="space-y-1">
+                                            <span className="block text-[10px] font-black uppercase tracking-tighter text-gray-500">
+                                                Team Registration Fee
+                                            </span>
+                                            <p className="text-[10px] text-pitch-secondary font-bold uppercase italic leading-none">
+                                                Non-Deductible Admin Fee
+                                            </p>
+                                        </div>
+                                        <span className="text-xl font-black text-white italic">${displayNonDeductibleTeamFee.toFixed(2)}</span>
+                                    </div>
+                                )}
+
+                                {displayPlayerFee > 0 && (
+                                    <div className="flex justify-between items-end border-b border-white/5 pb-4">
+                                        <div className="space-y-1">
+                                            <span className="block text-[10px] font-black uppercase tracking-tighter text-gray-500">
+                                                Player Registration Fee
+                                            </span>
+                                            <p className="text-[10px] text-pitch-secondary font-bold uppercase italic leading-none">
+                                                {isCashLeague ? 'Due At First Game (CASH)' : 'Required Player Spot'}
+                                            </p>
+                                        </div>
+                                        <span className="text-xl font-black text-white italic">${displayPlayerFee.toFixed(2)}</span>
+                                    </div>
+                                )}
+
+                                {/* Subtotal (only show if there are multiple items or processing fee exists) */}
+                                {baseAmount > 0 && processingFee > 0 && (
+                                    <div className="flex justify-between items-end border-b border-white/5 pb-4">
+                                        <div className="space-y-1">
+                                            <span className="block text-[10px] font-black uppercase tracking-tighter text-gray-500">Subtotal</span>
+                                        </div>
+                                        <span className="text-xl font-black text-white italic">${baseAmount.toFixed(2)}</span>
                                     </div>
                                 )}
 

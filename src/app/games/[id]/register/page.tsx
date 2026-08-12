@@ -60,6 +60,7 @@ export default async function RollingLeagueRegistrationPage({
             uniforms_provided,
             uniform_colors,
             charge_team_registration_fee,
+            team_registration_fee,
             deduct_team_reg_fee
         `)
         .eq('id', gameId)
