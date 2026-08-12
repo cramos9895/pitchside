@@ -108,14 +108,16 @@ export async function POST(request: Request) {
             .eq('id', userId)
             .single();
 
-        const basePrice = gameConfig?.price ?? price;
+        const eventType = gameConfig?.event_type || 'league';
+        const basePrice = (eventType === 'pickup' || eventType === 'standard') 
+            ? (gameConfig?.price ?? price) 
+            : price;
         const subtotalUnits = basePrice * partySize;
         const walletBalanceCredits = (userProfile?.credit_balance || 0) / 100;
 
         let appliedCreditUnits = 0;
         let totalDueUnits = subtotalUnits;
 
-        const eventType = gameConfig?.event_type || 'league';
         const requiresVaulting = (isWaitlistVaulting || isLeagueCaptainVaulting || (isFreeAgent && eventType !== 'pickup'));
 
         if (!requiresVaulting && subtotalUnits > 0) {

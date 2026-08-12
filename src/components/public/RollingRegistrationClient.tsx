@@ -480,7 +480,7 @@ export function RollingRegistrationClient({
                             <button
                                 type="submit"
                                 disabled={isSubmitting || !isFormValid()}
-                                className="w-full py-5 bg-pitch-accent text-pitch-black font-black uppercase tracking-[0.2em] text-sm hover:bg-white transition-all transform active:scale-[0.98] rounded-sm shadow-[0_0_30px_rgba(204,255,0,0.1)] flex items-center justify-center gap-3 disabled:opacity-50"
+                                className="w-full py-4 md:py-5 bg-pitch-accent text-pitch-black font-black uppercase tracking-[0.2em] text-xs hover:bg-white transition-all transform active:scale-[0.98] rounded-sm shadow-[0_0_30px_rgba(204,255,0,0.1)] flex items-center justify-center gap-3 disabled:opacity-50"
                             >
                                 {isSubmitting ? 'Processing...' : (
                                     <>
