@@ -398,16 +398,20 @@ export function LeagueClientPage({
     // Fallback to legacy status ('paid', 'active', 'waitlist') if roster_status is null
     const validBookings = bookings.filter(b => b.roster_status !== 'dropped' && b.status !== 'cancelled');
 
-    // Active Roster
+    // Active Roster (confirmed spots, strictly excluding waitlisted bookings)
     const activeRoster = validBookings.filter(b =>
-        (b.roster_status === 'confirmed') ||
-        (!b.roster_status && ['paid', 'active'].includes(b.status))
+        (b.status !== 'waitlist' && b.status !== 'waitlisted' && b.roster_status !== 'waitlisted') &&
+        (
+            (b.roster_status === 'confirmed') ||
+            (!b.roster_status && ['paid', 'active'].includes(b.status))
+        )
     );
 
     // Waitlist (First in, First out)
     const waitlist = validBookings.filter(b =>
-        (b.roster_status === 'waitlisted') ||
-        (!b.roster_status && b.status === 'waitlist')
+        b.status === 'waitlist' ||
+        b.status === 'waitlisted' ||
+        b.roster_status === 'waitlisted'
     ).sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
 
     // Free Agent Pool
@@ -1385,6 +1389,8 @@ export function LeagueClientPage({
                 loading={joinLoading}
                 isWaitlist={game.max_players != null && activeRoster.length >= game.max_players}
                 gameId={game.id}
+                paymentCollectionType={game.payment_collection_type}
+                allowedPaymentMethods={game.allowed_payment_methods}
                 remainingSpots={game.max_players != null ? Math.max(0, game.max_players - activeRoster.length) : null}
             />
 

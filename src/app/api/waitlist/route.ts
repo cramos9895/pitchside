@@ -50,12 +50,16 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // 1.5 Check if waitlist is full
+        // 1.5 Check if waitlist is full or if paid Stripe event requires vaulting
         const { data: game } = await supabase
             .from('games')
-            .select('max_waitlist')
+            .select('max_waitlist, price, payment_collection_type')
             .eq('id', gameId)
             .single();
+
+        if (game?.payment_collection_type === 'stripe' && (game.price || 0) > 0) {
+            return NextResponse.json({ error: 'Paid events require card vaulting via Stripe to join the waitlist.' }, { status: 400 });
+        }
 
         if (game?.max_waitlist != null) {
             const { count: waitlistCount } = await supabase
@@ -76,9 +80,10 @@ export async function POST(request: NextRequest) {
                 user_id: user.id,
                 game_id: gameId,
                 status: 'waitlist',
+                roster_status: 'waitlisted',
                 payment_status: 'unpaid',
                 payment_amount: 0,
-                payment_method: 'free',
+                payment_method: 'waitlist',
                 checked_in: false,
                 team_assignment: null,
                 note: note

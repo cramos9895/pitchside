@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         // 1. Fetch Game to verify price, current players and max players
         const { data: game, error: gameError } = await supabase
             .from('games')
-            .select('price, title, start_time, location, max_players, current_players, view_mode, teams_config, max_waitlist')
+            .select('price, title, start_time, location, max_players, current_players, view_mode, teams_config, max_waitlist, payment_collection_type')
             .eq('id', gameId)
             .single();
 
@@ -97,6 +97,17 @@ export async function POST(request: NextRequest) {
         const isFull = (game.current_players + partySize) > game.max_players;
         const isManualPayment = !!paymentMethod && paymentMethod !== 'promo' && paymentMethod !== 'wallet';
 
+        // Security: If this is a paid event requiring Stripe card vaulting/payment,
+        // do not allow unauthorized bypass through direct /api/join.
+        const isStripePaid = game.payment_collection_type === 'stripe' && (game.price || 0) > 0;
+        if (isStripePaid && !isManualPayment && paymentMethod !== 'wallet' && paymentMethod !== 'promo') {
+            return NextResponse.json({ 
+                error: isFull 
+                    ? 'Card vaulting via Stripe is required to join the waitlist for this event.' 
+                    : 'Payment via Stripe is required to join this event.' 
+            }, { status: 400 });
+        }
+
         if (isFull && game.max_waitlist != null) {
             const { count: waitlistCount } = await supabase
                 .from('bookings')
@@ -111,10 +122,11 @@ export async function POST(request: NextRequest) {
 
         let initialStatus = isFull ? 'waitlist' : 'paid'; // Legacy status
         let initialPaymentStatus = isFull ? 'unpaid' : (isManualPayment ? 'pending' : 'verified');
+        let initialRosterStatus = isFull ? 'waitlisted' : 'confirmed';
 
         const adminSupabase = createAdminClient();
 
-                // 4. Wallet Math Integration (Mirroring Stripe Flow)
+        // 4. Wallet Math Integration (Mirroring Stripe Flow)
         let appliedCreditUnits = 0;
         if (!isFull && game.price > 0 && (isManualPayment || paymentMethod === 'wallet')) {
             const subtotalUnits = game.price * partySize;
@@ -138,11 +150,11 @@ export async function POST(request: NextRequest) {
                 game_id: gameId,
                 status: initialStatus,
                 payment_status: initialPaymentStatus,
-                                payment_method: paymentMethod || 'free',
+                payment_method: isFull ? 'waitlist' : (paymentMethod || 'free'),
                 payment_amount: (isManualPayment || paymentMethod === 'wallet') ? game.price : 0,
                 checked_in: false,
-                                team_assignment: teamAssignment !== undefined ? teamAssignment : null,
-                roster_status: 'confirmed',
+                team_assignment: teamAssignment !== undefined ? teamAssignment : null,
+                roster_status: initialRosterStatus,
                 requested_team_id: requestedTeamId || null,
                 requested_teammate_ids: requestedTeammateIds || [],
                 requested_team_name: requestedTeamName || null,
@@ -158,11 +170,11 @@ export async function POST(request: NextRequest) {
                 game_id: gameId,
                 status: initialStatus,
                 payment_status: initialPaymentStatus,
-                                payment_method: paymentMethod || 'free',
+                payment_method: isFull ? 'waitlist' : (paymentMethod || 'free'),
                 payment_amount: (isManualPayment || paymentMethod === 'wallet') ? game.price : 0,
                 checked_in: false,
-                                team_assignment: teamAssignment !== undefined ? teamAssignment : null,
-                roster_status: 'confirmed',
+                team_assignment: teamAssignment !== undefined ? teamAssignment : null,
+                roster_status: initialRosterStatus,
                 requested_team_id: requestedTeamId || null,
                 requested_teammate_ids: requestedTeammateIds || [],
                 requested_team_name: requestedTeamName || null,

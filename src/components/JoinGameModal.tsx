@@ -20,9 +20,23 @@ interface JoinGameModalProps {
     gameId: string;
     isLeague?: boolean;
     remainingSpots?: number | null;
+    paymentCollectionType?: string | null;
+    allowedPaymentMethods?: string[] | null;
 }
 
-export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, isWaitlist, gameId, isLeague, remainingSpots }: JoinGameModalProps) {
+export function JoinGameModal({ 
+    isOpen, 
+    onClose, 
+    onConfirm, 
+    gamePrice, 
+    loading, 
+    isWaitlist, 
+    gameId, 
+    isLeague, 
+    remainingSpots,
+    paymentCollectionType,
+    allowedPaymentMethods: propAllowedMethods
+}: JoinGameModalProps) {
     const [step, setStep] = useState<'details' | 'payment'>('details');
     const [note, setNote] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<'venmo' | 'zelle' | 'cash' | 'stripe' | null>(null);
@@ -279,7 +293,9 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
     
     const finalPrice = Math.max(0, subtotalAfterPromo - creditApplied);
 
-    const supportsStripe = gameData?.payment_collection_type === 'stripe' || (gameData?.allowed_payment_methods && gameData.allowed_payment_methods.includes('stripe'));
+    const effectivePaymentCollectionType = paymentCollectionType || gameData?.payment_collection_type;
+    const effectiveAllowedMethods = propAllowedMethods || allowedMethods;
+    const supportsStripe = effectivePaymentCollectionType === 'stripe' || (effectiveAllowedMethods && effectiveAllowedMethods.includes('stripe'));
 
     const handleApplyPromo = async () => {
         if (!promoCode.trim()) return;
@@ -308,7 +324,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
 
         if (selectedTeam === 'free_agent' && !isWaitlist && isLeague) {
             // League Free Agents IMMEDIATELY go to Stripe to vault UNLESS it is a cash league.
-                                                const isCashLeague = gameData?.payment_collection_type === 'cash';
+            const isCashLeague = effectivePaymentCollectionType === 'cash';
             
             if (isCashLeague) {
                 // For cash leagues, Free Agents just confirm.
@@ -343,7 +359,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                     if (subtotalAfterPromo === 0) determinedMethod = 'promo';
                     else if (creditApplied > 0 && creditApplied >= subtotalAfterPromo) determinedMethod = 'wallet';
                 }
-                if (isWaitlist && gamePrice > 0 && gameData?.payment_collection_type !== 'cash') {
+                if (isWaitlist && gamePrice > 0 && effectivePaymentCollectionType !== 'cash' && supportsStripe) {
                     // For paid waitlist games, trigger Stripe vaulting
                     onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isWaitlistVaulting: true, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
                 } else {
@@ -404,7 +420,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                     else if (baseSubtotal === 0) determinedMethod = 'promo';
                 }
 
-                if (isWaitlist && gamePrice > 0 && gameData?.payment_collection_type !== 'cash' && supportsStripe) {
+                if (isWaitlist && gamePrice > 0 && effectivePaymentCollectionType !== 'cash' && supportsStripe) {
                     onConfirm({ note, paymentMethod: null, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isWaitlistVaulting: true, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
                 } else {
                     onConfirm({ note, paymentMethod: determinedMethod, promoCodeId: appliedPromo?.id, teamAssignment: selectedTeam !== null && selectedTeam !== 'free_agent' ? selectedTeam : undefined, prizeSplitPreference: finalPrizePref, isLeagueCaptainVaulting: isVaultingSession, guestIds: selectedGuests.map((g: any) => g.id), requestedTeamId: isLeague ? requestedTeamId : null, requestedTeamName: !isLeague ? requestedTeamName : null, requestedTeammateIds: requestedTeammates.map(t => t.id) });
@@ -831,7 +847,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                             )}
 
                             {/* Cash Acknowledgement */}
-                                                                                                                {gameData?.payment_collection_type === 'cash' && !isWaitlist && (
+                            {effectivePaymentCollectionType === 'cash' && !isWaitlist && (
                                 <div className="mt-4 bg-pitch-accent/5 border border-pitch-accent/20 p-4 rounded-sm">
                                     <label className="flex items-start gap-4 cursor-pointer">
                                         <input 
@@ -859,7 +875,7 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                                 </div>
                             )}
 
-                            {isWaitlist && gamePrice > 0 && supportsStripe && gameData?.payment_collection_type !== 'cash' && (
+                            {isWaitlist && gamePrice > 0 && supportsStripe && effectivePaymentCollectionType !== 'cash' && (
                                 <div className="mt-4 bg-yellow-500/10 border border-yellow-500/20 rounded-sm p-4 text-sm">
                                     <h4 className="font-bold text-yellow-500 mb-1 uppercase tracking-wider text-xs">Pre-Authorization Hold</h4>
                                     <p className="text-gray-300">
@@ -871,18 +887,18 @@ export function JoinGameModal({ isOpen, onClose, onConfirm, gamePrice, loading, 
                             <div className="sticky bottom-[-24px] -mx-6 px-6 pb-6 pt-4 bg-pitch-card border-t border-white/5 z-10 mt-auto shadow-[0_-15px_15px_-15px_rgba(0,0,0,0.5)]">
                                 <button
                                     onClick={handleNext}
-                                    disabled={loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (gameData?.payment_collection_type === 'cash' && !cashAcknowledgement) || (remainingSpots !== null && remainingSpots !== undefined && (1 + selectedGuests.length) > remainingSpots && !isWaitlist)}
+                                    disabled={loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (effectivePaymentCollectionType === 'cash' && !cashAcknowledgement) || (remainingSpots !== null && remainingSpots !== undefined && (1 + selectedGuests.length) > remainingSpots && !isWaitlist)}
                                     className={cn(
                                         "w-full py-4 font-black uppercase tracking-wider rounded-sm transition-colors flex items-center justify-center gap-2",
                                         isWaitlist
                                             ? "bg-yellow-500 text-black hover:bg-yellow-400"
                                             : "bg-pitch-accent text-pitch-black hover:bg-white",
-                                                                                                                                                                (loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (gameData?.payment_collection_type === 'cash' && !cashAcknowledgement) || (remainingSpots !== null && remainingSpots !== undefined && (1 + selectedGuests.length) > remainingSpots && !isWaitlist)) && "opacity-50 cursor-not-allowed grayscale"
+                                        (loading || (gameData?.strict_waiver_required && !eventWaiverAccepted) || (effectivePaymentCollectionType === 'cash' && !cashAcknowledgement) || (remainingSpots !== null && remainingSpots !== undefined && (1 + selectedGuests.length) > remainingSpots && !isWaitlist)) && "opacity-50 cursor-not-allowed grayscale"
                                     )}
                                 >
                                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> :
                                         isWaitlist ? "Confirm Waitlist Spot" :
-                                                                                                                                                                                (selectedTeam === 'free_agent' && isLeague) ? (gameData?.payment_collection_type === 'cash' ? "Confirm Free Agent Registration" : "Vault Card & Register") :
+                                            (selectedTeam === 'free_agent' && isLeague) ? (effectivePaymentCollectionType === 'cash' ? "Confirm Free Agent Registration" : "Vault Card & Register") :
                                                 finalPrice === 0 ? "Confirm & Join" : `Continue to Payment ($${finalPrice.toFixed(2)})`}
                                 </button>
                             </div>
