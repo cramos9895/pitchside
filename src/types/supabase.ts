@@ -1490,6 +1490,8 @@ export type Database = {
           event_id: string | null
           id: string
           is_broadcast: boolean | null
+          mentioned_user_ids: string[]
+          reactions: Json
           team_id: string | null
           user_id: string | null
         }
@@ -1499,6 +1501,8 @@ export type Database = {
           event_id?: string | null
           id?: string
           is_broadcast?: boolean | null
+          mentioned_user_ids?: string[]
+          reactions?: Json
           team_id?: string | null
           user_id?: string | null
         }
@@ -1508,6 +1512,8 @@ export type Database = {
           event_id?: string | null
           id?: string
           is_broadcast?: boolean | null
+          mentioned_user_ids?: string[]
+          reactions?: Json
           team_id?: string | null
           user_id?: string | null
         }

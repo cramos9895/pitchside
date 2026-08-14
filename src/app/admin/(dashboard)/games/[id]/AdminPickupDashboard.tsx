@@ -23,6 +23,7 @@ import { AdminRollingManager } from '@/components/admin/rolling/AdminRollingMana
 import { ManualAddPlayerModal } from '@/components/admin/ManualAddPlayerModal';
 import { AdminOfficialsManager } from '@/components/admin/AdminOfficialsManager';
 import { CheckInManager } from '@/components/public/checkin/CheckInManager';
+import { AdminChatDrawer } from '@/components/admin/AdminChatDrawer';
 
 export type AdminGameBooking = Booking & {
     id: string;
@@ -1963,6 +1964,25 @@ export function AdminPickupDashboard({ params }: { params: Promise<{ id: string 
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Floating Live Comms Drawer for Admin & Hosts */}
+            {currentUserId && (
+                <AdminChatDrawer
+                    gameId={gameId}
+                    currentUserId={currentUserId}
+                    gameTitle={game?.title}
+                    players={bookings
+                        .filter((b) => b.user_id && b.profiles)
+                        .map((b) => {
+                            const p = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
+                            return {
+                                id: b.user_id,
+                                name: p?.first_name ? `${p.first_name} ${p.last_name || ''}`.trim() : p?.email || 'Player',
+                                email: p?.email
+                            };
+                        })}
+                />
             )}
         </div>
     );

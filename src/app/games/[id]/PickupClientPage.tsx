@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, useRef, use } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Calendar, MapPin, Clock, Users, MessageSquare, Info, Shirt, DollarSign, Award, Share2, Zap, Trophy, AlertTriangle, Crown, Shield, Activity, Target, PlayCircle, ChevronDown } from 'lucide-react';
@@ -124,6 +124,8 @@ export function PickupClientPage({
 }: GameClientPageProps) {
     const { id: gameId } = params;
     const [activeTab, setActiveTab] = useState<'details' | 'rules' | 'roster' | 'chat' | 'game-time'>('details');
+    const activeTabRef = useRef(activeTab);
+    activeTabRef.current = activeTab;
     const [game, setGame] = useState<Game>(initialGame);
     
     const { success, error: toastError } = useToast();
@@ -273,6 +275,20 @@ export function PickupClientPage({
                 },
                 () => {
                     fetchUserDataAndRoster(false);
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'messages',
+                    filter: `event_id=eq.${gameId}`
+                },
+                (payload: Record<string, any>) => {
+                    if (activeTabRef.current !== 'chat' && payload.new.user_id !== currentUser?.id) {
+                        setHasUnreadChat(true);
+                    }
                 }
             )
             .subscribe();
@@ -1230,6 +1246,15 @@ export function PickupClientPage({
                                         currentUserId={currentUser.id}
                                         isParticipant={isParticipant}
                                         isHost={isHost}
+                                        players={activeRoster
+                                            .filter((b) => b.user_id && b.profiles)
+                                            .map((b) => ({
+                                                id: b.user_id,
+                                                name: b.profiles?.first_name
+                                                    ? `${b.profiles.first_name} ${b.profiles.last_name || ''}`.trim()
+                                                    : b.profiles?.email || 'Player',
+                                                email: b.profiles?.email
+                                            }))}
                                     />
                                 </div>
                             )}

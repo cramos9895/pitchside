@@ -5,6 +5,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendNotification } from '@/lib/email';
 import { isRateLimited } from '@/lib/security/rate-limit';
 
+// Groundwork for @mention email notifications (dormant/disabled by default)
+const ENABLE_MENTION_EMAIL_ALERTS = process.env.ENABLE_MENTION_EMAIL_ALERTS === 'true';
+
 export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient();
@@ -25,7 +28,7 @@ export async function POST(request: NextRequest) {
         }
         // -------------------------------
 
-        const { gameId, messageId, content, isBroadcast, hasHostTag } = await request.json();
+        const { gameId, messageId, content, isBroadcast, hasHostTag, mentionedUserIds } = await request.json();
 
         if (!gameId || !messageId) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -48,7 +51,9 @@ export async function POST(request: NextRequest) {
             .eq('id', user.id)
             .single();
 
-        const senderName = senderProfile?.data?.first_name ? `${senderProfile.data.first_name} ${senderProfile.data.last_name}` : senderProfile?.data?.email || 'A Participant';
+        const senderName = senderProfile?.data?.first_name 
+            ? `${senderProfile.data.first_name} ${senderProfile.data.last_name || ''}`.trim() 
+            : senderProfile?.data?.email || 'A Participant';
 
         const gameUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.pitchsidecf.com'}/games/${gameId}`;
         const emailsToSend = new Set<string>();
@@ -92,8 +97,24 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // Groundwork: If mention email alerts are enabled in the future
+        if (ENABLE_MENTION_EMAIL_ALERTS && Array.isArray(mentionedUserIds) && mentionedUserIds.length > 0) {
+            const { data: taggedProfiles } = await supabase
+                .from('profiles')
+                .select('email, id')
+                .in('id', mentionedUserIds);
+
+            if (taggedProfiles) {
+                for (const tp of taggedProfiles) {
+                    if (tp.id !== user.id && tp.email) {
+                        emailsToSend.add(tp.email);
+                    }
+                }
+            }
+        }
+
         if (emailsToSend.size === 0) {
-            return NextResponse.json({ success: true, message: 'No recipients' });
+            return NextResponse.json({ success: true, message: 'No email recipients required' });
         }
 
         // 3. Send Emails
@@ -101,15 +122,13 @@ export async function POST(request: NextRequest) {
             ? `📢 Announcement: ${game.title}`
             : `💬 New message in ${game.title} (@host)`;
 
-        // In production, you might want to batch these or use Resend's batch API
-        // For simplicity and to reuse our sendNotification wrapper, we iterate:
-        const emailPromises = Array.from(emailsToSend).map(email =>
+        const emailPromises = Array.from(emailsToSend).map((email) =>
             sendNotification({
                 to: email,
                 subject: emailSubject,
                 type: 'chat_alert',
                 data: {
-                    userName: 'Player', // Static or fetch recipient name if possible
+                    userName: 'Player',
                     senderName,
                     gameTitle: game.title,
                     messageContent: content,
