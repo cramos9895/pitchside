@@ -64,6 +64,7 @@ export async function registerRollingCaptain(formData: FormData) {
     }
 
     // 5. Create or Update team
+    const requestedStatus = (formData.get('status') as string) || 'registered';
     let teamId = existingReg?.team_id;
     const teamPayload = {
         game_id: gameId,
@@ -71,7 +72,7 @@ export async function registerRollingCaptain(formData: FormData) {
         captain_id: user.id,
         primary_color: primaryColor,
         accepting_free_agents: false,
-        status: 'approved'
+        status: requestedStatus === 'pending' ? 'pending' : 'approved'
     };
 
     if (teamId) {
@@ -87,7 +88,6 @@ export async function registerRollingCaptain(formData: FormData) {
     }
 
     // 6. Register/Recycle user to tournament_registrations
-    const requestedStatus = (formData.get('status') as string) || 'registered';
     const regPayload = {
         game_id: gameId,
         user_id: user.id,

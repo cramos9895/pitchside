@@ -55,11 +55,14 @@ export async function registerTournamentTeam(formData: FormData) {
     // Determine if Game or League (already checked above)
     const eventType = gameCheck?.event_type || 'league';
 
+    const requestedStatus = (formData.get('status') as string) || 'registered';
+
     const teamPayload: any = {
         captain_id: user.id,
         name: teamName,
         primary_color: primaryColor,
-        accepting_free_agents: false // Default to false
+        accepting_free_agents: false, // Default to false
+        status: requestedStatus === 'pending' ? 'pending' : 'approved'
     };
     if (isGame) {
         teamPayload.game_id = tournamentId;
@@ -94,8 +97,6 @@ export async function registerTournamentTeam(formData: FormData) {
     }
 
     // 3. Register/Recycle the Captain in tournament_registrations
-    const requestedStatus = (formData.get('status') as string) || 'registered';
-
     const regPayload: any = {
         user_id: user.id,
         team_id: teamId,

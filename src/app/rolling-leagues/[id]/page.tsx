@@ -142,7 +142,8 @@ export default async function RollingLeaguePage({ params }: { params: Promise<{ 
             `)
             .eq('game_id', gameId)
             .not('team_id', 'is', null)
-            .neq('status', 'cancelled'),
+            .neq('status', 'cancelled')
+            .neq('status', 'pending'),
 
         // Primary Host Profile
         game.host_ids?.[0] 
@@ -151,11 +152,11 @@ export default async function RollingLeaguePage({ params }: { params: Promise<{ 
 
         // Current User Registration
         user 
-            ? supabase.from('tournament_registrations').select('team_id, status, role').eq('game_id', gameId).eq('user_id', user.id).neq('status', 'cancelled').maybeSingle()
+            ? supabase.from('tournament_registrations').select('team_id, status, role').eq('game_id', gameId).eq('user_id', user.id).neq('status', 'cancelled').neq('status', 'pending').maybeSingle()
             : Promise.resolve({ data: null }),
 
         // All Teams for Standings
-        supabase.from('teams').select('id, name, primary_color').eq('game_id', gameId)
+        supabase.from('teams').select('id, name, primary_color').eq('game_id', gameId).neq('status', 'pending').neq('status', 'cancelled')
     ]);
 
     // 3. Process Primary Host

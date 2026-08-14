@@ -92,7 +92,8 @@ export default async function LeagueHub({ params }: { params: Promise<{ id: stri
             tournament_registrations (count)
         `)
         .eq('game_id', id)
-        .neq('status', 'cancelled');
+        .neq('status', 'cancelled')
+        .neq('status', 'pending');
 
     if (teamsError) {
         console.error('Error fetching teams:', teamsError);

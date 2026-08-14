@@ -127,9 +127,9 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
             ? supabase.from('profiles').select('first_name, last_name, email').eq('id', game.host_ids[0]).maybeSingle()
             : Promise.resolve({ data: null }),
         user 
-            ? supabase.from('tournament_registrations').select('team_id, status, role').eq('game_id', gameId).eq('user_id', user.id).neq('status', 'cancelled').maybeSingle()
+            ? supabase.from('tournament_registrations').select('team_id, status, role').eq('game_id', gameId).eq('user_id', user.id).neq('status', 'cancelled').neq('status', 'pending').maybeSingle()
             : Promise.resolve({ data: null }),
-        supabase.from('teams').select('id, name, primary_color').eq('game_id', gameId)
+        supabase.from('teams').select('id, name, primary_color').eq('game_id', gameId).neq('status', 'pending').neq('status', 'cancelled')
     ]);
 
     const primaryHost = hostProfileResult.data ? {
