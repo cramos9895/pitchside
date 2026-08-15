@@ -172,12 +172,17 @@ export function NotificationBell({ userId }: NotificationBellProps) {
     // Handle clicking a notification item
     const handleNotificationClick = async (notif: NotificationItem) => {
         if (!notif.is_read) {
-            await handleMarkAsRead(notif.id);
+            handleMarkAsRead(notif.id);
         }
         setIsOpen(false);
 
         if (notif.link) {
             router.push(notif.link);
+        } else if (notif.type === 'chat_mention' || notif.type === 'chat_alert') {
+            // Fallback for legacy notifications created before link was populated
+            router.push('/dashboard/schedule');
+        } else {
+            router.push('/dashboard');
         }
     };
 
