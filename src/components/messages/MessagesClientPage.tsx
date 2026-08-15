@@ -12,6 +12,8 @@ import {
     User as UserIcon, 
     Users, 
     ChevronLeft, 
+    ChevronDown,
+    ChevronUp,
     Sparkles, 
     Trophy, 
     Flame,
@@ -27,6 +29,8 @@ export interface EventChatItem {
     event_type?: string;
     status: string;
     is_host?: boolean;
+    last_message?: string;
+    last_message_at?: string | null;
 }
 
 export interface DirectChatItem {
@@ -34,6 +38,7 @@ export interface DirectChatItem {
     title: string;
     other_user_id?: string;
     last_message?: string;
+    last_message_at?: string | null;
     updated_at: string;
 }
 
@@ -48,6 +53,23 @@ interface MessagesClientPageProps {
     initialDirects: DirectChatItem[];
 }
 
+function formatChatSidebarTime(dateString?: string | null): string {
+    if (!dateString) return '';
+    const now = new Date();
+    const past = new Date(dateString);
+    const diffMs = now.getTime() - past.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHours = Math.floor(diffMin / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSec < 45) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m`;
+    if (diffHours < 24) return `${diffHours}h`;
+    if (diffDays === 1) return 'Yesterday';
+    return past.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
 export function MessagesClientPage({ currentUser, initialEvents, initialDirects }: MessagesClientPageProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -57,8 +79,11 @@ export function MessagesClientPage({ currentUser, initialEvents, initialDirects 
     const [searchQuery, setSearchQuery] = useState('');
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
+    // Accordion state (limit to 4 items initially per section)
+    const [eventsExpanded, setEventsExpanded] = useState(false);
+    const [directsExpanded, setDirectsExpanded] = useState(false);
+
     // Active Selection State
-    // e.g. { type: 'event', id: '...' } or { type: 'direct', id: '...', title: '...' }
     const initialConvParam = searchParams.get('c');
     const initialGameParam = searchParams.get('game');
 
@@ -119,6 +144,15 @@ export function MessagesClientPage({ currentUser, initialEvents, initialDirects 
         return directsList.filter((d) => d.title.toLowerCase().includes(searchQuery.toLowerCase()));
     }, [directsList, searchQuery]);
 
+    // Accordion slicing (show top 4 when collapsed)
+    const visibleEvents = eventsExpanded || searchQuery.trim().length > 0
+        ? filteredEvents 
+        : filteredEvents.slice(0, 4);
+
+    const visibleDirects = directsExpanded || searchQuery.trim().length > 0
+        ? filteredDirects 
+        : filteredDirects.slice(0, 4);
+
     // Handle selecting a conversation
     const handleSelectChat = (chat: { type: 'event' | 'direct'; id: string; title: string; is_host?: boolean }) => {
         setActiveChat(chat);
@@ -134,7 +168,6 @@ export function MessagesClientPage({ currentUser, initialEvents, initialDirects 
     // When a new conversation is created from modal
     const handleConversationCreated = async (newConvId: string) => {
         try {
-            // Fetch the newly created thread details
             const { data } = await supabase
                 .from('conversation_threads')
                 .select('id, title, updated_at')
@@ -215,10 +248,15 @@ export function MessagesClientPage({ currentUser, initialEvents, initialDirects 
                     <div className="flex-1 overflow-y-auto divide-y divide-white/5">
                         {/* Section 1: Active Event Chats */}
                         <div>
-                            <div className="px-4 py-2 bg-black/40 text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center justify-between">
+                            <div className="px-4 py-2.5 bg-black/40 text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center justify-between">
                                 <span className="flex items-center gap-1">
                                     <Flame className="w-3 h-3 text-pitch-accent" /> Event Chats ({filteredEvents.length})
                                 </span>
+                                {filteredEvents.length > 4 && searchQuery.trim().length === 0 && (
+                                    <span className="text-[9px] text-gray-500 font-bold lowercase">
+                                        showing {visibleEvents.length} of {filteredEvents.length}
+                                    </span>
+                                )}
                             </div>
 
                             {filteredEvents.length === 0 ? (
@@ -226,68 +264,95 @@ export function MessagesClientPage({ currentUser, initialEvents, initialDirects 
                                     No active event chats.
                                 </div>
                             ) : (
-                                filteredEvents.map((evt) => {
-                                    const isSelected = activeChat?.type === 'event' && activeChat.id === evt.id;
-                                    const dateStr = evt.start_time
-                                        ? new Date(evt.start_time).toLocaleDateString([], { month: 'short', day: 'numeric' })
-                                        : '';
+                                <>
+                                    {visibleEvents.map((evt) => {
+                                        const isSelected = activeChat?.type === 'event' && activeChat.id === evt.id;
+                                        const timeDisplay = formatChatSidebarTime(evt.last_message_at || evt.start_time);
 
-                                    return (
+                                        return (
+                                            <button
+                                                key={evt.id}
+                                                type="button"
+                                                onClick={() =>
+                                                    handleSelectChat({
+                                                        type: 'event',
+                                                        id: evt.id,
+                                                        title: evt.title,
+                                                        is_host: evt.is_host
+                                                    })
+                                                }
+                                                className={cn(
+                                                    "w-full px-4 py-3 text-left transition-all flex items-start gap-3 group relative border-l-2",
+                                                    isSelected
+                                                        ? "bg-pitch-accent/10 border-pitch-accent"
+                                                        : "hover:bg-white/5 border-transparent"
+                                                )}
+                                            >
+                                                <div className="p-2 rounded-sm bg-white/5 text-gray-300 group-hover:text-pitch-accent transition-colors shrink-0 mt-0.5">
+                                                    <Calendar className="w-4 h-4" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className={cn(
+                                                            "text-xs font-bold truncate",
+                                                            isSelected ? "text-pitch-accent" : "text-white"
+                                                        )}>
+                                                            {evt.title}
+                                                        </p>
+                                                        {timeDisplay && (
+                                                            <span className="text-[10px] text-gray-500 font-bold uppercase shrink-0 ml-1">
+                                                                {timeDisplay}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    {/* Last Message Snippet */}
+                                                    {evt.last_message ? (
+                                                        <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                                                            {evt.last_message}
+                                                        </p>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <span className="text-[9px] uppercase font-black px-1.5 py-0.2 rounded-sm bg-white/10 text-gray-300">
+                                                                {evt.event_type || 'Pickup'}
+                                                            </span>
+                                                            {evt.is_host && (
+                                                                <span className="text-[9px] uppercase font-black px-1.5 py-0.2 rounded-sm bg-pitch-accent text-pitch-black">
+                                                                    Host
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+
+                                    {/* Accordion Expand / Collapse Button for Events */}
+                                    {filteredEvents.length > 4 && searchQuery.trim().length === 0 && (
                                         <button
-                                            key={evt.id}
                                             type="button"
-                                            onClick={() =>
-                                                handleSelectChat({
-                                                    type: 'event',
-                                                    id: evt.id,
-                                                    title: evt.title,
-                                                    is_host: evt.is_host
-                                                })
-                                            }
-                                            className={cn(
-                                                "w-full px-4 py-3 text-left transition-all flex items-start gap-3 group relative border-l-2",
-                                                isSelected
-                                                    ? "bg-pitch-accent/10 border-pitch-accent"
-                                                    : "hover:bg-white/5 border-transparent"
-                                            )}
+                                            onClick={() => setEventsExpanded(!eventsExpanded)}
+                                            className="w-full py-2 px-4 text-[10px] font-black uppercase tracking-wider text-pitch-accent hover:text-white bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center gap-1.5 border-t border-white/5"
                                         >
-                                            <div className="p-2 rounded-sm bg-white/5 text-gray-300 group-hover:text-pitch-accent transition-colors shrink-0 mt-0.5">
-                                                <Calendar className="w-4 h-4" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center justify-between">
-                                                    <p className={cn(
-                                                        "text-xs font-bold truncate",
-                                                        isSelected ? "text-pitch-accent" : "text-white"
-                                                    )}>
-                                                        {evt.title}
-                                                    </p>
-                                                    {dateStr && (
-                                                        <span className="text-[10px] text-gray-500 font-bold uppercase shrink-0 ml-1">
-                                                            {dateStr}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-[9px] uppercase font-black px-1.5 py-0.2 rounded-sm bg-white/10 text-gray-300">
-                                                        {evt.event_type || 'Pickup'}
-                                                    </span>
-                                                    {evt.is_host && (
-                                                        <span className="text-[9px] uppercase font-black px-1.5 py-0.2 rounded-sm bg-pitch-accent text-pitch-black">
-                                                            Host
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
+                                            {eventsExpanded ? (
+                                                <>
+                                                    <ChevronUp className="w-3.5 h-3.5" /> Show less
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <ChevronDown className="w-3.5 h-3.5" /> Show {filteredEvents.length - 4} more event chats
+                                                </>
+                                            )}
                                         </button>
-                                    );
-                                })
+                                    )}
+                                </>
                             )}
                         </div>
 
                         {/* Section 2: Direct Messages (1-on-1) */}
                         <div>
-                            <div className="px-4 py-2 bg-black/40 text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center justify-between">
+                            <div className="px-4 py-2.5 bg-black/40 text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center justify-between">
                                 <span className="flex items-center gap-1">
                                     <UserIcon className="w-3 h-3 text-pitch-accent" /> Direct Messages ({filteredDirects.length})
                                 </span>
@@ -305,44 +370,73 @@ export function MessagesClientPage({ currentUser, initialEvents, initialDirects 
                                     No direct messages yet. Click &ldquo;+ New&rdquo; to start a chat!
                                 </div>
                             ) : (
-                                filteredDirects.map((dm) => {
-                                    const isSelected = activeChat?.type === 'direct' && activeChat.id === dm.id;
+                                <>
+                                    {visibleDirects.map((dm) => {
+                                        const isSelected = activeChat?.type === 'direct' && activeChat.id === dm.id;
+                                        const timeDisplay = formatChatSidebarTime(dm.last_message_at || dm.updated_at);
 
-                                    return (
+                                        return (
+                                            <button
+                                                key={dm.id}
+                                                type="button"
+                                                onClick={() =>
+                                                    handleSelectChat({
+                                                        type: 'direct',
+                                                        id: dm.id,
+                                                        title: dm.title
+                                                    })
+                                                }
+                                                className={cn(
+                                                    "w-full px-4 py-3 text-left transition-all flex items-start gap-3 group relative border-l-2",
+                                                    isSelected
+                                                        ? "bg-pitch-accent/10 border-pitch-accent"
+                                                        : "hover:bg-white/5 border-transparent"
+                                                )}
+                                            >
+                                                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white shrink-0 mt-0.5 border border-white/10 group-hover:border-pitch-accent group-hover:text-pitch-accent transition-colors">
+                                                    <UserIcon className="w-4 h-4" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className={cn(
+                                                            "text-xs font-bold truncate",
+                                                            isSelected ? "text-pitch-accent" : "text-white"
+                                                        )}>
+                                                            {dm.title}
+                                                        </p>
+                                                        {timeDisplay && (
+                                                            <span className="text-[10px] text-gray-500 font-bold uppercase shrink-0 ml-1">
+                                                                {timeDisplay}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                                                        {dm.last_message || 'Direct Conversation'}
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+
+                                    {/* Accordion Expand / Collapse Button for DMs */}
+                                    {filteredDirects.length > 4 && searchQuery.trim().length === 0 && (
                                         <button
-                                            key={dm.id}
                                             type="button"
-                                            onClick={() =>
-                                                handleSelectChat({
-                                                    type: 'direct',
-                                                    id: dm.id,
-                                                    title: dm.title
-                                                })
-                                            }
-                                            className={cn(
-                                                "w-full px-4 py-3 text-left transition-all flex items-start gap-3 group relative border-l-2",
-                                                isSelected
-                                                    ? "bg-pitch-accent/10 border-pitch-accent"
-                                                    : "hover:bg-white/5 border-transparent"
-                                            )}
+                                            onClick={() => setDirectsExpanded(!directsExpanded)}
+                                            className="w-full py-2 px-4 text-[10px] font-black uppercase tracking-wider text-pitch-accent hover:text-white bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center gap-1.5 border-t border-white/5"
                                         >
-                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white shrink-0 mt-0.5 border border-white/10 group-hover:border-pitch-accent group-hover:text-pitch-accent transition-colors">
-                                                <UserIcon className="w-4 h-4" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className={cn(
-                                                    "text-xs font-bold truncate",
-                                                    isSelected ? "text-pitch-accent" : "text-white"
-                                                )}>
-                                                    {dm.title}
-                                                </p>
-                                                <p className="text-[10px] text-gray-400 truncate mt-0.5">
-                                                    Direct Conversation
-                                                </p>
-                                            </div>
+                                            {directsExpanded ? (
+                                                <>
+                                                    <ChevronUp className="w-3.5 h-3.5" /> Show less
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <ChevronDown className="w-3.5 h-3.5" /> Show {filteredDirects.length - 4} more direct chats
+                                                </>
+                                            )}
                                         </button>
-                                    );
-                                })
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>

@@ -64,11 +64,34 @@ export default async function MessagesPage() {
         }
     });
 
-    const initialEvents: EventChatItem[] = Array.from(eventsMap.values()).sort(
-        (a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
-    );
+    // 3. Fetch latest message per event to get last_message_at and sort by activity
+    const allGameIds = Array.from(eventsMap.keys());
+    if (allGameIds.length > 0) {
+        const { data: recentGameMsgs } = await supabase
+            .from('messages')
+            .select('event_id, content, created_at')
+            .in('event_id', allGameIds)
+            .order('created_at', { ascending: false });
 
-    // 3. Fetch Direct Message Conversation Threads
+        if (recentGameMsgs) {
+            recentGameMsgs.forEach((msg: any) => {
+                const eventItem = eventsMap.get(msg.event_id);
+                if (eventItem && !eventItem.last_message_at) {
+                    eventItem.last_message_at = msg.created_at;
+                    eventItem.last_message = msg.content;
+                }
+            });
+        }
+    }
+
+    // Sort events by last message activity (most active at top)
+    const initialEvents: EventChatItem[] = Array.from(eventsMap.values()).sort((a, b) => {
+        const timeA = a.last_message_at ? new Date(a.last_message_at).getTime() : new Date(a.start_time).getTime() - 100000000000;
+        const timeB = b.last_message_at ? new Date(b.last_message_at).getTime() : new Date(b.start_time).getTime() - 100000000000;
+        return timeB - timeA;
+    });
+
+    // 4. Fetch Direct Message Conversation Threads
     const { data: memberRows } = await supabase
         .from('conversation_members')
         .select('conversation_id, conversation_threads(id, title, type, updated_at)')
@@ -89,7 +112,33 @@ export default async function MessagesPage() {
         }
     }
 
-    initialDirects.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    // Fetch latest message per direct conversation
+    const allThreadIds = initialDirects.map((d) => d.id);
+    if (allThreadIds.length > 0) {
+        const { data: recentThreadMsgs } = await supabase
+            .from('messages')
+            .select('conversation_id, content, created_at')
+            .in('conversation_id', allThreadIds)
+            .order('created_at', { ascending: false });
+
+        if (recentThreadMsgs) {
+            const threadMap = new Map(initialDirects.map((d) => [d.id, d]));
+            recentThreadMsgs.forEach((msg: any) => {
+                const threadItem = threadMap.get(msg.conversation_id);
+                if (threadItem && !threadItem.last_message_at) {
+                    threadItem.last_message_at = msg.created_at;
+                    threadItem.last_message = msg.content;
+                }
+            });
+        }
+    }
+
+    // Sort direct messages by latest activity
+    initialDirects.sort((a, b) => {
+        const timeA = a.last_message_at ? new Date(a.last_message_at).getTime() : new Date(a.updated_at).getTime();
+        const timeB = b.last_message_at ? new Date(b.last_message_at).getTime() : new Date(b.updated_at).getTime();
+        return timeB - timeA;
+    });
 
     return (
         <MessagesClientPage
