@@ -8,6 +8,7 @@ import { User } from '@supabase/supabase-js';
 import { LogOut, User as UserIcon, QrCode } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GlobalPassportModal } from '@/components/public/checkin/GlobalPassportModal';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 export function AuthButton() {
     const [user, setUser] = useState<User | null>(null);
@@ -94,7 +95,10 @@ export function AuthButton() {
     }
 
     return (
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Global Notification Bell */}
+            <NotificationBell userId={user.id} />
+
             <button 
                 onClick={() => setPassportOpen(true)}
                 className="flex items-center justify-center bg-white/5 border border-white/10 hover:border-pitch-accent hover:text-pitch-accent text-white rounded-full p-2 transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)] group"

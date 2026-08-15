@@ -1601,6 +1601,7 @@ export type Database = {
           created_at: string
           id: string
           is_read: boolean
+          link: string | null
           message: string
           type: string | null
           user_id: string
@@ -1609,6 +1610,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean
+          link?: string | null
           message: string
           type?: string | null
           user_id: string
@@ -1617,6 +1619,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean
+          link?: string | null
           message?: string
           type?: string | null
           user_id?: string

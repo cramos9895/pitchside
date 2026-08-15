@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Calendar, MapPin, Clock, Users, MessageSquare, Info, Shirt, DollarSign, Award, Share2, Zap, Trophy, AlertTriangle, Crown, Shield, Activity, Target, PlayCircle, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChatInterface } from '@/components/ChatInterface';
 import { VotingModal } from '@/components/VotingModal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
@@ -123,9 +123,24 @@ export function PickupClientPage({
     isFreeAgentServer = false
 }: GameClientPageProps) {
     const { id: gameId } = params;
-    const [activeTab, setActiveTab] = useState<'details' | 'rules' | 'roster' | 'chat' | 'game-time'>('details');
+    const searchParams = useSearchParams();
+    const initialTabParam = searchParams.get('tab');
+    const defaultTab = (initialTabParam === 'chat' || initialTabParam === 'rules' || initialTabParam === 'roster' || initialTabParam === 'game-time') 
+        ? initialTabParam 
+        : 'details';
+
+    const [activeTab, setActiveTab] = useState<'details' | 'rules' | 'roster' | 'chat' | 'game-time'>(defaultTab);
     const activeTabRef = useRef(activeTab);
     activeTabRef.current = activeTab;
+
+    // Deep link tab sync
+    useEffect(() => {
+        const tabParam = searchParams.get('tab');
+        if (tabParam === 'chat' || tabParam === 'rules' || tabParam === 'roster' || tabParam === 'game-time' || tabParam === 'details') {
+            setActiveTab(tabParam);
+        }
+    }, [searchParams]);
+
     const [game, setGame] = useState<Game>(initialGame);
     
     const { success, error: toastError } = useToast();

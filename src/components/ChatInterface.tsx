@@ -64,12 +64,19 @@ export function ChatInterface({
     const [selectedMentionIndex, setSelectedMentionIndex] = useState<number>(0);
     const inputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const prevMessagesLengthRef = useRef<number>(0);
 
-    // Auto-scroll to bottom on new messages
+    // Auto-scroll to bottom ONLY on initial load or when new messages arrive (prevents auto-scroll on reactions)
     useEffect(() => {
         if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+            const isInitialLoad = prevMessagesLengthRef.current === 0 && messages.length > 0;
+            const hasNewMessages = messages.length > prevMessagesLengthRef.current;
+
+            if (isInitialLoad || hasNewMessages) {
+                scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+            }
         }
+        prevMessagesLengthRef.current = messages.length;
     }, [messages]);
 
     // Fetch registered players if not provided by parent component
@@ -390,6 +397,7 @@ export function ChatInterface({
                         user_id: uid,
                         message: `You were tagged in pickup chat: "${content.substring(0, 75)}${content.length > 75 ? '...' : ''}"`,
                         type: 'chat_mention',
+                        link: `/games/${gameId}?tab=chat`,
                         is_read: false
                     }));
 
@@ -490,7 +498,7 @@ export function ChatInterface({
                         No messages yet. Start the conversation or tag someone with <span className="text-pitch-accent font-bold">@name</span>!
                     </div>
                 ) : (
-                    messages.map((msg) => {
+                    messages.map((msg, msgIndex) => {
                         const isMe = msg.user_id === currentUserId;
                         const senderName = msg.profiles?.first_name
                             ? `${msg.profiles.first_name} ${msg.profiles.last_name || ''}`.trim()
@@ -499,6 +507,7 @@ export function ChatInterface({
                         const isBroadcastMsg = msg.is_broadcast;
                         const msgReactions = msg.reactions || {};
                         const reactionEntries = Object.entries(msgReactions).filter(([_, uids]) => uids.length > 0);
+                        const isTopMessage = msgIndex <= 1;
 
                         return (
                             <div key={msg.id} className={cn("flex flex-col group relative", isMe ? "items-end" : "items-start")}>
@@ -535,11 +544,12 @@ export function ChatInterface({
                                                 <Smile className="w-3.5 h-3.5" />
                                             </button>
 
-                                            {/* Fixed Emoji Bar Popover */}
+                                            {/* Fixed Emoji Bar Popover (Smart vertical placement prevents top clipping) */}
                                             {activeReactionMsgId === msg.id && (
                                                 <div
                                                     className={cn(
-                                                        "absolute bottom-full mb-1 z-30 flex items-center gap-1 bg-[#171717] border border-white/20 p-1.5 rounded-full shadow-2xl animate-in fade-in zoom-in-95",
+                                                        "absolute z-30 flex items-center gap-1 bg-[#171717] border border-white/20 p-1.5 rounded-full shadow-2xl animate-in fade-in zoom-in-95",
+                                                        isTopMessage ? "top-full mt-1.5" : "bottom-full mb-1.5",
                                                         isMe ? "right-0" : "left-0"
                                                     )}
                                                 >
