@@ -439,6 +439,80 @@ export type Database = {
           },
         ]
       }
+      conversation_members: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          last_read_at: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          last_read_at?: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          last_read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_members_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_threads: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_id: string | null
+          id: string
+          title: string | null
+          type: 'direct' | 'group' | 'event'
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_id?: string | null
+          id?: string
+          title?: string | null
+          type: 'direct' | 'group' | 'event'
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_id?: string | null
+          id?: string
+          title?: string | null
+          type?: 'direct' | 'group' | 'event'
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_threads_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_attendance: {
         Row: {
           created_at: string | null
@@ -1495,43 +1569,63 @@ export type Database = {
       messages: {
         Row: {
           content: string
+          conversation_id: string | null
           created_at: string | null
           event_id: string | null
           id: string
           is_broadcast: boolean | null
           mentioned_user_ids: string[]
           reactions: Json
+          reply_to_id: string | null
           team_id: string | null
           user_id: string | null
         }
         Insert: {
           content: string
+          conversation_id?: string | null
           created_at?: string | null
           event_id?: string | null
           id?: string
           is_broadcast?: boolean | null
           mentioned_user_ids?: string[]
           reactions?: Json
+          reply_to_id?: string | null
           team_id?: string | null
           user_id?: string | null
         }
         Update: {
           content?: string
+          conversation_id?: string | null
           created_at?: string | null
           event_id?: string | null
           id?: string
           is_broadcast?: boolean | null
           mentioned_user_ids?: string[]
           reactions?: Json
+          reply_to_id?: string | null
           team_id?: string | null
           user_id?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_threads"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "messages_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {

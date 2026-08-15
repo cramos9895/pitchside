@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { X, LogOut, User, Home, LayoutDashboard, Settings, Trophy, Building, Bell, MapPin, ClipboardList, Calendar } from 'lucide-react';
+import { X, LogOut, User, Home, LayoutDashboard, Settings, Trophy, Building, Bell, MapPin, ClipboardList, Calendar, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -176,14 +176,25 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     </Link>
 
                     {user && (
-                        <Link
-                            href="/dashboard"
-                            onClick={onClose}
-                            className="flex items-center gap-4 py-3 sm:py-1.5 text-2xl sm:text-xl font-heading font-bold uppercase italic text-white hover:text-pitch-accent transition-colors group"
-                        >
-                            <LayoutDashboard className="w-6 h-6 text-gray-500 group-hover:text-pitch-accent transition-colors" />
-                            My Dashboard
-                        </Link>
+                        <>
+                            <Link
+                                href="/dashboard"
+                                onClick={onClose}
+                                className="flex items-center gap-4 py-3 sm:py-1.5 text-2xl sm:text-xl font-heading font-bold uppercase italic text-white hover:text-pitch-accent transition-colors group"
+                            >
+                                <LayoutDashboard className="w-6 h-6 text-gray-500 group-hover:text-pitch-accent transition-colors" />
+                                My Dashboard
+                            </Link>
+                            
+                            <Link
+                                href="/messages"
+                                onClick={onClose}
+                                className="flex items-center gap-4 py-3 sm:py-1.5 text-2xl sm:text-xl font-heading font-bold uppercase italic text-white hover:text-pitch-accent transition-colors group"
+                            >
+                                <MessageSquare className="w-6 h-6 text-gray-500 group-hover:text-pitch-accent transition-colors" />
+                                Messages
+                            </Link>
+                        </>
                     )}
 
                     <Link

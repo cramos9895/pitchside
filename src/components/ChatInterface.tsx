@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Send, User as UserIcon, Loader2, Megaphone, Smile, AtSign, Check, X } from 'lucide-react';
+import { Send, User as UserIcon, Loader2, Megaphone, Smile, AtSign, CornerUpLeft, X, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Standard fixed sports & social emoji set
@@ -23,6 +23,12 @@ interface Message {
     is_broadcast?: boolean;
     reactions?: Record<string, string[]>; // emoji -> array of user_ids
     mentioned_user_ids?: string[];
+    reply_to_id?: string | null;
+    reply_message?: {
+        id: string;
+        content: string;
+        sender_name: string;
+    } | null;
     profiles: {
         first_name: string;
         last_name: string;
@@ -31,21 +37,25 @@ interface Message {
 }
 
 interface ChatInterfaceProps {
-    gameId: string;
+    gameId?: string;
+    conversationId?: string;
     currentUserId: string;
-    isParticipant: boolean;
+    isParticipant?: boolean;
     isHost?: boolean;
     players?: ChatPlayer[];
     className?: string;
+    title?: string;
 }
 
 export function ChatInterface({ 
     gameId, 
+    conversationId,
     currentUserId, 
-    isParticipant, 
-    isHost,
+    isParticipant = true, 
+    isHost = false,
     players: initialPlayers,
-    className
+    className,
+    title = 'Event Chat'
 }: ChatInterfaceProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
@@ -55,6 +65,9 @@ export function ChatInterface({
     const [loading, setLoading] = useState(true);
     const [playersList, setPlayersList] = useState<ChatPlayer[]>(initialPlayers || []);
     
+    // Quoted reply state
+    const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+
     // Reaction menu popover state
     const [activeReactionMsgId, setActiveReactionMsgId] = useState<string | null>(null);
 
@@ -85,6 +98,8 @@ export function ChatInterface({
             setPlayersList(initialPlayers);
             return;
         }
+
+        if (!gameId) return;
 
         const fetchPlayers = async () => {
             try {
@@ -120,31 +135,54 @@ export function ChatInterface({
     // Fetch Initial Messages
     useEffect(() => {
         const fetchMessages = async () => {
-            const { data, error } = await supabase
-                .from('messages')
-                .select('id, content, created_at, user_id, is_broadcast, reactions, mentioned_user_ids, profiles(first_name, last_name, email)')
-                .eq('event_id', gameId)
-                .order('created_at', { ascending: true });
+            setLoading(true);
+            try {
+                let query = supabase
+                    .from('messages')
+                    .select('id, content, created_at, user_id, is_broadcast, reactions, mentioned_user_ids, reply_to_id, conversation_id, profiles(first_name, last_name, email)');
 
-            if (data) {
-                // @ts-expect-error - Residual typing mismatch from extended schema mapping
-                setMessages(data as unknown);
+                if (conversationId) {
+                    query = query.eq('conversation_id', conversationId);
+                } else if (gameId) {
+                    query = query.eq('event_id', gameId);
+                } else {
+                    setLoading(false);
+                    return;
+                }
+
+                const { data, error } = await query.order('created_at', { ascending: true });
+
+                if (data) {
+                    // @ts-expect-error - Extended schema mapping
+                    setMessages(data as unknown);
+                }
+            } catch (err) {
+                console.error('Error fetching messages:', err);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
 
         fetchMessages();
 
-        // Realtime Subscription (INSERT and UPDATE for live messages and reactions)
+        // Setup Realtime Channel
+        const channelFilter = conversationId 
+            ? `conversation_id=eq.${conversationId}` 
+            : `event_id=eq.${gameId}`;
+
+        const channelName = conversationId 
+            ? `dm-chat-${conversationId}` 
+            : `game-chat-${gameId}`;
+
         const channel = supabase
-            .channel(`game-chat-${gameId}`)
+            .channel(channelName)
             .on(
                 'postgres_changes',
                 {
                     event: 'INSERT',
                     schema: 'public',
                     table: 'messages',
-                    filter: `event_id=eq.${gameId}`
+                    filter: channelFilter
                 },
                 async (payload: Record<string, any>) => {
                     // Fetch profile for the new message
@@ -162,6 +200,7 @@ export function ChatInterface({
                         is_broadcast: payload.new.is_broadcast,
                         reactions: payload.new.reactions || {},
                         mentioned_user_ids: payload.new.mentioned_user_ids || [],
+                        reply_to_id: payload.new.reply_to_id || null,
                         profiles: profileData
                     };
 
@@ -177,7 +216,7 @@ export function ChatInterface({
                     event: 'UPDATE',
                     schema: 'public',
                     table: 'messages',
-                    filter: `event_id=eq.${gameId}`
+                    filter: channelFilter
                 },
                 (payload: Record<string, any>) => {
                     // Update reaction or content changes in real-time
@@ -188,7 +227,8 @@ export function ChatInterface({
                                       ...msg,
                                       content: payload.new.content,
                                       reactions: payload.new.reactions || {},
-                                      mentioned_user_ids: payload.new.mentioned_user_ids || []
+                                      mentioned_user_ids: payload.new.mentioned_user_ids || [],
+                                      reply_to_id: payload.new.reply_to_id || null
                                   }
                                 : msg
                         )
@@ -200,17 +240,17 @@ export function ChatInterface({
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [gameId]);
+    }, [gameId, conversationId]);
 
     // Filter autocomplete mention candidates
     const mentionCandidates = useMemo(() => {
         if (mentionSearch === null) return [];
 
         const searchLower = mentionSearch.toLowerCase();
-        const baseOptions: { id: string; name: string; tag: string; subtitle: string }[] = [
+        const baseOptions: { id: string; name: string; tag: string; subtitle: string }[] = gameId ? [
             { id: 'host', name: 'Host', tag: '@host', subtitle: 'Alert game organizers' },
             { id: 'all', name: 'All Players', tag: '@all', subtitle: 'Notify everyone in game' },
-        ];
+        ] : [];
 
         const playerOptions = playersList
             .filter((p) => p.id !== currentUserId)
@@ -218,7 +258,7 @@ export function ChatInterface({
                 id: p.id,
                 name: p.name,
                 tag: `@${p.name.replace(/\s+/g, '')}`,
-                subtitle: p.email || 'Registered Player'
+                subtitle: p.email || 'Participant'
             }));
 
         const allAvailable = [...baseOptions, ...playerOptions];
@@ -227,7 +267,7 @@ export function ChatInterface({
                 item.name.toLowerCase().includes(searchLower) ||
                 item.tag.toLowerCase().includes(searchLower)
         );
-    }, [mentionSearch, playersList, currentUserId]);
+    }, [mentionSearch, playersList, currentUserId, gameId]);
 
     // Handle typing and detect `@` for autocomplete
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -235,7 +275,6 @@ export function ChatInterface({
         const cursor = e.target.selectionStart || 0;
         setNewMessage(val);
 
-        // Check if cursor is directly after an '@' tag query
         const textBeforeCursor = val.slice(0, cursor);
         const match = textBeforeCursor.match(/(?:^|\s)@([a-zA-Z0-9_]*)$/);
 
@@ -262,7 +301,6 @@ export function ChatInterface({
         setMentionSearch(null);
         setMentionCursorIndex(null);
 
-        // Refocus and place cursor after inserted mention
         setTimeout(() => {
             if (inputRef.current) {
                 const nextPos = textBefore.length + tag.length + 1;
@@ -349,6 +387,18 @@ export function ChatInterface({
         }
     };
 
+    // Scroll smoothly to referenced reply message
+    const scrollToMessage = (msgId: string) => {
+        const el = document.getElementById(`msg-${msgId}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-pitch-accent');
+            setTimeout(() => {
+                el.classList.remove('ring-2', 'ring-pitch-accent');
+            }, 1800);
+        }
+    };
+
     // Send Message
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -369,17 +419,25 @@ export function ChatInterface({
                 }
             });
 
+            const insertPayload: Record<string, any> = {
+                user_id: currentUserId,
+                content: content,
+                is_broadcast: isHost ? isBroadcast : false,
+                mentioned_user_ids: mentionedIds,
+                reply_to_id: replyingTo ? replyingTo.id : null,
+                reactions: {}
+            };
+
+            if (conversationId) {
+                insertPayload.conversation_id = conversationId;
+            } else if (gameId) {
+                insertPayload.event_id = gameId;
+            }
+
             // Insert into Supabase messages table
             const { error, data: insertedMessage } = await supabase
                 .from('messages')
-                .insert({
-                    event_id: gameId,
-                    user_id: currentUserId,
-                    content: content,
-                    is_broadcast: isHost ? isBroadcast : false,
-                    mentioned_user_ids: mentionedIds,
-                    reactions: {}
-                })
+                .insert(insertPayload)
                 .select()
                 .single();
 
@@ -388,6 +446,7 @@ export function ChatInterface({
             setNewMessage('');
             setIsBroadcast(false);
             setMentionSearch(null);
+            setReplyingTo(null);
 
             // 1. Dispatch In-App Notifications for mentioned players
             if (mentionedIds.length > 0) {
@@ -395,9 +454,9 @@ export function ChatInterface({
                     .filter((uid) => uid !== currentUserId)
                     .map((uid) => ({
                         user_id: uid,
-                        message: `You were tagged in pickup chat: "${content.substring(0, 75)}${content.length > 75 ? '...' : ''}"`,
+                        message: `You were tagged in chat: "${content.substring(0, 75)}${content.length > 75 ? '...' : ''}"`,
                         type: 'chat_mention',
-                        link: `/games/${gameId}?tab=chat`,
+                        link: gameId ? `/games/${gameId}?tab=chat` : `/messages?c=${conversationId}`,
                         is_read: false
                     }));
 
@@ -412,20 +471,22 @@ export function ChatInterface({
             }
 
             // 2. Trigger notification API for Host tags, Broadcasts, and dormant email alerts
-            const hasHostTag = content.toLowerCase().includes('@host');
-            if ((isHost && isBroadcast && sendEmailAlert) || hasHostTag || mentionedIds.length > 0) {
-                fetch('/api/messages/notify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        gameId,
-                        messageId: insertedMessage.id,
-                        content,
-                        isBroadcast: isHost && isBroadcast && sendEmailAlert,
-                        hasHostTag,
-                        mentionedUserIds: mentionedIds
-                    })
-                }).catch((err) => console.error('Error triggering notification API:', err));
+            if (gameId) {
+                const hasHostTag = content.toLowerCase().includes('@host');
+                if ((isHost && isBroadcast && sendEmailAlert) || hasHostTag || mentionedIds.length > 0) {
+                    fetch('/api/messages/notify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            gameId,
+                            messageId: insertedMessage.id,
+                            content,
+                            isBroadcast: isHost && isBroadcast && sendEmailAlert,
+                            hasHostTag,
+                            mentionedUserIds: mentionedIds
+                        })
+                    }).catch((err) => console.error('Error triggering notification API:', err));
+                }
             }
         } catch (error) {
             console.error('Error sending message:', error);
@@ -437,7 +498,6 @@ export function ChatInterface({
 
     // Helper to highlight @mentions in message text
     const renderFormattedContent = (content: string) => {
-        // Regex matches mentions like @host, @all, or @PlayerName
         const parts = content.split(/(@[a-zA-Z0-9_]+)/g);
 
         return parts.map((part, idx) => {
@@ -469,7 +529,7 @@ export function ChatInterface({
         return (
             <div className="flex flex-col items-center justify-center p-12 bg-pitch-card border border-white/10 rounded-sm">
                 <Loader2 className="w-6 h-6 animate-spin text-pitch-accent mb-2" />
-                <span className="text-xs uppercase font-bold text-gray-400">Loading lobby chat...</span>
+                <span className="text-xs uppercase font-bold text-gray-400">Loading conversation...</span>
             </div>
         );
     }
@@ -479,7 +539,9 @@ export function ChatInterface({
             {/* Header */}
             <div className="bg-white/5 p-4 border-b border-white/10 flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-2">
-                    <h3 className="font-heading text-lg font-bold italic uppercase tracking-wider text-white">Event Chat</h3>
+                    <h3 className="font-heading text-lg font-bold italic uppercase tracking-wider text-white">
+                        {title}
+                    </h3>
                     {isHost && (
                         <span className="bg-pitch-accent text-pitch-black text-[10px] uppercase font-black px-2 py-0.5 rounded-sm">
                             Host Mode
@@ -509,8 +571,17 @@ export function ChatInterface({
                         const reactionEntries = Object.entries(msgReactions).filter(([_, uids]) => uids.length > 0);
                         const isTopMessage = msgIndex <= 1;
 
+                        // Find parent message if this is a quoted reply
+                        const referencedParent = msg.reply_to_id 
+                            ? messages.find((m) => m.id === msg.reply_to_id) 
+                            : null;
+
                         return (
-                            <div key={msg.id} className={cn("flex flex-col group relative", isMe ? "items-end" : "items-start")}>
+                            <div
+                                id={`msg-${msg.id}`}
+                                key={msg.id}
+                                className={cn("flex flex-col group relative transition-all rounded-lg p-1", isMe ? "items-end" : "items-start")}
+                            >
                                 {isBroadcastMsg && (
                                     <div className="flex items-center gap-1 text-[10px] uppercase font-black text-red-400 mb-1 tracking-wider">
                                         <Megaphone className="w-3.5 h-3.5" /> Host Broadcast
@@ -518,7 +589,7 @@ export function ChatInterface({
                                 )}
 
                                 <div className="flex items-end gap-1.5 max-w-[85%]">
-                                    {/* Message Bubble */}
+                                    {/* Message Bubble Container */}
                                     <div
                                         className={cn(
                                             "px-4 py-2.5 rounded-lg text-sm break-words relative transition-all",
@@ -529,12 +600,50 @@ export function ChatInterface({
                                                 : "bg-white/10 text-gray-200 rounded-tl-none border border-white/5"
                                         )}
                                     >
+                                        {/* Quoted Reply Reference Box */}
+                                        {referencedParent && (
+                                            <div
+                                                onClick={() => scrollToMessage(referencedParent.id)}
+                                                className={cn(
+                                                    "mb-2 p-2 rounded text-xs border-l-2 cursor-pointer transition-all flex items-start gap-1.5 max-w-full overflow-hidden",
+                                                    isMe 
+                                                        ? "bg-black/15 border-pitch-black text-pitch-black/80 hover:bg-black/25" 
+                                                        : "bg-black/40 border-pitch-accent text-gray-300 hover:bg-black/60"
+                                                )}
+                                                title="Jump to original message"
+                                            >
+                                                <CornerUpLeft className="w-3 h-3 shrink-0 mt-0.5" />
+                                                <div className="truncate min-w-0">
+                                                    <span className="font-bold mr-1">
+                                                        {referencedParent.profiles?.first_name || 'Participant'}:
+                                                    </span>
+                                                    <span className="truncate italic">
+                                                        {referencedParent.content}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className="leading-relaxed">{renderFormattedContent(msg.content)}</div>
                                     </div>
 
-                                    {/* Quick Reaction Trigger Button (Hover / Touch) */}
+                                    {/* Action Buttons: Reply + Emoji Reaction (Hover / Tap) */}
                                     {isParticipant && (
-                                        <div className="relative">
+                                        <div className="flex items-center gap-0.5 relative shrink-0">
+                                            {/* Reply Button */}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setReplyingTo(msg);
+                                                    inputRef.current?.focus();
+                                                }}
+                                                className="p-1 rounded bg-white/5 hover:bg-white/15 text-gray-400 hover:text-pitch-accent transition-opacity md:opacity-0 md:group-hover:opacity-100"
+                                                title="Reply to message"
+                                            >
+                                                <CornerUpLeft className="w-3.5 h-3.5" />
+                                            </button>
+
+                                            {/* Quick Reaction Button */}
                                             <button
                                                 type="button"
                                                 onClick={() => setActiveReactionMsgId(activeReactionMsgId === msg.id ? null : msg.id)}
@@ -639,6 +748,26 @@ export function ChatInterface({
 
             {/* Input Footer Area */}
             <div className="bg-white/5 border-t border-white/10 flex flex-col shrink-0">
+                {/* Active Quoted Reply Draft Banner */}
+                {replyingTo && (
+                    <div className="px-4 py-2 bg-black/60 border-b border-white/10 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
+                        <div className="flex items-center gap-2 text-xs text-gray-300 min-w-0">
+                            <CornerUpLeft className="w-3.5 h-3.5 text-pitch-accent shrink-0" />
+                            <span className="truncate">
+                                Replying to <strong className="text-white">@{replyingTo.profiles?.first_name || 'Participant'}</strong>: &ldquo;{replyingTo.content.substring(0, 60)}{replyingTo.content.length > 60 ? '...' : ''}&rdquo;
+                            </span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setReplyingTo(null)}
+                            className="p-1 text-gray-400 hover:text-white transition-colors"
+                            title="Cancel reply"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+                )}
+
                 {/* Host Broadcast Controls */}
                 {isHost && (
                     <div className="px-4 pt-3 flex items-center justify-between border-b border-white/5 pb-2">
@@ -675,9 +804,11 @@ export function ChatInterface({
                         onKeyDown={handleKeyDown}
                         placeholder={
                             isParticipant
-                                ? isBroadcast
+                                ? replyingTo
+                                    ? `Reply to @${replyingTo.profiles?.first_name || 'Participant'}...`
+                                    : isBroadcast
                                     ? "Type host announcement..."
-                                    : "Type a message... (Type @ to tag a player or @host)"
+                                    : "Type a message... (Type @ to tag or use ↳ to reply)"
                                 : "Join this event to participate in chat"
                         }
                         disabled={!isParticipant || sending}

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState, startTransition, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { LogOut, User as UserIcon, QrCode } from 'lucide-react';
+import { LogOut, User as UserIcon, QrCode, MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GlobalPassportModal } from '@/components/public/checkin/GlobalPassportModal';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
@@ -24,59 +24,60 @@ export function AuthButton() {
             const user = session?.user;
             const currentUser = user ?? null;
             setUser(currentUser);
-            prevUserId.current = currentUser?.id ?? null;
-            
+
             if (currentUser) {
-                const { data } = await supabase.from('profiles').select('first_name, last_name').eq('id', currentUser.id).single();
-                setProfile(data);
-            } else {
-                setProfile(null);
+                const { data: userProfile } = await supabase
+                    .from('profiles')
+                    .select('first_name, last_name')
+                    .eq('id', currentUser.id)
+                    .single();
+                setProfile(userProfile);
             }
         };
 
         fetchSession();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (event: any, session: any) => {
-                const currentUser = session?.user ?? null;
-                setUser(currentUser);
-                
-                // Fire and forget so we don't hold the lock
-                if (currentUser) {
-                    supabase.from('profiles').select('first_name, last_name').eq('id', currentUser.id).single()
-                        .then(({ data }) => setProfile(data));
-                } else {
-                    setProfile(null);
-                }
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+            const currentUser = session?.user ?? null;
+            const currentUserId = currentUser?.id ?? null;
 
-                // STRICT EVENT GATE: Only fire router.refresh() if the session actually changes
-                // AND it's not the initial component mount, to prevent Vercel hydration loops.
-                const currentId = currentUser?.id ?? null;
-                
-                if (prevUserId.current !== currentId) {
-                    const wasInitial = prevUserId.current === null;
-                    prevUserId.current = currentId;
-                    
-                    // Only refresh if it's an actual state change, NOT the initial load recovery
-                    if (!wasInitial || event === 'SIGNED_OUT') {
-                        startTransition(() => {
-                            router.refresh();
-                        });
+            if (prevUserId.current !== currentUserId) {
+                prevUserId.current = currentUserId;
+                startTransition(() => {
+                    setUser(currentUser);
+                    if (currentUser) {
+                        supabase
+                            .from('profiles')
+                            .select('first_name, last_name')
+                            .eq('id', currentUser.id)
+                            .single()
+                            .then(({ data }) => setProfile(data));
+                    } else {
+                        setProfile(null);
                     }
-                }
+                });
+            } else if (currentUser && Date.now() - lastRefreshRef.current > 15000) {
+                lastRefreshRef.current = Date.now();
+                supabase
+                    .from('profiles')
+                    .select('first_name, last_name')
+                    .eq('id', currentUser.id)
+                    .single()
+                    .then(({ data }) => {
+                        if (data) setProfile(data);
+                    });
             }
-        );
+        });
 
         return () => {
             subscription.unsubscribe();
         };
-    }, [router, supabase.auth]);
+    }, [supabase]);
 
     const handleSignOut = async () => {
         try {
             await supabase.auth.signOut();
         } finally {
-            // Trigger the native server-authoritative logout route
             window.location.href = '/auth/logout';
         }
     };
@@ -96,6 +97,15 @@ export function AuthButton() {
 
     return (
         <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Global Messenger Link */}
+            <Link
+                href="/messages"
+                className="flex items-center justify-center bg-white/5 border border-white/10 hover:border-pitch-accent hover:text-pitch-accent text-white rounded-full p-2 transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)] group"
+                title="Messenger Hub"
+            >
+                <MessageSquare className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            </Link>
+
             {/* Global Notification Bell */}
             <NotificationBell userId={user.id} />
 

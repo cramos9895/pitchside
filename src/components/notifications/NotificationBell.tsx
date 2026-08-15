@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Bell, Check, ExternalLink, MessageSquare, ShieldAlert, Sparkles, X } from 'lucide-react';
+import { Bell, Check, ExternalLink, MessageSquare, Sparkles, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
@@ -19,7 +19,6 @@ interface NotificationBellProps {
     userId: string;
 }
 
-// Format relative time helper (plain English)
 function formatRelativeTime(dateString: string): string {
     const now = new Date();
     const past = new Date(dateString);
@@ -71,7 +70,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
 
         fetchNotifications();
 
-        // Realtime Subscription for new notifications or status updates
+        // Realtime Subscription
         const channel = supabase
             .channel(`user-notifications-${userId}`)
             .on(
@@ -103,7 +102,23 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                     setNotifications((prev) =>
                         prev.map((n) => (n.id === updated.id ? updated : n))
                     );
-                    // Re-calculate unread
+                    setNotifications((prev) => {
+                        const count = prev.filter((n) => !n.is_read).length;
+                        setUnreadCount(count);
+                        return prev;
+                    });
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'DELETE',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${userId}`
+                },
+                (payload: Record<string, any>) => {
+                    setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id));
                     setNotifications((prev) => {
                         const count = prev.filter((n) => !n.is_read).length;
                         setUnreadCount(count);
@@ -136,7 +151,6 @@ export function NotificationBell({ userId }: NotificationBellProps) {
 
     // Mark single notification as read
     const handleMarkAsRead = async (notifId: string) => {
-        // Optimistic UI update
         setNotifications((prev) =>
             prev.map((n) => (n.id === notifId ? { ...n, is_read: true } : n))
         );
@@ -154,7 +168,6 @@ export function NotificationBell({ userId }: NotificationBellProps) {
 
     // Mark all notifications as read
     const handleMarkAllAsRead = async () => {
-        // Optimistic UI update
         setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
         setUnreadCount(0);
 
@@ -169,6 +182,41 @@ export function NotificationBell({ userId }: NotificationBellProps) {
         }
     };
 
+    // Dismiss a single notification
+    const handleDismissNotification = async (e: React.MouseEvent, notifId: string) => {
+        e.stopPropagation();
+        setNotifications((prev) => prev.filter((n) => n.id !== notifId));
+        setNotifications((prev) => {
+            setUnreadCount(prev.filter((n) => !n.is_read).length);
+            return prev;
+        });
+
+        try {
+            await supabase
+                .from('notifications')
+                .delete()
+                .eq('id', notifId)
+                .eq('user_id', userId);
+        } catch (err) {
+            console.error('Error dismissing notification:', err);
+        }
+    };
+
+    // Clear all read notifications
+    const handleClearAllRead = async () => {
+        setNotifications((prev) => prev.filter((n) => !n.is_read));
+
+        try {
+            await supabase
+                .from('notifications')
+                .delete()
+                .eq('user_id', userId)
+                .eq('is_read', true);
+        } catch (err) {
+            console.error('Error clearing read notifications:', err);
+        }
+    };
+
     // Handle clicking a notification item
     const handleNotificationClick = async (notif: NotificationItem) => {
         if (!notif.is_read) {
@@ -179,12 +227,13 @@ export function NotificationBell({ userId }: NotificationBellProps) {
         if (notif.link) {
             router.push(notif.link);
         } else if (notif.type === 'chat_mention' || notif.type === 'chat_alert') {
-            // Fallback for legacy notifications created before link was populated
             router.push('/dashboard/schedule');
         } else {
             router.push('/dashboard');
         }
     };
+
+    const hasReadNotifications = notifications.some((n) => n.is_read);
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -227,15 +276,29 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                             )}
                         </div>
 
-                        {unreadCount > 0 && (
-                            <button
-                                type="button"
-                                onClick={handleMarkAllAsRead}
-                                className="text-[10px] font-black uppercase text-gray-400 hover:text-pitch-accent transition-colors flex items-center gap-1"
-                            >
-                                <Check className="w-3 h-3" /> Mark all read
-                            </button>
-                        )}
+                        <div className="flex items-center gap-3">
+                            {unreadCount > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleMarkAllAsRead}
+                                    className="text-[10px] font-black uppercase text-gray-400 hover:text-pitch-accent transition-colors flex items-center gap-1"
+                                    title="Mark all as read"
+                                >
+                                    <Check className="w-3 h-3" /> Mark read
+                                </button>
+                            )}
+
+                            {hasReadNotifications && (
+                                <button
+                                    type="button"
+                                    onClick={handleClearAllRead}
+                                    className="text-[10px] font-black uppercase text-gray-400 hover:text-red-400 transition-colors flex items-center gap-1"
+                                    title="Purge read notifications"
+                                >
+                                    <Trash2 className="w-3 h-3" /> Clear read
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Notification List */}
@@ -257,7 +320,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                                         key={notif.id}
                                         onClick={() => handleNotificationClick(notif)}
                                         className={cn(
-                                            "p-3.5 flex items-start gap-3 transition-colors cursor-pointer group",
+                                            "p-3.5 flex items-start gap-3 transition-colors cursor-pointer group relative",
                                             notif.is_read
                                                 ? "hover:bg-white/5 opacity-70 hover:opacity-100"
                                                 : "bg-pitch-accent/5 hover:bg-pitch-accent/10 border-l-2 border-pitch-accent"
@@ -276,7 +339,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                                         </div>
 
                                         {/* Content */}
-                                        <div className="flex-1 min-w-0">
+                                        <div className="flex-1 min-w-0 pr-6">
                                             <p
                                                 className={cn(
                                                     "text-xs leading-relaxed break-words",
@@ -296,6 +359,16 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* Dismiss 'X' Button on each notification */}
+                                        <button
+                                            type="button"
+                                            onClick={(e) => handleDismissNotification(e, notif.id)}
+                                            className="absolute top-3 right-3 p-1 rounded text-gray-500 hover:text-white hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100"
+                                            title="Dismiss notification"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
 
                                         {/* Unread indicator dot */}
                                         {!notif.is_read && (
