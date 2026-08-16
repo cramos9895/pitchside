@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { useEffect, useState, startTransition, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { LogOut, User as UserIcon, QrCode, MessageSquare } from 'lucide-react';
+import { LogOut, User as UserIcon, QrCode } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GlobalPassportModal } from '@/components/public/checkin/GlobalPassportModal';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { MessengerNavButton } from '@/components/notifications/MessengerNavButton';
 
 export function AuthButton() {
     const [user, setUser] = useState<User | null>(null);
@@ -97,14 +98,8 @@ export function AuthButton() {
 
     return (
         <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Global Messenger Link */}
-            <Link
-                href="/messages"
-                className="flex items-center justify-center bg-white/5 border border-white/10 hover:border-pitch-accent hover:text-pitch-accent text-white rounded-full p-2 transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)] group"
-                title="Messenger Hub"
-            >
-                <MessageSquare className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            </Link>
+            {/* Global Messenger Nav Link with Realtime Unread Badge */}
+            <MessengerNavButton userId={user.id} />
 
             {/* Global Notification Bell */}
             <NotificationBell userId={user.id} />

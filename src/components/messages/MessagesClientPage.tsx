@@ -133,6 +133,99 @@ export function MessagesClientPage({ currentUser, initialEvents, initialDirects 
     // Mobile view toggle (list vs chat)
     const [mobileShowChat, setMobileShowChat] = useState(false);
 
+    // Realtime listener for sidebar message previews & live re-ordering
+    useEffect(() => {
+        const channel = supabase
+            .channel(`messages-sidebar-sync-${currentUser.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'messages'
+                },
+                (payload: Record<string, any>) => {
+                    const newMsg = payload.new;
+                    if (!newMsg) return;
+
+                    // 1. If it belongs to an event or team channel
+                    if (newMsg.event_id) {
+                        setEventsList((prev) => {
+                            const index = prev.findIndex((e) => e.id === newMsg.event_id);
+                            if (index !== -1) {
+                                const target = {
+                                    ...prev[index],
+                                    last_message: newMsg.content,
+                                    last_message_at: newMsg.created_at
+                                };
+                                const updated = [...prev];
+                                updated.splice(index, 1);
+                                return [target, ...updated];
+                            }
+                            return prev;
+                        });
+                    }
+
+                    // 2. If it belongs to a direct message thread
+                    if (newMsg.conversation_id) {
+                        setDirectsList((prev) => {
+                            const index = prev.findIndex((d) => d.id === newMsg.conversation_id);
+                            if (index !== -1) {
+                                const target = {
+                                    ...prev[index],
+                                    last_message: newMsg.content,
+                                    last_message_at: newMsg.created_at
+                                };
+                                const updated = [...prev];
+                                updated.splice(index, 1);
+                                return [target, ...updated];
+                            }
+                            return prev;
+                        });
+                    }
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'conversation_members',
+                    filter: `user_id=eq.${currentUser.id}`
+                },
+                async (payload: Record<string, any>) => {
+                    const newMember = payload.new;
+                    if (newMember && newMember.conversation_id) {
+                        // Fetch the new thread
+                        const { data: threadData } = await supabase
+                            .from('conversation_threads')
+                            .select('id, title, updated_at')
+                            .eq('id', newMember.conversation_id)
+                            .single();
+
+                        if (threadData) {
+                            setDirectsList((prev) => {
+                                if (prev.some((d) => d.id === threadData.id)) return prev;
+                                return [
+                                    {
+                                        id: threadData.id,
+                                        title: threadData.title || 'Direct Message',
+                                        updated_at: threadData.updated_at
+                                    },
+                                    ...prev
+                                ];
+                            });
+                        }
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [currentUser.id]);
+
     // Filter channels and DMs
     const filteredEvents = useMemo(() => {
         if (!searchQuery.trim()) return eventsList;
