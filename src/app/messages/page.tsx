@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { MessagesClientPage, EventChatItem, DirectChatItem } from '@/components/messages/MessagesClientPage';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export const metadata = {
     title: 'Messages | PitchSide',
     description: 'Central hub for event chats, teammates, and direct messaging.'
@@ -26,7 +29,7 @@ export default async function MessagesPage() {
     const [bookingsRes, tourneyRes, captainRes] = await Promise.all([
         supabase
             .from('bookings')
-            .select('game_id, team_id')
+            .select('game_id')
             .eq('user_id', user.id)
             .neq('status', 'cancelled'),
         supabase
@@ -45,7 +48,6 @@ export default async function MessagesPage() {
 
     (bookingsRes.data || []).forEach((b) => {
         if (b.game_id) bookedGameIds.add(b.game_id);
-        if (b.team_id) userTeamIds.add(b.team_id);
     });
 
     (tourneyRes.data || []).forEach((tr) => {
