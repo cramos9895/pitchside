@@ -22,20 +22,43 @@ export default async function MessagesPage() {
         .eq('id', user.id)
         .single();
 
-    // 2. Fetch Active Events Joined or Hosted
+    // 2. Fetch Active Events & Teams Joined or Hosted
+    // A. Pickup & Regular Game Bookings
     const { data: userBookings } = await supabase
         .from('bookings')
-        .select('game_id, games(id, title, start_time, event_type, status, host_ids)')
+        .select('game_id, team_id, games(id, title, start_time, event_type, status, host_ids)')
         .eq('user_id', user.id)
         .neq('status', 'cancelled');
 
+    // B. Hosted Events
     const { data: hostedGames } = await supabase
         .from('games')
         .select('id, title, start_time, event_type, status, host_ids')
         .contains('host_ids', [user.id]);
 
+    // C. Tournament & League Registrations (Includes Team Chats)
+    const { data: tourneyRegs } = await supabase
+        .from('tournament_registrations')
+        .select(`
+            id, team_id, game_id, status,
+            teams:teams(id, name, game_id),
+            games:games(id, title, start_time, event_type, status, host_ids)
+        `)
+        .eq('user_id', user.id)
+        .neq('status', 'cancelled');
+
+    // D. Teams where user is Captain
+    const { data: captainTeams } = await supabase
+        .from('teams')
+        .select(`
+            id, name, game_id,
+            games:games(id, title, start_time, event_type, status)
+        `)
+        .eq('captain_id', user.id);
+
     const eventsMap = new Map<string, EventChatItem>();
 
+    // Add hosted games
     (hostedGames || []).forEach((g: any) => {
         if (g && g.id) {
             eventsMap.set(g.id, {
@@ -49,6 +72,7 @@ export default async function MessagesPage() {
         }
     });
 
+    // Add booked games
     (userBookings || []).forEach((b: any) => {
         const g = b.games;
         if (g && g.id && !eventsMap.has(g.id)) {
@@ -64,13 +88,55 @@ export default async function MessagesPage() {
         }
     });
 
-    // 3. Fetch latest message per event to get last_message_at and sort by activity
-    const allGameIds = Array.from(eventsMap.keys());
-    if (allGameIds.length > 0) {
+    // Add tournament & league event chats + team chats
+    (tourneyRegs || []).forEach((reg: any) => {
+        // 1. Event Level Chat
+        if (reg.games && reg.games.id && !eventsMap.has(reg.games.id)) {
+            const isHost = (reg.games.host_ids || []).includes(user.id);
+            eventsMap.set(reg.games.id, {
+                id: reg.games.id,
+                title: reg.games.title || 'Tournament',
+                start_time: reg.games.start_time,
+                event_type: reg.games.event_type || 'Tournament',
+                status: reg.games.status || 'active',
+                is_host: isHost
+            });
+        }
+
+        // 2. Team Level Chat (Used in PlayerCommandCenter.tsx on player dashboard)
+        if (reg.teams && reg.teams.id && !eventsMap.has(reg.teams.id)) {
+            eventsMap.set(reg.teams.id, {
+                id: reg.teams.id,
+                title: `${reg.teams.name} (${reg.games?.title || 'Team'})`,
+                start_time: reg.games?.start_time || new Date().toISOString(),
+                event_type: 'Team Chat',
+                status: reg.games?.status || 'active',
+                is_host: false
+            });
+        }
+    });
+
+    // Add captain teams
+    (captainTeams || []).forEach((t: any) => {
+        if (t && t.id && !eventsMap.has(t.id)) {
+            eventsMap.set(t.id, {
+                id: t.id,
+                title: `${t.name} (${t.games?.title || 'Team'})`,
+                start_time: t.games?.start_time || new Date().toISOString(),
+                event_type: 'Team Chat',
+                status: t.games?.status || 'active',
+                is_host: false
+            });
+        }
+    });
+
+    // 3. Fetch latest message per event/team to get last_message_at and sort by activity
+    const allChannelIds = Array.from(eventsMap.keys());
+    if (allChannelIds.length > 0) {
         const { data: recentGameMsgs } = await supabase
             .from('messages')
             .select('event_id, content, created_at')
-            .in('event_id', allGameIds)
+            .in('event_id', allChannelIds)
             .order('created_at', { ascending: false });
 
         if (recentGameMsgs) {
