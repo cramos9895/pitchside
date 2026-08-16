@@ -42,6 +42,7 @@ interface ChatInterfaceProps {
     currentUserId: string;
     isParticipant?: boolean;
     isHost?: boolean;
+    eventType?: string;
     players?: ChatPlayer[];
     className?: string;
     title?: string;
@@ -53,6 +54,7 @@ export function ChatInterface({
     currentUserId, 
     isParticipant = true, 
     isHost = false,
+    eventType,
     players: initialPlayers,
     className,
     title = 'Event Chat'
@@ -103,27 +105,50 @@ export function ChatInterface({
 
         const fetchPlayers = async () => {
             try {
+                // 1. Fetch players from game bookings
                 const { data: bookingsData } = await supabase
                     .from('bookings')
-                    .select('user_id, profiles(id, first_name, last_name, email)')
+                    .select('user_id, profiles!bookings_user_id_fkey(id, first_name, last_name, email)')
                     .eq('game_id', gameId)
                     .neq('status', 'cancelled');
 
-                if (bookingsData) {
-                    const mapped: ChatPlayer[] = [];
-                    bookingsData.forEach((b: any) => {
-                        if (b.user_id && b.profiles) {
-                            const p = b.profiles;
-                            const fullName = `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email || 'Player';
-                            mapped.push({
-                                id: b.user_id,
-                                name: fullName,
-                                email: p.email
-                            });
-                        }
-                    });
-                    setPlayersList(mapped);
-                }
+                // 2. Fetch players from tournament / team registrations
+                const { data: tourneyData } = await supabase
+                    .from('tournament_registrations')
+                    .select('user_id, profiles(id, first_name, last_name, email)')
+                    .or(`game_id.eq.${gameId},team_id.eq.${gameId}`)
+                    .neq('status', 'cancelled');
+
+                const mapped: ChatPlayer[] = [];
+                const seenIds = new Set<string>();
+
+                (bookingsData || []).forEach((b: any) => {
+                    if (b.user_id && b.profiles && !seenIds.has(b.user_id)) {
+                        seenIds.add(b.user_id);
+                        const p = b.profiles;
+                        const fullName = `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email || 'Player';
+                        mapped.push({
+                            id: b.user_id,
+                            name: fullName,
+                            email: p.email
+                        });
+                    }
+                });
+
+                (tourneyData || []).forEach((tr: any) => {
+                    if (tr.user_id && tr.profiles && !seenIds.has(tr.user_id)) {
+                        seenIds.add(tr.user_id);
+                        const p = tr.profiles;
+                        const fullName = `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email || 'Player';
+                        mapped.push({
+                            id: tr.user_id,
+                            name: fullName,
+                            email: p.email
+                        });
+                    }
+                });
+
+                setPlayersList(mapped);
             } catch (err) {
                 console.error('Error fetching chat players for autocomplete:', err);
             }
@@ -538,10 +563,15 @@ export function ChatInterface({
         <div className={cn("flex flex-col h-[600px] bg-pitch-card border border-white/10 rounded-sm overflow-hidden relative", className)}>
             {/* Header */}
             <div className="bg-white/5 p-4 border-b border-white/10 flex justify-between items-center shrink-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-heading text-lg font-bold italic uppercase tracking-wider text-white">
                         {title}
                     </h3>
+                    {eventType && (
+                        <span className="bg-white/10 text-gray-300 text-[10px] uppercase font-black px-2 py-0.5 rounded-sm border border-white/10">
+                            {eventType}
+                        </span>
+                    )}
                     {isHost && (
                         <span className="bg-pitch-accent text-pitch-black text-[10px] uppercase font-black px-2 py-0.5 rounded-sm">
                             Host Mode
