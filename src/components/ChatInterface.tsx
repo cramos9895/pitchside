@@ -521,8 +521,8 @@ export function ChatInterface({
         }
     };
 
-    // Helper to highlight @mentions in message text
-    const renderFormattedContent = (content: string) => {
+    // Helper to highlight @mentions in message text with high contrast for both dark and volt bubbles
+    const renderFormattedContent = (content: string, isMe: boolean = false) => {
         const parts = content.split(/(@[a-zA-Z0-9_]+)/g);
 
         return parts.map((part, idx) => {
@@ -530,6 +530,26 @@ export function ChatInterface({
                 const isHostMention = part.toLowerCase() === '@host';
                 const isAllMention = part.toLowerCase() === '@all';
 
+                if (isMe) {
+                    // Inside the user's own Electric Volt bubble: use crisp dark badges for high contrast and readability
+                    return (
+                        <span
+                            key={idx}
+                            className={cn(
+                                "inline-flex items-center font-black px-1.5 py-0.5 rounded text-xs mx-0.5 align-middle shadow-sm",
+                                isHostMention
+                                    ? "bg-red-600 text-white"
+                                    : isAllMention
+                                    ? "bg-purple-700 text-white"
+                                    : "bg-pitch-black text-white border border-black/40"
+                            )}
+                        >
+                            {part}
+                        </span>
+                    );
+                }
+
+                // Inside incoming / other players' dark bubbles: use brand accent highlights
                 return (
                     <span
                         key={idx}
@@ -654,7 +674,7 @@ export function ChatInterface({
                                             </div>
                                         )}
 
-                                        <div className="leading-relaxed">{renderFormattedContent(msg.content)}</div>
+                                        <div className="leading-relaxed">{renderFormattedContent(msg.content, isMe)}</div>
                                     </div>
 
                                     {/* Action Buttons: Reply + Emoji Reaction (Hover / Tap) */}
