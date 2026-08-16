@@ -531,17 +531,17 @@ export function ChatInterface({
                 const isAllMention = part.toLowerCase() === '@all';
 
                 if (isMe) {
-                    // Inside the user's own Electric Volt bubble: unified translucent pill with subtle border
+                    // Inside the user's own Electric Volt bubble: balanced medium translucent pill with clear definition
                     return (
                         <span
                             key={idx}
                             className={cn(
                                 "inline-flex items-center font-bold px-1.5 py-0.5 rounded text-xs mx-0.5 align-middle",
                                 isHostMention
-                                    ? "bg-red-500/20 text-red-950 border border-red-500/35"
+                                    ? "bg-red-600/35 text-red-950 border border-red-600/50"
                                     : isAllMention
-                                    ? "bg-purple-500/20 text-purple-950 border border-purple-500/35"
-                                    : "bg-black/15 text-pitch-black border border-black/25"
+                                    ? "bg-purple-700/35 text-purple-950 border border-purple-700/50"
+                                    : "bg-black/30 text-pitch-black border border-black/40"
                             )}
                         >
                             {part}
