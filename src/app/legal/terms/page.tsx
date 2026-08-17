@@ -97,7 +97,7 @@ export default function TermsPage() {
               For questions regarding these Terms of Service or organizer partnerships, contact:
             </p>
             <p className="text-sm font-mono text-pitch-accent">
-              legal@pitchsidecf.com
+              support@pitchsidecf.com
             </p>
           </div>
         </div>

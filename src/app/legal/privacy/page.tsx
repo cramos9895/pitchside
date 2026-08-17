@@ -139,7 +139,7 @@ export default function PrivacyPage() {
               If you have any questions regarding this Privacy Policy or your personal data, contact us at:
             </p>
             <p className="text-sm font-mono text-pitch-accent">
-              privacy@pitchsidecf.com
+              support@pitchsidecf.com
             </p>
           </div>
         </div>
