@@ -247,7 +247,7 @@ export default function SettingsPage() {
     };
 
     const handleDeleteAccount = async () => {
-        if (deleteConfirmationText !== 'DELETE') {
+        if (deleteConfirmationText.trim().toUpperCase() !== 'DELETE') {
             toastError('Please type DELETE to confirm account deletion.');
             return;
         }
@@ -738,7 +738,7 @@ export default function SettingsPage() {
                                 value={deleteConfirmationText}
                                 onChange={(e) => setDeleteConfirmationText(e.target.value)}
                                 placeholder="Type DELETE"
-                                className="w-full bg-black/50 border border-white/20 rounded-sm p-3 text-white focus:outline-none focus:border-red-500 transition-colors font-mono uppercase"
+                                className="w-full bg-black/50 border border-white/20 rounded-sm p-3 text-white focus:outline-none focus:border-red-500 transition-colors font-mono"
                             />
                         </div>
 
@@ -757,7 +757,7 @@ export default function SettingsPage() {
                             <button
                                 type="button"
                                 onClick={handleDeleteAccount}
-                                disabled={deletingAccount || deleteConfirmationText !== 'DELETE'}
+                                disabled={deletingAccount || deleteConfirmationText.trim().toUpperCase() !== 'DELETE'}
                                 className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-sm font-bold uppercase tracking-wider text-xs hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {deletingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
