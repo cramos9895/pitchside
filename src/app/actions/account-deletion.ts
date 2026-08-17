@@ -8,7 +8,7 @@ import { cookies } from 'next/headers';
 /**
  * Server Action: deleteUserAccountAction
  * 
- * Allows an authenticated user to permanently delete their account and anonymize
+ * Allows an authenticated user to permanently delete their account and wipe
  * their personal identifiable information (PII) across all database records.
  * Complies with Apple App Store Review Guideline 5.1.1(v) & Google Play Store User Data Policy.
  */
@@ -25,7 +25,7 @@ export async function deleteUserAccountAction() {
 
         const userId = user.id;
 
-        // 2. Invoke database RPC function to scrub personal data and anonymize records
+        // 2. Invoke database RPC function to scrub personal data and delete account
         const { data: rpcResult, error: rpcError } = await supabase.rpc('delete_user_account');
 
         const isRpcSuccess = !rpcError && (rpcResult as any)?.success === true;
@@ -34,28 +34,28 @@ export async function deleteUserAccountAction() {
             console.warn('[Account Deletion] RPC execution encountered issue, executing administrative cleanup:', rpcError || (rpcResult as any)?.error);
             
             const supabaseAdmin = createAdminClient();
-            
-            // Scrub profile PII
-            await supabaseAdmin.from('profiles').update({
-                first_name: 'Deleted',
-                last_name: 'Player',
-                phone_number: null,
-                zip_code: null,
-                avatar_url: null,
-                bio: '',
-                is_deleted: true
-            }).eq('id', userId);
 
-            // Unassign captaincy to prevent FK constraint issues
+            // Unassign references in teams, games, credits, and bookings
+            await supabaseAdmin.from('bookings').update({ buyer_id: null }).eq('buyer_id', userId);
             await supabaseAdmin.from('teams').update({ captain_id: null }).eq('captain_id', userId);
+            await supabaseAdmin.from('games').update({ mvp_player_id: null }).eq('mvp_player_id', userId);
+            await supabaseAdmin.from('credit_transactions').update({ admin_id: null }).eq('admin_id', userId);
 
-            // Delete push tokens, notifications, memberships
+            // Delete user participation records
             await supabaseAdmin.from('user_push_tokens').delete().eq('user_id', userId);
             await supabaseAdmin.from('notifications').delete().eq('user_id', userId);
             await supabaseAdmin.from('conversation_members').delete().eq('user_id', userId);
+            await supabaseAdmin.from('messages').delete().eq('user_id', userId);
             await supabaseAdmin.from('team_players').delete().eq('user_id', userId);
             await supabaseAdmin.from('match_players').delete().eq('user_id', userId);
             await supabaseAdmin.from('referee_applications').delete().eq('user_id', userId);
+            await supabaseAdmin.from('tournament_registrations').delete().eq('user_id', userId);
+            await supabaseAdmin.from('bookings').delete().eq('user_id', userId);
+            await supabaseAdmin.from('resource_bookings').delete().eq('user_id', userId);
+            await supabaseAdmin.from('waiver_signatures').delete().eq('user_id', userId);
+
+            // Delete profile
+            await supabaseAdmin.from('profiles').delete().eq('id', userId);
 
             // Delete auth user via Admin API
             const { error: adminDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);

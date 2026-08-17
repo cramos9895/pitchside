@@ -1,5 +1,5 @@
 -- Migration: 20260817000000_compliance_account_deletion_and_push_tokens.sql
--- Description: Create user_push_tokens table and delete_user_account RPC for Apple & Google compliance
+-- Description: Create user_push_tokens table, fix cascade constraints, and create delete_user_account RPC for Apple & Google compliance
 
 -- 1. Create user_push_tokens Table
 CREATE TABLE IF NOT EXISTS public.user_push_tokens (
@@ -58,8 +58,32 @@ BEGIN
     END IF;
 END $$;
 
--- 2. Create delete_user_account RPC Function
--- This function allows authenticated users to self-delete their account in full compliance with Apple Guideline 5.1.1(v) & Google Play Policy
+-- 2. Update Constraints to allow clean cascading deletions
+ALTER TABLE public.profiles 
+DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+
+ALTER TABLE public.profiles
+ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.teams 
+DROP CONSTRAINT IF EXISTS teams_captain_id_fkey;
+
+ALTER TABLE public.teams
+ADD CONSTRAINT teams_captain_id_fkey FOREIGN KEY (captain_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+ALTER TABLE public.bookings 
+DROP CONSTRAINT IF EXISTS bookings_buyer_id_fkey;
+
+ALTER TABLE public.bookings
+ADD CONSTRAINT bookings_buyer_id_fkey FOREIGN KEY (buyer_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+ALTER TABLE public.bookings 
+DROP CONSTRAINT IF EXISTS bookings_user_id_fkey;
+
+ALTER TABLE public.bookings
+ADD CONSTRAINT bookings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+
+-- 3. Create delete_user_account RPC Function
 CREATE OR REPLACE FUNCTION public.delete_user_account()
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -69,7 +93,6 @@ AS $$
 DECLARE
     current_user_id UUID := auth.uid();
 BEGIN
-    -- Verify the caller is an authenticated user
     IF current_user_id IS NULL THEN
         RAISE EXCEPTION 'Not authenticated';
     END IF;
@@ -80,44 +103,32 @@ BEGIN
     -- 2. Remove in-app notifications
     DELETE FROM public.notifications WHERE user_id = current_user_id;
 
-    -- 3. Remove conversation thread memberships
+    -- 3. Remove conversation thread memberships & messages
     DELETE FROM public.conversation_members WHERE user_id = current_user_id;
+    DELETE FROM public.messages WHERE user_id = current_user_id;
 
-    -- 4. Anonymize chat messages
-    UPDATE public.messages 
-    SET content = 'This message was deleted.' 
-    WHERE user_id = current_user_id;
+    -- 4. Clear references in teams, games, credits, and bookings
+    UPDATE public.bookings SET buyer_id = NULL WHERE buyer_id = current_user_id;
+    UPDATE public.teams SET captain_id = NULL WHERE captain_id = current_user_id;
+    UPDATE public.games SET mvp_player_id = NULL WHERE mvp_player_id = current_user_id;
+    UPDATE public.credit_transactions SET admin_id = NULL WHERE admin_id = current_user_id;
 
-    -- 5. Clear personal notes on bookings
-    UPDATE public.bookings 
-    SET note = '' 
-    WHERE user_id = current_user_id;
-
-    -- 6. Disband or unassign captaincy to prevent FK constraint issues
-    UPDATE public.teams 
-    SET captain_id = NULL 
-    WHERE captain_id = current_user_id;
-
-    -- 7. Remove team players, match players, and referee applications
+    -- 5. Remove user records from participation tables
     DELETE FROM public.team_players WHERE user_id = current_user_id;
     DELETE FROM public.match_players WHERE user_id = current_user_id;
     DELETE FROM public.referee_applications WHERE user_id = current_user_id;
+    DELETE FROM public.tournament_registrations WHERE user_id = current_user_id;
+    DELETE FROM public.bookings WHERE user_id = current_user_id;
+    DELETE FROM public.resource_bookings WHERE user_id = current_user_id;
+    DELETE FROM public.waiver_signatures WHERE user_id = current_user_id;
 
-    -- 8. Anonymize profile data (retaining row to maintain booking & transaction ledger foreign keys)
-    UPDATE public.profiles 
-    SET first_name = 'Deleted',
-        last_name = 'Player',
-        phone_number = NULL,
-        zip_code = NULL,
-        avatar_url = NULL,
-        bio = '',
-        is_deleted = true
-    WHERE id = current_user_id;
+    -- 6. Delete profile row
+    DELETE FROM public.profiles WHERE id = current_user_id;
 
-    -- 9. Delete user record from auth.users (cascades session termination)
+    -- 7. Delete auth user record
     DELETE FROM auth.users WHERE id = current_user_id;
 
-    RETURN jsonb_build_object('success', true, 'message', 'Account successfully deleted and data anonymized.');
+    RETURN jsonb_build_object('success', true, 'message', 'Account successfully deleted.');
 EXCEPTION
     WHEN OTHERS THEN
         RETURN jsonb_build_object('success', false, 'error', SQLERRM);
