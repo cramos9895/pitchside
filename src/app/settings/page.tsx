@@ -255,8 +255,13 @@ export default function SettingsPage() {
         try {
             const res = await deleteUserAccountAction();
             if (res.success) {
-                success('Your account has been deleted.');
-                router.push('/');
+                // Sign out client-side Supabase and flush browser storage
+                await supabase.auth.signOut();
+                if (typeof window !== 'undefined') {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.href = '/';
+                }
             } else {
                 toastError(res.error || 'Failed to delete account.');
             }
