@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
-    User, Mail, Phone, Lock, Save, Loader2, Shield, Settings, Camera, LogOut, CheckCircle, AlertTriangle
+    User, Mail, Phone, Lock, Save, Loader2, Shield, Settings, Camera, LogOut, CheckCircle, AlertTriangle, Trash2, AlertCircle, X
 } from 'lucide-react';
+import { deleteUserAccountAction } from '@/app/actions/account-deletion';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -51,6 +52,11 @@ export default function SettingsPage() {
     const [gameReminders, setGameReminders] = useState(true);
     const [announcements, setAnnouncements] = useState(true);
     const [debugMode, setDebugMode] = useState(false);
+
+    // Account Deletion Form State
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+    const [deletingAccount, setDeletingAccount] = useState(false);
 
     const router = useRouter();
 
@@ -237,6 +243,28 @@ export default function SettingsPage() {
             toastError('Error updating password: ' + error.message);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        if (deleteConfirmationText !== 'DELETE') {
+            toastError('Please type DELETE to confirm account deletion.');
+            return;
+        }
+        setDeletingAccount(true);
+        try {
+            const res = await deleteUserAccountAction();
+            if (res.success) {
+                success('Your account has been deleted.');
+                router.push('/');
+            } else {
+                toastError(res.error || 'Failed to delete account.');
+            }
+        } catch (error: any) {
+            console.error('Account deletion error:', error);
+            toastError('Error deleting account: ' + error.message);
+        } finally {
+            setDeletingAccount(false);
         }
     };
 
@@ -544,6 +572,31 @@ export default function SettingsPage() {
                                         </button>
                                     </div>
                                 </form>
+
+                                {/* Danger Zone / Account Deletion (Apple 5.1.1(v) & Google Play Compliance) */}
+                                <div className="pt-8 border-t border-red-500/20">
+                                    <h3 className="text-lg font-bold uppercase italic text-red-500 flex items-center gap-2 mb-2">
+                                        <Trash2 className="w-5 h-5 text-red-500" /> Delete Account
+                                    </h3>
+                                    <p className="text-sm text-gray-400 mb-6">
+                                        Permanently delete your PitchSide account and personal data. This action is irreversible.
+                                    </p>
+                                    <div className="p-4 bg-red-950/20 border border-red-500/30 rounded-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div className="space-y-1">
+                                            <h4 className="font-bold text-white text-sm">Permanent Account Deletion</h4>
+                                            <p className="text-xs text-gray-400">
+                                                Your personal profile, notifications, and active sessions will be completely purged.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowDeleteModal(true)}
+                                            className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-500/40 rounded-sm font-bold uppercase tracking-wider text-xs hover:bg-red-600 hover:text-white transition-colors"
+                                        >
+                                            Delete Account
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -642,6 +695,78 @@ export default function SettingsPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Account Deletion Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-pitch-card border border-red-500/40 rounded-sm max-w-md w-full p-6 shadow-2xl space-y-6">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-red-500/20 rounded-full">
+                                    <AlertCircle className="w-6 h-6 text-red-500" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white uppercase tracking-tight">Delete Account</h3>
+                                    <p className="text-xs text-red-400 font-semibold">Irreversible Action</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setDeleteConfirmationText('');
+                                }}
+                                className="text-gray-400 hover:text-white transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-3 text-sm text-gray-300">
+                            <p>
+                                Are you sure you want to permanently delete your PitchSide account?
+                            </p>
+                            <ul className="text-xs space-y-1 text-gray-400 list-disc list-inside bg-black/40 p-3 rounded border border-white/5">
+                                <li>Your profile, avatar, and personal details will be wiped.</li>
+                                <li>Your active push notifications and message history will be removed.</li>
+                                <li>Match records are anonymized to maintain host event ledgers.</li>
+                            </ul>
+                            <p className="text-xs text-gray-400 pt-2">
+                                Please type <span className="text-red-400 font-bold tracking-widest font-mono">DELETE</span> below to confirm:
+                            </p>
+                            <input
+                                type="text"
+                                value={deleteConfirmationText}
+                                onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                                placeholder="Type DELETE"
+                                className="w-full bg-black/50 border border-white/20 rounded-sm p-3 text-white focus:outline-none focus:border-red-500 transition-colors font-mono uppercase"
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setDeleteConfirmationText('');
+                                }}
+                                disabled={deletingAccount}
+                                className="px-4 py-2 bg-white/10 text-gray-300 rounded-sm font-bold uppercase tracking-wider text-xs hover:bg-white/20 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDeleteAccount}
+                                disabled={deletingAccount || deleteConfirmationText !== 'DELETE'}
+                                className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-sm font-bold uppercase tracking-wider text-xs hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {deletingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                Permanently Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

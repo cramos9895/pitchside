@@ -151,12 +151,27 @@ export function GameMap({ latitude, longitude, locationName }: GameMapProps) {
                 </GoogleMap>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm pt-1">
                 <div className="flex items-center gap-2 text-gray-300">
-                    <MapPin className="w-4 h-4 text-pitch-accent" />
-                    {locationName}
+                    <MapPin className="w-4 h-4 text-pitch-accent shrink-0" />
+                    <span className="truncate">{locationName}</span>
                 </div>
+                {latitude && longitude && (
+                    <a
+                        href={googleMapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-bold uppercase tracking-wider text-pitch-accent hover:underline shrink-0"
+                    >
+                        Get Directions →
+                    </a>
+                )}
             </div>
+
+            {/* Statutory Route Guidance Notice (Apple DPLA 3.3.26) */}
+            <p className="text-[10px] text-gray-500 font-mono tracking-tight uppercase leading-tight">
+                YOUR USE OF THIS REAL TIME ROUTE GUIDANCE APPLICATION IS AT YOUR SOLE RISK. LOCATION DATA MAY NOT BE ACCURATE.
+            </p>
         </div>
     );
 }
